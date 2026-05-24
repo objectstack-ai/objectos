@@ -87,6 +87,15 @@ importers:
       '@objectstack/core':
         specifier: ^5.2.0
         version: 5.2.0(ai@6.0.191(zod@4.4.3))
+      '@objectstack/driver-memory':
+        specifier: ^5.2.0
+        version: 5.2.0(ai@6.0.191(zod@4.4.3))
+      '@objectstack/driver-sql':
+        specifier: ^5.2.0
+        version: 5.2.0(ai@6.0.191(zod@4.4.3))
+      '@objectstack/driver-turso':
+        specifier: ^5.2.0
+        version: 5.2.0(ai@6.0.191(zod@4.4.3))
       '@objectstack/metadata':
         specifier: ^5.2.0
         version: 5.2.0(ai@6.0.191(zod@4.4.3))

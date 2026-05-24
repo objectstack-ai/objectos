@@ -60,8 +60,12 @@ See [`apps/objectos/objectstack.config.ts`](apps/objectos/objectstack.config.ts)
 ```bash
 pnpm install
 
-# Boot the runtime against a local compiled artifact
-OS_ARTIFACT_FILE=./dist/objectstack.json pnpm objectos:dev
+# Build the runtime distribution and docs
+pnpm build
+
+# Boot the runtime against a local compiled artifact produced by apps/objectos
+cd apps/objectos
+OS_ARTIFACT_FILE=dist/objectstack.json PORT=3200 pnpm start
 
 # Or run the documentation site
 pnpm docs:dev
@@ -70,8 +74,13 @@ pnpm docs:dev
 Docker:
 
 ```bash
+mkdir -p docker/artifacts
+cp apps/objectos/dist/objectstack.json docker/artifacts/objectstack.json
 docker compose -f docker/docker-compose.yml up --build
 ```
+
+Docker Compose publishes ObjectOS on `http://localhost:3000` by default.
+Use `OBJECTOS_PORT=3200` to change the host port.
 
 ## History
 

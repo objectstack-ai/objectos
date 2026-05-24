@@ -7,15 +7,18 @@ services:
     container_name: objectos
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${OBJECTOS_PORT:-3000}:3000"
     environment:
       OS_CLOUD_URL: ${OS_CLOUD_URL:-}
       OS_PROJECT_ID: ${OS_PROJECT_ID:-}
-      OS_ARTIFACT_FILE: ${OS_ARTIFACT_FILE:-}
+      OS_ARTIFACT_FILE: ${OS_ARTIFACT_FILE:-/artifacts/objectstack.json}
       OS_BUSINESS_DB_URL: ${OS_BUSINESS_DB_URL:-file:/var/lib/objectos/data.db}
+      OS_CACHE_DIR: /var/cache/objectos
+      PORT: 3000
     volumes:
       - objectos-cache:/var/cache/objectos
       - objectos-data:/var/lib/objectos
+      - ./artifacts:/artifacts:ro
 
 volumes:
   objectos-cache:

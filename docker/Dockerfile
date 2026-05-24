@@ -34,12 +34,15 @@ RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate \
 COPY --from=builder /workspace/node_modules ./node_modules
 COPY --from=builder /workspace/apps/objectos ./apps/objectos
 COPY --from=builder /workspace/packages ./packages
-COPY --from=builder /workspace/package.json /workspace/pnpm-workspace.yaml ./
+COPY --from=builder /workspace/package.json /workspace/pnpm-lock.yaml /workspace/pnpm-workspace.yaml ./
 
-RUN mkdir -p /var/cache/objectos
+RUN mkdir -p /var/cache/objectos /var/lib/objectos /artifacts
 ENV NODE_ENV=production \
-    OS_CACHE_DIR=/var/cache/objectos
+    OS_CACHE_DIR=/var/cache/objectos \
+    PORT=3000
 
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- "http://127.0.0.1:${PORT}/" >/dev/null || exit 1
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["pnpm", "--filter", "@objectos/app", "start"]

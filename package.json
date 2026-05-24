@@ -17,6 +17,7 @@
     "docs:build": "turbo run build --filter=@objectos/docs",
     "objectos:dev": "turbo run dev --filter=@objectos/app",
     "objectos:build": "turbo run build --filter=@objectos/app",
+    "smoke:runtime": "bash scripts/smoke-runtime.sh",
     "release": "pnpm run build && changeset publish",
     "changeset": "changeset"
   },

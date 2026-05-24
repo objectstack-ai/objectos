@@ -5,4 +5,74 @@ description: Run ObjectOS locally in under five minutes.
 
 # Getting Started
 
-TODO.
+ObjectOS is the runtime you deploy for end customers. It does not author
+metadata; it consumes a compiled ObjectStack artifact and serves the API,
+UI metadata, permissions, workflows, and agent tool surfaces described by
+that artifact.
+
+## Prerequisites
+
+- Node.js 20+
+- pnpm 10+
+- Docker Desktop or another Docker-compatible runtime, if you want to run
+  the container image locally
+- A compiled ObjectStack artifact (`dist/objectstack.json`) from an
+  application repository
+
+## Install dependencies
+
+```bash
+pnpm install
+```
+
+## Run the documentation site
+
+```bash
+pnpm docs:dev
+```
+
+The docs site runs on the first available Next.js port, usually
+`http://localhost:3000`.
+
+## Run ObjectOS from a local artifact
+
+Copy a compiled application artifact into the Docker artifact mount:
+
+```bash
+mkdir -p docker/artifacts
+cp /path/to/app/dist/objectstack.json docker/artifacts/objectstack.json
+```
+
+Then start ObjectOS:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+If you do not have Docker available, you can run the runtime directly:
+
+```bash
+cd apps/objectos
+OS_ARTIFACT_FILE=../../docker/artifacts/objectstack.json pnpm start
+```
+
+## Run ObjectOS against a control plane
+
+Cloud-connected mode pulls the current Project Version artifact from an
+ObjectStack control plane instead of reading a local JSON file:
+
+```bash
+OS_CLOUD_URL=https://cloud.example.com \
+OS_PROJECT_ID=proj_xxxxxxxxxxxxx \
+docker compose -f docker/docker-compose.yml up --build
+```
+
+In this mode ObjectOS remains a runtime only: it talks to the control
+plane through the Artifact API, not by opening a connection to the
+control-plane database.

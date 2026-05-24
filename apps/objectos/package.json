@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "objectstack dev",
     "build": "objectstack compile",
-    "start": "objectstack serve",
+    "start": "objectstack serve --port ${PORT:-3000}",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,7 +17,10 @@
     "@objectstack/spec": "^5.2.0",
     "@objectstack/metadata": "^5.2.0",
     "@objectstack/objectql": "^5.2.0",
-    "@objectstack/cli": "^5.2.0"
+    "@objectstack/cli": "^5.2.0",
+    "@objectstack/driver-memory": "^5.2.0",
+    "@objectstack/driver-sql": "^5.2.0",
+    "@objectstack/driver-turso": "^5.2.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0"
