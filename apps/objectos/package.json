@@ -1,0 +1,25 @@
+{
+  "name": "@objectos/app",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0",
+  "description": "ObjectOS — the reference runtime distribution of the ObjectStack framework.",
+  "type": "module",
+  "scripts": {
+    "dev": "objectstack dev",
+    "build": "objectstack compile",
+    "start": "objectstack serve",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@objectstack/runtime": "*",
+    "@objectstack/core": "*",
+    "@objectstack/spec": "*",
+    "@objectstack/metadata": "*",
+    "@objectstack/objectql": "*",
+    "@objectstack/cli": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "objectos-monorepo",
+  "private": true,
+  "license": "AGPL-3.0",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check --continue",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "docs:dev": "turbo run dev --filter=@objectos/docs",
+    "docs:build": "turbo run build --filter=@objectos/docs",
+    "objectos:dev": "turbo run dev --filter=@objectos/app",
+    "objectos:build": "turbo run build --filter=@objectos/app",
+    "release": "pnpm run build && changeset publish",
+    "changeset": "changeset"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild",
+      "sharp"
+    ]
+  }
+}
