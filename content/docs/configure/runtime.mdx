@@ -30,10 +30,16 @@ ObjectOS uses a local Artifact API client. Every hostname resolves to the
 same project. The runtime config is read from the artifact when present,
 or falls back to a local runtime default for evaluation.
 
+`OS_ARTIFACT_FILE` is the ObjectOS app-wrapper convention. The underlying
+runtime also accepts `OS_ARTIFACT_PATH` directly (used by the
+`@objectstack/cli` `dev` and `start` commands and by the framework's
+standalone stack). Set either one — not both.
+
 Optional:
 
 ```bash
 OS_PROJECT_ID=proj_customer_prod
+OS_ENVIRONMENT_ID=env_prod
 OS_WATCH_ARTIFACT=1
 ```
 

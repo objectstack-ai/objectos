@@ -19,11 +19,16 @@ Use system settings for tenant/user-editable application configuration.
 
 | Variable | Required | Description |
 |---|---:|---|
-| `OS_ARTIFACT_FILE` | File mode | Path to local compiled artifact used by this ObjectOS app wrapper. |
+| `OS_ARTIFACT_FILE` | File mode | Path to a local compiled `objectstack.json`. Read by the ObjectOS app wrapper and forwarded as `fileConfig.artifactPath`. |
+| `OS_ARTIFACT_PATH` | Alternative | Framework-level name for the same path or `http(s)://` URL. Honoured by `@objectstack/runtime` directly (CLI `dev`/`start`, standalone mode). |
 | `OS_PROJECT_ID` | Optional | Project id for file-backed mode or explicit project identity. |
-| `OS_WATCH_ARTIFACT` | No | Set to `1` to reload local artifact while developing. |
-| `OS_CLOUD_URL` | Cloud mode | Control-plane base URL for hostname resolution and artifact fetch. |
+| `OS_ENVIRONMENT_ID` | Optional | Environment id for standalone/file-backed mode (default `proj_local`). Also used to derive the per-project auth secret. |
+| `OS_ORGANIZATION_ID` | Optional | Default organization id for file-backed mode (default `org_local`). |
+| `OS_WATCH_ARTIFACT` | No | Set to `1` to reload the local artifact when it changes. Use only in development. |
+| `OS_CLOUD_URL` | Cloud mode | Control-plane base URL for hostname resolution and artifact fetch. Set to `off` or `local` to opt out of cloud-connected behaviour. |
 | `OS_CLOUD_API_KEY` | Optional | Bearer token for private control-plane Artifact API access. |
+| `OS_MULTI_TENANT` | No | Set to `false` to disable multi-tenant routing (default `true`). |
+| `OS_RUNTIME_PORT` | Dev only | Localhost port used to build platform-SSO callback URLs when developing on `http://localhost:<port>`. |
 
 ## Cache
 
@@ -46,11 +51,20 @@ Use system settings for tenant/user-editable application configuration.
 
 ## Database
 
-Database configuration can come from the control-plane runtime response
-or the artifact datasource declarations. Framework standalone mode also
-recognizes `OS_DATABASE_URL`, `OS_DATABASE_DRIVER`, and
-`OS_DATABASE_AUTH_TOKEN`.
+In cloud-connected mode the control plane returns the per-project
+runtime database configuration with the artifact response. In
+file-backed mode ObjectOS reads datasource declarations from the
+artifact. As a last resort the framework also honours:
+
+| Variable | Description |
+|---|---|
+| `OS_DATABASE_URL` | Connection URL (`file:./db.sqlite`, `libsql://…`, `postgres://…`, `mongodb://…`, `memory://`). Used by standalone mode and CLI `dev`. |
+| `OS_DATABASE_DRIVER` | Override the driver auto-detected from the URL. |
+| `OS_DATABASE_AUTH_TOKEN` | Auth token for managed drivers such as Turso/libSQL. |
+| `OS_BUSINESS_DB_URL` | ObjectOS wrapper convention for the per-project business database URL. Resolve it to `OS_DATABASE_URL` or a runtime datasource override in your deployment. |
+| `OS_CACHE_DIR` | Local artifact and runtime cache directory (default `/var/cache/objectos`). |
+| `OS_SKIP_SCHEMA_SYNC` | Set to `1` to skip ObjectQL DDL sync at boot. Use when schema is managed out-of-band. |
 
 For ObjectOS customer deployments, prefer explicit control-plane runtime
-configuration or artifact datasource configuration over undocumented
+configuration or artifact datasource configuration over relying on
 container-local defaults.

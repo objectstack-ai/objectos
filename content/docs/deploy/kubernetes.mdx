@@ -60,22 +60,28 @@ env:
 
 ## Probes
 
-Configure probes against an HTTP route that confirms the container is
-serving traffic:
+ObjectOS exposes a built-in `GET /health` endpoint that responds before
+the project kernel is fully resolved, which makes it the right target
+for both liveness and readiness probes:
 
 ```yaml
 readinessProbe:
   httpGet:
-    path: /
+    path: /health
     port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
 livenessProbe:
   httpGet:
-    path: /
+    path: /health
     port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 20
 ```
 
-For stricter checks, use an application-specific API route that requires
-the target artifact to be loaded.
+For stricter readiness checks, point an additional probe at an
+application-specific generated API route — this confirms the artifact
+loaded and the kernel is serving requests.
 
 ## Ingress and CORS
 

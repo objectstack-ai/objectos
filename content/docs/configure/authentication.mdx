@@ -51,26 +51,34 @@ Configure provider credentials through environment variables or system
 settings, depending on how the application package exposes auth
 configuration.
 
-Provider callback URLs use the ObjectOS auth route:
+Provider callback URLs depend on the provider type. ObjectStack exposes
+two distinct callback paths and they are **not** interchangeable:
 
-```text
-https://<project-domain>/api/v1/auth/callback/<provider>
-```
+| Provider type | Callback path |
+|---|---|
+| Built-in social (Google, GitHub, Microsoft, Apple, …) | `/api/v1/auth/callback/<provider>` |
+| Generic OIDC / OAuth2 (Okta, Entra ID, Keycloak, Ping, …) | `/api/v1/auth/oauth2/callback/<provider>` |
 
 Examples:
 
 ```text
 https://crm.example.com/api/v1/auth/callback/google
 https://crm.example.com/api/v1/auth/callback/microsoft
+https://crm.example.com/api/v1/auth/oauth2/callback/okta
+https://crm.example.com/api/v1/auth/oauth2/callback/entra
 ```
+
+Configure the matching redirect URI in the identity provider's
+application registration before enabling the provider in ObjectOS.
 
 ## Enterprise OIDC/SSO
 
-OIDC providers typically require:
+OIDC providers are registered as generic OAuth2 providers and use the
+`/oauth2/callback/<provider>` path. A typical configuration requires:
 
 | Field | Description |
 |---|---|
-| Provider id | Stable id such as `okta` or `azure-ad` |
+| Provider id | Stable id such as `okta` or `entra` (used in the callback URL) |
 | Display name | Button label shown to users |
 | Discovery URL | `.well-known/openid-configuration` endpoint |
 | Client id | Application client id from the identity provider |

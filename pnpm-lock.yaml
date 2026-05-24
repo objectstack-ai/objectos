@@ -109,6 +109,9 @@ importers:
         specifier: ^5.2.0
         version: 5.2.0(ai@6.0.191(zod@4.4.3))
     devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

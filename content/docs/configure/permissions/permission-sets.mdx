@@ -26,19 +26,22 @@ Object permissions answer:
 Can this user perform this operation on this object at all?
 ```
 
-Common grants:
+Permission set grants use these flag names (as enforced by the security
+plugin's permission evaluator):
 
-| Grant | Meaning |
+| Flag | Meaning |
 |---|---|
-| `create` | Create records |
-| `read` | Read records allowed by record access rules |
-| `update` | Update records allowed by record access rules |
-| `delete` | Delete records allowed by record access rules |
-| `viewAll` | Read all records for the object |
-| `modifyAll` | Update/delete all records for the object |
+| `allowRead` | Read records allowed by record access rules |
+| `allowCreate` | Create records |
+| `allowEdit` | Update records allowed by record access rules |
+| `allowDelete` | Delete records allowed by record access rules |
+| `viewAllRecords` | Read every record for the object, bypassing record access |
+| `modifyAllRecords` | Update or delete every record for the object, bypassing record access; implies `viewAllRecords` for reads |
 
-Record access still matters unless `viewAll` or `modifyAll` bypasses the
-normal row-level boundary.
+Record access still matters unless `viewAllRecords` or `modifyAllRecords`
+bypasses the normal row-level boundary. Reserve those flags for
+administrative permission sets — they are effectively a tenant-wide
+super-user grant for that object.
 
 ## System permissions
 
