@@ -21,8 +21,8 @@ Use system settings for tenant/user-editable application configuration.
 |---|---:|---|
 | `OS_ARTIFACT_FILE` | File mode | Path to a local compiled `objectstack.json`. Read by the ObjectOS app wrapper and forwarded as `fileConfig.artifactPath`. |
 | `OS_ARTIFACT_PATH` | Alternative | Framework-level name for the same path or `http(s)://` URL. Honoured by `@objectstack/runtime` directly (CLI `dev`/`start`, standalone mode). |
-| `OS_PROJECT_ID` | Optional | Project id for file-backed mode or explicit project identity. |
-| `OS_ENVIRONMENT_ID` | Optional | Environment id for standalone/file-backed mode (default `proj_local`). Also used to derive the per-project auth secret. |
+| `OS_PROJECT_ID` | Optional | Legacy alias for `OS_ENVIRONMENT_ID`, accepted by the ObjectOS wrapper for backward compatibility. Prefer `OS_ENVIRONMENT_ID` in new deployments. |
+| `OS_ENVIRONMENT_ID` | Optional | Environment id for standalone/file-backed mode (default `proj_local`). Also used to derive the per-project auth secret. The ObjectOS wrapper also accepts the legacy alias `OS_PROJECT_ID`. |
 | `OS_ORGANIZATION_ID` | Optional | Default organization id for file-backed mode (default `org_local`). |
 | `OS_WATCH_ARTIFACT` | No | Set to `1` to reload the local artifact when it changes. Use only in development. |
 | `OS_CLOUD_URL` | Cloud mode | Control-plane base URL for hostname resolution and artifact fetch. Set to `off` or `local` to opt out of cloud-connected behaviour. |

@@ -9,7 +9,7 @@
  * Boot mode is governed by environment variables:
  *
  *   OS_CLOUD_URL        — Artifact API base URL (cloud-connected mode)
- *   OS_PROJECT_ID       — Project to serve
+ *   OS_ENVIRONMENT_ID   — Environment/project to serve (legacy: OS_PROJECT_ID)
  *   OS_ARTIFACT_FILE    — Path to a local dist/objectstack.json (offline mode)
  *   OS_BUSINESS_DB_URL  — Per-project business database
  *   OS_CACHE_DIR        — Local artifact cache (default: /var/cache/objectos)
@@ -23,6 +23,8 @@ import { createObjectOSStack } from '@objectstack/runtime';
 
 const cloudUrl = process.env.OS_CLOUD_URL;
 const artifactFile = process.env.OS_ARTIFACT_FILE;
+const environmentId =
+  process.env.OS_ENVIRONMENT_ID ?? process.env.OS_PROJECT_ID;
 
 export default await createObjectOSStack({
   controlPlaneUrl: cloudUrl ?? 'file',
@@ -30,7 +32,7 @@ export default await createObjectOSStack({
   fileConfig: artifactFile
     ? {
         artifactPath: artifactFile,
-        projectId: process.env.OS_PROJECT_ID,
+        environmentId,
         watch: process.env.OS_WATCH_ARTIFACT === '1',
       }
     : undefined,
