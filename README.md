@@ -84,10 +84,6 @@ Use `OBJECTOS_PORT=3200` to change the host port.
 
 ## History
 
-The pre-rewrite codebase (a much larger multi-package implementation
-that predated the framework / distribution split) is preserved on the
-[`legacy/v1`](https://github.com/objectstack-ai/objectos/tree/legacy/v1)
-branch and tagged [`v1-final`](https://github.com/objectstack-ai/objectos/releases/tag/v1-final).
 The current `main` is a deliberate restart aligned with the
 [ObjectStack North Star](https://github.com/objectstack-ai/framework/blob/main/content/docs/concepts/north-star.mdx).
 
