@@ -12,12 +12,12 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@objectstack/runtime": "*",
-    "@objectstack/core": "*",
-    "@objectstack/spec": "*",
-    "@objectstack/metadata": "*",
-    "@objectstack/objectql": "*",
-    "@objectstack/cli": "*"
+    "@objectstack/runtime": "^5.2.0",
+    "@objectstack/core": "^5.2.0",
+    "@objectstack/spec": "^5.2.0",
+    "@objectstack/metadata": "^5.2.0",
+    "@objectstack/objectql": "^5.2.0",
+    "@objectstack/cli": "^5.2.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0"
