@@ -1,0 +1,94 @@
+---
+title: Troubleshooting
+description: Diagnose startup, artifact, authentication, permission, and deployment issues.
+---
+
+# Troubleshooting
+
+Start with the symptom, then check the smallest boundary first.
+
+## ObjectOS does not start
+
+Check:
+
+1. Container logs.
+2. Node version and package install.
+3. `PORT` conflict.
+4. Missing artifact.
+5. Missing `OS_AUTH_SECRET` when auth endpoints are expected.
+
+For Docker:
+
+```bash
+docker compose -f docker/docker-compose.yml logs objectos
+```
+
+## Artifact cannot be loaded
+
+Check:
+
+- `OS_ARTIFACT_FILE` points to the mounted file;
+- the file exists inside the container;
+- the file is valid JSON;
+- the artifact is a compiled ObjectStack artifact, not source metadata;
+- file permissions allow read access.
+
+Inside a container:
+
+```bash
+ls -l /artifacts/objectstack.json
+```
+
+## Login fails
+
+Check:
+
+- `OS_AUTH_SECRET` is configured;
+- public URL and callback URL match;
+- OIDC discovery URL is reachable from ObjectOS;
+- trusted origins include the public domain;
+- cookies are scoped to the correct project hostname;
+- the project kernel has auth enabled.
+
+## User cannot see records
+
+Check:
+
+1. Correct project hostname.
+2. User belongs to the expected organization.
+3. Object `read` permission.
+4. Row-level security.
+5. Sharing rules or record shares.
+6. Field security if only some fields are missing.
+
+## Settings are not editable
+
+A setting may be locked by an environment override. Effective settings
+resolve in this order:
+
+```text
+Environment -> Tenant -> User -> Default
+```
+
+If the environment provides a value, runtime edits should be rejected
+instead of silently overwriting it.
+
+## Webhooks or jobs do not run
+
+Check:
+
+- the artifact `requires` list includes the needed capability;
+- the ObjectOS image includes the optional service package;
+- queue/job service configuration is available;
+- outbound network access to the target is allowed;
+- delivery logs or job runs are visible in Setup diagnostics.
+
+## Database errors
+
+Check:
+
+- database URL and driver type;
+- network access from ObjectOS to the database;
+- credentials and TLS options;
+- schema sync/migration logs;
+- storage persistence if using local SQLite.

@@ -1,0 +1,4 @@
+{
+  "title": "Permissions",
+  "pages": ["index", "identity", "roles", "permission-sets", "record-access", "field-security"]
+}

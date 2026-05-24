@@ -1,0 +1,103 @@
+---
+title: Authentication
+description: Configure sign-in, sessions, OAuth, OIDC/SSO, and device flow.
+---
+
+# Authentication
+
+ObjectOS uses the ObjectStack authentication plugin, powered by
+Better Auth. Authentication is project-local: each project has its own
+identity tables and session scope.
+
+## What is supported
+
+Depending on the packaged application and enabled settings, ObjectOS can
+support:
+
+- email/password sign-in;
+- session management;
+- password reset and email verification;
+- social OAuth providers such as Google, GitHub, Microsoft, and Apple;
+- enterprise OIDC/SSO such as Okta, Entra ID, Keycloak, and Ping;
+- two-factor authentication;
+- passkeys/WebAuthn;
+- magic links;
+- CLI/browser device flow.
+
+## Required secret
+
+Set:
+
+```bash
+OS_AUTH_SECRET=replace-with-a-strong-random-secret
+```
+
+ObjectOS derives a stable per-project secret from this value and the
+project environment id. This means:
+
+- sessions survive container restarts;
+- tokens from one project cannot be reused on another project;
+- rotating `OS_AUTH_SECRET` invalidates sessions.
+
+## Session isolation
+
+In multi-project deployments, cookies are scoped to the project hostname.
+ObjectOS intentionally avoids broad root-domain cookies for project
+sessions. This prevents a session from leaking across customer projects.
+
+## Social login
+
+Configure provider credentials through environment variables or system
+settings, depending on how the application package exposes auth
+configuration.
+
+Provider callback URLs use the ObjectOS auth route:
+
+```text
+https://<project-domain>/api/v1/auth/callback/<provider>
+```
+
+Examples:
+
+```text
+https://crm.example.com/api/v1/auth/callback/google
+https://crm.example.com/api/v1/auth/callback/microsoft
+```
+
+## Enterprise OIDC/SSO
+
+OIDC providers typically require:
+
+| Field | Description |
+|---|---|
+| Provider id | Stable id such as `okta` or `azure-ad` |
+| Display name | Button label shown to users |
+| Discovery URL | `.well-known/openid-configuration` endpoint |
+| Client id | Application client id from the identity provider |
+| Client secret | Secret stored in environment or encrypted settings |
+| Scopes | Usually `openid email profile` |
+
+For customer deployments, prefer OIDC discovery URLs over manually
+configured authorization/token/userinfo endpoints.
+
+## Platform SSO
+
+In cloud-connected deployments, ObjectOS can use the control-plane login
+as a platform SSO provider. A builder who is already signed in to the
+control plane can be provisioned into a project runtime without creating
+a separate project-local account.
+
+This requires the control plane and ObjectOS to share the same
+`OS_AUTH_SECRET` base secret. Disable platform SSO only when the customer
+wants every project to own a completely separate login boundary.
+
+## Operational checks
+
+Before production:
+
+- confirm expired tokens return `401`;
+- confirm logout revokes the active session;
+- confirm password reset revokes other sessions if required by policy;
+- confirm callback URLs match the public project domain;
+- confirm trusted origins include only approved domains;
+- confirm `OS_AUTH_SECRET` is stored in a secret manager, not in source.

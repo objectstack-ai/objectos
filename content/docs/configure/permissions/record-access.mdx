@@ -1,0 +1,60 @@
+---
+title: Record Access
+description: Control which records a user can see or modify.
+---
+
+# Record Access
+
+Record access controls which rows a user can see or modify after object
+permissions allow the operation.
+
+## Mechanisms
+
+| Mechanism | Purpose |
+|---|---|
+| Row-level security | Enforce tenant or organization isolation |
+| Sharing rules | Grant access based on declarative criteria |
+| Record shares | Grant access to a specific user, role, or group |
+| Ownership/hierarchy | Grant access through owner or manager structure |
+
+## Default tenant isolation
+
+The security plugin enforces tenant isolation through the current user's
+context. For standard platform objects, default rules protect global
+tables that do not carry the normal organization field.
+
+The practical customer expectation is:
+
+```text
+Users only see records that belong to their organization or records
+explicitly shared with them.
+```
+
+## Sharing rules
+
+Use sharing rules for repeatable business policies:
+
+- all regional managers can read accounts in their region;
+- support managers can see escalated cases;
+- finance can read approved invoices;
+- auditors can read records tagged for audit review.
+
+## Record shares
+
+Use record shares for exceptions:
+
+- share one opportunity with a specialist;
+- grant temporary access during an escalation;
+- give an external integration access to a specific record.
+
+## Troubleshooting visibility
+
+When a user cannot see a record, check in this order:
+
+1. Is the user authenticated and in the expected organization?
+2. Does the user have object `read` permission?
+3. Does row-level security allow the record?
+4. Is there a sharing rule that should apply?
+5. Is there a direct record share?
+6. Is the record owned by a user or role in the expected hierarchy?
+7. Is the user looking at the correct project/hostname?

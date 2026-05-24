@@ -1,0 +1,58 @@
+---
+title: Identity
+description: Users, organizations, members, departments, teams, and invitations.
+---
+
+# Identity
+
+Identity defines who can enter the system and where they belong.
+
+## Core objects
+
+| Object | Purpose |
+|---|---|
+| `sys_user` | User account |
+| `sys_session` | Active session |
+| `sys_account` | Linked OAuth/OIDC account |
+| `sys_organization` | Tenant or workspace |
+| `sys_member` | User membership in an organization |
+| `sys_department` | Organization structure |
+| `sys_team` | Collaboration group |
+| `sys_invitation` | Pending invitation |
+| `sys_api_key` | Programmatic access identity |
+
+## Provisioning patterns
+
+Common customer patterns:
+
+| Pattern | Use when |
+|---|---|
+| Self-service signup | Small teams or demo environments |
+| Admin invitation | Controlled customer onboarding |
+| OIDC/SSO JIT provisioning | Enterprise identity provider owns user lifecycle |
+| API key provisioning | Server-to-server integration |
+
+ObjectOS can auto-provision a personal organization for a new user when
+the security plugin is active. In cloud-connected mode, owner and
+organization seed data can be replayed into the project database so the
+project owner lands in the right workspace on first login.
+
+## Organizations vs projects
+
+Do not confuse these:
+
+| Term | Meaning |
+|---|---|
+| Project/environment | Runtime deployment unit resolved by ObjectOS |
+| Organization | Business tenant/workspace inside that project |
+
+A single ObjectOS host can serve multiple projects. Each project can
+contain its own organizations, users, and permissions.
+
+## Operational guidance
+
+- Use SSO for enterprise customers.
+- Use invitations for controlled onboarding.
+- Keep API keys separate from human users.
+- Review active sessions during security incidents.
+- Disable or remove memberships instead of deleting audit-relevant users.

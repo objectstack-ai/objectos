@@ -1,0 +1,70 @@
+---
+title: Permissions Overview
+description: Understand ObjectOS identity and access control layers.
+---
+
+# Permissions Overview
+
+ObjectOS enforces access through layered controls from the ObjectStack
+security model. The goal is to answer both:
+
+- Who is this user?
+- What data and fields can this user access in this project?
+
+## Layers
+
+```text
+Authentication
+  -> User / organization / membership
+  -> Roles and permission sets
+  -> Object permissions
+  -> Record access
+  -> Field security
+```
+
+## Customer-facing concepts
+
+| Concept | Purpose |
+|---|---|
+| User | Person or service identity that can authenticate |
+| Organization | Tenant/workspace boundary |
+| Member | User's membership in an organization |
+| Role | Position in the access hierarchy |
+| Permission set | Explicit grants for apps, objects, fields, and system actions |
+| Sharing rule | Declarative rule that grants record access |
+| Record share | Direct record-level share entry |
+| Field security | Per-field read/write control |
+
+## Default isolation
+
+Project identity and business data live in the project database. In
+multi-project deployments, ObjectOS builds a separate project kernel and
+auth context per project.
+
+For customer deployments, this means:
+
+- users are scoped to the project database;
+- sessions are scoped to the project hostname;
+- row-level checks use the current user's organization and permissions;
+- control-plane users are not automatically business users unless
+  platform SSO or provisioning maps them into the project.
+
+## Where to configure
+
+The Setup app exposes the main administrative objects:
+
+- Users, Organizations, Departments, Teams, Invitations;
+- Roles and Permission Sets;
+- Sharing Rules and Record Shares;
+- API Keys;
+- Sessions and Audit Logs.
+
+Read the next pages based on the problem:
+
+| Problem | Page |
+|---|---|
+| Create users and organizations | [Identity](/docs/configure/permissions/identity) |
+| Define hierarchy | [Roles](/docs/configure/permissions/roles) |
+| Grant object/system permissions | [Permission Sets](/docs/configure/permissions/permission-sets) |
+| Explain record visibility | [Record Access](/docs/configure/permissions/record-access) |
+| Hide or lock fields | [Field Security](/docs/configure/permissions/field-security) |

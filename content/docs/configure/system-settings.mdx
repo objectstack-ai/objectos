@@ -1,0 +1,71 @@
+---
+title: System Settings
+description: Configure tenant and user settings through manifests and a shared K/V store.
+---
+
+# System Settings
+
+ObjectStack includes a settings service for runtime and plugin settings.
+ObjectOS exposes those settings through the Setup app when the application
+artifact requires the settings capability.
+
+## Settings model
+
+Settings are declared by code and stored as values:
+
+| Layer | Purpose |
+|---|---|
+| Settings Manifest | Defines fields, labels, defaults, validation, visibility, and actions |
+| `sys_setting` | Stores tenant/user K/V values |
+| Resolver | Reads the effective value |
+| Setup UI | Renders standard settings pages |
+
+Plugins should not create one-off settings tables for ordinary
+configuration. They should declare settings manifests and let ObjectOS
+render and store values consistently.
+
+## Resolution order
+
+Effective values resolve in this order:
+
+```text
+Environment override
+Tenant setting
+User setting
+Manifest default
+```
+
+Environment overrides are locked. If a value is set through an
+environment variable, the Setup UI should show it as managed by the host
+and reject runtime edits.
+
+## Common settings areas
+
+Customer-facing settings usually include:
+
+| Area | Examples |
+|---|---|
+| Email | SMTP host, provider API key, from address, test email |
+| Branding | Product name, logo URL, accent color, default theme |
+| Feature flags | Tenant-level feature switches |
+| Storage | Local filesystem or object storage credentials |
+| AI providers | Model provider, API key, budget limits |
+| SSO | OIDC provider settings and test connection |
+
+## Secrets
+
+Password and credential fields should be encrypted by the settings
+service or provided as environment-managed values. Do not store secrets
+in artifacts, compose files, or Git.
+
+## Test actions
+
+Settings manifests can declare standard action buttons, such as:
+
+- send test email;
+- test SSO discovery;
+- verify object storage credentials;
+- validate webhook target.
+
+Use these actions for customer setup flows instead of asking operators
+to inspect logs first.

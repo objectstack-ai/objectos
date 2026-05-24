@@ -1,0 +1,70 @@
+---
+title: Permission Sets
+description: Grant application, object, field, and system permissions.
+---
+
+# Permission Sets
+
+Permission sets are the primary way to grant capabilities. They can be
+assigned directly to users or indirectly through roles.
+
+## What permission sets control
+
+| Permission type | Examples |
+|---|---|
+| Application access | User can open CRM or Setup |
+| Object permissions | Create, read, update, delete records |
+| Field permissions | Read or update selected fields |
+| System permissions | Access Setup, run reports, export data |
+| Integration permissions | Use API keys, webhooks, or admin actions |
+
+## Object permissions
+
+Object permissions answer:
+
+```text
+Can this user perform this operation on this object at all?
+```
+
+Common grants:
+
+| Grant | Meaning |
+|---|---|
+| `create` | Create records |
+| `read` | Read records allowed by record access rules |
+| `update` | Update records allowed by record access rules |
+| `delete` | Delete records allowed by record access rules |
+| `viewAll` | Read all records for the object |
+| `modifyAll` | Update/delete all records for the object |
+
+Record access still matters unless `viewAll` or `modifyAll` bypasses the
+normal row-level boundary.
+
+## System permissions
+
+System permissions are for platform actions such as:
+
+- Setup access;
+- manage users;
+- manage roles and permission sets;
+- run reports;
+- export reports;
+- manage integrations;
+- view audit logs.
+
+Keep system permissions separate from business object permissions so
+administrators can audit them easily.
+
+## Recommended sets
+
+Start with a few named permission sets:
+
+| Permission set | Purpose |
+|---|---|
+| Basic User | Login and access the main application |
+| Setup Administrator | Manage users, roles, settings, and diagnostics |
+| Report Viewer | View reports and dashboards |
+| Integration Operator | Manage webhooks/API keys |
+| Support User | Read/update support objects |
+
+Then add domain-specific sets for the customer's application.

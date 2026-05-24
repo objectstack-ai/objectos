@@ -1,0 +1,85 @@
+---
+title: Quickstart
+description: Run ObjectOS locally with a compiled ObjectStack artifact.
+---
+
+# Quickstart
+
+This guide starts ObjectOS from a local artifact. Use it for evaluation,
+demo environments, and smoke testing a packaged ObjectStack application.
+
+## Prerequisites
+
+- Node.js 20+
+- pnpm 10+
+- Docker Desktop or another Docker-compatible runtime
+- A compiled ObjectStack artifact, usually named `dist/objectstack.json`
+
+If you do not have your own artifact yet, use the sample artifact already
+checked into this repository:
+
+```bash
+apps/objectos/dist/objectstack.json
+```
+
+## Start with Docker Compose
+
+Copy an artifact into the Docker mount:
+
+```bash
+mkdir -p docker/artifacts
+cp apps/objectos/dist/objectstack.json docker/artifacts/objectstack.json
+```
+
+Start ObjectOS:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+The compose file mounts:
+
+| Mount | Purpose |
+|---|---|
+| `docker/artifacts` | Read-only artifact input |
+| `objectos-cache` | Runtime and artifact cache |
+| `objectos-data` | Local runtime data |
+
+## Start as a local Node process
+
+For development, you can start the runtime package directly:
+
+```bash
+pnpm install
+cd apps/objectos
+OS_ARTIFACT_FILE=dist/objectstack.json PORT=3200 pnpm start
+```
+
+Open:
+
+```text
+http://localhost:3200
+```
+
+## What should work
+
+After startup, ObjectOS should be able to:
+
+- resolve the configured artifact;
+- boot a project kernel;
+- serve the generated REST API;
+- serve metadata-driven UI routes;
+- expose auth endpoints when `OS_AUTH_SECRET` is configured;
+- load optional services declared by the artifact `requires` list.
+
+## Next steps
+
+Read [Deployment overview](/docs/deployment) to choose a deployment
+model, then [Runtime configuration](/docs/configure/runtime) to configure
+artifact source, database, cache, and secrets.

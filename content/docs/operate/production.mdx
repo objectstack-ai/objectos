@@ -1,0 +1,82 @@
+---
+title: Production Readiness
+description: Checklist for running ObjectOS safely in production.
+---
+
+# Production Readiness
+
+Use this checklist before exposing ObjectOS to production traffic.
+
+## HTTP hardening
+
+ObjectStack runtime provides conservative security headers for dispatcher
+routes. Production deployments should verify:
+
+- `Content-Security-Policy`;
+- `X-Content-Type-Options`;
+- `X-Frame-Options`;
+- `Referrer-Policy`;
+- `Permissions-Policy`;
+- `Cross-Origin-Resource-Policy`;
+- HSTS after TLS is confirmed.
+
+If a reverse proxy owns headers, verify the final response with:
+
+```bash
+curl -I https://app.example.com
+```
+
+## Secrets
+
+Store these in a secret manager:
+
+| Secret | Purpose |
+|---|---|
+| `OS_AUTH_SECRET` | Session signing base secret |
+| `OS_CLOUD_API_KEY` | Control-plane Artifact API access |
+| Database credentials | Business database access |
+| OIDC client secret | Enterprise SSO |
+| Provider API keys | Email, storage, AI, integrations |
+
+Never bake secrets into artifacts or images.
+
+## Rate limiting
+
+The framework exposes a token-bucket rate limiter. Wire rate limiting at
+the adapter, ingress, or gateway layer where caller IP and authenticated
+identity are trustworthy.
+
+Recommended buckets:
+
+| Traffic | Example limit |
+|---|---:|
+| Auth endpoints | 10/min/IP |
+| Write requests | 60/min/IP |
+| Read requests | 600/min/IP |
+
+Use a shared backend such as Redis for multi-pod deployments.
+
+## CORS
+
+Configure explicit origins:
+
+```text
+https://app.example.com
+https://admin.example.com
+```
+
+Do not use wildcard origins with credentialed requests.
+
+## Go-live checklist
+
+- [ ] TLS is terminated at the edge or ingress.
+- [ ] Security headers are present.
+- [ ] HSTS is enabled after TLS validation.
+- [ ] CORS origins are explicit.
+- [ ] Rate limits protect auth and write endpoints.
+- [ ] `OS_AUTH_SECRET` is strong and stored as a secret.
+- [ ] OIDC callback URLs match the public domain.
+- [ ] Business database backup and restore are tested.
+- [ ] Audit logs are retained according to customer policy.
+- [ ] Cross-organization negative access tests pass.
+- [ ] Rollback plan covers both ObjectOS image and artifact version.

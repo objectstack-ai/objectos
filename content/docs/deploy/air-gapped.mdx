@@ -1,0 +1,58 @@
+---
+title: Air-gapped Deployment
+description: Run ObjectOS without access to the public internet.
+---
+
+# Air-gapped Deployment
+
+Air-gapped deployment is for customer networks where ObjectOS cannot
+call a hosted control plane or public package registries at runtime.
+
+## What to ship
+
+An offline release bundle should contain:
+
+| Item | Purpose |
+|---|---|
+| ObjectOS container image | Runtime binary and dependencies |
+| `objectstack.json` artifact | Immutable application definition |
+| Database migration/initialization guidance | Customer business database setup |
+| Environment template | Required secrets and runtime variables |
+| Operations checklist | Upgrade, rollback, backup, and diagnostics |
+
+## Runtime mode
+
+Use file-backed mode:
+
+```bash
+OS_ARTIFACT_FILE=/artifacts/objectstack.json
+```
+
+ObjectOS resolves every request to the packaged project and loads the
+artifact from disk.
+
+## Network expectations
+
+ObjectOS does not need public internet access in this mode. Customer
+network rules should allow only:
+
+- inbound HTTP/HTTPS from the approved ingress or load balancer;
+- outbound database traffic to the customer-managed business database;
+- outbound traffic to explicitly configured integrations such as SMTP,
+  object storage, webhook targets, or identity providers.
+
+## Authentication
+
+If the customer uses OIDC/SSO, the identity provider must be reachable
+from the air-gapped network. If not, use local email/password auth or an
+identity provider hosted inside the same network.
+
+## Upgrade process
+
+Treat artifacts as immutable:
+
+1. Import the new ObjectOS image.
+2. Place the new artifact beside the previous artifact.
+3. Update the mount or environment variable to point at the new artifact.
+4. Restart ObjectOS.
+5. Roll back by restoring the previous image tag or artifact path.

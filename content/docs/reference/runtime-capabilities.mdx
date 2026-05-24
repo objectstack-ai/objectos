@@ -1,0 +1,58 @@
+---
+title: Runtime Capabilities
+description: Capabilities ObjectOS can load from ObjectStack framework packages.
+---
+
+# Runtime Capabilities
+
+ObjectOS loads a base runtime for every project and then installs optional
+capabilities declared by the application artifact.
+
+## Base runtime
+
+The base project kernel includes:
+
+- ObjectKernel lifecycle and service registry;
+- ObjectQL data engine;
+- configured data driver;
+- metadata service;
+- application artifact registration;
+- authentication when `OS_AUTH_SECRET` is configured;
+- security plugin for RBAC, row-level security, and field security;
+- i18n service.
+
+## Optional capabilities
+
+Artifacts can declare capabilities in their `requires` list. ObjectOS
+loads matching framework packages when present in the image.
+
+| Capability | Package | Purpose |
+|---|---|---|
+| `automation` | `@objectstack/service-automation` | Flow/DAG execution and automation nodes |
+| `ai` | `@objectstack/service-ai` | LLM adapters, conversations, tools, SSE routes |
+| `analytics` | `@objectstack/service-analytics` | Cubes, analytics queries, reporting data |
+| `audit` | `@objectstack/plugin-audit` | Audit log object and audit trail |
+| `cache` | `@objectstack/service-cache` | Cache abstraction and adapters |
+| `storage` | `@objectstack/service-storage` | File/object storage service |
+| `queue` | `@objectstack/service-queue` | Queue abstraction and workers |
+| `job` | `@objectstack/service-job` | Scheduled/background jobs |
+| `realtime` | `@objectstack/service-realtime` | WebSocket and pub/sub realtime |
+| `feed` | `@objectstack/service-feed` | Comments, reactions, subscriptions, activity feed |
+| `settings` | `@objectstack/service-settings` | Settings manifests and K/V resolver |
+
+If a capability is requested but the image does not include the package,
+ObjectOS logs a warning and continues. Production images should include
+the packages required by the customer artifact.
+
+## API surface
+
+ObjectOS commonly exposes:
+
+- generated REST APIs;
+- auth endpoints under `/api/v1/auth/*`;
+- metadata and i18n endpoints;
+- service endpoints for enabled capabilities.
+
+GraphQL and OData are framework-level capabilities and should be
+documented as supported only when included and enabled by the deployed
+runtime package.

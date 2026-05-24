@@ -1,0 +1,71 @@
+---
+title: Observability
+description: Logs, request ids, metrics, errors, sessions, and audit logs.
+---
+
+# Observability
+
+ObjectOS operations need both infrastructure signals and application
+signals. The framework provides request-id, metrics, error reporter, and
+audit primitives; the deployment decides where to export them.
+
+## Request identity
+
+Every production deployment should propagate or generate a request id:
+
+```text
+X-Request-Id
+```
+
+Use it to correlate:
+
+- ingress logs;
+- ObjectOS logs;
+- database slow queries;
+- error reports;
+- customer support tickets.
+
+## Metrics and errors
+
+The runtime exposes pluggable metrics and error reporter interfaces.
+Wire them to the customer's chosen system, such as Prometheus, OpenTelemetry,
+Datadog, Sentry, or another approved backend.
+
+Track at least:
+
+| Signal | Why |
+|---|---|
+| Request count by route/status | Detect error spikes |
+| Request duration | Detect latency regressions |
+| 5xx errors | Alert on runtime failures |
+| Auth failures | Detect configuration or attack patterns |
+| Artifact/kernel cache misses | Understand cold-start behavior |
+
+## Audit logs
+
+When the audit capability is enabled, ObjectOS writes audit records to
+`sys_audit_log`.
+
+Use audit logs for:
+
+- permission-sensitive changes;
+- settings changes;
+- user/session investigation;
+- integration activity;
+- denied access analysis.
+
+For regulated environments, make the audit table append-only at the
+database or storage layer and define a retention policy.
+
+## Setup diagnostics
+
+The Setup app exposes operational surfaces such as:
+
+- Sessions;
+- Audit Logs;
+- Notifications;
+- Webhook Deliveries when webhooks are enabled;
+- System and Security overview dashboards.
+
+These are intended for operators and support engineers, not only
+developers.

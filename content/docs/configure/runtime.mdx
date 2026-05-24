@@ -1,0 +1,98 @@
+---
+title: Runtime Configuration
+description: Configure artifact loading, project resolution, database, cache, and runtime secrets.
+---
+
+# Runtime Configuration
+
+ObjectOS runtime configuration answers three questions:
+
+1. Which project should this request serve?
+2. Where is the compiled artifact?
+3. Which database and runtime services should the project use?
+
+## Boot modes
+
+| Mode | Use when | Key configuration |
+|---|---|---|
+| File-backed | Single project, demo, customer offline bundle, air-gapped deployment | `OS_ARTIFACT_FILE` |
+| Cloud-connected | Hosted or private control plane publishes project artifacts | `OS_CLOUD_URL`, `OS_PROJECT_ID` or hostname resolution |
+
+## File-backed mode
+
+Set:
+
+```bash
+OS_ARTIFACT_FILE=/artifacts/objectstack.json
+```
+
+ObjectOS uses a local Artifact API client. Every hostname resolves to the
+same project. The runtime config is read from the artifact when present,
+or falls back to a local runtime default for evaluation.
+
+Optional:
+
+```bash
+OS_PROJECT_ID=proj_customer_prod
+OS_WATCH_ARTIFACT=1
+```
+
+Use watch mode only for development or smoke tests.
+
+## Cloud-connected mode
+
+Set:
+
+```bash
+OS_CLOUD_URL=https://cloud.example.com
+OS_CLOUD_API_KEY=replace-with-deployment-token
+```
+
+ObjectOS asks the control plane to:
+
+- resolve hostname to project/environment;
+- fetch the current artifact;
+- receive the runtime database configuration for that project.
+
+ObjectOS should not connect directly to the control-plane database.
+
+## Authentication secret
+
+Set a strong base secret:
+
+```bash
+OS_AUTH_SECRET=replace-with-a-strong-random-secret
+```
+
+ObjectOS derives per-project auth secrets from this value. That keeps
+session signing isolated per project while still allowing deterministic
+restarts. Rotating this value invalidates existing sessions.
+
+## Kernel and artifact caches
+
+ObjectOS caches resolved environments and project kernels to avoid
+rebuilding a kernel for every request.
+
+| Variable | Default | Purpose |
+|---|---:|---|
+| `OS_KERNEL_CACHE_SIZE` | `32` | Maximum number of cached project kernels |
+| `OS_KERNEL_TTL_MS` | `900000` | Idle TTL for cached kernels |
+| `OS_ENV_CACHE_TTL_MS` | `300000` | Hostname/environment resolution cache |
+| `OS_ARTIFACT_CACHE_TTL_MS` | `300000` | Artifact response cache |
+
+Lower TTLs make changes visible faster. Higher TTLs reduce control-plane
+traffic and cold starts.
+
+## Database configuration
+
+In cloud-connected mode, the control plane returns the per-project
+runtime database configuration with the artifact response.
+
+In file-backed mode, ObjectOS can derive database settings from the
+artifact's datasource declarations. Supported framework drivers include
+SQLite, PostgreSQL, Turso/libSQL, MongoDB, and memory-backed evaluation
+drivers.
+
+For production, use a customer-managed database. Do not rely on
+container-local storage for business data unless the deployment is
+explicitly a single-node evaluation.

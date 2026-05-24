@@ -1,0 +1,86 @@
+---
+title: Docker
+description: Run ObjectOS with Docker or Docker Compose.
+---
+
+# Docker
+
+Docker is the recommended starting point. It matches the production
+shape closely enough to validate artifact loading, database connectivity,
+auth, and generated APIs without introducing Kubernetes complexity.
+
+## Docker Compose
+
+Prepare the artifact mount:
+
+```bash
+mkdir -p docker/artifacts
+cp /path/to/dist/objectstack.json docker/artifacts/objectstack.json
+```
+
+Start ObjectOS:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+ObjectOS listens on:
+
+```text
+http://localhost:3000
+```
+
+Set a different host port:
+
+```bash
+OBJECTOS_PORT=3200 docker compose -f docker/docker-compose.yml up --build
+```
+
+## Docker image
+
+Build locally:
+
+```bash
+docker build -f docker/Dockerfile -t objectos:local .
+```
+
+Run with a mounted artifact:
+
+```bash
+docker run --rm \
+  -p 3000:3000 \
+  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
+  -e OS_AUTH_SECRET='replace-with-a-strong-random-secret' \
+  -v "$PWD/docker/artifacts:/artifacts:ro" \
+  -v objectos-cache:/var/cache/objectos \
+  -v objectos-data:/var/lib/objectos \
+  objectos:local
+```
+
+`OS_AUTH_SECRET` is required for per-project authentication. Changing it
+invalidates existing sessions.
+
+## Persistent data
+
+Keep these separate:
+
+| Data | Why it matters |
+|---|---|
+| Artifact | Immutable application definition |
+| Business database | Customer records, identity rows, settings, sessions |
+| Cache | Runtime cache; safe to rebuild but useful to persist |
+
+For evaluation, local SQLite is acceptable. For production, use a
+customer-managed database and document backup/restore outside the
+container lifecycle.
+
+## Verify
+
+After startup:
+
+```bash
+curl -I http://localhost:3000
+```
+
+Then sign in or call an expected generated API route for the packaged
+application.

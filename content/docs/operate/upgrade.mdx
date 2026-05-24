@@ -1,0 +1,67 @@
+---
+title: Upgrade and Rollback
+description: Upgrade ObjectOS and application artifacts safely.
+---
+
+# Upgrade and Rollback
+
+ObjectOS has two version streams:
+
+| Version | Owner | Rollback |
+|---|---|---|
+| ObjectOS image/runtime | Platform/runtime team | Previous container tag |
+| Application artifact | Application/control-plane release | Previous artifact or project version pointer |
+
+Do not mutate artifacts in place. Publish a new artifact and switch the
+runtime to it.
+
+## Upgrade ObjectOS
+
+For Docker Compose:
+
+```bash
+docker compose -f docker/docker-compose.yml pull
+docker compose -f docker/docker-compose.yml up -d
+```
+
+For Kubernetes, update the image tag and let the deployment roll.
+
+## Upgrade artifact
+
+File-backed mode:
+
+```bash
+cp objectstack-2026-05-24.json docker/artifacts/objectstack.json
+docker compose -f docker/docker-compose.yml restart objectos
+```
+
+Cloud-connected mode:
+
+1. Publish the new artifact to the control plane.
+2. Move the current project/environment pointer to the new version.
+3. Let ObjectOS refetch after cache expiry or restart to force reload.
+
+## Rollback
+
+Rollback ObjectOS:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d objectos
+```
+
+with the previous image tag.
+
+Rollback artifact:
+
+- restore the previous mounted file; or
+- move the control-plane pointer back to the previous artifact version.
+
+## Compatibility checks
+
+Before upgrading:
+
+- confirm the artifact was built against a compatible ObjectStack version;
+- confirm required capabilities are available in the ObjectOS image;
+- confirm database migrations or schema sync behavior are understood;
+- run authentication and permission smoke tests;
+- verify rollback does not require destructive data changes.

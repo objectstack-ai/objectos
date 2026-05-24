@@ -1,4 +1,16 @@
 {
   "title": "ObjectOS",
-  "pages": ["index", "getting-started", "install", "configure", "upgrade", "architecture"]
+  "pages": [
+    "index",
+    "quickstart",
+    "deployment",
+    "---Deploy---",
+    "deploy",
+    "---Configure---",
+    "configure",
+    "---Operate---",
+    "operate",
+    "---Reference---",
+    "reference"
+  ]
 }

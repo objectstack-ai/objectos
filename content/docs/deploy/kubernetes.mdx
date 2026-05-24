@@ -1,0 +1,97 @@
+---
+title: Kubernetes
+description: Deploy ObjectOS in a Kubernetes environment.
+---
+
+# Kubernetes
+
+Use Kubernetes for production deployments that need managed secrets,
+ingress, probes, rolling upgrades, and customer-managed databases.
+
+## Deployment shape
+
+A production ObjectOS deployment normally includes:
+
+| Component | Recommendation |
+|---|---|
+| Deployment | One ObjectOS container image |
+| Service | ClusterIP service for HTTP traffic |
+| Ingress | TLS termination and customer hostname routing |
+| Secret | `OS_AUTH_SECRET`, control-plane token, database credentials |
+| ConfigMap | Non-secret runtime configuration |
+| Persistent storage | Only when using local file artifacts or SQLite evaluation data |
+| External database | Recommended for production business data |
+
+## Required configuration
+
+At minimum configure:
+
+```yaml
+env:
+  - name: PORT
+    value: "3000"
+  - name: OS_AUTH_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: auth-secret
+```
+
+For cloud-connected mode:
+
+```yaml
+env:
+  - name: OS_CLOUD_URL
+    value: "https://cloud.example.com"
+  - name: OS_CLOUD_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: cloud-api-key
+```
+
+For file-backed mode, mount the artifact and set:
+
+```yaml
+env:
+  - name: OS_ARTIFACT_FILE
+    value: "/artifacts/objectstack.json"
+```
+
+## Probes
+
+Configure probes against an HTTP route that confirms the container is
+serving traffic:
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /
+    port: 3000
+livenessProbe:
+  httpGet:
+    path: /
+    port: 3000
+```
+
+For stricter checks, use an application-specific API route that requires
+the target artifact to be loaded.
+
+## Ingress and CORS
+
+Terminate TLS at the edge or ingress. Configure CORS explicitly for the
+front-end origins used by the customer. Do not combine wildcard origins
+with credentialed requests.
+
+When ObjectOS runs behind a proxy, make sure the proxy strips
+client-supplied `X-Forwarded-For` values before setting its own. Rate
+limiting and audit trails depend on trustworthy caller identity.
+
+## Rolling upgrades
+
+ObjectOS image versions and application artifact versions are separate.
+Roll them independently:
+
+- ObjectOS image: upgrade by changing the container tag.
+- Application artifact: publish or mount a new immutable artifact.
+- Rollback: restore the previous image tag or artifact pointer.

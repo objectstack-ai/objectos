@@ -1,23 +1,62 @@
 ---
 title: ObjectOS
-description: The reference runtime distribution of the ObjectStack framework.
+description: Customer-hosted runtime for ObjectStack applications.
 ---
 
 # ObjectOS
 
-**ObjectOS** is the reference runtime distribution of the
-[ObjectStack framework](https://github.com/objectstack-ai/framework).
-Customers run ObjectOS to serve their compiled project artifacts in
-production — on a laptop, in a container, in Kubernetes, or fully
-air-gapped.
+ObjectOS is the customer-hosted runtime for ObjectStack applications. It
+loads a compiled `objectstack.json` artifact, boots the ObjectStack
+runtime, and serves the application APIs, metadata-driven UI, identity,
+permissions, settings, automation, and integration surfaces described by
+that artifact.
 
-## What this site covers
+ObjectOS is designed for the environments customers actually deploy:
+private servers, Docker, Kubernetes, private cloud, and air-gapped
+networks.
 
-- **Install** — Docker, Helm, single-binary, bare metal.
-- **Configure** — environment variables, plugin selection, business DB.
-- **Upgrade** — version pinning, migration, rollback strategy.
-- **Architecture** — how ObjectOS consumes Artifacts from the control plane.
-- **Enterprise plugins** — SSO/SAML, SCIM, audit export, HA scheduling.
+## What ObjectOS is
 
-For **protocol references** (Object, Field, View, Flow, Agent, …), see
-the upstream [ObjectStack docs](https://docs.objectstack.ai).
+ObjectOS is the **runtime distribution** of ObjectStack:
+
+- It runs compiled ObjectStack applications.
+- It owns the customer-side HTTP runtime.
+- It connects to the business database configured for the project.
+- It enforces authentication, permissions, row-level access, and field
+  security when those capabilities are enabled.
+- It exposes platform administration surfaces such as users, roles,
+  settings, sessions, audit logs, webhooks, and diagnostics through the
+  Setup app.
+
+## What ObjectOS is not
+
+ObjectOS is not the low-code builder, not the control-plane database, and
+not the protocol specification. Those belong to the ObjectStack framework
+and cloud/control-plane layers.
+
+The boundary is intentional:
+
+| Layer | Responsibility |
+|---|---|
+| ObjectStack framework | Protocol, kernel, metadata model, drivers, services, plugins, SDKs |
+| Control plane | Project authoring, artifact publishing, hostname/project resolution |
+| ObjectOS | Customer-hosted runtime that consumes artifacts and serves applications |
+
+In cloud-connected deployments, ObjectOS talks to the control plane over
+the Artifact API. It does not require direct access to the control-plane
+database.
+
+## What customers usually configure
+
+Most customer deployments need answers to five questions:
+
+| Question | Start here |
+|---|---|
+| How do I try it quickly? | [Quickstart](/docs/quickstart) |
+| Which deployment model should I use? | [Deployment overview](/docs/deployment) |
+| How does ObjectOS find my app and database? | [Runtime configuration](/docs/configure/runtime) |
+| How do login, users, roles, and data permissions work? | [Authentication](/docs/configure/authentication) and [Permissions](/docs/configure/permissions) |
+| What should I check before production? | [Production readiness](/docs/operate/production) |
+
+For developer-facing protocol references such as objects, fields, views,
+flows, hooks, and ObjectQL, use the ObjectStack framework documentation.
