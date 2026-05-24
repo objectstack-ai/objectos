@@ -1,0 +1,117 @@
+---
+title: Architecture
+description: How ObjectOS, the control plane, and the framework fit together.
+---
+
+# Architecture
+
+ObjectOS is one of three layers in the ObjectStack platform. Customers
+usually deploy only ObjectOS; understanding the boundary between the
+three layers makes deployment, security review, and incident response
+easier.
+
+## The three layers
+
+```text
++--------------------------+    +--------------------------+    +--------------------------+
+|  ObjectStack framework   |    |       Control plane      |    |          ObjectOS        |
+|  (npm packages, source)  | -> |   (authors, publishes    | -> |   (customer-hosted       |
+|                          |    |     artifacts)           |    |    runtime distribution) |
++--------------------------+    +--------------------------+    +--------------------------+
+       runtime, plugins,             projects, environments,         executes artifacts,
+       drivers, services             metadata authoring,             owns runtime HTTP,
+                                     artifact storage                business database
+```
+
+- **Framework** — the open-source `@objectstack/*` packages: kernel,
+  ObjectQL, plugins, drivers, services. Customers do not need to
+  understand or modify framework source to operate ObjectOS.
+- **Control plane** — where applications are authored and where the
+  compiled `objectstack.json` artifact is published. May be the hosted
+  ObjectStack Cloud or a customer-operated control plane.
+- **ObjectOS** — the runtime container customers deploy. It consumes
+  artifacts, builds a per-project kernel, talks to the customer-managed
+  business database, and serves application APIs and UI.
+
+## What runs inside ObjectOS
+
+```text
+                +-------------------------------------+
+   HTTP -->     |        HTTP dispatcher              |
+                |  /health · /api/v1/* · /api/v1/auth |
+                +-----------------+-------------------+
+                                  |
+                +-----------------v-------------------+
+                |       KernelManager (LRU cache)     |
+                |  per-project ObjectKernel instances |
+                +-----------------+-------------------+
+                                  |
+                +-----------------v-------------------+
+                |   Base plugins (always loaded)      |
+                |   ObjectQL · Security · Auth · i18n |
+                +-----------------+-------------------+
+                                  |
+                +-----------------v-------------------+
+                |   Optional capabilities (per app)   |
+                |   audit · storage · jobs · queue ·  |
+                |   realtime · feed · automation ·    |
+                |   analytics · ai · settings         |
+                +-------------------------------------+
+```
+
+Key properties:
+
+- One ObjectOS host can serve many projects. Each project gets its own
+  `ObjectKernel` instance, isolated database connection, and auth scope.
+- Kernels are cached in an LRU (`OS_KERNEL_CACHE_SIZE`, default 32) with
+  an idle TTL (`OS_KERNEL_TTL_MS`, default 15 min) so cold-start cost is
+  amortised.
+- Capabilities listed in the artifact's `requires` array are loaded
+  lazily from optional `@objectstack/*` packages bundled in the image.
+
+## Boot modes
+
+| Mode | When to use | Hostname resolution |
+|---|---|---|
+| Cloud-connected (`OS_CLOUD_URL`) | Multi-project deployments, hosted control plane, dynamic project lifecycle | Resolved from the control plane's `/cloud/*` API |
+| File-backed (`controlPlaneUrl: 'file'` + `OS_ARTIFACT_FILE`) | Single project, demo, air-gapped, smoke tests | Every hostname resolves to the same packaged project |
+
+The ObjectOS app wrapper (`apps/objectos/objectstack.config.ts`) picks
+the mode based on the presence of `OS_CLOUD_URL`.
+
+## Request lifecycle
+
+```text
+1. Ingress / load balancer  (TLS termination, X-Forwarded-For)
+2. ObjectOS HTTP dispatcher (security headers, request id)
+3. Hostname → environment   (cached for OS_ENV_CACHE_TTL_MS)
+4. KernelManager.acquire    (build on miss, reuse on hit)
+5. AuthPlugin                (session/cookie or bearer/API key)
+6. SecurityPlugin            (RBAC + RLS + FLS)
+7. Route handler             (generated REST, custom action, auth route)
+8. Driver                    (ObjectQL → SQL / Mongo / memory)
+9. Response                  (X-Request-Id propagated)
+```
+
+## Data ownership
+
+| Data | Where it lives | Owned by |
+|---|---|---|
+| Compiled artifact (`objectstack.json`) | Control plane or local file | Application/release team |
+| Business records (your domain data) | Customer-managed database | Customer |
+| Identity (`sys_user`, `sys_session`, …) | Same database as business records | Customer |
+| Settings (`sys_setting`) | Same database as business records | Customer |
+| Secrets baseline (`OS_AUTH_SECRET`, OIDC client secret, DB creds) | Customer secret manager | Customer |
+| Audit log (`sys_audit_log`) | Same database (when `audit` capability is enabled) | Customer |
+
+ObjectOS never copies business data back to the control plane.
+
+## Security boundary
+
+- ObjectOS only needs to make one outbound connection during operation
+  (to the control plane Artifact API) in cloud-connected mode, plus any
+  customer-configured integrations (SMTP, object storage, webhook
+  targets, identity providers).
+- Air-gapped mode removes the control-plane call entirely.
+- See [Production readiness](/docs/operate/production) for the
+  go-live checklist.

@@ -1,0 +1,105 @@
+---
+title: API Access
+description: Generated REST APIs, authentication, and API keys for integrations.
+---
+
+# API Access
+
+Every object declared in the artifact is exposed through a generated
+REST API. The same endpoints power the UI, integrations, and customer
+ETL scripts — there is no separate "integration API" to maintain.
+
+## Base URL
+
+```text
+https://<project-domain>/api/v1
+```
+
+Notable surfaces:
+
+| Path | Purpose |
+|---|---|
+| `/api/v1/data/<object>` | Generated CRUD for each object (e.g. `/api/v1/data/account`) |
+| `/api/v1/data/<object>/{id}` | Read/update/delete a single record |
+| `/api/v1/data/<object>/actions/<action>` | Invoke a declarative action |
+| `/api/v1/auth/*` | Authentication (sign-in, sessions, OAuth, OIDC) |
+| `/api/v1/meta/*` | Metadata APIs (objects, fields, views) when enabled |
+| `/health` | Liveness/readiness probe (no auth) |
+
+The `apiPrefix` defaults to `/api/v1` and is configurable on the
+ObjectOS stack.
+
+## Authentication options
+
+Callers can authenticate in three ways:
+
+| Method | Best for | How |
+|---|---|---|
+| Session cookie | Browser/UI traffic | Sign in through `/api/v1/auth/*`; cookies are scoped to the project hostname |
+| Bearer access token | Mobile, SPA, short-lived server jobs | Exchange credentials at `/api/v1/auth/sign-in/email` and pass `Authorization: Bearer <token>` |
+| API key | Server-to-server, ETL, long-lived integrations | Create a `sys_api_key`, pass it as a bearer token |
+
+All three pass through the same `AuthPlugin` and resolve to a `sys_user`
+context that the `SecurityPlugin` evaluates against permissions and
+record access.
+
+## API keys
+
+API keys are first-class `sys_api_key` records. The key value itself is
+stored hashed — only the `prefix` and metadata remain queryable, so a
+leaked key cannot be reconstructed from the database.
+
+To issue a key:
+
+1. Sign in to **Setup → API Keys** as an administrator.
+2. Choose the owning user (the API call inherits that user's
+   permissions and record access).
+3. Optionally set an expiration date.
+4. Copy the displayed secret **once** — it is not shown again.
+
+Use the key as a bearer token:
+
+```bash
+curl https://app.example.com/api/v1/data/account \
+  -H "Authorization: Bearer os_pk_live_…"
+```
+
+To revoke a key, run the `revoke_api_key` action on the corresponding
+`sys_api_key` record (also available in the Setup UI). Revocation takes
+effect immediately on the next request.
+
+## Pagination, filtering, and sorting
+
+Generated list endpoints accept the standard ObjectStack query
+parameters:
+
+| Parameter | Meaning |
+|---|---|
+| `?limit=` | Page size (capped by the object's `maxPageSize`) |
+| `?offset=` or `?cursor=` | Pagination |
+| `?filter=` | Server-side filtering using the ObjectQL filter syntax |
+| `?sort=` | Sort expression (e.g. `-created_at`) |
+| `?fields=` | Sparse field selection |
+
+Refer to the framework documentation for the full filter grammar — the
+runtime grammar is the source of truth.
+
+## Rate limiting
+
+Use the framework's `RateLimiter` primitive (or your ingress / API
+gateway) to apply per-IP and per-identity limits. Recommended starting
+buckets are documented in [Production readiness](/docs/operate/production).
+
+## CORS
+
+If callers run in a browser on a different origin, configure CORS at
+the ingress or via the runtime's middleware. Do **not** combine
+wildcard origins with credentialed requests.
+
+## OpenAPI / discovery
+
+The runtime can serve an OpenAPI document for the generated REST API
+when the corresponding capability is included in the image. Customer
+integrations should generate clients from the per-deployment OpenAPI
+document rather than hand-rolling URLs, because object names and
+generated routes follow the deployed artifact.

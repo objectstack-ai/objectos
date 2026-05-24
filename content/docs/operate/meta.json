@@ -1,4 +1,4 @@
 {
   "title": "Operate",
-  "pages": ["production", "observability", "upgrade", "troubleshooting"]
+  "pages": ["production", "observability", "backup", "upgrade", "troubleshooting"]
 }

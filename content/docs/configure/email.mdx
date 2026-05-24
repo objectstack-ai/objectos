@@ -1,0 +1,65 @@
+---
+title: Email
+description: Configure transactional email delivery providers and templates.
+---
+
+# Email
+
+ObjectOS sends transactional email through the framework's email plugin
+when the application requires it (password reset, invitations,
+approval notifications, scheduled reports). The plugin ships with three
+transports.
+
+## Transports
+
+| Provider | Use when | Required env |
+|---|---|---|
+| `log` | Local development; logs the email to stdout instead of sending | none |
+| `resend` | SaaS deliverability via Resend | `OS_EMAIL_API_KEY` |
+| `postmark` | SaaS deliverability via Postmark | `OS_EMAIL_API_KEY` |
+
+The default is `log`. ObjectOS falls back to the log transport when a
+real provider is configured but no API key is supplied — useful to keep
+non-production environments from accidentally sending mail.
+
+## Environment variables
+
+| Variable | Purpose |
+|---|---|
+| `OS_EMAIL_PROVIDER` | `log`, `resend`, or `postmark` |
+| `OS_EMAIL_API_KEY` | Provider API key (Resend or Postmark) |
+| `OS_EMAIL_FROM` | Default from address. Supports both `addr@x` and `Name <addr@x>` formats |
+| `OS_EMAIL_RETRIES` | Number of transport retry attempts on send failure (default `0`) |
+
+Environment variables override matching values in the artifact's
+`email` config block, so operators can re-point delivery without
+rebuilding the artifact.
+
+## Templates
+
+Reusable templates live in `sys_email_template`. Templates support
+variable interpolation evaluated by the framework's template engine.
+Application code (or a flow) calls into the email service with a
+template id and a variable bundle; the service materialises the
+subject/body and hands it to the configured transport.
+
+## Verifying delivery
+
+For Resend / Postmark, verify that the sending domain is configured in
+the provider dashboard (SPF, DKIM, optionally DMARC). The fastest
+end-to-end check is the Setup app's **Send test email** action on the
+email settings page — it uses the live transport and surfaces transport
+errors inline.
+
+## Operational guidance
+
+- Treat the API key as a secret. Store it in the customer's secret
+  manager, never in the artifact.
+- Watch transport-error logs: provider rate limits, suppressions, and
+  bounces all surface there.
+- Audit-sensitive transactional mail (password reset, MFA challenge)
+  should be retained according to the customer's policy — set
+  retention on the audit log, not the transport.
+- Outbound mail does not block business transactions: send failures
+  are surfaced as errors but do not roll back the originating record
+  change.

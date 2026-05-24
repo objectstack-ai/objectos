@@ -1,0 +1,92 @@
+---
+title: Backup and Disaster Recovery
+description: What to back up, how to restore, and how to plan for failure.
+---
+
+# Backup and Disaster Recovery
+
+ObjectOS itself is stateless — the runtime can be rebuilt from the
+container image. **Backups are about the data ObjectOS depends on, not
+ObjectOS itself.** Plan recovery around those datasets.
+
+## What to back up
+
+| Asset | Owned by | Backup strategy |
+|---|---|---|
+| Business database | Customer | Database-native backup (PITR for managed services); test restore quarterly |
+| Compiled artifact (`objectstack.json`) | Application/release team | Store every published artifact in immutable storage; never overwrite |
+| Secrets baseline | Customer secret manager | Vendor-native backup; rotate cadence per policy |
+| Object/file storage (when `storage` capability is enabled) | Customer | Bucket versioning + cross-region replication if required |
+| Customer-managed identity provider | IdP vendor | Vendor-native |
+
+ObjectOS does **not** require a separate backup of its container
+filesystem. Cache directories (`OS_CACHE_DIR`) are rebuildable.
+
+## Database backups
+
+Match the strategy to the driver:
+
+| Driver | Recommended approach |
+|---|---|
+| PostgreSQL | Continuous WAL archiving + base backup; point-in-time restore |
+| Turso / libSQL | Use the platform's backup feature; export to SQLite locally for cold copy |
+| MongoDB | Replica-set snapshots; oplog for PITR |
+| SQLite (single-node evaluation only) | File-level snapshot when the runtime is idle; **not** production-grade |
+
+Whatever the driver, validate that:
+
+- backups complete within the customer's RPO;
+- a fresh database can boot ObjectOS from the same artifact and serve
+  traffic;
+- restore tests are exercised end-to-end at least once a quarter.
+
+## Artifact versioning
+
+Treat published artifacts as immutable. Tag each artifact with the
+release id used to compile it (e.g. `objectstack-2026-05-24.json`).
+Recovery to a known-good business state usually means:
+
+1. Restore the database to the chosen point in time.
+2. Re-point ObjectOS at the artifact version that was live at that
+   time.
+3. Restart the runtime.
+
+If you overwrite artifacts in place, you lose the ability to roll back
+cleanly even when the database backup is perfect.
+
+## RPO/RTO planning
+
+A workable starting target for customer deployments:
+
+| Class | RPO | RTO | Notes |
+|---|---|---|---|
+| Evaluation / demo | best-effort | best-effort | SQLite snapshot is fine |
+| Single-tenant production | ≤ 15 min | ≤ 1 hour | Managed PostgreSQL with PITR + warm image |
+| Multi-tenant / regulated | ≤ 5 min | ≤ 30 min | HA database + multi-AZ ObjectOS + tested runbook |
+
+Tighter targets require platform changes that are outside the
+ObjectOS container itself (HA database, multi-AZ ingress, warm
+replicas).
+
+## Failure modes worth rehearsing
+
+- **Database unavailable for a long window.** Confirm the runtime
+  surfaces a clear 503 and that probes correctly mark pods unhealthy.
+- **Artifact regression.** Roll back the artifact pointer; data is
+  unaffected.
+- **Secret rotation.** Rotating `OS_AUTH_SECRET` invalidates every
+  session. Run during a maintenance window or stagger across replicas.
+- **Region outage.** If the customer requires region failover, the
+  business database, secret manager, and ingress all need to be
+  cross-region. ObjectOS itself can run anywhere the image is
+  available.
+
+## What to capture in the runbook
+
+- Backup schedule, retention, and on-call contact for each dataset.
+- Step-by-step restore procedure (database first, then artifact, then
+  start ObjectOS).
+- Verification queries to confirm the restored database is consistent.
+- Rollback plan for both ObjectOS image and artifact version (see
+  [Upgrade and Rollback](/docs/operate/upgrade)).
+- Communication template for customer-visible incidents.
