@@ -18,5 +18,6 @@ docker/artifacts/*
 !docker/artifacts/.gitkeep
 .cache/
 apps/objectos-desktop/runtime/
+apps/objectos-desktop/src-tauri/runtime/
 apps/objectos-desktop/src-tauri/target/
 apps/objectos-desktop/src-tauri/gen/

@@ -11,18 +11,35 @@ experience for end users on macOS, Windows and Linux.
 ┌──────────────────────────────────────────┐
 │  Tauri shell (Rust)                      │
 │   ├── splash WebView (src/index.html)    │
+│   ├── system tray (open / restart / data │
+│   │   folder / quit)                     │
 │   ├── waits for sidecar port             │
 │   └── navigates to http://localhost:N    │
 │                                          │
 │  Sidecar: bundled Node runs              │
 │   apps/objectos/desktop.mjs              │
 │      → objectstack serve --port N        │
+│      → SQLite + uploads under            │
+│        $OBJECTOS_HOME                    │
 └──────────────────────────────────────────┘
 ```
 
 The Node tree is staged under `runtime/` by
 `scripts/stage-runtime.mjs` (called automatically by `dev` / `build`)
-and bundled by Tauri as resources.
+and bundled by Tauri as resources. The staging step also slims the
+tree (~50 MB of source maps, markdown, and test fixtures removed).
+
+## Per-user data
+
+| OS      | Path                                         |
+|---------|----------------------------------------------|
+| macOS / Linux / Windows | `~/.objectstack`                   |
+
+(Override with `OBJECTOS_HOME=/some/path`.)
+
+The sidecar receives `OBJECTOS_HOME`, `OS_DATABASE_URL`,
+`OS_STORAGE_ROOT`, and `OS_CACHE_DIR` pointed inside that folder, so a
+clean uninstall is just deleting that directory.
 
 ## Prerequisites
 
@@ -30,22 +47,24 @@ and bundled by Tauri as resources.
 - Rust (stable) — `curl https://sh.rustup.rs -sSf | sh`
 - macOS: Xcode Command Line Tools
 - Windows: WebView2 (preinstalled on Win10+) + MSVC build tools
-- Linux: `libwebkit2gtk-4.1-dev`, `build-essential`, `libssl-dev`
+- Linux: `libwebkit2gtk-4.1-dev`, `build-essential`, `libssl-dev`,
+  `libayatana-appindicator3-dev`, `librsvg2-dev`
 
 ## Develop
 
 ```bash
-pnpm install                                # repo root
-pnpm --filter @objectos/desktop dev         # stages runtime + tauri dev
+pnpm install
+pnpm desktop:dev          # = pnpm --filter @objectos/desktop dev
 ```
 
-The first run builds Rust dependencies (~2–4 min). Subsequent runs are
-fast.
+First run builds Rust dependencies (~2–4 min). Subsequent runs are
+fast. The window opens on a splash page; once the sidecar is ready it
+navigates to the live Studio URL.
 
 ## Build distributables
 
 ```bash
-pnpm --filter @objectos/desktop build
+pnpm desktop:build
 ```
 
 Output lands in `src-tauri/target/release/bundle/`:
@@ -56,15 +75,66 @@ Output lands in `src-tauri/target/release/bundle/`:
 | Windows  | `nsis/ObjectOS_<v>_x64-setup.exe`       |
 | Linux    | `deb/objectos_<v>_amd64.deb`, AppImage  |
 
-Code signing / notarization is configured per platform in
-`src-tauri/tauri.conf.json` (see Tauri docs).
+## CI
+
+`.github/workflows/desktop.yml` builds all four platforms in parallel
+(macOS arm64, macOS x64, Windows x64, Linux x64). Trigger:
+
+- Push a tag matching `desktop-v*` → full build + draft GitHub release
+- Manual `workflow_dispatch` → artifacts only
+
+The workflow is wired for code signing — provide the secrets below to
+enable. Without secrets the builds still succeed (unsigned binaries,
+end users will see OS warnings on first launch).
+
+## Code signing
+
+### macOS (Developer ID + notarization)
+
+Required repo secrets:
+
+| Secret                       | Value                                              |
+|------------------------------|----------------------------------------------------|
+| `APPLE_CERTIFICATE`          | base64 of your `.p12` Developer ID Application cert |
+| `APPLE_CERTIFICATE_PASSWORD` | the export password                                |
+| `APPLE_SIGNING_IDENTITY`     | `Developer ID Application: Company (TEAMID)`       |
+| `APPLE_ID`                   | Apple ID email used for notarization               |
+| `APPLE_PASSWORD`             | App‑specific password (appleid.apple.com → security) |
+| `APPLE_TEAM_ID`              | 10‑char team ID from Apple Developer portal        |
+
+Tauri picks these up automatically and runs `codesign` + `notarytool`
+during `tauri build`.
+
+### Windows (Authenticode)
+
+| Secret                          | Value                |
+|---------------------------------|----------------------|
+| `WINDOWS_CERTIFICATE`           | base64 of your `.pfx`|
+| `WINDOWS_CERTIFICATE_PASSWORD`  | export password      |
+
+Then in `tauri.conf.json` set `bundle.windows.certificateThumbprint`
+to the SHA‑1 thumbprint (or extend the workflow to import the .pfx
+and sign post‑build with `signtool`).
+
+### Tauri updater key (optional)
+
+To enable in‑app auto‑update:
+
+```bash
+pnpm tauri signer generate -w ~/.tauri/objectos.key
+```
+
+Set `TAURI_SIGNING_PRIVATE_KEY` (file contents) and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in CI, paste the public key into
+`tauri.conf.json → plugins.updater.pubkey`, and flip
+`plugins.updater.active` to `true`.
 
 ## Comparison with the portable zip
 
 | | Portable zip | Tauri |
 |---|---|---|
 | Brand | none (terminal) | dock icon, menu, tray |
-| Size | ~110 MB | ~120 MB (Node sidecar dominates; shell adds ~10 MB) |
+| Size | ~110 MB zip | ~140 MB installer (signed) |
 | Auto‑update | no | yes (Tauri updater) |
 | Code signing | manual | first‑class |
 | Dev effort | tiny | moderate (Rust toolchain) |

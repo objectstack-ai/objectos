@@ -21,7 +21,7 @@
       "description": "Sent when a user requests a password reset via better-auth.",
       "variables_json": "[{\"name\":\"user.name\",\"type\":\"string\",\"required\":false,\"description\":\"Recipient display name\"},{\"name\":\"user.email\",\"type\":\"string\",\"required\":true,\"description\":\"Recipient email\"},{\"name\":\"resetUrl\",\"type\":\"url\",\"required\":true,\"description\":\"Password reset URL\"},{\"name\":\"expiresInMinutes\",\"type\":\"number\",\"required\":false,\"description\":\"Link TTL in minutes\"},{\"name\":\"appName\",\"type\":\"string\",\"required\":false,\"description\":\"Product/app name (brand override)\"}]",
       "created_at": "2026-05-25T07:46:13.400Z",
-      "updated_at": "2026-05-25T07:46:13.400Z"
+      "updated_at": "2026-05-25T12:30:25.898Z"
     },
     {
       "id": "sys_email_template-1779695173401-2",
@@ -37,7 +37,7 @@
       "description": "Sent when better-auth needs to verify a newly-registered email address.",
       "variables_json": "[{\"name\":\"user.name\",\"type\":\"string\",\"required\":false},{\"name\":\"user.email\",\"type\":\"string\",\"required\":true},{\"name\":\"verificationUrl\",\"type\":\"url\",\"required\":true},{\"name\":\"appName\",\"type\":\"string\",\"required\":false}]",
       "created_at": "2026-05-25T07:46:13.401Z",
-      "updated_at": "2026-05-25T07:46:13.401Z"
+      "updated_at": "2026-05-25T12:30:25.899Z"
     },
     {
       "id": "sys_email_template-1779695173402-3",
@@ -53,7 +53,7 @@
       "description": "Passwordless sign-in link sent by the magic-link plugin.",
       "variables_json": "[{\"name\":\"magicLinkUrl\",\"type\":\"url\",\"required\":true},{\"name\":\"expiresInMinutes\",\"type\":\"number\",\"required\":false},{\"name\":\"appName\",\"type\":\"string\",\"required\":false}]",
       "created_at": "2026-05-25T07:46:13.402Z",
-      "updated_at": "2026-05-25T07:46:13.402Z"
+      "updated_at": "2026-05-25T12:30:25.899Z"
     },
     {
       "id": "sys_email_template-1779695173402-4",
@@ -69,7 +69,7 @@
       "description": "Sent by better-auth organization plugin when a user is invited to an org.",
       "variables_json": "[{\"name\":\"inviter.name\",\"type\":\"string\",\"required\":false},{\"name\":\"inviter.email\",\"type\":\"string\",\"required\":false},{\"name\":\"organization.name\",\"type\":\"string\",\"required\":true},{\"name\":\"role\",\"type\":\"string\",\"required\":false},{\"name\":\"acceptUrl\",\"type\":\"url\",\"required\":true},{\"name\":\"appName\",\"type\":\"string\",\"required\":false}]",
       "created_at": "2026-05-25T07:46:13.402Z",
-      "updated_at": "2026-05-25T07:46:13.402Z"
+      "updated_at": "2026-05-25T12:30:25.900Z"
     },
     {
       "id": "sys_email_template-1779695173402-5",
@@ -85,7 +85,7 @@
       "description": "Time-based OTP delivered for two-factor / email-OTP login.",
       "variables_json": "[{\"name\":\"otp\",\"type\":\"string\",\"required\":true},{\"name\":\"expiresInMinutes\",\"type\":\"number\",\"required\":false},{\"name\":\"appName\",\"type\":\"string\",\"required\":false}]",
       "created_at": "2026-05-25T07:46:13.402Z",
-      "updated_at": "2026-05-25T07:46:13.402Z"
+      "updated_at": "2026-05-25T12:30:25.900Z"
     }
   ],
   "sys_file": [],

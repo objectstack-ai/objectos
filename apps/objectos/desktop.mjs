@@ -29,6 +29,10 @@ const APP_NAME = 'ObjectOS';
 
 function userDataDir() {
   if (process.env.OBJECTOS_HOME) return process.env.OBJECTOS_HOME;
+  return join(homedir(), '.objectstack');
+}
+
+function legacyDataDir() {
   const home = homedir();
   switch (platform()) {
     case 'darwin':
@@ -75,6 +79,14 @@ function openBrowser(url) {
 
 async function main() {
   const dataDir = ensureDir(userDataDir());
+
+  const legacy = legacyDataDir();
+  if (!process.env.OBJECTOS_HOME && legacy !== dataDir && existsSync(legacy) && !existsSync(join(dataDir, 'data'))) {
+    console.warn(`[desktop] found legacy data at ${legacy}`);
+    console.warn(`[desktop] not migrated automatically — set OBJECTOS_HOME='${legacy}' to keep using it,`);
+    console.warn(`[desktop] or move it with: mv "${legacy}"/* "${dataDir}"/`);
+  }
+
   const cacheDir = ensureDir(join(dataDir, 'cache'));
   const storageDir = ensureDir(join(dataDir, 'uploads'));
   const dbPath = join(ensureDir(join(dataDir, 'data')), 'standalone.db');

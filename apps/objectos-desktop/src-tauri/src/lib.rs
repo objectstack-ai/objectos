@@ -22,7 +22,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
+use tauri::{
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Emitter, Manager, RunEvent, WindowEvent,
+};
+use tauri_plugin_opener::OpenerExt;
 
 /// Process handle for the Node sidecar so we can kill it on shutdown.
 struct Sidecar(Mutex<Option<Child>>);
@@ -34,26 +39,9 @@ fn user_data_dir() -> PathBuf {
     if let Ok(p) = std::env::var("OBJECTOS_HOME") {
         return PathBuf::from(p);
     }
-    #[cfg(target_os = "macos")]
-    {
-        let mut p = dirs::home_dir().expect("home dir");
-        p.push("Library");
-        p.push("Application Support");
-        p.push("ObjectOS");
-        return p;
-    }
-    #[cfg(target_os = "windows")]
-    {
-        let mut p = dirs::data_dir().expect("data dir");
-        p.push("ObjectOS");
-        return p;
-    }
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        let mut p = dirs::data_dir().expect("data dir");
-        p.push("objectos");
-        return p;
-    }
+    let mut p = dirs::home_dir().expect("home dir");
+    p.push(".objectstack");
+    p
 }
 
 fn node_binary(runtime_dir: &PathBuf) -> PathBuf {
@@ -99,9 +87,9 @@ fn locate_runtime_dir(app: &AppHandle) -> Result<PathBuf, String> {
             return Ok(candidate);
         }
     }
-    // 2. Dev: <CARGO_MANIFEST_DIR>/../runtime (stage-runtime.mjs output)
+    // 2. Dev: <CARGO_MANIFEST_DIR>/runtime (stage-runtime.mjs output)
     if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
-        let candidate = PathBuf::from(manifest).join("..").join("runtime");
+        let candidate = PathBuf::from(manifest).join("runtime");
         if candidate.join("app").join("desktop.mjs").exists() {
             return Ok(candidate.canonicalize().unwrap_or(candidate));
         }
@@ -168,10 +156,21 @@ fn spawn_sidecar(app: &AppHandle) -> Result<Child, String> {
         thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(120);
             if wait_until_ready(port, deadline) {
-                let url = format!("http://localhost:{port}");
+                let url = format!("http://localhost:{port}/_console/");
                 let _ = app.emit("objectos://ready", &url);
                 if let Some(win) = app.get_webview_window("main") {
-                    let _ = win.eval(&format!("window.location.replace('{url}')"));
+                    match url.parse() {
+                        Ok(parsed) => {
+                            if let Err(e) = win.navigate(parsed) {
+                                let _ = app.emit("objectos://log", format!("navigate failed: {e}"));
+                                // Fall back to JS — works for same-scheme transitions.
+                                let _ = win.eval(&format!("window.location.replace('{url}')"));
+                            }
+                        }
+                        Err(e) => {
+                            let _ = app.emit("objectos://log", format!("bad url: {e}"));
+                        }
+                    }
                 }
             } else {
                 let _ = app.emit(
@@ -185,45 +184,106 @@ fn spawn_sidecar(app: &AppHandle) -> Result<Child, String> {
     Ok(child)
 }
 
+fn kill_current(app: &AppHandle) {
+    let state: tauri::State<Sidecar> = app.state();
+    let taken = state.0.lock().unwrap().take();
+    if let Some(mut child) = taken {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+}
+
+fn start_or_restart(app: &AppHandle) {
+    kill_current(app);
+    let _ = app.emit("objectos://log", "(re)starting sidecar…".to_string());
+    match spawn_sidecar(app) {
+        Ok(child) => {
+            let state: tauri::State<Sidecar> = app.state();
+            *state.0.lock().unwrap() = Some(child);
+        }
+        Err(e) => {
+            eprintln!("[desktop] sidecar failed: {e}");
+            let _ = app.emit("objectos://log", format!("sidecar failed: {e}"));
+        }
+    }
+}
+
+fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+    let open_item = MenuItem::with_id(app, "open", "Open ObjectOS", true, None::<&str>)?;
+    let restart_item = MenuItem::with_id(app, "restart", "Restart runtime", true, None::<&str>)?;
+    let data_item = MenuItem::with_id(app, "data", "Open data folder", true, None::<&str>)?;
+    let sep = PredefinedMenuItem::separator(app)?;
+    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+
+    let menu = Menu::with_items(
+        app,
+        &[&open_item, &restart_item, &data_item, &sep, &quit_item],
+    )?;
+
+    TrayIconBuilder::with_id("main-tray")
+        .icon(app.default_window_icon().unwrap().clone())
+        .tooltip("ObjectOS")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => focus_main(app),
+            "restart" => start_or_restart(app),
+            "data" => {
+                let _ = app
+                    .opener()
+                    .open_path(user_data_dir().to_string_lossy(), None::<&str>);
+            }
+            "quit" => {
+                kill_current(app);
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                focus_main(tray.app_handle());
+            }
+        })
+        .build(app)?;
+    Ok(())
+}
+
+fn focus_main(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.unminimize();
+        let _ = win.set_focus();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .manage(Sidecar(Mutex::new(None)))
         .setup(|app| {
             let handle = app.handle().clone();
-            match spawn_sidecar(&handle) {
-                Ok(child) => {
-                    let state: tauri::State<Sidecar> = app.state();
-                    *state.0.lock().unwrap() = Some(child);
-                }
-                Err(e) => {
-                    eprintln!("[desktop] sidecar failed: {e}");
-                    let _ = handle.emit("objectos://log", format!("sidecar failed: {e}"));
-                }
+            start_or_restart(&handle);
+            if let Err(e) = build_tray(&handle) {
+                eprintln!("[desktop] tray setup failed: {e}");
             }
             Ok(())
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { .. } = event {
-                let app = window.app_handle();
-                let state: tauri::State<Sidecar> = app.state();
-                let taken = state.0.lock().unwrap().take();
-                if let Some(mut child) = taken {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                }
+                kill_current(window.app_handle());
             }
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
             if let RunEvent::ExitRequested { .. } = event {
-                let state: tauri::State<Sidecar> = app.state();
-                let taken = state.0.lock().unwrap().take();
-                if let Some(mut child) = taken {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                }
+                kill_current(app);
             }
         });
 }

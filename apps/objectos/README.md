@@ -45,11 +45,8 @@ scripts/build-desktop.sh --target win-x64
 
 Output lives in `dist/desktop/ObjectOS-<version>-<os>-<arch>.zip`.
 End users unzip and run `ObjectOS.sh` (macOS / Linux) or
-`ObjectOS.cmd` (Windows). Per‑user data lives in:
-
-- macOS: `~/Library/Application Support/ObjectOS`
-- Linux: `~/.local/share/objectos`
-- Windows: `%APPDATA%\ObjectOS`
+`ObjectOS.cmd` (Windows). Per‑user data lives in `~/.objectstack`
+on all platforms (override with `OBJECTOS_HOME`).
 
 Override with `OBJECTOS_HOME`, `PORT`, or any standard `OS_*` env
 variable (e.g. `OS_CLOUD_URL` to leave offline mode).
