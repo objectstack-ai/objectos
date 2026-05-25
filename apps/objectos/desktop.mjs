@@ -76,13 +76,16 @@ function openBrowser(url) {
 async function main() {
   const dataDir = ensureDir(userDataDir());
   const cacheDir = ensureDir(join(dataDir, 'cache'));
-  const dbPath = join(ensureDir(join(dataDir, 'data')), 'data.db');
+  const storageDir = ensureDir(join(dataDir, 'uploads'));
+  const dbPath = join(ensureDir(join(dataDir, 'data')), 'standalone.db');
 
   const bundledArtifact = resolve(__dirname, 'dist', 'objectstack.json');
 
   // Defaults — env wins so users can still override.
   process.env.OS_CACHE_DIR ??= cacheDir;
+  process.env.OS_DATABASE_URL ??= `file:${dbPath}`;
   process.env.OS_BUSINESS_DB_URL ??= `file:${dbPath}`;
+  process.env.OS_STORAGE_ROOT ??= storageDir;
   if (!process.env.OS_CLOUD_URL && !process.env.OS_ARTIFACT_FILE && existsSync(bundledArtifact)) {
     process.env.OS_ARTIFACT_FILE = bundledArtifact;
   }
