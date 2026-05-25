@@ -75,7 +75,7 @@ mkdir -p "$STAGE/app"
 # --- 1. ensure the app is built ------------------------------------
 if [[ ! -f "$APP_DIR/dist/objectstack.json" ]]; then
   echo "==> Compiling artifact"
-  (cd "$ROOT" && pnpm --filter @objectos/app build)
+  (cd "$ROOT" && pnpm --filter @objectos/server build)
 fi
 
 # --- 2. install production deps into a clean tree ------------------

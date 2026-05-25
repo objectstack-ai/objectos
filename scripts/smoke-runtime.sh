@@ -7,7 +7,7 @@ LOG_FILE="${ROOT_DIR}/.objectos-smoke.log"
 
 cd "${ROOT_DIR}"
 
-pnpm --filter @objectos/app build >/dev/null
+pnpm --filter @objectos/server build >/dev/null
 
 cd "${ROOT_DIR}/apps/objectos"
 OS_ARTIFACT_FILE=dist/objectstack.json \

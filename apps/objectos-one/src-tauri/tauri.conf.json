@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ObjectOS",
-  "version": "0.0.0",
+  "version": "6.0.0",
   "identifier": "ai.objectstack.objectos",
   "build": {
     "frontendDist": "../src",
@@ -45,7 +45,7 @@
     ],
     "category": "DeveloperTool",
     "shortDescription": "ObjectOS local runtime",
-    "longDescription": "Run an ObjectStack environment locally. Bundles a Node runtime, the @objectos/app server and a compiled artifact.",
+    "longDescription": "Run an ObjectStack environment locally. Bundles a Node runtime, the @objectos/server process and a compiled artifact.",
     "macOS": {
       "minimumSystemVersion": "11.0",
       "entitlements": null,

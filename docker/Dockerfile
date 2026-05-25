@@ -19,10 +19,10 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.js
 COPY apps/objectos/package.json apps/objectos/
 COPY packages ./packages
 
-RUN pnpm install --frozen-lockfile --filter "@objectos/app..."
+RUN pnpm install --frozen-lockfile --filter "@objectos/server..."
 
 COPY apps/objectos ./apps/objectos
-RUN pnpm --filter @objectos/app build
+RUN pnpm --filter @objectos/server build
 
 # ---------- runtime ----------
 FROM node:${NODE_VERSION}-alpine AS runtime
@@ -45,4 +45,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- "http://127.0.0.1:${PORT}/" >/dev/null || exit 1
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["pnpm", "--filter", "@objectos/app", "start"]
+CMD ["pnpm", "--filter", "@objectos/server", "start"]

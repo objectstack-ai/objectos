@@ -1,7 +1,7 @@
 # `apps/objectos-one`
 
 **ObjectOS  the all-in-one local distribution of ObjectOS. AOne** 
-[Tauri](https://tauri.app) v2 shell that wraps the `@objectos/app` Node
+[Tauri](https://tauri.app) v2 shell that wraps the `@objectos/server` Node
 runtime as a sidecar and exposes it through a native WebView. The goal
  ready to use" experience on macOS,
 Windows and  no Node, no database, no extra dependencies toLinux 

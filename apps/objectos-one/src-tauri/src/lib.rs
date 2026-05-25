@@ -1,7 +1,7 @@
 //! ObjectOS One — Tauri shell.
 //!
 //! Responsibilities:
-//!   * Resolve the bundled Node runtime + the `@objectos/app` tree (staged
+//!   * Resolve the bundled Node runtime + the `@objectos/server` tree (staged
 //!     under `<resource_dir>/runtime/`).
 //!   * Spawn the Node sidecar (`one.mjs`), inheriting environment +
 //!     piping logs.

@@ -28,7 +28,7 @@ default browser.
 Local dev:
 
 ```bash
-pnpm --filter @objectos/app one
+pnpm --filter @objectos/server one
 ```
 
 Build a portable bundle (Node runtime + production deps + launcher),

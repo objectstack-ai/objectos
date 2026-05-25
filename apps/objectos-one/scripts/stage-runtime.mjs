@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Stage the Node runtime + @objectos/app tree under
+ * Stage the Node runtime + @objectos/server tree under
  * `apps/objectos-one/runtime/`, so Tauri's resource bundler can ship it.
  *
  * Reuses the same bits scripts/build-one.sh produces, but in-tree
- * (no zipping). Idempotent; re-run after changing @objectos/app.
+ * (no zipping). Idempotent; re-run after changing @objectos/server.
  *
  *   runtime/
  *     node | node.exe
@@ -108,7 +108,7 @@ function slim(root) {
 }
 
 if (!existsSync(join(APP, 'dist/objectstack.json'))) {
-  sh('pnpm --filter @objectos/app build', { cwd: REPO });
+  sh('pnpm --filter @objectos/server build', { cwd: REPO });
 }
 
 rmSync(RUNTIME, { recursive: true, force: true });
