@@ -46,6 +46,30 @@
         color: var(--muted);
       }
       .log div { white-space: pre-wrap; word-break: break-all; }
+
+      .update {
+        margin: 0 auto 18px;
+        max-width: 460px;
+        padding: 14px 18px;
+        background: linear-gradient(135deg, rgba(110,168,255,0.16), rgba(110,168,255,0.06));
+        border: 1px solid rgba(110,168,255,0.32);
+        border-radius: 12px;
+        text-align: left;
+      }
+      .update-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--fg); }
+      .update-body  { color: var(--muted); font-size: 12px; line-height: 1.55; margin-bottom: 12px; max-height: 80px; overflow: auto; }
+      .update-actions { display: flex; gap: 8px; justify-content: flex-end; }
+      .update-status  { margin-top: 10px; font-size: 12px; color: var(--muted); }
+      .btn {
+        font: inherit; font-size: 12px; font-weight: 500;
+        padding: 6px 14px; border-radius: 6px; cursor: pointer;
+        border: 1px solid transparent; transition: all 0.15s;
+      }
+      .btn.primary { background: var(--accent); color: #0b0d12; }
+      .btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+      .btn.ghost   { background: transparent; color: var(--muted); border-color: rgba(255,255,255,0.12); }
+      .btn.ghost:hover:not(:disabled)   { color: var(--fg); border-color: rgba(255,255,255,0.24); }
+      .btn:disabled { opacity: 0.5; cursor: default; }
     </style>
   </head>
   <body>
@@ -53,6 +77,15 @@
       <div class="logo">ObjectOS</div>
       <div class="tag">Starting local runtime…</div>
       <div class="bar"></div>
+      <div id="update" class="update" hidden>
+        <div class="update-title">Update available: v<span id="upd-version"></span></div>
+        <div class="update-body" id="upd-notes"></div>
+        <div class="update-actions">
+          <button id="upd-later" class="btn ghost">Later</button>
+          <button id="upd-install" class="btn primary">Install &amp; Restart</button>
+        </div>
+        <div id="upd-status" class="update-status"></div>
+      </div>
       <div id="log" class="log"></div>
     </div>
     <script>
@@ -63,11 +96,44 @@
         log.appendChild(el);
         log.scrollTop = log.scrollHeight;
       };
+
+      const updateBox = document.getElementById('update');
+      const updVersion = document.getElementById('upd-version');
+      const updNotes = document.getElementById('upd-notes');
+      const updStatus = document.getElementById('upd-status');
+      const updInstall = document.getElementById('upd-install');
+      const updLater = document.getElementById('upd-later');
+
       if (window.__TAURI__) {
-        const { event } = window.__TAURI__;
+        const { event, core } = window.__TAURI__;
         event.listen('objectos://log', (e) => append(String(e.payload)));
         event.listen('objectos://ready', (e) => {
           append('✓ ready, opening ' + e.payload);
+        });
+        event.listen('objectos://update-available', (e) => {
+          const info = e.payload || {};
+          updVersion.textContent = info.version || '?';
+          updNotes.textContent = info.notes ? info.notes.slice(0, 240) : '';
+          updateBox.hidden = false;
+        });
+        event.listen('objectos://update-installing', (e) => {
+          updStatus.textContent = 'Downloading v' + e.payload + '…';
+          updInstall.disabled = true;
+          updLater.disabled = true;
+        });
+        updInstall.addEventListener('click', async () => {
+          updStatus.textContent = 'Starting update…';
+          updInstall.disabled = true;
+          try {
+            await core.invoke('install_update');
+          } catch (err) {
+            updStatus.textContent = 'Update failed: ' + err;
+            updInstall.disabled = false;
+            updLater.disabled = false;
+          }
+        });
+        updLater.addEventListener('click', () => {
+          updateBox.hidden = true;
         });
       } else {
         append('(Tauri bridge unavailable — running in plain browser)');

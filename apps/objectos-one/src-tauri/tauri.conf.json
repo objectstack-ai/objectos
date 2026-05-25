@@ -20,7 +20,7 @@
         "minHeight": 600,
         "resizable": true,
         "center": true,
-        "url": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgY2hhcnNldD0idXRmLTgiPjx0aXRsZT5PYmplY3RPUzwvdGl0bGU+CjxzdHlsZT46cm9vdHtjb2xvci1zY2hlbWU6bGlnaHQgZGFya31odG1sLGJvZHl7aGVpZ2h0OjEwMCU7bWFyZ2luOjB9Ym9keXtiYWNrZ3JvdW5kOnJhZGlhbC1ncmFkaWVudCgxMjAwcHggNjAwcHggYXQgNTAlIC0xMCUsIzFjMjMzNiAwJSwjMGIwZDEyIDYwJSk7Y29sb3I6I2U2ZThlZTtmb250OjE0cHgvMS41IC1hcHBsZS1zeXN0ZW0sQmxpbmtNYWNTeXN0ZW1Gb250LCJTZWdvZSBVSSIsSW50ZXIsc2Fucy1zZXJpZjtkaXNwbGF5OmdyaWQ7cGxhY2UtaXRlbXM6Y2VudGVyOy13ZWJraXQtdXNlci1zZWxlY3Q6bm9uZX0ud3JhcHt3aWR0aDptaW4oNTYwcHgsODh2dyk7dGV4dC1hbGlnbjpjZW50ZXJ9LmxvZ297Zm9udC1zaXplOjI4cHg7Zm9udC13ZWlnaHQ6NzAwO2xldHRlci1zcGFjaW5nOi0uMDJlbTttYXJnaW4tYm90dG9tOjZweH0udGFne2NvbG9yOiM4YjkzYTc7bWFyZ2luLWJvdHRvbToyOHB4fS5iYXJ7aGVpZ2h0OjRweDtib3JkZXItcmFkaXVzOjRweDtiYWNrZ3JvdW5kOiMxYjIwMzA7b3ZlcmZsb3c6aGlkZGVuO3Bvc2l0aW9uOnJlbGF0aXZlO21hcmdpbjowIGF1dG8gMjJweDt3aWR0aDoyMjBweH0uYmFyOjphZnRlcntjb250ZW50OiIiO3Bvc2l0aW9uOmFic29sdXRlO2luc2V0OjA7d2lkdGg6MzUlO2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KDkwZGVnLHRyYW5zcGFyZW50LCM2ZWE4ZmYsdHJhbnNwYXJlbnQpO2FuaW1hdGlvbjpzIDEuNnMgbGluZWFyIGluZmluaXRlfUBrZXlmcmFtZXMgc3tmcm9te3RyYW5zZm9ybTp0cmFuc2xhdGVYKC0xMDAlKX10b3t0cmFuc2Zvcm06dHJhbnNsYXRlWCgzODAlKX19LmxvZ3ttYXJnaW46MCBhdXRvO21heC1oZWlnaHQ6MjIwcHg7b3ZlcmZsb3c6YXV0bzt0ZXh0LWFsaWduOmxlZnQ7YmFja2dyb3VuZDpyZ2JhKDI1NSwyNTUsMjU1LC4wMyk7Ym9yZGVyOjFweCBzb2xpZCByZ2JhKDI1NSwyNTUsMjU1LC4wNik7Ym9yZGVyLXJhZGl1czoxMHB4O3BhZGRpbmc6MTBweCAxMnB4O2ZvbnQ6MTJweC8xLjU1IHVpLW1vbm9zcGFjZSxTRk1vbm8tUmVndWxhcixNZW5sbyxtb25vc3BhY2U7Y29sb3I6IzhiOTNhN30ubG9nIGRpdnt3aGl0ZS1zcGFjZTpwcmUtd3JhcDt3b3JkLWJyZWFrOmJyZWFrLWFsbH08L3N0eWxlPjwvaGVhZD4KPGJvZHk+PGRpdiBjbGFzcz0id3JhcCI+PGRpdiBjbGFzcz0ibG9nbyI+T2JqZWN0T1M8L2Rpdj48ZGl2IGNsYXNzPSJ0YWciPlN0YXJ0aW5nIGxvY2FsIDwvZGl2PjxkaXYgY2xhc3M9ImJhciI+PC9kaXY+PGRpdiBpZD0ibG9nIiBjbGFzcz0ibG9nIj48L2Rpdj48L2Rpdj5ydW50aW1lCjxzY3JpcHQ+dmFyIGxvZz1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnbG9nJyk7ZnVuY3Rpb24gYXBwZW5kKGwpe3ZhciBlPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2RpdicpO2UudGV4dENvbnRlbnQ9bDtsb2cuYXBwZW5kQ2hpbGQoZSk7bG9nLnNjcm9sbFRvcD1sb2cuc2Nyb2xsSGVpZ2h0fWlmKHdpbmRvdy5fX1RBVVJJX18pe3ZhciBldj13aW5kb3cuX19UQVVSSV9fLmV2ZW50O2V2Lmxpc3Rlbignb2JqZWN0b3M6Ly9sb2cnLGZ1bmN0aW9uKGUpe2FwcGVuZChTdHJpbmcoZS5wYXlsb2FkKSl9KTtldi5saXN0ZW4oJ29iamVjdG9zOi8vcmVhZHknLGZ1bmN0aW9uKGUpeyByZWFkeSwgb3BlbmluZyAnK2UucGF5bG9hZCl9KX1lbHNle2FwcGVuZCgnKFRhdXJpIGJyaWRnZSB1bmF2YWlsYWJsZSknKX08L3NjcmlwdD48L2JvZHk+PC9odG1sPmFwcGVuZCgnCg=="
+        "url": "index.html"
       }
     ],
     "security": {
@@ -29,6 +29,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": [
       "dmg",
       "app",
@@ -76,12 +77,12 @@
   },
   "plugins": {
     "updater": {
-      "active": false,
+      "active": true,
       "endpoints": [
-        "https://releases.objectstack.ai/one/{{target}}/{{current_version}}"
+        "https://github.com/objectstack-ai/objectos/releases/latest/download/latest.json"
       ],
-      "dialog": true,
-      "pubkey": ""
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE1NzgxRUMwMkQxQTZGQjYKUldTMmJ4b3R3QjU0RloyK21lYW4xUDVuU1dTM2tEWXpZU2RGellsZ28rMUtLWVh6eFdmbFp3M20K"
     }
   }
 }

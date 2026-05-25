@@ -98,6 +98,8 @@ jobs:
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.tar.gz
+            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.zip
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.sig
           if-no-files-found: warn
 
@@ -107,13 +109,27 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/one-v') || inputs.release
     runs-on: ubuntu-22.04
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+      - name: Generate latest.json (updater manifest)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node .github/scripts/build-update-manifest.mjs artifacts "$TAG" > artifacts/latest.json
       - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           generate_release_notes: true
           name: ObjectOS One ${{ github.ref_name }}
-          files: artifacts/**/*
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+            artifacts/**/*.msi
+            artifacts/**/*.deb
+            artifacts/**/*.AppImage
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/*.sig
+            artifacts/latest.json

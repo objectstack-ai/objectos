@@ -28,6 +28,7 @@ use tauri::{
     AppHandle, Emitter, Manager, RunEvent, WindowEvent,
 };
 use tauri_plugin_opener::OpenerExt;
+use tauri_plugin_updater::UpdaterExt;
 
 /// Process handle for the Node sidecar so we can kill it on shutdown.
 struct Sidecar(Mutex<Option<Child>>);
@@ -212,12 +213,14 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let open_item = MenuItem::with_id(app, "open", "Open ObjectOS", true, None::<&str>)?;
     let restart_item = MenuItem::with_id(app, "restart", "Restart runtime", true, None::<&str>)?;
     let data_item = MenuItem::with_id(app, "data", "Open data folder", true, None::<&str>)?;
+    let update_item =
+        MenuItem::with_id(app, "update", "Check for updates…", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
     let menu = Menu::with_items(
         app,
-        &[&open_item, &restart_item, &data_item, &sep, &quit_item],
+        &[&open_item, &restart_item, &data_item, &update_item, &sep, &quit_item],
     )?;
 
     TrayIconBuilder::with_id("main-tray")
@@ -232,6 +235,12 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                 let _ = app
                     .opener()
                     .open_path(user_data_dir().to_string_lossy(), None::<&str>);
+            }
+            "update" => {
+                let handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    check_for_update(&handle).await;
+                });
             }
             "quit" => {
                 kill_current(app);
@@ -261,17 +270,103 @@ fn focus_main(app: &AppHandle) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Auto-update
+// ---------------------------------------------------------------------------
+//
+// 30 seconds after launch we ask `latest.json` whether a newer version is
+// out. If so we emit `objectos://update-available` so the splash WebView
+// (and the tray menu) can offer an "install & restart" action — driven by
+// the `install_update` command below.
+//
+// The whole thing is gated on `plugins.updater.active` in tauri.conf.json.
+
+static UPDATE_PENDING: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[derive(serde::Serialize, Clone)]
+struct UpdateInfo {
+    version: String,
+    current: String,
+    notes: Option<String>,
+}
+
+fn schedule_update_check(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        // Give the sidecar room to come up first.
+        tokio::time::sleep(Duration::from_secs(30)).await;
+        check_for_update(&app).await;
+    });
+}
+
+async fn check_for_update(app: &AppHandle) {
+    let updater = match app.updater() {
+        Ok(u) => u,
+        Err(e) => {
+            eprintln!("[one] updater unavailable: {e}");
+            return;
+        }
+    };
+    match updater.check().await {
+        Ok(Some(update)) => {
+            UPDATE_PENDING.store(true, std::sync::atomic::Ordering::SeqCst);
+            let info = UpdateInfo {
+                version: update.version.clone(),
+                current: update.current_version.clone(),
+                notes: update.body.clone(),
+            };
+            let _ = app.emit("objectos://update-available", &info);
+            eprintln!(
+                "[one] update available: {} → {}",
+                info.current, info.version
+            );
+        }
+        Ok(None) => {
+            eprintln!("[one] up to date");
+        }
+        Err(e) => {
+            eprintln!("[one] update check failed: {e}");
+        }
+    }
+}
+
+#[tauri::command]
+async fn check_now(app: AppHandle) {
+    check_for_update(&app).await;
+}
+
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "no update available".to_string())?;
+    let _ = app.emit("objectos://update-installing", &update.version);
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| e.to_string())?;
+    // Kill our sidecar before Tauri's relaunch swaps the binary.
+    kill_current(&app);
+    app.restart();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Sidecar(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![install_update, check_now])
         .setup(|app| {
             let handle = app.handle().clone();
             start_or_restart(&handle);
             if let Err(e) = build_tray(&handle) {
                 eprintln!("[one] tray setup failed: {e}");
             }
+            schedule_update_check(handle.clone());
             Ok(())
         })
         .on_window_event(|window, event| {
