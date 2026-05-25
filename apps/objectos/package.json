@@ -9,6 +9,7 @@
     "dev": "objectstack dev",
     "build": "objectstack compile",
     "start": "objectstack serve --port ${PORT:-3000}",
+    "desktop": "node desktop.mjs",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

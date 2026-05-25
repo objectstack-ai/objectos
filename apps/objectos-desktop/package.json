@@ -1,0 +1,17 @@
+{
+  "name": "@objectos/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0",
+  "description": "ObjectOS Desktop — Tauri shell wrapping the @objectos/app Node runtime.",
+  "type": "module",
+  "scripts": {
+    "stage": "node scripts/stage-runtime.mjs",
+    "tauri": "tauri",
+    "dev": "pnpm run stage && tauri dev",
+    "build": "pnpm run stage && tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}
