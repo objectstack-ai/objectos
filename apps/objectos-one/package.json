@@ -1,9 +1,9 @@
 {
-  "name": "@objectos/desktop",
+  "name": "@objectos/one",
   "version": "0.0.0",
   "private": true,
   "license": "AGPL-3.0",
-  "description": "ObjectOS Desktop — Tauri shell wrapping the @objectos/app Node runtime.",
+  "description": "ObjectOS One — all-in-one local distribution (Tauri shell + bundled Node runtime + DB).",
   "type": "module",
   "scripts": {
     "stage": "node scripts/stage-runtime.mjs",

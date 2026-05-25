@@ -17,7 +17,8 @@ coverage/
 docker/artifacts/*
 !docker/artifacts/.gitkeep
 .cache/
-apps/objectos-desktop/runtime/
-apps/objectos-desktop/src-tauri/runtime/
-apps/objectos-desktop/src-tauri/target/
-apps/objectos-desktop/src-tauri/gen/
+apps/objectos-one/runtime/
+apps/objectos-one/src-tauri/runtime/
+apps/objectos-one/src-tauri/target/
+apps/objectos-one/src-tauri/gen/
+.objectstack/

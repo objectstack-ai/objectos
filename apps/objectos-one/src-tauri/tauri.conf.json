@@ -74,7 +74,7 @@
     "updater": {
       "active": false,
       "endpoints": [
-        "https://releases.objectstack.ai/desktop/{{target}}/{{current_version}}"
+        "https://releases.objectstack.ai/one/{{target}}/{{current_version}}"
       ],
       "dialog": true,
       "pubkey": ""

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ObjectOS Desktop launcher.
+ * ObjectOS One launcher.
  *
  * Boots `objectstack serve` with sensible defaults for a local,
  * single-user "double-click to run" experience:
@@ -13,7 +13,7 @@
  *   - Opens the default browser once the server is ready.
  *
  * Designed to be the entry point for a portable distributable
- * (`scripts/build-desktop.sh`).
+ * (`scripts/build-one.sh`).
  */
 
 import { spawn } from 'node:child_process';
@@ -21,7 +21,8 @@ import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
 import { homedir, platform } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -73,7 +74,7 @@ function openBrowser(url) {
   try {
     spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref();
   } catch (err) {
-    console.warn(`[desktop] could not open browser: ${err.message}`);
+    console.warn(`[one] could not open browser: ${err.message}`);
   }
 }
 
@@ -82,9 +83,9 @@ async function main() {
 
   const legacy = legacyDataDir();
   if (!process.env.OBJECTOS_HOME && legacy !== dataDir && existsSync(legacy) && !existsSync(join(dataDir, 'data'))) {
-    console.warn(`[desktop] found legacy data at ${legacy}`);
-    console.warn(`[desktop] not migrated automatically — set OBJECTOS_HOME='${legacy}' to keep using it,`);
-    console.warn(`[desktop] or move it with: mv "${legacy}"/* "${dataDir}"/`);
+    console.warn(`[one] found legacy data at ${legacy}`);
+    console.warn(`[one] not migrated automatically — set OBJECTOS_HOME='${legacy}' to keep using it,`);
+    console.warn(`[one] or move it with: mv "${legacy}"/* "${dataDir}"/`);
   }
 
   const cacheDir = ensureDir(join(dataDir, 'cache'));
@@ -103,22 +104,36 @@ async function main() {
   }
   process.env.OS_PROJECT_ID ??= 'proj_local';
 
+  // Persist a per-install AUTH_SECRET so AuthPlugin is enabled (required
+  // for /_account/register and /_account/login). 64 bytes hex = 512 bit.
+  if (!process.env.AUTH_SECRET) {
+    const secretFile = join(dataDir, 'auth.secret');
+    if (existsSync(secretFile)) {
+      process.env.AUTH_SECRET = readFileSync(secretFile, 'utf8').trim();
+    } else {
+      const secret = randomBytes(64).toString('hex');
+      writeFileSync(secretFile, secret, { mode: 0o600 });
+      process.env.AUTH_SECRET = secret;
+      console.log(`[one] generated AUTH_SECRET → ${secretFile}`);
+    }
+  }
+
   const preferredPort = Number(process.env.PORT ?? 3000);
   const port = await findFreePort(preferredPort);
   if (!port) {
-    console.error('[desktop] no free port available');
+    console.error('[one] no free port available');
     process.exit(1);
   }
   if (port !== preferredPort) {
-    console.log(`[desktop] port ${preferredPort} busy → using ${port}`);
+    console.log(`[one] port ${preferredPort} busy → using ${port}`);
   }
   process.env.PORT = String(port);
 
   const url = `http://localhost:${port}`;
 
-  console.log(`[desktop] data dir : ${dataDir}`);
-  console.log(`[desktop] artifact : ${process.env.OS_ARTIFACT_FILE ?? '(cloud)'}`);
-  console.log(`[desktop] starting ObjectOS on ${url}`);
+  console.log(`[one] data dir : ${dataDir}`);
+  console.log(`[one] artifact : ${process.env.OS_ARTIFACT_FILE ?? '(cloud)'}`);
+  console.log(`[one] starting ObjectOS on ${url}`);
 
   // Resolve the objectstack CLI bin from this app's node_modules so the
   // portable bundle works regardless of cwd.
@@ -154,6 +169,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('[desktop] fatal:', err);
+  console.error('[one] fatal:', err);
   process.exit(1);
 });

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    objectos_desktop_lib::run();
+    objectos_one_lib::run();
 }

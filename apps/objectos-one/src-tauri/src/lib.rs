@@ -1,9 +1,9 @@
-//! ObjectOS Desktop — Tauri shell.
+//! ObjectOS One — Tauri shell.
 //!
 //! Responsibilities:
 //!   * Resolve the bundled Node runtime + the `@objectos/app` tree (staged
 //!     under `<resource_dir>/runtime/`).
-//!   * Spawn the Node sidecar (`desktop.mjs`), inheriting environment +
+//!   * Spawn the Node sidecar (`one.mjs`), inheriting environment +
 //!     piping logs.
 //!   * Probe `http://127.0.0.1:<port>/` until ready, then navigate the
 //!     splash WebView to the live URL.
@@ -83,30 +83,30 @@ fn locate_runtime_dir(app: &AppHandle) -> Result<PathBuf, String> {
     // 1. Production: bundled under <resource_dir>/runtime
     if let Ok(res) = app.path().resource_dir() {
         let candidate = res.join("runtime");
-        if candidate.join("app").join("desktop.mjs").exists() {
+        if candidate.join("app").join("one.mjs").exists() {
             return Ok(candidate);
         }
     }
     // 2. Dev: <CARGO_MANIFEST_DIR>/runtime (stage-runtime.mjs output)
     if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
         let candidate = PathBuf::from(manifest).join("runtime");
-        if candidate.join("app").join("desktop.mjs").exists() {
+        if candidate.join("app").join("one.mjs").exists() {
             return Ok(candidate.canonicalize().unwrap_or(candidate));
         }
     }
-    Err("runtime not staged — run `pnpm --filter @objectos/desktop stage`".into())
+    Err("runtime not staged — run `pnpm --filter @objectos/one stage`".into())
 }
 
 fn spawn_sidecar(app: &AppHandle) -> Result<Child, String> {
     let runtime_dir = locate_runtime_dir(app)?;
     let node = node_binary(&runtime_dir);
-    let entry = runtime_dir.join("app").join("desktop.mjs");
+    let entry = runtime_dir.join("app").join("one.mjs");
 
     if !node.exists() {
         return Err(format!("node binary not found at {}", node.display()));
     }
     if !entry.exists() {
-        return Err(format!("desktop.mjs not found at {}", entry.display()));
+        return Err(format!("one.mjs not found at {}", entry.display()));
     }
 
     let data = user_data_dir();
@@ -202,7 +202,7 @@ fn start_or_restart(app: &AppHandle) {
             *state.0.lock().unwrap() = Some(child);
         }
         Err(e) => {
-            eprintln!("[desktop] sidecar failed: {e}");
+            eprintln!("[one] sidecar failed: {e}");
             let _ = app.emit("objectos://log", format!("sidecar failed: {e}"));
         }
     }
@@ -270,7 +270,7 @@ pub fn run() {
             let handle = app.handle().clone();
             start_or_restart(&handle);
             if let Err(e) = build_tray(&handle) {
-                eprintln!("[desktop] tray setup failed: {e}");
+                eprintln!("[one] tray setup failed: {e}");
             }
             Ok(())
         })

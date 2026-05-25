@@ -1,27 +1,29 @@
-# `apps/objectos-desktop`
+# `apps/objectos-one`
 
-**ObjectOS Desktop** — a [Tauri](https://tauri.app) v2 shell that wraps
-the `@objectos/app` Node runtime as a sidecar and exposes it through a
-native WebView. The goal is a "download → double‑click → ready to use"
-experience for end users on macOS, Windows and Linux.
+**ObjectOS  the all-in-one local distribution of ObjectOS. AOne** 
+[Tauri](https://tauri.app) v2 shell that wraps the `@objectos/app` Node
+runtime as a sidecar and exposes it through a native WebView. The goal
+ ready to use" experience on macOS,
+Windows and  no Node, no database, no extra dependencies toLinux 
+install.
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────┐
-│  Tauri shell (Rust)                      │
-│   ├── splash WebView (src/index.html)    │
-│   ├── system tray (open / restart / data │
-│   │   folder / quit)                     │
-│   ├── waits for sidecar port             │
-│   └── navigates to http://localhost:N    │
-│                                          │
-│  Sidecar: bundled Node runs              │
-│   apps/objectos/desktop.mjs              │
-│      → objectstack serve --port N        │
-│      → SQLite + uploads under            │
-│        $OBJECTOS_HOME                    │
-└──────────────────────────────────────────┘
+
+  Tauri shell (Rust)                      
+ splash WebView (src/index.html)       
+ system tray (open / restart / data    
+   folder / quit)                        
+ waits for sidecar port                
+ navigates to http://localhost:N       
+                                          
+  Sidecar: bundled Node runs              
+   apps/objectos/one.mjs                  
+ objectstack serve --port N        
+ SQLite + uploads under            
+        $OBJECTOS_HOME                    
+
 ```
 
 The Node tree is staged under `runtime/` by
@@ -43,8 +45,8 @@ clean uninstall is just deleting that directory.
 
 ## Prerequisites
 
-- Node ≥ 20 + pnpm 10
-- Rust (stable) — `curl https://sh.rustup.rs -sSf | sh`
+-  20 + pnpm 10Node 
+- Rust ( `curl https://sh.rustup.rs -sSf | sh`stable) 
 - macOS: Xcode Command Line Tools
 - Windows: WebView2 (preinstalled on Win10+) + MSVC build tools
 - Linux: `libwebkit2gtk-4.1-dev`, `build-essential`, `libssl-dev`,
@@ -54,17 +56,17 @@ clean uninstall is just deleting that directory.
 
 ```bash
 pnpm install
-pnpm desktop:dev          # = pnpm --filter @objectos/desktop dev
+pnpm one:dev              # = pnpm --filter @objectos/one dev
 ```
 
-First run builds Rust dependencies (~2–4 min). Subsequent runs are
+First run builds Rust dependencies (~4 min). Subsequent runs are2
 fast. The window opens on a splash page; once the sidecar is ready it
 navigates to the live Studio URL.
 
 ## Build distributables
 
 ```bash
-pnpm desktop:build
+pnpm one:build
 ```
 
 Output lands in `src-tauri/target/release/bundle/`:
@@ -77,13 +79,13 @@ Output lands in `src-tauri/target/release/bundle/`:
 
 ## CI
 
-`.github/workflows/desktop.yml` builds all four platforms in parallel
+`.github/workflows/one.yml` builds all four platforms in parallel
 (macOS arm64, macOS x64, Windows x64, Linux x64). Trigger:
 
-- Push a tag matching `desktop-v*` → full build + draft GitHub release
-- Manual `workflow_dispatch` → artifacts only
+ full build + draft GitHub release
+ artifacts only
 
-The workflow is wired for code signing — provide the secrets below to
+The workflow is wired for code  provide the secrets below tosigning 
 enable. Without secrets the builds still succeed (unsigned binaries,
 end users will see OS warnings on first launch).
 
@@ -99,8 +101,8 @@ Required repo secrets:
 | `APPLE_CERTIFICATE_PASSWORD` | the export password                                |
 | `APPLE_SIGNING_IDENTITY`     | `Developer ID Application: Company (TEAMID)`       |
 | `APPLE_ID`                   | Apple ID email used for notarization               |
-| `APPLE_PASSWORD`             | App‑specific password (appleid.apple.com → security) |
-| `APPLE_TEAM_ID`              | 10‑char team ID from Apple Developer portal        |
+ security) |
+| `APPLE_TEAM_ID`              | 10-char team ID from Apple Developer portal        |
 
 Tauri picks these up automatically and runs `codesign` + `notarytool`
 during `tauri build`.
@@ -113,12 +115,12 @@ during `tauri build`.
 | `WINDOWS_CERTIFICATE_PASSWORD`  | export password      |
 
 Then in `tauri.conf.json` set `bundle.windows.certificateThumbprint`
-to the SHA‑1 thumbprint (or extend the workflow to import the .pfx
-and sign post‑build with `signtool`).
+to the SHA-1 thumbprint (or extend the workflow to import the .pfx
+and sign post-build with `signtool`).
 
 ### Tauri updater key (optional)
 
-To enable in‑app auto‑update:
+To enable in-app auto-update:
 
 ```bash
 pnpm tauri signer generate -w ~/.tauri/objectos.key
@@ -126,7 +128,7 @@ pnpm tauri signer generate -w ~/.tauri/objectos.key
 
 Set `TAURI_SIGNING_PRIVATE_KEY` (file contents) and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in CI, paste the public key into
-`tauri.conf.json → plugins.updater.pubkey`, and flip
+ plugins.updater.pubkey`, and flip
 `plugins.updater.active` to `true`.
 
 ## Comparison with the portable zip
@@ -135,8 +137,8 @@ Set `TAURI_SIGNING_PRIVATE_KEY` (file contents) and
 |---|---|---|
 | Brand | none (terminal) | dock icon, menu, tray |
 | Size | ~110 MB zip | ~140 MB installer (signed) |
-| Auto‑update | no | yes (Tauri updater) |
-| Code signing | manual | first‑class |
+| Auto-update | no | yes (Tauri updater) |
+| Code signing | manual | first-class |
 | Dev effort | tiny | moderate (Rust toolchain) |
 
-Both share `desktop.mjs`, so the runtime behaviour is identical.
+Both share `one.mjs`, so the runtime behaviour is identical.

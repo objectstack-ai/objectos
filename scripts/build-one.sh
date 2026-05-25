@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------
-# Build a portable ObjectOS desktop distributable.
+# Build a portable ObjectOS One distributable.
 #
-# Produces, under dist/desktop/:
+# Produces, under dist/one/:
 #
 #   ObjectOS-<version>-<os>-<arch>/
 #     ├── node                 (bundled Node runtime)
 #     ├── ObjectOS(.cmd|.sh)   (double-click launcher)
 #     ├── app/
-#     │     ├── desktop.mjs
+#     │     ├── one.mjs
 #     │     ├── package.json
 #     │     ├── dist/objectstack.json
 #     │     └── node_modules/  (production deps, native bins built for target)
@@ -16,7 +16,7 @@
 #   ObjectOS-<version>-<os>-<arch>.zip
 #
 # Usage:
-#   scripts/build-desktop.sh [--target <os>-<arch>] [--node <version>]
+#   scripts/build-one.sh [--target <os>-<arch>] [--node <version>]
 #
 # Defaults to the current host platform. Cross-platform packaging works
 # for the *Node binary* (downloaded from nodejs.org), but native npm
@@ -39,7 +39,7 @@ done
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT/apps/objectos"
-OUT_ROOT="$ROOT/dist/desktop"
+OUT_ROOT="$ROOT/dist/one"
 
 # --- detect target -------------------------------------------------
 host_os() {
@@ -82,7 +82,7 @@ fi
 echo "==> Installing production deps"
 STAGE_APP="$STAGE/app"
 cp "$APP_DIR/package.json" "$STAGE_APP/package.json"
-cp "$APP_DIR/desktop.mjs"  "$STAGE_APP/desktop.mjs"
+cp "$APP_DIR/one.mjs"  "$STAGE_APP/one.mjs"
 mkdir -p "$STAGE_APP/dist"
 cp "$APP_DIR/dist/objectstack.json" "$STAGE_APP/dist/objectstack.json"
 
@@ -137,21 +137,21 @@ if [[ "$OS" == "win" ]]; then
 @echo off
 setlocal
 cd /d "%~dp0"
-".\node.exe" "app\desktop.mjs"
+".\node.exe" "app\one.mjs"
 EOF
 else
   cat > "$STAGE/ObjectOS.sh" <<'EOF'
 #!/usr/bin/env bash
 set -e
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$HERE/node" "$HERE/app/desktop.mjs"
+exec "$HERE/node" "$HERE/app/one.mjs"
 EOF
   chmod +x "$STAGE/ObjectOS.sh"
 fi
 
 # --- 5. README ----------------------------------------------------
 cat > "$STAGE/README.txt" <<EOF
-ObjectOS Desktop ${VERSION} (${OS}-${ARCH})
+ObjectOS One ${VERSION} (${OS}-${ARCH})
 
 Quick start:
   $( [[ "$OS" == "win" ]] && echo "  Double-click ObjectOS.cmd" || echo "  Run ./ObjectOS.sh from a terminal" )
