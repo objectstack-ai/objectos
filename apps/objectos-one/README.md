@@ -43,6 +43,32 @@ The sidecar receives `OBJECTOS_HOME`, `OS_DATABASE_URL`,
 `OS_STORAGE_ROOT`, and `OS_CACHE_DIR` pointed inside that folder, so a
 clean uninstall is just deleting that directory.
 
+## Configuration
+
+Open **tray → Settings…** to edit environment variables passed to the
+ObjectOS server. Variables are stored in `<data-dir>/one.config.json` as
+a flat map and forwarded verbatim when the runtime starts.
+
+Commonly used keys:
+
+| Key             | Default          | Notes                                                            |
+|-----------------|------------------|------------------------------------------------------------------|
+| `PORT`          | auto (3000+)     | Fixed port. If in use, falls back to auto with a log line.       |
+| `HOST`          | `127.0.0.1`      | `0.0.0.0` exposes the server to the LAN. **Set up auth first.**  |
+| `OBJECTOS_HOME` | `~/.objectstack` | Data directory. Absolute path.                                   |
+| `LOG_LEVEL`     | —                | Forwarded to the Node server.                                    |
+| _anything else_ | —                | Forwarded as-is to the sidecar process.                          |
+
+The Settings window also reflects values inherited from the parent
+shell — those win over the saved file, so a one-off override still
+works:
+
+```
+PORT=4001 HOST=0.0.0.0 open -a ObjectOS
+```
+
+Save in the Settings window triggers an automatic runtime restart.
+
 ## Prerequisites
 
 -  20 + pnpm 10Node 

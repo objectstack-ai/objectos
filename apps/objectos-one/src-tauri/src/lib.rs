@@ -25,10 +25,12 @@ use std::{
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, RunEvent, WindowEvent,
+    AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
+
+mod config;
 
 /// Process handle for the Node sidecar so we can kill it on shutdown.
 struct Sidecar(Mutex<Option<Child>>);
@@ -37,12 +39,7 @@ struct Sidecar(Mutex<Option<Child>>);
 static PORT: AtomicU16 = AtomicU16::new(0);
 
 fn user_data_dir() -> PathBuf {
-    if let Ok(p) = std::env::var("OBJECTOS_HOME") {
-        return PathBuf::from(p);
-    }
-    let mut p = dirs::home_dir().expect("home dir");
-    p.push(".objectstack");
-    p
+    config::effective_data_dir()
 }
 
 fn node_binary(runtime_dir: &PathBuf) -> PathBuf {
@@ -56,19 +53,21 @@ fn node_binary(runtime_dir: &PathBuf) -> PathBuf {
     }
 }
 
-fn pick_free_port(start: u16) -> u16 {
+fn pick_free_port(host: &str, start: u16) -> u16 {
     for port in start..start + 100 {
-        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+        if std::net::TcpListener::bind((host, port)).is_ok() {
             return port;
         }
     }
     0
 }
 
-fn wait_until_ready(port: u16, deadline: Instant) -> bool {
+fn wait_until_ready(host: &str, port: u16, deadline: Instant) -> bool {
+    // Probe via loopback regardless of bind host (0.0.0.0 is reachable as 127.0.0.1).
+    let probe_host = if host == "0.0.0.0" { "127.0.0.1" } else { host };
     while Instant::now() < deadline {
         if TcpStream::connect_timeout(
-            &format!("127.0.0.1:{port}").parse().unwrap(),
+            &format!("{probe_host}:{port}").parse().unwrap(),
             Duration::from_millis(300),
         )
         .is_ok()
@@ -110,24 +109,54 @@ fn spawn_sidecar(app: &AppHandle) -> Result<Child, String> {
         return Err(format!("one.mjs not found at {}", entry.display()));
     }
 
-    let data = user_data_dir();
-    std::fs::create_dir_all(&data).ok();
+    let stored = config::load();
+    let host = config::effective_host();
+    let data_dir = config::effective_data_dir();
+    std::fs::create_dir_all(&data_dir).ok();
 
-    let port = pick_free_port(3000);
+    // Honor a fixed PORT (from saved env or shell), else auto-select.
+    let port = match config::effective_u16("PORT") {
+        Some(fixed) => {
+            if std::net::TcpListener::bind((host.as_str(), fixed)).is_ok() {
+                fixed
+            } else {
+                let _ = app.emit(
+                    "objectos://log",
+                    format!(
+                        "configured PORT {fixed} on {host} is in use; falling back to auto-select"
+                    ),
+                );
+                pick_free_port(&host, 3000)
+            }
+        }
+        None => pick_free_port(&host, 3000),
+    };
     if port == 0 {
         return Err("no free port available".into());
     }
     PORT.store(port, Ordering::SeqCst);
 
+    let _ = app.emit(
+        "objectos://log",
+        format!("starting sidecar on {host}:{port}"),
+    );
+
     let mut cmd = Command::new(&node);
-    cmd.arg(&entry)
-        .env("OBJECTOS_HOME", &data)
+    cmd.arg(&entry).stdout(Stdio::piped()).stderr(Stdio::piped());
+
+    // 1) Apply user-configured env from one.config.json. Set first so the
+    //    parent shell can still override anything (Command env order).
+    for (k, v) in &stored.env {
+        cmd.env(k, v);
+    }
+    // 2) Forced / derived values (always win over user config — these are
+    //    operational, not user choices).
+    cmd.env("OBJECTOS_HOME", &data_dir)
         .env("PORT", port.to_string())
+        .env("HOST", &host)
         // The launcher itself will open a browser; suppress that since the
         // Tauri WebView is the UI.
-        .env("OBJECTOS_NO_OPEN", "1")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .env("OBJECTOS_NO_OPEN", "1");
 
     let mut child = cmd.spawn().map_err(|e| format!("spawn node: {e}"))?;
 
@@ -154,9 +183,10 @@ fn spawn_sidecar(app: &AppHandle) -> Result<Child, String> {
     // Wait for the HTTP server to bind, then navigate.
     {
         let app = app.clone();
+        let host = host.clone();
         thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(120);
-            if wait_until_ready(port, deadline) {
+            if wait_until_ready(&host, port, deadline) {
                 let url = format!("http://localhost:{port}/_console/");
                 let _ = app.emit("objectos://ready", &url);
                 if let Some(win) = app.get_webview_window("main") {
@@ -213,6 +243,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let open_item = MenuItem::with_id(app, "open", "Open ObjectOS", true, None::<&str>)?;
     let restart_item = MenuItem::with_id(app, "restart", "Restart runtime", true, None::<&str>)?;
     let data_item = MenuItem::with_id(app, "data", "Open data folder", true, None::<&str>)?;
+    let settings_item = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let update_item =
         MenuItem::with_id(app, "update", "Check for updates…", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
@@ -220,7 +251,15 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 
     let menu = Menu::with_items(
         app,
-        &[&open_item, &restart_item, &data_item, &update_item, &sep, &quit_item],
+        &[
+            &open_item,
+            &restart_item,
+            &data_item,
+            &settings_item,
+            &update_item,
+            &sep,
+            &quit_item,
+        ],
     )?;
 
     TrayIconBuilder::with_id("main-tray")
@@ -235,6 +274,9 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                 let _ = app
                     .opener()
                     .open_path(user_data_dir().to_string_lossy(), None::<&str>);
+            }
+            "settings" => {
+                open_settings_window(app);
             }
             "update" => {
                 let handle = app.clone();
@@ -353,13 +395,64 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     app.restart();
 }
 
+// ---------------------------------------------------------------------------
+// Settings window + commands
+// ---------------------------------------------------------------------------
+
+fn open_settings_window(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("settings") {
+        let _ = win.show();
+        let _ = win.unminimize();
+        let _ = win.set_focus();
+        return;
+    }
+    let builder = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("prefs.html".into()))
+        .title("ObjectOS Settings")
+        .inner_size(640.0, 560.0)
+        .min_inner_size(520.0, 420.0)
+        .resizable(true);
+    if let Err(e) = builder.build() {
+        let _ = app.emit("objectos://log", format!("settings window failed: {e}"));
+    }
+}
+
+#[tauri::command]
+fn get_config_snapshot() -> config::ConfigSnapshot {
+    config::snapshot()
+}
+
+#[tauri::command]
+fn save_config(
+    app: AppHandle,
+    env: std::collections::BTreeMap<String, String>,
+) -> Result<config::ConfigSnapshot, String> {
+    let cfg = config::StoredConfig { env };
+    let path = config::save(&cfg).map_err(|e| e.to_string())?;
+    let _ = app.emit(
+        "objectos://log",
+        format!("saved config to {} (restart runtime to apply)", path.display()),
+    );
+    Ok(config::snapshot())
+}
+
+#[tauri::command]
+fn restart_runtime(app: AppHandle) {
+    start_or_restart(&app);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Sidecar(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![install_update, check_now])
+        .invoke_handler(tauri::generate_handler![
+            install_update,
+            check_now,
+            get_config_snapshot,
+            save_config,
+            restart_runtime
+        ])
         .setup(|app| {
             let handle = app.handle().clone();
             start_or_restart(&handle);
