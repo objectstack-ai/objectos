@@ -75,6 +75,9 @@ jobs:
 
       - name: Build Tauri bundle
         env:
+          # AppImage tools need FUSE on Linux; ubuntu-22.04 dropped it.
+          # Setting this forces AppImage runtime to extract-and-run instead.
+          APPIMAGE_EXTRACT_AND_RUN: "1"
           # Tauri updater key (no-password key generated via `signer generate --ci`).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
