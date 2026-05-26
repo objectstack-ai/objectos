@@ -118,6 +118,25 @@ jobs:
 
           rm -f "$CERT_PATH"
 
+      - name: Debug Apple secret presence
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Print only the byte-length of each Apple secret so we can
+          # tell whether the value reached the runner without leaking it.
+          echo "APPLE_CERTIFICATE          length=${#APPLE_CERTIFICATE}"
+          echo "APPLE_CERTIFICATE_PASSWORD length=${#APPLE_CERTIFICATE_PASSWORD}"
+          echo "APPLE_SIGNING_IDENTITY     length=${#APPLE_SIGNING_IDENTITY}"
+          echo "APPLE_TEAM_ID              length=${#APPLE_TEAM_ID}"
+          echo "APPLE_ID                   length=${#APPLE_ID}"
+          echo "APPLE_PASSWORD             length=${#APPLE_PASSWORD}"
+
       - name: Build Tauri bundle
         env:
           # AppImage tools need FUSE on Linux; ubuntu-22.04 dropped it.
