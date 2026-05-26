@@ -96,13 +96,11 @@ jobs:
           name: objectos-one-${{ matrix.target }}
           path: |
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
-            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app
-            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*-setup.exe
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
-            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.tar.gz
-            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.zip
+            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
+            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis.zip
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.sig
           if-no-files-found: warn
 
@@ -128,11 +126,10 @@ jobs:
           name: ObjectOS One ${{ github.ref_name }}
           files: |
             artifacts/**/*.dmg
-            artifacts/**/*.exe
+            artifacts/**/*-setup.exe
             artifacts/**/*.msi
             artifacts/**/*.deb
-            artifacts/**/*.AppImage
-            artifacts/**/*.tar.gz
-            artifacts/**/*.zip
+            artifacts/**/*.app.tar.gz
+            artifacts/**/*.nsis.zip
             artifacts/**/*.sig
             artifacts/latest.json
