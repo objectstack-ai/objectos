@@ -103,6 +103,36 @@ Output lands in `src-tauri/target/release/bundle/`:
 | Windows  | `nsis/ObjectOS_<v>_x64-setup.exe`       |
 | Linux    | `deb/objectos_<v>_amd64.deb`, AppImage  |
 
+## Versioning
+
+ObjectOS One ships the bundled `@objectos/server` runtime, which in turn
+depends on `@objectstack/cli`. We pin the app version to the cli version so
+the installed app always advertises the underlying engine release.
+
+`apps/objectos-one/scripts/sync-version.mjs` reads the cli version (from
+`node_modules/@objectstack/cli` after install, falling back to the declared
+range in `apps/objectos/package.json`) and writes it into:
+
+- `apps/objectos-one/package.json`
+- `apps/objectos-one/src-tauri/tauri.conf.json`
+- `apps/objectos-one/src-tauri/Cargo.toml`
+
+`pnpm dev` / `pnpm build` run it automatically. To release:
+
+```bash
+pnpm install                              # resolve the exact cli version
+pnpm --filter @objectos/one sync-version  # writes the three files
+git commit -am "chore(one): bump to $(node -p \
+  "require('./apps/objectos-one/package.json').version")"
+git tag "one-v$(node -p \
+  "require('./apps/objectos-one/package.json').version")"
+git push --follow-tags
+```
+
+CI rejects the build if the `one-v<X.Y.Z>` tag does not equal the cli
+version sync-version computed, so a wrong tag fails fast instead of
+shipping a broken updater manifest.
+
 ## CI
 
 `.github/workflows/one.yml` builds all four platforms in parallel

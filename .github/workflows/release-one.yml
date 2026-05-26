@@ -1,0 +1,145 @@
+name: release-one
+
+# Manual release trigger for ObjectOS One.
+#
+# What it does:
+#   1. Resolves the @objectstack/cli version (single source of truth).
+#   2. Runs sync-version to write that version into package.json,
+#      tauri.conf.json and Cargo.toml.
+#   3. If anything changed, commits the bump on the chosen branch.
+#   4. Creates and pushes the matching `one-v<X.Y.Z>` tag.
+#   5. The tag push automatically triggers `one.yml`, which builds all
+#      four platforms and drafts the GitHub Release.
+#
+# Use this instead of tagging by hand — it guarantees the tag matches
+# whatever cli version `pnpm install` resolves on a clean tree.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch to release from (default: main)"
+        required: false
+        default: "main"
+      dry_run:
+        description: "Resolve + sync but do NOT commit or push the tag"
+        type: boolean
+        default: false
+      force:
+        description: "Re-create the tag if it already exists (deletes the old tag)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-one
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Resolve version & push tag
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          # We need full history so `git push` of the bump commit works
+          # against the branch tip.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install workspace deps
+        # Required so sync-version sees the resolved @objectstack/cli
+        # version under node_modules (the most reliable source).
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync app version to @objectstack/cli
+        run: pnpm --filter @objectos/one sync-version
+
+      - name: Resolve target version
+        id: ver
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./apps/objectos-one/package.json').version")
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+            echo "::error::resolved version '$VERSION' is not valid semver"
+            exit 1
+          fi
+          TAG="one-v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG"
+
+      - name: Check tag uniqueness
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "$TAG" >/dev/null 2>&1; then
+            if [ "$FORCE" = "true" ]; then
+              echo "Tag $TAG exists — will overwrite (force=true)."
+            else
+              echo "::error::tag $TAG already exists on origin. Bump @objectstack/cli or rerun with force=true."
+              exit 1
+            fi
+          else
+            echo "Tag $TAG is free."
+          fi
+
+      - name: Commit version bump (if needed)
+        if: ${{ !inputs.dry_run }}
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            apps/objectos-one/package.json \
+            apps/objectos-one/src-tauri/tauri.conf.json \
+            apps/objectos-one/src-tauri/Cargo.toml
+
+          if git diff --cached --quiet; then
+            echo "Versions already at $VERSION — nothing to commit."
+          else
+            git commit -m "chore(one): release v$VERSION"
+            git push origin "HEAD:${{ inputs.ref }}"
+          fi
+
+      - name: Create & push tag
+        if: ${{ !inputs.dry_run }}
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          if [ "$FORCE" = "true" ]; then
+            # Delete remote tag first so the new one points at the latest commit.
+            git push origin ":refs/tags/$TAG" || true
+            git tag -d "$TAG" 2>/dev/null || true
+          fi
+          git tag -a "$TAG" -m "ObjectOS One v$VERSION"
+          git push origin "$TAG"
+          echo "Pushed $TAG — the 'one' workflow will now build and draft the release."
+          echo "Watch it at: https://github.com/${GITHUB_REPOSITORY}/actions/workflows/one.yml"
+
+      - name: Dry-run summary
+        if: ${{ inputs.dry_run }}
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          echo "::notice::Dry run complete. Would have pushed tag $TAG to trigger one.yml. No commit or push performed."

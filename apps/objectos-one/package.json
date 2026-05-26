@@ -1,15 +1,17 @@
 {
   "name": "@objectos/one",
-  "version": "6.0.6",
+  "version": "6.5.1",
   "private": true,
   "license": "AGPL-3.0",
   "description": "ObjectOS One — all-in-one local distribution (Tauri shell + bundled Node runtime + DB).",
   "type": "module",
   "scripts": {
+    "sync-version": "node scripts/sync-version.mjs",
+    "sync-version:check": "node scripts/sync-version.mjs --check",
     "stage": "node scripts/stage-runtime.mjs",
     "tauri": "tauri",
-    "dev": "pnpm run stage && tauri dev",
-    "build": "pnpm run stage && tauri build"
+    "dev": "pnpm run sync-version && pnpm run stage && tauri dev",
+    "build": "pnpm run sync-version && pnpm run stage && tauri build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0"
