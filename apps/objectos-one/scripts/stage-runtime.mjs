@@ -28,7 +28,7 @@ const RUNTIME = resolve(PKG, 'src-tauri/runtime');
 const NODE_VERSION = process.env.NODE_VERSION ?? '22.22.0';
 
 const osName = ({ darwin: 'darwin', linux: 'linux', win32: 'win' })[platform()];
-const archName = ({ x64: 'x64', arm64: 'arm64' })[arch()];
+const archName = process.env.TARGET_ARCH ?? ({ x64: 'x64', arm64: 'arm64' })[arch()];
 if (!osName || !archName) {
   console.error(`unsupported platform: ${platform()}/${arch()}`);
   process.exit(1);
@@ -55,7 +55,7 @@ function slim(root) {
   if (!existsSync(root)) return;
   const dropFileExt = /\.(map|md|markdown)$/i;
   const dropDirName = /^(__tests__|\.github|\.nyc_output|coverage)$/i;
-  const platformTag = `${platform() === 'win32' ? 'win32' : platform()}-${arch()}`;
+  const platformTag = `${platform() === 'win32' ? 'win32' : platform()}-${archName}`;
 
   let removed = 0;
   let bytes = 0;
