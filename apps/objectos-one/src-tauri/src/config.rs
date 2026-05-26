@@ -41,7 +41,7 @@ pub fn default_data_dir() -> PathBuf {
 pub fn config_file_path() -> PathBuf {
     let base = std::env::var("OBJECTOS_HOME")
         .map(PathBuf::from)
-        .unwrap_or_else(default_data_dir);
+        .unwrap_or_else(|_| default_data_dir());
     base.join(CONFIG_FILE)
 }
 
