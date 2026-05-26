@@ -137,6 +137,45 @@ jobs:
           echo "APPLE_ID                   length=${#APPLE_ID}"
           echo "APPLE_PASSWORD             length=${#APPLE_PASSWORD}"
 
+      - name: Pre-sign staged runtime binaries (macOS)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            echo "APPLE_SIGNING_IDENTITY not set — skipping pre-sign."
+            exit 0
+          fi
+
+          RUNTIME="apps/objectos-one/src-tauri/runtime"
+          if [ ! -d "$RUNTIME" ]; then
+            echo "Runtime dir not found at $RUNTIME"
+            exit 1
+          fi
+
+          # Notarization requires every Mach-O inside the .app to be signed
+          # with the same Developer ID, hardened runtime, and a secure
+          # timestamp. Tauri's own codesign pass doesn't deep-sign embedded
+          # Node native binaries, so we sign them here before Tauri bundles.
+          echo "Scanning $RUNTIME for Mach-O binaries..."
+          find "$RUNTIME" -type f \
+            \( -name '*.node' -o -name '*.dylib' -o -name '*.so' \
+               -o -path '*/bin/*' -o -name 'node' \) \
+            | while read -r f; do
+                # Skip anything that isn't actually a Mach-O.
+                if file -b "$f" | grep -qE 'Mach-O'; then
+                  echo "  signing $f"
+                  codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
+                    --timestamp --options runtime "$f"
+                fi
+              done
+
+          echo "Done. Verifying a sample:"
+          find "$RUNTIME" -type f -name '*.node' | head -1 | while read -r f; do
+            codesign -dv --verbose=2 "$f" 2>&1 | head -10 || true
+          done
+
       - name: Build Tauri bundle
         env:
           # AppImage tools need FUSE on Linux; ubuntu-22.04 dropped it.
