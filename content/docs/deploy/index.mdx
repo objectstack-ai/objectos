@@ -1,0 +1,24 @@
+---
+title: Deployment
+description: Choose how to run ObjectOS — Docker for evaluation, Kubernetes for production HA, or an air-gapped bundle for networks with no egress.
+---
+
+ObjectOS ships as a single runtime artifact that runs the same way in every environment. Pick the deployment shape that matches your infrastructure.
+
+## Docker
+
+A single container is the fastest way to evaluate ObjectOS or run it on a single host. Mount a volume for the data directory, point it at your database, and start the container.
+
+[Docker guide →](/docs/deploy/docker)
+
+## Kubernetes
+
+For production, run ObjectOS as a Deployment behind a Service, with persistent storage for the data directory and your secrets supplied through standard Kubernetes mechanisms.
+
+[Kubernetes guide →](/docs/deploy/kubernetes)
+
+## Air-Gapped
+
+Ship a release bundle into a network with no internet egress. ObjectOS reads its application artifact from a local file and never reaches a hosted service.
+
+[Air-gapped guide →](/docs/deploy/air-gapped)

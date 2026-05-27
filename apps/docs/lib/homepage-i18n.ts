@@ -109,7 +109,7 @@ export const en: HomepageTranslations = {
       primary: 'Quickstart',
       primaryHref: '/docs/quickstart',
       secondary: 'Deployment Guide',
-      secondaryHref: '/docs/deployment',
+      secondaryHref: '/docs/deploy',
     },
     quickStart: {
       label: 'Terminal',
@@ -186,7 +186,7 @@ export const cn: HomepageTranslations = {
       primary: '快速开始',
       primaryHref: '/docs/quickstart',
       secondary: '部署指南',
-      secondaryHref: '/docs/deployment',
+      secondaryHref: '/docs/deploy',
     },
     quickStart: {
       label: '终端',

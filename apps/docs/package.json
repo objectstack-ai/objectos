@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "ObjectOS Documentation Site",
-  "license": "AGPL-3.0",
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

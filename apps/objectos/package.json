@@ -2,7 +2,7 @@
   "name": "@objectos/server",
   "version": "6.0.0",
   "private": true,
-  "license": "AGPL-3.0",
+  "license": "Apache-2.0",
   "description": "ObjectOS — the reference runtime distribution of the ObjectStack framework.",
   "type": "module",
   "scripts": {

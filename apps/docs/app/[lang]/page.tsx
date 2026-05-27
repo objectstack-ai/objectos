@@ -26,7 +26,7 @@ export default async function HomePage({
     {
       key: 'deployAnywhere',
       icon: Container,
-      href: '/docs/deployment',
+      href: '/docs/deploy',
       title: t.features.deployAnywhere.title,
       description: t.features.deployAnywhere.description,
     },
@@ -65,7 +65,7 @@ export default async function HomePage({
       key: 'itOps',
       icon: Wrench,
       color: 'text-blue-500',
-      href: '/docs/deployment',
+      href: '/docs/deploy',
       title: t.personas.itOps.title,
       description: t.personas.itOps.description,
       action: t.personas.itOps.action,

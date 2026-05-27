@@ -1,4 +1,4 @@
 {
   "title": "Deploy",
-  "pages": ["docker", "kubernetes", "air-gapped"]
+  "pages": ["index", "docker", "kubernetes", "air-gapped"]
 }

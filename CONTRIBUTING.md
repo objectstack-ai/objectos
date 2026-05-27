@@ -31,5 +31,7 @@ pnpm test
 
 ## License
 
-By contributing you agree your contributions are licensed under
-[AGPL-3.0](LICENSE).
+By contributing you agree your contributions are licensed under the
+[Apache License 2.0](LICENSE), the same license that covers this
+repository. Per Apache 2.0 § 5, contributions are submitted under the
+terms of the License without any additional terms or conditions.

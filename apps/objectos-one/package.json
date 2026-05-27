@@ -2,7 +2,7 @@
   "name": "@objectos/one",
   "version": "6.5.1",
   "private": true,
-  "license": "AGPL-3.0",
+  "license": "Apache-2.0",
   "description": "ObjectOS One — all-in-one local distribution (Tauri shell + bundled Node runtime + DB).",
   "type": "module",
   "scripts": {

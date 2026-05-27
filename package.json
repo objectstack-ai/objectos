@@ -1,7 +1,7 @@
 {
   "name": "objectos-monorepo",
   "private": true,
-  "license": "AGPL-3.0",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=20"

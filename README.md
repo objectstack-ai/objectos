@@ -21,7 +21,7 @@ ObjectOS               ≈  the distribution you actually deploy
 | Repo | `objectstack-ai/framework` | `objectstack-ai/objectos` | `objectstack-ai/objectos-enterprise` (private) |
 | What it ships | Protocol, Kernel, all `@objectstack/*` packages, Studio, Cloud control plane | Runtime distribution + Docker/Helm + ops docs | SSO/SAML, SCIM, audit export, HA scheduler, … |
 | Who consumes it | Framework contributors, plugin authors | **End customers** (self-host / private cloud) | Enterprise customers |
-| License | AGPL-3.0 | **AGPL-3.0** | Commercial |
+| License | Apache-2.0 | **Apache-2.0** | Commercial |
 | Release cadence | Frequent (per `changeset`) | Distribution semver (e.g. `2026.05 LTS`) | Tracks ObjectOS |
 
 The framework develops the protocol; ObjectOS packages a protocol
@@ -89,4 +89,7 @@ The current `main` is a deliberate restart aligned with the
 
 ## License
 
-[AGPL-3.0](LICENSE).
+ObjectOS is licensed under the [Apache License 2.0](LICENSE).
+
+"ObjectOS" and the ObjectOS logo are trademarks of the ObjectOS project
+and are not covered by the Apache 2.0 grant. See [TRADEMARK.md](TRADEMARK.md).
