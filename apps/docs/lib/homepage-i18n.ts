@@ -67,6 +67,55 @@ export interface HomepageTranslations {
     };
   };
 
+  // Deploy Modes Section
+  deployModes: {
+    heading: string;
+    subheading: string;
+    docker: {
+      title: string;
+      tagline: string;
+      description: string;
+      href: string;
+      cta: string;
+    };
+    kubernetes: {
+      title: string;
+      tagline: string;
+      description: string;
+      href: string;
+      cta: string;
+    };
+    airGapped: {
+      title: string;
+      tagline: string;
+      description: string;
+      href: string;
+      cta: string;
+    };
+  };
+
+  // Comparison Section
+  comparison: {
+    heading: string;
+    subheading: string;
+    columns: {
+      criterion: string;
+      saas: string;
+      objectos: string;
+    };
+    rows: Array<{ criterion: string; saas: string; objectos: string }>;
+  };
+
+  // Bottom CTA
+  bottomCta: {
+    heading: string;
+    subheading: string;
+    primary: string;
+    primaryHref: string;
+    secondary: string;
+    secondaryHref: string;
+  };
+
   // Personas Section
   personas: {
     heading: string;
@@ -163,6 +212,56 @@ export const en: HomepageTranslations = {
       action: 'Architecture Overview',
     },
   },
+  deployModes: {
+    heading: 'Three Ways to Run It',
+    subheading: 'Same artifact, same behavior. Pick the shape that matches your infrastructure.',
+    docker: {
+      title: 'Docker',
+      tagline: 'Single host, single command',
+      description: 'One container against your own database. Ideal for evaluation, internal tools, and small-team deployments.',
+      href: '/docs/deploy/docker',
+      cta: 'Docker guide',
+    },
+    kubernetes: {
+      title: 'Kubernetes',
+      tagline: 'Production HA',
+      description: 'Deployment + Service + PersistentVolumeClaim, with secrets and config from the mechanisms you already use. Helm chart included.',
+      href: '/docs/deploy/kubernetes',
+      cta: 'Kubernetes guide',
+    },
+    airGapped: {
+      title: 'Air-Gapped',
+      tagline: 'No internet egress',
+      description: 'Ship a release bundle into a network with no public connectivity. ObjectOS reads its artifact from disk and never calls home.',
+      href: '/docs/deploy/air-gapped',
+      cta: 'Air-gapped guide',
+    },
+  },
+  comparison: {
+    heading: 'ObjectOS vs. Hosted SaaS',
+    subheading: 'For teams that cannot — or will not — put customer data into someone else’s cloud.',
+    columns: {
+      criterion: '',
+      saas: 'Hosted SaaS',
+      objectos: 'ObjectOS',
+    },
+    rows: [
+      { criterion: 'Where data lives', saas: 'Vendor cloud', objectos: 'Your infrastructure' },
+      { criterion: 'Network egress required', saas: 'Always', objectos: 'Optional / none' },
+      { criterion: 'Identity provider', saas: 'Vendor-controlled', objectos: 'Your SSO / OIDC / SAML' },
+      { criterion: 'Audit & backup target', saas: 'Vendor storage', objectos: 'Your storage' },
+      { criterion: 'Failure radius', saas: 'Vendor outage', objectos: 'Your operations' },
+      { criterion: 'Upgrade cadence', saas: 'Forced', objectos: 'You decide' },
+    ],
+  },
+  bottomCta: {
+    heading: 'Run it where your data already lives.',
+    subheading: 'A single artifact, the same behavior everywhere — from a laptop to an air-gapped data center.',
+    primary: 'Quickstart',
+    primaryHref: '/docs/quickstart',
+    secondary: 'Architecture',
+    secondaryHref: '/docs/architecture',
+  },
 };
 
 /**
@@ -239,6 +338,56 @@ export const cn: HomepageTranslations = {
       description: '把团队需要的应用 —— CRM、合同、采购、客服 —— 运行起来,而无需把客户数据交给第三方。',
       action: '架构总览',
     },
+  },
+  deployModes: {
+    heading: '三种部署形态',
+    subheading: '同一个发布包,同一种行为。挑一种贴合你基础设施的方式即可。',
+    docker: {
+      title: 'Docker',
+      tagline: '单机单条命令',
+      description: '一个容器对接你自己的数据库。适合评估、内部工具与小团队部署。',
+      href: '/docs/deploy/docker',
+      cta: 'Docker 指南',
+    },
+    kubernetes: {
+      title: 'Kubernetes',
+      tagline: '生产级高可用',
+      description: 'Deployment + Service + PersistentVolumeClaim,密钥和配置来自你已经在用的机制。提供 Helm Chart。',
+      href: '/docs/deploy/kubernetes',
+      cta: 'Kubernetes 指南',
+    },
+    airGapped: {
+      title: '完全离线',
+      tagline: '无公网出口',
+      description: '把发布包送进完全离线的网络。ObjectOS 从本地文件读取工件,不向任何外部服务发起调用。',
+      href: '/docs/deploy/air-gapped',
+      cta: '离线部署指南',
+    },
+  },
+  comparison: {
+    heading: 'ObjectOS 与托管 SaaS 的对比',
+    subheading: '面向那些不能 —— 或不愿 —— 把客户数据放到别人云上的团队。',
+    columns: {
+      criterion: '',
+      saas: '托管 SaaS',
+      objectos: 'ObjectOS',
+    },
+    rows: [
+      { criterion: '数据存放位置', saas: '厂商云', objectos: '你的基础设施' },
+      { criterion: '是否需要公网出口', saas: '始终需要', objectos: '可选 / 完全不需要' },
+      { criterion: '身份提供方', saas: '由厂商控制', objectos: '你的 SSO / OIDC / SAML' },
+      { criterion: '审计与备份目标', saas: '厂商存储', objectos: '你自己的存储' },
+      { criterion: '故障影响范围', saas: '厂商宕机', objectos: '你自己的运维' },
+      { criterion: '升级节奏', saas: '强制升级', objectos: '由你决定' },
+    ],
+  },
+  bottomCta: {
+    heading: '让应用跑在你数据已经在的地方。',
+    subheading: '一份发布包,在笔记本和完全离线的数据中心里表现一致。',
+    primary: '快速开始',
+    primaryHref: '/docs/quickstart',
+    secondary: '架构总览',
+    secondaryHref: '/docs/architecture',
   },
 };
 
