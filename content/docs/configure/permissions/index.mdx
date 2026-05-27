@@ -1,70 +1,148 @@
 ---
-title: Permissions Overview
-description: Understand ObjectOS identity and access control layers.
+title: Permissions
+description: Identity, roles, permission sets, record access, and field security — the whole access model on one page.
 ---
 
-# Permissions Overview
+# Permissions
 
-ObjectOS enforces access through layered controls from the ObjectStack
-security model. The goal is to answer both:
+ObjectOS has a layered access model borrowed from the playbook that's
+worked in enterprise software for two decades: identity → roles →
+permission sets → record access → field security. Each layer answers a
+different question, and you can ignore the ones you don't need.
 
-- Who is this user?
-- What data and fields can this user access in this project?
-
-## Layers
+## The model in one diagram
 
 ```text
-Authentication
-  -> User / organization / membership
-  -> Roles and permission sets
-  -> Object permissions
-  -> Record access
-  -> Field security
+Authentication       Who is the caller?
+        ↓
+Identity             Which user/org/membership is active?
+        ↓
+Roles                Where do they sit in the hierarchy?
+        ↓
+Permission sets      What CAN they do — apps, objects, fields, system?
+        ↓
+Record access        WHICH records can they touch?
+        ↓
+Field security       For those records, which FIELDS are readable / writable?
 ```
 
-## Customer-facing concepts
+Each layer is enforced by the security plugin. You can use just
+permission sets (no roles, no sharing rules) for simple apps and add
+the rest as the requirement appears.
 
-| Concept | Purpose |
+## Layer 1 — Identity
+
+Identity objects live in your project database. The most important ones:
+
+| Object | What it represents |
 |---|---|
-| User | Person or service identity that can authenticate |
-| Organization | Tenant/workspace boundary |
-| Member | User's membership in an organization |
-| Role | Position in the access hierarchy |
-| Permission set | Explicit grants for apps, objects, fields, and system actions |
-| Sharing rule | Declarative rule that grants record access |
-| Record share | Direct record-level share entry |
-| Field security | Per-field read/write control |
+| `sys_user` | A person or service account that can authenticate |
+| `sys_org` | Tenant / workspace boundary (multi-tenant apps) |
+| `sys_member` | A user's membership in an organization (role assigned per membership) |
+| `sys_department`, `sys_team` | Optional org structure for sharing rules |
+| `sys_invitation` | Pending invite waiting to be accepted |
+| `sys_session` | Active authenticated session |
+| `sys_api_key` | Long-lived programmatic credential bound to a user |
 
-## Default isolation
+In a multi-tenant deployment:
 
-Project identity and business data live in the project database. In
-multi-project deployments, ObjectOS builds a separate project kernel and
-auth context per project.
+- Users are scoped to the project database.
+- Sessions are scoped to the project hostname.
+- Row-level checks use the current user's organization and permissions.
+- Control-plane users are **not** automatically business users — they
+  must be mapped in via platform SSO or explicit provisioning.
 
-For customer deployments, this means:
+You create/manage these from **Console** (`/_console/`) at runtime, or
+seed them in `objectstack.config.ts` for fresh environments.
 
-- users are scoped to the project database;
-- sessions are scoped to the project hostname;
-- row-level checks use the current user's organization and permissions;
-- control-plane users are not automatically business users unless
-  platform SSO or provisioning maps them into the project.
+## Layer 2 — Roles
 
-## Where to configure
+Roles model the org chart (CFO → Finance Manager → Analyst). They
+exist primarily so sharing rules and reports can say things like "the
+record owner's manager." Use roles when you need hierarchical access;
+skip them for flat teams.
 
-The Setup app exposes the main administrative objects:
+See [Roles](/docs/configure/permissions/roles).
 
-- Users, Organizations, Departments, Teams, Invitations;
-- Roles and Permission Sets;
-- Sharing Rules and Record Shares;
-- API Keys;
-- Sessions and Audit Logs.
+## Layer 3 — Permission sets
 
-Read the next pages based on the problem:
+Permission sets are the primary way to grant capabilities. They attach
+to users directly or via roles.
 
-| Problem | Page |
+### What they grant
+
+| Type | Examples |
 |---|---|
-| Create users and organizations | [Identity](/docs/configure/permissions/identity) |
-| Define hierarchy | [Roles](/docs/configure/permissions/roles) |
-| Grant object/system permissions | [Permission Sets](/docs/configure/permissions/permission-sets) |
-| Explain record visibility | [Record Access](/docs/configure/permissions/record-access) |
-| Hide or lock fields | [Field Security](/docs/configure/permissions/field-security) |
+| Application access | Open CRM, open the support portal |
+| Object permissions | Create / read / update / delete records of an object |
+| Field permissions | Read or update specific fields |
+| System permissions | Access Console, run reports, export data, view audit log |
+| Integration permissions | Use API keys, configure webhooks, run admin actions |
+
+### Object permission flags
+
+These are the exact flag names the security plugin checks:
+
+| Flag | Meaning |
+|---|---|
+| `allowRead` | Read records the user can see via record access |
+| `allowCreate` | Create new records |
+| `allowEdit` | Update records the user can see |
+| `allowDelete` | Delete records the user can see |
+| `viewAllRecords` | Read **every** record for the object, ignoring record-access rules |
+| `modifyAllRecords` | Update/delete **every** record; implies `viewAllRecords` |
+
+`viewAllRecords` and `modifyAllRecords` are tenant-wide super-user
+grants for that object. Reserve them for explicit administrative
+permission sets and keep them out of any user-facing role.
+
+See [Permission Sets](/docs/configure/permissions/permission-sets).
+
+## Layer 4 — Record access
+
+For users **without** `viewAllRecords`, which rows can they see?
+
+The model supports:
+
+- Implicit ownership (rows the user created or owns)
+- Sharing rules (declarative — "team A sees team A's records")
+- Explicit shares (`sys_record_share` rows — one-off shares)
+- Organization scoping (the row's `org_id` matches the user's
+  organization)
+
+See [Record Access](/docs/configure/permissions/record-access).
+
+## Layer 5 — Field security
+
+Even when a user can see a record, individual fields can be:
+
+- **Hidden** — field is stripped from API and UI responses.
+- **Read-only** — field is returned but rejected on write.
+
+Field security is per object + per permission set. Typical use:
+
+- Hide `salary` on `sys_user` from anyone outside HR.
+- Make `external_account_id` readable but not editable to support reps.
+
+It's enforced in the same evaluator as object permissions, so it
+applies uniformly across REST, ObjectQL, and Studio.
+
+## Where to start
+
+| If you're building … | Use |
+|---|---|
+| A single-team internal tool | Permission sets only |
+| A multi-team app with managers seeing reports | Roles + permission sets |
+| A multi-tenant SaaS-shaped app | Org scoping + permission sets |
+| A regulated app with PII | Add field security on top |
+| A complex CRM-style app | The full stack |
+
+## Diagnose & audit
+
+- `/_console/` shows the effective permissions of any user as they're
+  evaluated.
+- Audit log (`sys_audit_log`) records permission-sensitive changes —
+  grants, role assignments, permission-set edits.
+- Denied requests log the failing rule (object permission vs record
+  access vs field security) so support can answer "why can't I see
+  this?" quickly.

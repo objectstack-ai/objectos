@@ -22,6 +22,25 @@ The default is `log`. ObjectOS falls back to the log transport when a
 real provider is configured but no API key is supplied — useful to keep
 non-production environments from accidentally sending mail.
 
+### What about SMTP?
+
+Native SMTP transport is **not** built into the runtime today. If your
+environment requires SMTP (corporate relay, on-prem mail, air-gapped
+deployment) you have two production-grade options:
+
+1. **Run an SMTP-to-API relay** in front of ObjectOS. Resend, Postmark,
+   and self-hosted alternatives (Postal, Cuttlefish) all accept SMTP
+   ingress and re-emit via their HTTP API — ObjectOS talks to them
+   over HTTPS as normal.
+2. **Run the runtime with a custom email plugin.** The email plugin
+   API is small (one `send(message)` function); a project plugin that
+   wraps `nodemailer` plugs in via the `requires` list. See the
+   [plugin authoring guide](https://github.com/objectstack-ai/spec)
+   in the spec repo.
+
+Native SMTP transport is on the roadmap; track progress at
+[github.com/objectstack-ai/objectos/issues](https://github.com/objectstack-ai/objectos/issues).
+
 ## Environment variables
 
 | Variable | Purpose |

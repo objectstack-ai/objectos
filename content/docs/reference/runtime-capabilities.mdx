@@ -41,8 +41,27 @@ loads matching framework packages when present in the image.
 | `settings` | `@objectstack/service-settings` | Settings manifests and K/V resolver |
 
 If a capability is requested but the image does not include the package,
-ObjectOS logs a warning and continues. Production images should include
-the packages required by the customer artifact.
+**ObjectOS logs a warning and continues running with that capability
+disabled.** This is intentional — it keeps the runtime bootable even
+when an optional package is missing during development — but in
+**production it is a real risk**:
+
+- An audit-required app loaded into an image without
+  `@objectstack/plugin-audit` will start up cleanly **and write no
+  audit log**. Compliance evidence will be missing without any error.
+- A job-driven app loaded into an image without
+  `@objectstack/service-job` will start up cleanly **and silently never
+  run scheduled work**.
+
+**Production checklist:**
+
+1. Treat capability warnings as deployment failures. Grep startup logs
+   for `capability not loaded` (or your equivalent) and fail the
+   readiness probe / rollout if any appear.
+2. Pin the runtime image to one that includes every package your
+   artifacts declare in `requires`.
+3. When publishing an artifact, document its `requires` list alongside
+   it so operators can verify the matching image.
 
 ## API surface
 

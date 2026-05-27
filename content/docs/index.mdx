@@ -1,80 +1,87 @@
 ---
 title: ObjectOS
-description: Customer-hosted runtime for ObjectStack applications. Private, compliant, yours.
+description: The runtime for internal tools that stays in your network. One command to start, your database, your auth, your data — never ours.
 ---
 
 # ObjectOS
 
-**ObjectOS is the customer-hosted runtime for ObjectStack applications.**
-It runs inside your environment — private cloud, customer data center, or
-fully air-gapped network — loads a compiled `objectstack.json` artifact,
-and serves the application APIs, metadata-driven UI, identity,
-permissions, settings, automation, and integration surfaces described
-by that artifact.
+**ObjectOS is a self-hosted runtime for building internal tools, admin
+panels, and back-office apps without giving up your data.** You declare
+your data model in TypeScript, run one command, and get REST APIs, a
+generated admin UI, authentication, RBAC, audit logs, file storage,
+background jobs, webhooks, and AI integration — all running in your
+network, on your database.
 
-If you operate a regulated business, a private cloud, or any
-infrastructure where customer data must stay inside your perimeter,
-ObjectOS is what you deploy.
+It's what you'd get if Retool, Supabase, and Salesforce had a child that
+ran inside your firewall.
 
-## Try it in two commands
+## Get running in 60 seconds
 
 ```bash
-npm i -g @objectstack/cli
-os start
+npx @objectstack/cli init my-app -t app --install
+cd my-app
+pnpm dev
 ```
 
-ObjectOS comes up at `http://localhost:3000` with an embedded database
-and a sample application. See the [Quickstart](/docs/quickstart) for
-Docker, desktop, and bring-your-own-database paths.
+Open **http://localhost:3002** and you have a working app with an admin
+UI, REST API, login screen, audit log, and SQLite database — zero
+configuration.
 
-## What ObjectOS is
+Go to the [Quickstart](/docs/quickstart) for screenshots and the next
+five minutes.
 
-ObjectOS is the **runtime distribution** of ObjectStack:
+## Why ObjectOS instead of …
 
-- It runs compiled ObjectStack applications inside your infrastructure.
-- It owns the customer-side HTTP runtime.
-- It connects to the business database **you** configure for the project.
-- It enforces authentication, permissions, row-level access, and field
-  security when those capabilities are enabled.
-- It exposes platform administration surfaces — users, roles, settings,
-  sessions, audit logs, webhooks, diagnostics — through the Setup app.
+| You're using | Pain point | What ObjectOS gives you |
+|---|---|---|
+| **Retool / Appsmith** | UI builder is great, but your data sits in their cloud and their pricing scales with users | Your data never leaves your network; flat self-host pricing |
+| **Supabase / Firebase** | Backend-as-a-service is fast but vendor-locked; multi-tenant SaaS by design | Same DX (auto APIs, auth, storage), but you own the runtime and database |
+| **Salesforce / NetSuite** | Powerful platform, painful customization, eye-watering per-seat cost | Same metadata-driven model (objects, fields, roles, sharing rules), self-hosted, no seat tax |
+| **Rolling your own (Next + Prisma + NextAuth)** | You rebuild RBAC, audit, file uploads, settings, webhooks, jobs every time | Ship the actual business logic; the platform plumbing is already there |
 
-## What ObjectOS is not
+## What you get out of the box
 
-ObjectOS is not the low-code builder, not the control-plane database,
-and not the protocol specification. Those belong to the ObjectStack
-framework and cloud / control-plane layers.
-
-The boundary is intentional:
-
-| Layer | Responsibility |
+| Surface | What it is |
 |---|---|
-| ObjectStack framework | Protocol, kernel, metadata model, drivers, services, plugins, SDKs |
-| Control plane | Project authoring, artifact publishing, hostname / project resolution |
-| **ObjectOS** | **Customer-hosted runtime that consumes artifacts and serves applications** |
+| **Auto REST API** | Every object you declare gets `/api/v1/data/<object>` with filter/sort/paginate |
+| **Studio** (`/_studio/`) | Generated admin UI to browse, edit, and manage records |
+| **Account** (`/_account/`) | Login, register, password reset, OAuth, OIDC/SSO, passkeys, 2FA |
+| **Console** (`/_console/`) | Users, roles, permission sets, audit log, sessions, API keys, settings |
+| **23 plugins** | RBAC + row-level security, audit, file storage, queues, jobs, email, AI, webhooks — declarative, on demand |
 
-In cloud-connected deployments, ObjectOS talks to the control plane
-over the Artifact API. **It does not require direct access to the
-control-plane database**, and in air-gapped deployments it does not
-talk to the control plane at all.
+## What you keep control of
 
-## Where to start
-
-Most enterprise deployments need answers to a handful of questions.
-Each one has a dedicated page:
-
-| Question | Start here |
+| Asset | Where it lives |
 |---|---|
-| How do I try it quickly? | [Quickstart](/docs/quickstart) |
-| What am I actually deploying? | [Architecture](/docs/architecture) |
-| Which deployment model should I use? | [Deployment Overview](/docs/deployment) |
-| How does ObjectOS find my app and database? | [Runtime configuration](/docs/configure/runtime) |
-| How do users log in? | [Authentication](/docs/configure/authentication) |
-| How do permissions and field security work? | [Permissions](/docs/configure/permissions) |
-| How do I integrate with the outside world? | [API access](/docs/configure/api-access), [Webhooks](/docs/configure/webhooks), [Email](/docs/configure/email) |
-| What do I check before production? | [Production readiness](/docs/operate/production), [Backup &amp; DR](/docs/operate/backup) |
-| Can I run without internet egress? | [Air-gapped deployment](/docs/deploy/air-gapped) |
+| Business data | **Your** database (Postgres, SQLite, MySQL, Turso, MongoDB) |
+| User identities & sessions | **Your** database |
+| Audit log | **Your** database |
+| Files | **Your** storage (local disk, S3, R2) |
+| Secrets | **Your** secret manager |
+| The runtime itself | **Your** servers, containers, or laptop |
 
-For developer-facing protocol references — objects, fields, views,
-flows, hooks, ObjectQL — use the ObjectStack framework documentation.
+ObjectOS never phones home. No telemetry. No license server. Air-gapped
+networks are a first-class deployment target — see
+[Air-gapped](/docs/deploy/air-gapped).
 
+## Where to go next
+
+| If you want to … | Read |
+|---|---|
+| See it actually work | [Quickstart](/docs/quickstart) |
+| Understand what's inside the box | [Architecture](/docs/architecture) |
+| Run it in Docker | [Docker](/docs/deploy/docker) |
+| Deploy to Kubernetes | [Kubernetes](/docs/deploy/kubernetes) |
+| Wire it to Postgres / your DB | [Runtime Configuration](/docs/configure/runtime) |
+| Set up SSO | [Authentication](/docs/configure/authentication) |
+| Lock down who sees what | [Permissions](/docs/configure/permissions) |
+| Call it from another service | [API Access](/docs/configure/api-access) |
+| Send events to other systems | [Webhooks](/docs/configure/webhooks) |
+| Go to production | [Production Readiness](/docs/operate/production) |
+
+## License & pricing
+
+ObjectOS runtime is **AGPL-3.0**. Run it for free, in any environment,
+forever. Commercial license available for OEM redistribution or if AGPL
+doesn't fit — contact us. No per-user fee. No seat tax. No "starting at
+$50K/year."

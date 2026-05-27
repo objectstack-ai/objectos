@@ -71,3 +71,41 @@ Start with a few named permission sets:
 | Support User | Read/update support objects |
 
 Then add domain-specific sets for the customer's application.
+
+## Field security (appendix)
+
+Permission sets also carry field-level grants. Even when a user can
+read a record, individual fields can be hidden or made read-only.
+
+### Two modes
+
+| Mode | Effect |
+|---|---|
+| **Hidden** | Field is stripped from API responses and Studio views entirely |
+| **Read-only** | Field is returned but writes are rejected |
+
+### Where it's enforced
+
+The same evaluator that checks object permissions applies field rules
+on every path — REST, ObjectQL, generated Studio forms, exports. There
+is no "back door" through a lower-level API.
+
+### Typical patterns
+
+| Use case | Setup |
+|---|---|
+| HR data on `sys_user` (salary, SSN) | Hide for everyone except an `HR` permission set |
+| External system identifiers | Read-only for support, writable for integration operators |
+| Internal cost vs. customer price on `product` | Hide `cost` from sales, surface to finance |
+| Notes field with PHI | Hide unless permission set includes the relevant clinical role |
+
+### Authoring guidance
+
+- Default to **hide** rather than read-only when the field carries
+  sensitive data — read-only still leaks the value into responses and
+  logs.
+- Bundle field rules into permission sets that match a real role
+  (`HR Manager`, `Finance Read-only`) instead of inventing one set per
+  field — easier to audit.
+- For compliance use cases, pair field security with audit log
+  retention so you can answer "who saw this row?" after the fact.

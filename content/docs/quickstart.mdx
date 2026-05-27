@@ -1,105 +1,174 @@
 ---
 title: Quickstart
-description: Get ObjectOS running in your environment in under two minutes.
+description: From zero to a working app with REST API, admin UI, auth, and audit log — in 60 seconds.
 ---
 
 # Quickstart
 
-This guide brings ObjectOS up on a single machine so you can see the
-runtime, the Setup app, and a working REST API. Use it for evaluation,
-team demos, and validating that ObjectOS fits into your environment
-before planning a production deployment.
-
-For multi-node production, see the [Deployment Overview](/docs/deployment).
+This page takes you from nothing installed to a running app you can
+actually click around in. Total time: about a minute, assuming Node is
+already on your machine.
 
 ## Prerequisites
 
 - **Node.js 20 or newer** — `node --version`
-- **A terminal** with the ability to install global npm packages
-- Optional: **Docker Desktop** if you prefer the container path below
+- **pnpm** (recommended), npm, yarn, or bun
+- A terminal
 
-No build step, no compilation, no source checkout required.
+No build step. No Docker required. No account signup. No compilation of
+source code.
 
-## Option A — Install the CLI and start (recommended)
-
-The CLI ships a self-contained ObjectOS runtime that boots against the
-bundled sample application. Two commands, no configuration:
+## 1. Create a project
 
 ```bash
-npm i -g @objectstack/cli
-os start
+npx @objectstack/cli init my-app -t app --install
 ```
 
-The runtime starts on `http://localhost:3000`. Open it in your browser.
+This scaffolds a minimal ObjectStack app, picks `pnpm` as your package
+manager (auto-detected — override with `-p npm|yarn|bun`), and installs
+dependencies. About 30 seconds on a warm cache.
+
+You'll see:
 
 ```text
-✓ ObjectOS started
-  • Application:   http://localhost:3000
-  • Setup app:     http://localhost:3000/_setup/
-  • Data directory: ~/.objectstack
+✓ Scaffold validated (namespace: my_app)
+✓ Project initialized!
+
+Next steps:
+  cd my-app
+  pnpm exec objectstack validate
+  pnpm exec objectstack dev
 ```
 
-On first launch, ObjectOS provisions an embedded database under
-`~/.objectstack` so you can explore without setting anything up. To
-point it at your own database, see
-[Runtime configuration](/docs/configure/runtime).
-
-## Option B — Docker
-
-If you prefer to evaluate inside a container, drop this file in an empty
-directory as `docker-compose.yml`:
-
-```yaml
-services:
-  objectos:
-    image: ghcr.io/objectstack/objectos:latest
-    ports: ["3000:3000"]
-    volumes:
-      - objectos-data:/var/lib/objectos
-
-volumes:
-  objectos-data: {}
-```
-
-Then:
+## 2. Start the dev server
 
 ```bash
-docker compose up
+cd my-app
+pnpm dev
 ```
 
-ObjectOS is available at `http://localhost:3000`. To bring your own
-artifact, mount it as `/artifacts/objectstack.json` and set
-`OS_ARTIFACT_FILE=/artifacts/objectstack.json` — see
-[Docker deployment](/docs/deploy/docker).
+Output:
 
-## Option C — Desktop app
+```text
+◆ Compile
+  ✓ Build complete (462ms)
+  Data: 1 Objects  3 Fields
+  Artifact: dist/objectstack.json (2.0 KB)
 
-For non-technical evaluators, ObjectOS also ships as a native desktop
-application (macOS, Windows, Linux). Download from the
-[releases page](https://github.com/objectstack-ai/objectos/releases),
-install, launch. No terminal required.
+◆ Development Mode
+  ✓ Server is ready
 
-## What you get out of the box
+  ➜  API:       http://localhost:3002/
+  ➜  Studio:    http://localhost:3002/_studio/
+  ➜  Account:   http://localhost:3002/_account/
+  ➜  Console:   http://localhost:3002/_console/
 
-Once the runtime is up:
+  Driver:  SqlDriver(better-sqlite3) → ~/.objectstack/data/standalone.db
+  Plugins: 23 loaded
+```
 
-| Surface | URL | Purpose |
-|---|---|---|
-| Application | `/` | The metadata-driven UI defined by the loaded artifact |
-| REST API | `/api/v1/...` | Generated CRUD endpoints for every object in the artifact |
-| Setup app | `/_setup/` | Administer users, roles, settings, sessions, audit log, webhooks |
-| Health | `/healthz` | Liveness probe for load balancers and Kubernetes |
+The runtime watches `objectstack.config.ts` and `src/` — edit a file,
+the kernel recompiles and reloads automatically.
+
+## 3. Explore what's running
+
+Open these in your browser:
+
+| URL | What it is |
+|---|---|
+| http://localhost:3002/_account/register | Create your first account |
+| http://localhost:3002/_studio/ | Browse and edit records (after login) |
+| http://localhost:3002/_console/ | Users, roles, audit log, settings |
+| http://localhost:3002/api/v1/data/example | Auto-generated REST API for the sample object |
+| http://localhost:3002/health | Liveness probe |
+
+The 4 surfaces share **one** identity store. Register once, you're
+signed in across all of them.
+
+## 4. Add your own object
+
+Open `src/objects/` and add a TypeScript file:
+
+```ts
+// src/objects/task.ts
+import { defineObject, f } from '@objectstack/spec';
+
+export const task = defineObject({
+  id: 'task',
+  label: 'Task',
+  fields: {
+    title:     f.text({ required: true }),
+    done:      f.boolean({ default: false }),
+    due:       f.date(),
+    assignee:  f.reference({ to: 'sys_user' }),
+  },
+});
+```
+
+Save. The dev server recompiles and you immediately have:
+
+- **`/api/v1/data/task`** — full CRUD with filter/sort/paginate
+- **A "Task" view in Studio** — list, form, detail, all generated
+- **Permission rows in Console** — grant read/write per role
+- **Audit log entries** — every create/update/delete recorded
+
+No migrations. No code generation. No restarting.
+
+## 5. Want a real app, not an empty one?
+
+The [templates repo](https://github.com/objectstack-ai/templates) ships
+production-shaped starters you can copy and customize:
+
+| Template | What it is |
+|---|---|
+| `todo` | Universal task & project starter |
+| `contracts` | Contract lifecycle (CLM) with AI extraction |
+| `procurement` | Vendors, POs, 3-way match |
+| `compliance` | SOC 2 / ISO 27001 controls + evidence |
+| `helpdesk` | AI-first customer support |
+| `content` | Editorial calendar + channel ROI |
+| `hr` | Directory, org chart, time-off |
+
+Each one is < 2500 LOC, readable in one sitting, runs standalone.
+
+```bash
+git clone https://github.com/objectstack-ai/templates.git
+cd templates/packages/todo
+pnpm install
+pnpm dev    # http://localhost:4002
+```
+
+## What comes with `npx ... init`?
+
+The scaffold gives you:
+
+```text
+my-app/
+├── objectstack.config.ts    # Your stack definition (manifest + objects)
+├── src/
+│   └── objects/             # Your data model — add files here
+├── dist/
+│   └── objectstack.json     # Compiled artifact (regenerated on save)
+├── package.json
+└── tsconfig.json
+```
+
+Pre-installed plugins (loaded automatically by the runtime):
+
+> Auth, Security (RBAC + RLS + FLS), Audit, REST API, Studio UI,
+> Account UI, Console UI, AI Service, Queue, Jobs, Cache, Settings,
+> Email, Storage, Marketplace, Metadata, ObjectQL, plus the SQL driver.
+
+You don't import or wire any of these — they activate when your config
+declares it needs them.
 
 ## Next steps
 
-You have a runtime. The next decisions are about how it fits into your
-environment:
-
-| Question | Read |
+| What now | Read |
 |---|---|
-| Which deployment model should I use? | [Deployment Overview](/docs/deployment) |
-| How do I point ObjectOS at my own database? | [Runtime configuration](/docs/configure/runtime) |
-| How do users log in? | [Authentication](/docs/configure/authentication) |
-| How do permissions work? | [Permissions](/docs/configure/permissions) |
-| What do I need before going to production? | [Production readiness](/docs/operate/production) |
-| Can it run in an air-gapped network? | [Air-gapped deployment](/docs/deploy/air-gapped) |
+| Run it in Docker (production-shaped) | [Docker](/docs/deploy/docker) |
+| Use Postgres instead of SQLite | [Runtime Configuration](/docs/configure/runtime) |
+| Add Google / Okta / Entra login | [Authentication](/docs/configure/authentication) |
+| Lock down who can do what | [Permissions](/docs/configure/permissions) |
+| Send events to Slack / Zapier / your service | [Webhooks](/docs/configure/webhooks) |
+| Deploy to production | [Production Readiness](/docs/operate/production) |

@@ -1,4 +1,4 @@
 {
   "title": "Permissions",
-  "pages": ["index", "identity", "roles", "permission-sets", "record-access", "field-security"]
+  "pages": ["index", "roles", "permission-sets", "record-access"]
 }

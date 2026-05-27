@@ -1,86 +1,151 @@
 ---
 title: Docker
-description: Run ObjectOS with Docker or Docker Compose.
+description: Run ObjectOS in a container — for evaluation, staging, or production.
 ---
 
 # Docker
 
-Docker is the recommended starting point. It matches the production
-shape closely enough to validate artifact loading, database connectivity,
-auth, and generated APIs without introducing Kubernetes complexity.
+Docker is the path most teams take to production. It matches the way
+the runtime is meant to be operated: one stateless container per
+instance, an external database, an external object store for files,
+secrets injected at runtime.
+
+## Pull the pre-built image
+
+We publish the runtime image to GitHub Container Registry on every
+push to `main` and on tagged releases:
+
+```bash
+docker pull ghcr.io/objectstack-ai/objectos:latest
+```
+
+Available tags:
+
+| Tag | Channel |
+|---|---|
+| `latest` | Latest build of `main` (recommended for first-time evaluation) |
+| `main` | Same as `latest`, but explicit |
+| `sha-<short>` | Pinned to a specific commit (recommended for production) |
+| `vX.Y.Z`, `X.Y`, `X` | Tagged releases |
+
+For production, pin to `sha-<short>` or a semver tag — `latest` will
+drift.
+
+## Run with the bundled sample
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+Then open http://localhost:3000. The image ships with an empty sample
+app so you can verify the runtime boots and Studio/Account/Console
+render before pointing it at your own artifact.
+
+`OS_AUTH_SECRET` is required to start. Rotating it invalidates existing
+sessions.
+
+## Run with your own artifact
+
+Your app definition is a single file: `dist/objectstack.json`. It's
+produced by:
+
+| Source | How |
+|---|---|
+| Your own project | `pnpm exec objectstack compile` after editing `objectstack.config.ts` |
+| A template | Clone from [templates repo](https://github.com/objectstack-ai/templates), run `pnpm install && pnpm exec objectstack compile` |
+| App marketplace | Provided as part of the published app |
+
+Mount the file at `/artifacts/objectstack.json` and point the runtime
+at it:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
+  -v "$PWD/dist:/artifacts:ro" \
+  -v objectos-data:/var/lib/objectos \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+The `objectos-data` volume holds the SQLite database (when no external
+DB is configured) and any locally-stored uploaded files.
+
+## Use Postgres instead of SQLite
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
+  -e OS_DATA_DRIVER=postgres \
+  -e OS_DATA_URL='postgres://user:pass@db.internal:5432/myapp' \
+  -v "$PWD/dist:/artifacts:ro" \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+See [Runtime Configuration](/docs/configure/runtime) for the full
+matrix of drivers and connection options.
 
 ## Docker Compose
 
-Prepare the artifact mount:
+A reference `docker-compose.yml` lives in the repo under `docker/`:
 
 ```bash
+git clone https://github.com/objectstack-ai/objectos.git
+cd objectos
 mkdir -p docker/artifacts
-cp /path/to/dist/objectstack.json docker/artifacts/objectstack.json
+cp /path/to/your/objectstack.json docker/artifacts/
+export OS_AUTH_SECRET="$(openssl rand -hex 32)"
+docker compose -f docker/docker-compose.yml up
 ```
 
-Start ObjectOS:
+Default port is `3000`; override with `OBJECTOS_PORT=3200 docker compose ...`.
+
+## Build your own image
+
+If you need to embed an artifact, custom plugins, or your own SSL/CA
+bundle:
 
 ```bash
-docker compose -f docker/docker-compose.yml up --build
+git clone https://github.com/objectstack-ai/objectos.git
+cd objectos
+docker build -f docker/Dockerfile -t myorg/objectos:custom .
 ```
 
-ObjectOS listens on:
+The shipped Dockerfile is a multi-stage build that produces a slim
+runtime image (~150 MB) on Node 22 Alpine.
 
-```text
-http://localhost:3000
-```
+## What you need to keep separate
 
-Set a different host port:
-
-```bash
-OBJECTOS_PORT=3200 docker compose -f docker/docker-compose.yml up --build
-```
-
-## Docker image
-
-Build locally:
-
-```bash
-docker build -f docker/Dockerfile -t objectos:local .
-```
-
-Run with a mounted artifact:
-
-```bash
-docker run --rm \
-  -p 3000:3000 \
-  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
-  -e OS_AUTH_SECRET='replace-with-a-strong-random-secret' \
-  -v "$PWD/docker/artifacts:/artifacts:ro" \
-  -v objectos-cache:/var/cache/objectos \
-  -v objectos-data:/var/lib/objectos \
-  objectos:local
-```
-
-`OS_AUTH_SECRET` is required for per-project authentication. Changing it
-invalidates existing sessions.
-
-## Persistent data
-
-Keep these separate:
-
-| Data | Why it matters |
+| Asset | Where it should live |
 |---|---|
-| Artifact | Immutable application definition |
-| Business database | Customer records, identity rows, settings, sessions |
-| Cache | Runtime cache; safe to rebuild but useful to persist |
-
-For evaluation, local SQLite is acceptable. For production, use a
-customer-managed database and document backup/restore outside the
-container lifecycle.
+| Artifact (`objectstack.json`) | Image (immutable) or mounted volume |
+| Business database | Externally-managed Postgres / MySQL / Mongo |
+| Identity & sessions | Same database |
+| Uploaded files | Externally-managed S3 / R2 / disk volume |
+| Secrets (`OS_AUTH_SECRET`, DB URL, API keys) | Your secret manager, injected as env vars |
+| Logs | stdout — collected by your log driver |
 
 ## Verify
 
 After startup:
 
 ```bash
-curl -I http://localhost:3000
+curl -fsS http://localhost:3000/health
+# {"status":"ok",...}
 ```
 
-Then sign in or call an expected generated API route for the packaged
-application.
+Then sign in at http://localhost:3000/_account/register and confirm
+the API responds:
+
+```bash
+curl http://localhost:3000/api/v1/data/<your-object>
+```
+
+## Next
+
+- [Kubernetes](/docs/deploy/kubernetes) — production-grade orchestration
+- [Air-gapped](/docs/deploy/air-gapped) — running without internet egress
+- [Production Readiness](/docs/operate/production) — pre-flight checklist
+- [Observability](/docs/operate/observability) — logs, metrics, audit

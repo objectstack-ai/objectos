@@ -25,8 +25,11 @@ jobs:
           images: ghcr.io/objectstack-ai/objectos
           tags: |
             type=ref,event=branch
+            type=ref,event=tag
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
       - uses: docker/build-push-action@v6
         with:
           context: .

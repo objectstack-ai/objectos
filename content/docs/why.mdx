@@ -1,0 +1,117 @@
+---
+title: Why ObjectOS
+description: The honest pitch — when you should use it, when you shouldn't, and what makes it different.
+---
+
+# Why ObjectOS
+
+This page exists so you don't have to read between the lines of every
+other doc to figure out whether ObjectOS is right for you.
+
+## Use ObjectOS if you …
+
+- need an internal tool, admin panel, or back-office app, **and**
+- can't (or won't) put the data in someone else's cloud, **and**
+- don't want to rebuild auth + RBAC + audit + file uploads + jobs +
+  webhooks for the tenth time.
+
+Common scenarios where it's a fit:
+
+| Scenario | Why it works |
+|---|---|
+| Replacing a Retool / Appsmith app because data sovereignty came up in security review | ObjectOS runs in your VPC; data never leaves |
+| Building a compliance / risk / vendor management tool for a regulated business | Audit log, RBAC, field security, row-level isolation are first-class |
+| Standing up an internal admin for a SaaS product | One Node process, slots in next to your existing services |
+| Air-gapped or on-prem deployment for an enterprise customer | First-class deployment target, no internet egress required |
+| Multi-tenant internal portal (one runtime, many small apps) | Per-project kernel + LRU cache designed for this |
+
+## Don't use ObjectOS if you …
+
+- are building a high-traffic consumer product → use a traditional web
+  framework, you'll have more control.
+- need a pixel-perfect bespoke UI for end users → ObjectOS's Studio is
+  for admin/internal use; pair it with your own front-end via REST.
+- want a no-code drag-and-drop builder for non-engineers → use Retool,
+  Bubble, or Airtable. ObjectOS is code-first.
+- need real-time collaborative editing (Figma-style) → not what the
+  realtime plugin solves.
+
+## Compared to what you're probably using
+
+### vs. Retool / Appsmith / Internal
+
+| | Retool | ObjectOS |
+|---|---|---|
+| Data location | Their cloud (or self-hosted at higher tier) | Your network, always |
+| UI builder | Drag-and-drop, very polished | Metadata-driven, generated; less custom |
+| Pricing | Per-user, scales painfully | Self-hosted, no seat tax (AGPL) |
+| Workflow / triggers | Their workflow engine | Declarative flows + plugins |
+| Backend logic | Limited to their query editor | Full TypeScript, full Node ecosystem |
+| Best for | Quick dashboards on top of existing APIs | Apps that *own* their data |
+
+### vs. Supabase / Firebase
+
+| | Supabase | ObjectOS |
+|---|---|---|
+| Setup time | ~30 seconds | ~30 seconds |
+| Database | Postgres, theirs (self-host possible) | Any Postgres / MySQL / SQLite / Turso / Mongo, **yours** |
+| Auth | Built in | Built in |
+| Generated APIs | PostgREST | ObjectQL-generated REST |
+| Admin UI | Studio (basic) | Studio + Console + Account |
+| RBAC | Row-level via Postgres RLS | RBAC + row-level + field-level, declarative |
+| Audit log | DIY | First-class |
+| Vendor lock-in | Their auth + their storage + their realtime | None — every layer is a plugin |
+| Best for | New apps that want a BaaS | Apps that need to own the runtime |
+
+### vs. Salesforce / NetSuite / ServiceNow
+
+| | Salesforce | ObjectOS |
+|---|---|---|
+| Data model | Objects + fields + relationships | Same |
+| Permissions | Profile + permission sets + sharing rules + FLS | **Same vocabulary**, declarative TypeScript |
+| Per-user cost | $150-300/user/month | $0 |
+| Customization | Apex + Lightning + flows | TypeScript + flows |
+| Where it runs | Their cloud, period | Your infrastructure |
+| Time to "we own it" | Months of consultant work | One afternoon |
+| Best for | Sales-led companies who'll pay for the ecosystem | Teams who want the model without the tax |
+
+### vs. rolling your own (Next.js + Prisma + NextAuth)
+
+| | DIY | ObjectOS |
+|---|---|---|
+| First REST endpoint | A few hours | 60 seconds |
+| Auth (email + OAuth + OIDC + passkey + 2FA) | Weeks | Included |
+| Admin UI for every object | Build per object | Generated |
+| Audit log | DIY | Plugin, declarative |
+| File upload to S3 with permissions | DIY | Plugin |
+| Background jobs + retries + dead letter | DIY | Plugin |
+| Multi-tenancy | DIY (and you'll get it wrong twice) | Built in |
+| Best for | Public-facing app with bespoke UX | Internal tooling where speed wins |
+
+## The honest tradeoffs
+
+- **Less UI freedom than Retool.** The Studio is generated from your
+  metadata. You can pair it with a custom front-end (the REST API is
+  the same one Studio uses), but if you need a hand-crafted pixel-
+  perfect UI, build it yourself and use ObjectOS as the backend.
+- **TypeScript-first.** Non-engineers won't author objects directly.
+  Salesforce admins are used to clicking through a UI builder; here,
+  it's `git`.
+- **Newer than Salesforce.** Salesforce has 25 years of edge cases
+  documented. We have a few hundred. The protocol is stable; the
+  ecosystem is growing.
+- **AGPL.** Permissive for self-hosted use; if you want to redistribute
+  or embed without AGPL obligations, contact us about a commercial
+  license.
+
+## Reality check
+
+The smallest viable ObjectOS deployment is a single `pnpm dev` or a
+single Docker container with SQLite. The largest in production today
+serves tens of thousands of internal users across multiple regions with
+Postgres + S3 + Redis. Both are the same software.
+
+Start with `npx @objectstack/cli init my-app` and decide in 5 minutes.
+If it's not for you, you've burned 5 minutes.
+
+[**Try the Quickstart →**](/docs/quickstart)
