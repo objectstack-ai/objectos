@@ -1,0 +1,209 @@
+---
+title: 术语表
+description: ObjectOS 与 ObjectStack 通用词汇 —— 每个一条定义。
+---
+
+# 术语表
+
+本文档使用的每个术语都给出一个权威定义。
+
+### Artifact（产物）
+
+编译后的 `objectstack.json` 文件。对一个应用的自包含、不可变描述 ——
+manifest、对象、视图、应用、流程、权限、翻译。由 `os compile` 产生。
+ObjectOS 实际执行的就是它。
+
+### Action
+
+在元数据中声明的命名操作，可通过 REST
+（`/api/v1/data/<object>/actions/<action>`）、Studio 按钮或流程
+步骤调用。继承调用者的权限。
+
+### Adapter
+
+把 ObjectStack 集成到宿主运行时的框架包 —— Express、Fastify、Hono、
+Next.js、Nuxt、SvelteKit、NestJS。大多数 ObjectOS 部署不需要 adapter;
+ObjectOS 自带 HTTP 服务器。
+
+### App
+
+把对象 + 视图 + 权限打包成一个在 Studio 中可导航的应用。同一个
+运行时中可以共存多个 App（如 CRM + Helpdesk + Setup）。
+
+### Better Auth
+
+为 `@objectstack/plugin-auth` 提供动力的认证库。你不直接配置
+Better Auth;插件会做封装。
+
+### Capability（能力）
+
+产物在其 `requires` 列表中声明的可选运行时特性。对应一个包 —— 例如
+`audit` → `@objectstack/plugin-audit`。由 ObjectOS 按需加载。见
+[运行时能力](/docs/reference/runtime-capabilities)。
+
+### CEL
+
+[Common Expression Language](https://github.com/google/cel-spec) ——
+Google 的安全沙箱表达式语法。用于公式、校验规则、权限谓词、共享
+规则与流程条件。
+
+### Console
+
+位于 `/_console/` 的系统 UI —— 管理用户、角色、权限集、审计日志、
+会话、API key、系统设置。与 Studio（业务 UI）有区别。
+
+### Control Plane（控制面）
+
+可选服务，将版本化的产物分发给 ObjectOS 实例。可用 ObjectStack
+Cloud 托管或自行部署。大多数部署不需要它 —— 单应用生产场景下，
+文件挂载模式即可。
+
+### Driver（驱动）
+
+数据后端实现：`driver-sql`（Postgres、MySQL、SQLite、Turso/libSQL）、
+`driver-mongodb`、`driver-memory`。启动时按数据库 URL 选择。
+
+### Embedder
+
+把文本转成向量供 RAG / 语义检索使用的服务。跨 provider 可插拔
+（OpenAI、Azure、硅基流动、Ollama……）。见
+[AI 服务](/docs/configure/ai)。
+
+### Environment
+
+按租户隔离的运行时实例，背后有各自的数据库与身份。在 v4.x 中
+有时仍称 *Project*（保留别名）。v5.0 在 CLI、HTTP、环境变量、
+schema 中统一为 *Environment*。
+
+### Field（字段）
+
+对象上的有类型属性。约 25 种内置类型：`text`、`select`、`lookup`、
+`markdown`、`attachment`、`formula`、`rollup` 等。见
+[数据模型](/docs/build/data-model)。
+
+### Flow（流程）
+
+声明式业务逻辑 —— 自动触发（记录触发器）、定时（cron）或手动
+（按钮 / API）。以 DAG 执行，支持 condition/loop/retry/parallel
+等原语。见 [流程与自动化](/docs/build/flows)。
+
+### Formula field（公式字段）
+
+值为 CEL 表达式、读取时计算的字段，不存储。
+
+### Hook
+
+注入到对象生命周期的函数（`beforeInsert`、`afterUpdate`……）。
+用 TypeScript 编写。与流程不同：Hook 是一等代码，流程是元数据。
+
+### Kernel（内核）
+
+ObjectOS 内部的微内核，负责加载插件、持有 DI 容器、分发事件，
+并为单个 Environment 提供元数据服务。一个进程可在 LRU 中缓存
+多个内核（每个 Environment 一个）。
+
+### Manifest
+
+产物头部的顶层元数据：`id`、`namespace`、`version`、`type`
+（`app` / `plugin` / `service`）、`name`、`description`、
+`requires` 列表。
+
+### Marketplace（应用市场）
+
+Studio 内可安装应用的目录。背后由可配置的包注册中心支持。见
+[应用市场](/docs/build/marketplace)。
+
+### MCP（Model Context Protocol）
+
+一个开放协议，让 AI 智能体发现并调用工具。ObjectOS 可以通过
+`@objectstack/plugin-mcp-server` 把对象 + action 暴露为 MCP。
+
+### Object（对象）
+
+有类型的业务实体 —— `task`、`account`、`invoice`。以 TypeScript
+schema 声明;自动生成 REST API、Studio 视图、审计条目与 RBAC 检查
+点。见 [数据模型](/docs/build/data-model)。
+
+### ObjectOS
+
+运行时 —— 一个对外服务你应用的 Node.js 进程。开源，Apache-2.0。
+**本文档站点就是 ObjectOS 的文档。**
+
+### ObjectQL
+
+数据层协议与查询引擎。把声明式查询编译成原生 SQL / Mongo 查询。
+REST 端点、Studio、流程都用同一套引擎。
+
+### ObjectStack
+
+总称项目：框架（`@objectstack/*` npm 包）、运行时（ObjectOS）、
+可选云服务，以及应用市场。有时也称 "平台"。
+
+### ObjectUI
+
+视图层协议 —— App、View、Page、Dashboard、Action、Chart、导航。
+Studio 渲染 ObjectUI 声明。
+
+### Permission Set（权限集）
+
+一组授权的捆绑 —— 对象权限、字段权限、系统权限。可直接挂到用户
+上，也可经由角色挂载。授权的主单元。见
+[权限](/docs/configure/permissions)。
+
+### Plugin（插件）
+
+为运行时扩展能力的框架包 —— `plugin-auth`、`plugin-security`、
+`plugin-audit`、`plugin-webhooks`、`plugin-mcp-server` 等。通过
+DI + 生命周期 Hook（`init → start → destroy`）激活。
+
+### Project
+
+**Environment** 的旧名。在 v4.x 的 CLI/环境变量中仍可用（已别名化）。
+v5.0 中移除。
+
+### Record Share（记录共享）
+
+把对某条记录的访问直接授予某个用户 / 角色 / 用户组。以
+`sys_record_share` 行存储。与共享规则（声明式条件）不同。
+
+### Sharing Rule（共享规则）
+
+基于条件授予记录访问的声明式规则（"区域经理可以看到本区域的
+记录"）。查询时求值，编译为行级过滤条件。
+
+### Studio
+
+位于 `/_studio/` 的业务 UI —— 浏览、创建、编辑记录，配置视图，
+从应用市场安装应用。与 Console（系统 UI）有区别。
+
+### Surface（表面）
+
+运行中的 ObjectOS 暴露的四类 HTTP 入口之一：`/`（REST API）、
+`/_studio/`、`/_account/`、`/_console/`。
+
+### System Context（系统上下文）
+
+供插件、Hook 与种子脚本绕过安全检查所用的内部执行模式。可审计;
+不暴露给用户代码。
+
+### Tenant（租户）
+
+多租户部署中的逻辑隔离边界。一个租户通常映射为一个 Environment。
+Cookie 与会话按主机名作用域;数据按 Environment 作用域。
+
+### Trigger（触发器）
+
+触发流程的条件 —— 记录事件（`after_insert`）、调度（cron）或手动
+调用。
+
+### View（视图）
+
+绑定到对象上的声明式 UI 配置 —— list、form、kanban、calendar、
+gantt。由 Studio 渲染，你不需要写组件。
+
+### Zod schema
+
+`@objectstack/spec` 使用的运行时 + 编译期类型系统。每一个对象、
+字段、视图、应用、流程都会被一个 Zod schema 解析与校验。JSON
+Schema、TypeScript 类型与 REST 请求校验器都从同一份 Zod 定义
+派生。

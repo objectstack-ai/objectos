@@ -1,0 +1,76 @@
+---
+title: 支持
+description: 到哪里寻求帮助、如何上报 bug、响应预期。
+---
+
+# 支持
+
+## 不同事情去哪里
+
+| 如果你…… | 前往 |
+|---|---|
+| 有 "怎么做" 的问题 | [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions) —— 社区 + 维护者 |
+| 发现了 bug | [GitHub Issues](https://github.com/objectstack-ai/objectos/issues) —— 请附版本、复现步骤、期望 vs 实际 |
+| 发现了安全漏洞 | **security@objectstack.ai** —— **不要**开公开 issue |
+| 需要商业支持 / SLA | **sales@objectstack.ai** |
+| 想和用户与维护者聊聊 | [Discord](https://discord.gg/objectstack)（社区运营） |
+| 想关注发版 | Watch [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos) → Releases |
+| 想付费实现某个特性 | 开一个 Discussion → 加上 `funding` 标签 |
+
+## 写一份好的 bug 报告
+
+30 秒版本：
+
+```text
+ObjectOS version:           4.0.4 (or sha-abc123)
+Node version:               22.4.0
+Install method:             docker / npm -g / source
+Database:                   postgres 16 / sqlite / turso / mongo
+Repro steps:                1. ...  2. ...  3. ...
+Expected:                   ...
+Actual:                     ...
+Logs:                       (sanitized, last 30 lines)
+```
+
+对配置类问题，请附上 `os doctor` 的输出 —— 它能独立诊断 80% 的
+错误配置。
+
+## 响应预期
+
+| 渠道 | 尽力而为的响应时间 |
+|---|---|
+| 安全邮件 | 1 个工作日 |
+| GitHub Issues —— 带复现的 bug | 3 个工作日内分流，下一趟发布列车修复 |
+| GitHub Issues —— 特性请求 | 7 个工作日内分流 |
+| GitHub Discussions | 社区驱动;维护者会定期参与 |
+| 商业支持 | 按你的支持合同 |
+
+以上为尽力而为，并非 SLA。商业支持合同会带正式 SLA。
+
+## 商业支持与服务
+
+ObjectStack 团队可提供：
+
+- 带响应时间 SLA 的**商业支持**。
+- **托管服务** —— 我们替你运维。
+- **架构评审** —— 部署前的合理性检查。
+- 按你需求**定制插件 / 能力**。
+- **OEM 再分发** —— 把 ObjectOS 嵌入你的产品。
+
+请联系 **sales@objectstack.ai**。
+
+## 回馈贡献
+
+ObjectOS 是 Apache-2.0，接受贡献：
+
+- [CONTRIBUTING.md](https://github.com/objectstack-ai/framework/blob/main/CONTRIBUTING.md)
+- [Code of Conduct](https://github.com/objectstack-ai/framework/blob/main/CODE_OF_CONDUCT.md)
+- 尽早开 draft PR —— 我们更愿意评审一份草图，而不是出现重复劳动。
+
+## 状态与事件
+
+托管服务（ObjectStack Cloud、包注册中心）：
+[status.objectstack.ai](https://status.objectstack.ai)。
+
+自托管的 ObjectOS 部署的状态由你自己负责 —— 接到你常用的监控上
+（见 [可观测性](/docs/operate/observability)）。

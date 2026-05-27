@@ -1,0 +1,96 @@
+---
+title: 变更日志与版本策略
+description: ObjectOS 的版本规则、各版本间的变化及支持范围。
+---
+
+# 变更日志与版本策略
+
+## 版本策略
+
+ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`。
+
+| 版本号变化 | 含义 | 应对方式 |
+|---|---|---|
+| **Patch**（`4.0.1 → 4.0.2`） | 修 bug，不改变行为 | 直接升级，无需改动应用 |
+| **Minor**（`4.0 → 4.1`） | 新增功能，向后兼容 | 直接升级，可选采用新功能 |
+| **Major**（`4 → 5`） | 破坏性变更，发版说明会列出 | 升级前阅读迁移指南 |
+
+所有 `@objectstack/*` 包按同步的版本号一起发布 —— 作为矩阵一同测试，
+而不是各自独立。
+
+## 兼容性矩阵
+
+| 组件 | 兼容性规则 |
+|---|---|
+| ObjectOS 镜像 ↔ 编译产物 | 同一 minor 版本。4.0.x 镜像运行 4.0.x 产物;4.1 产物可能使用 4.0 镜像不具备的功能。 |
+| ObjectOS ↔ CLI | 建议使用同一 minor 版本。`npm i -g` 安装的 CLI 生成的脚手架会固定为其自身版本。 |
+| ObjectOS ↔ 数据库驱动 | 驱动版本由镜像构建固定;请确认 Postgres ≥ 13 / MongoDB ≥ 5 / Turso（当前版本）。 |
+| Node.js | **20 LTS 或更新**。新部署推荐 22 LTS。 |
+
+## 支持窗口
+
+| 分支 | 状态 | 截止 |
+|---|---|---|
+| **4.x**（当前） | 活跃开发;新功能与修复 | 至少到 5.0 发布后 12 个月 |
+| **3.x** | 仅安全修复 | 5.0 发布时 EOL |
+| **≤ 2.x** | 不再支持 | 已 EOL |
+
+关键安全修复会反向移植到当前 major 与上一个 major;其他变更只进
+`main`。
+
+## 发版说明
+
+发布的 ObjectOS 版本与其 CHANGELOG 在以下位置发布：
+
+- **npm**：[`@objectstack/runtime`](https://www.npmjs.com/package/@objectstack/runtime)
+- **GitHub**：[github.com/objectstack-ai/objectos/releases](https://github.com/objectstack-ai/objectos/releases)
+- **源码 CHANGELOG**：[`CHANGELOG.md`](https://github.com/objectstack-ai/framework/blob/main/CHANGELOG.md)
+- **长文版发版说明**：[`RELEASE_NOTES.md`](https://github.com/objectstack-ai/framework/blob/main/RELEASE_NOTES.md)
+
+在 GitHub 上订阅 Releases 即可收到通知。
+
+## 近期亮点
+
+### 4.0.x —— 当前发布列车
+
+- 已向 npm 发布 **42 个包**，命名空间为 `@objectstack/*`。
+- Console 增加了完整的 Configuration 设置页面（AI、Storage、
+  Knowledge）。
+- Embedder 服务：10 个 provider（`openai`、`azure`、阿里通义、
+  智谱、硅基流动、火山、MiniMax、Ollama、自定义）。
+- 在线设置 → 运行时桥接 —— 在 Console 中切换 provider，进程内
+  原地替换，无需重启。
+
+### 5.0（即将发布）—— `project` → `environment` 重命名
+
+运行时中原称 *Project* 的概念将在全栈范围内重命名为 *Environment*。
+影响范围：
+
+- CLI 参数：`--environment` / `-e`
+- HTTP 路径：`/api/v1/environments/:environmentId/...`
+- 请求头：`X-Environment-Id`
+- 环境变量：`OS_ENVIRONMENT_ID`（4.x 中保留 `OS_PROJECT_ID` 作为
+  别名，5.0 中移除）
+- 数据库列名：`environment_id`
+- JSON schema：`EnvironmentArtifact`
+
+不会保留别名或弃用 shim。请谨慎计划升级 —— 详见发布时的 5.0 迁移
+指南。
+
+## 升级
+
+机械式的步骤见 [升级与回滚](/docs/operate/upgrade)。升级前检查：
+
+1. 阅读从当前版本到目标版本之间每个 minor 的 CHANGELOG 条目。
+2. 运行 `os diff <old-artifact> <new-artifact>` 找出破坏性的
+   schema 变更。
+3. 针对目标版本运行 `os doctor`。
+4. 在全量滚动前先跑一个金丝雀实例。
+5. 准备好镜像 tag 与产物版本两条独立的回滚方案。
+
+## 上报回归
+
+如果某个 patch 或 minor 升级使原本可用的功能失效，请到
+[github.com/objectstack-ai/objectos/issues](https://github.com/objectstack-ai/objectos/issues)
+提单，并写明你从哪个版本升级到哪个版本。我们把回归视为最高优先级
+的缺陷。

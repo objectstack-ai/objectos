@@ -1,0 +1,212 @@
+---
+title: 快速开始
+description: 从零到一个运行中的 ObjectOS —— 安装一个 CLI，运行一条命令，你就有了一个应用。
+---
+
+# 快速开始
+
+根据你正在做的事情，有两种启动方式。
+
+| 你是…… | 从这里开始 |
+|---|---|
+| 第一次试用 ObjectOS，或在生产环境运行它 | [路径 A —— `os start`](#path-a--os-start-operator-first-time-evaluator) |
+| 用代码构建或定制应用 | [路径 B —— `os init`](#path-b--os-init-developer) |
+
+两者都会得到一个运行中的服务器，包含 Studio + Account + Console。区别在于是否生成源码文件。
+
+## 先决条件
+
+- **Node.js 20 或更新** —— `node --version`
+- 一个终端
+
+仅此而已。无需 Docker。无需数据库。无需注册账号。
+
+---
+
+## 路径 A —— `os start`（运维 / 首次评估者）[#path-a--os-start-operator-first-time-evaluator]
+
+全局安装 CLI，然后运行：
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+你会看到：
+
+```text
+◆ ObjectStack
+────────────────────────────────────────
+🏠 Home: ~/.objectstack
+📦 Artifact: none (empty kernel — install apps via Studio marketplace)
+🗄️ Database: file:~/.objectstack/data/objectstack.db
+
+  ✓ Server is ready
+
+  ➜  API:       http://localhost:3000/
+  ➜  Studio:    http://localhost:3000/_studio/
+  ➜  Account:   http://localhost:3000/_account/
+  ➜  Console:   http://localhost:3000/_console/
+
+  Plugins: 23 loaded
+```
+
+就这样。你已经在运行 ObjectOS 了。
+
+### 都在运行什么
+
+| URL | 是什么 |
+|---|---|
+| http://localhost:3000/_account/register | 创建你的第一个账号 |
+| http://localhost:3000/_studio/ | 管理 UI —— 以及**应用市场** |
+| http://localhost:3000/_console/ | 用户、角色、审计日志、设置 |
+| http://localhost:3000/health | 存活探针 |
+
+运行时以**空内核**启动 —— 没有对象，没有应用 —— 并暴露市场，让你能在几秒内安装现成应用。
+
+### 用对话构建 —— AI Builder
+
+登录后，打开 Studio 中的 AI 助手（右上角闪光图标），描述你要的东西：
+
+> *"我需要追踪客户支持工单。每张工单都有主题、描述、优先级（低/中/高/紧急）、状态和负责人。再加一个按状态分组的看板视图。"*
+
+AI 提出一份计划，你批准，元数据就立刻生效 —— REST 端点、Studio 视图、审计日志、权限闸门。无需编辑文件，无需重启。完整词汇请见 [Build → AI Builder](/docs/build/ai-builder)。
+
+> **在 IDE 中手写代码？** 运行 `npx skills add objectstack-ai/framework`，让 Claude Code / Cursor / Copilot / Codex 学会根据真实的 Zod schema 编写 ObjectOS 元数据。参见 [Build → IDE Skills](/docs/build/ai-skills)。
+
+### 从市场安装应用
+
+打开 **http://localhost:3000/_studio/**，登录，选一个应用：
+
+| 应用 | 你能得到什么 |
+|---|---|
+| Todo | 通用任务与项目追踪 |
+| Contracts | 合同生命周期 + AI 信息抽取 |
+| Procurement | 供应商、采购单、三向匹配 |
+| Compliance | SOC 2 / ISO 27001 控制项与证据 |
+| Helpdesk | AI 优先的客户支持 |
+| Content | 编辑日历 + 渠道 ROI |
+| HR | 通讯录、组织架构、休假 |
+
+安装 → 刷新 → 它就在那里了，带着对象、视图、权限和种子数据。无需重启。
+
+### 常用参数
+
+```bash
+os start --port 3200                       # 不同端口
+os start --database postgres://...         # 外部数据库
+os start --auth-secret "$(openssl rand -hex 32)"  # 启用 /api/v1/auth/* 认证
+os start --home /var/lib/objectos          # 持久化主目录（生产环境）
+```
+
+完整选项见 [Runtime Configuration](/docs/configure/runtime)；生产形态请见 [Docker](/docs/deploy/docker)。
+
+---
+
+## 路径 B —— `os init`（开发者）[#path-b--os-init-developer]
+
+当你要用 TypeScript 定义自己的数据模型、视图和流程时使用。
+
+```bash
+npx @objectstack/cli init my-app -t app --install
+cd my-app
+pnpm dev
+```
+
+你会看到：
+
+```text
+✓ Project initialized!
+
+◆ Compile
+  ✓ Build complete (462ms)
+  Data: 1 Objects  3 Fields
+
+◆ Development Mode
+  ✓ Server is ready
+
+  ➜  API:       http://localhost:3002/
+  ➜  Studio:    http://localhost:3002/_studio/
+  ➜  Account:   http://localhost:3002/_account/
+  ➜  Console:   http://localhost:3002/_console/
+```
+
+注意 dev 服务器使用 **3002** 端口，避免与运行在 3000 的 `os start` 冲突。
+
+### 添加你自己的对象
+
+编辑 `src/objects/task.ts`：
+
+```ts
+// src/objects/task.ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Task = ObjectSchema.create({
+  name: 'task',
+  label: 'Task',
+  fields: {
+    subject:   Field.text({ label: 'Subject', required: true, maxLength: 200 }),
+    done:      Field.boolean({ label: 'Done', defaultValue: false }),
+    due:       Field.date({ label: 'Due' }),
+    assignee:  Field.lookup({ label: 'Assignee', reference: 'sys_user' }),
+  },
+});
+```
+
+保存。dev 服务器重新编译，你立刻就有了：
+
+- **`/api/v1/data/task`** —— 支持过滤/排序/分页的完整 CRUD
+- **Studio 中的 "Task" 视图** —— 列表、表单、详情，全部生成
+- **Console 中的权限行** —— 按角色授予读/写
+- **审计日志条目** —— 每次创建/更新/删除都被记录
+
+无需迁移。无需代码生成。无需重启。
+
+### 项目布局
+
+```text
+my-app/
+├── objectstack.config.ts    # Stack 定义（清单 + 对象）
+├── src/
+│   └── objects/             # 你的数据模型 —— 在这里加文件
+├── dist/
+│   └── objectstack.json     # 编译产物（保存时重新生成）
+├── package.json
+└── tsconfig.json
+```
+
+`dist/objectstack.json` 就是你部署到生产的产物 —— 把它挂到运行中的 ObjectOS 容器上，它就成为你的应用。
+
+### 或者从模板开始
+
+生产形态的模板位于 [github.com/objectstack-ai/templates](https://github.com/objectstack-ai/templates)：
+
+```bash
+git clone https://github.com/objectstack-ai/templates.git
+cd templates/packages/todo
+pnpm install
+pnpm dev    # http://localhost:4002
+```
+
+每个模板小于 2500 行代码，一次能读完，可独立运行。
+
+---
+
+## 开箱启用的能力
+
+无论哪条路径，都自动启用这 23 个插件：
+
+> Auth、Security（RBAC + RLS + FLS）、Audit、REST API、Studio UI、Account UI、Console UI、AI Service、Queue、Jobs、Cache、Settings、Email、Storage、Marketplace、Metadata、ObjectQL，外加 SQL 驱动。
+
+你无需 import 或接线任何一个 —— 当某处声明需要时它们就会激活。
+
+## 接下来
+
+| 想要…… | 阅读 |
+|---|---|
+| 在 Docker 中运行（生产形态） | [Docker](/docs/deploy/docker) |
+| 用 Postgres 替代 SQLite | [Runtime Configuration](/docs/configure/runtime) |
+| 加入 Google / Okta / Entra 登录 | [Authentication](/docs/configure/authentication) |
+| 锁定谁能做什么 | [Permissions](/docs/configure/permissions) |
+| 把事件发送到 Slack / Zapier / 你的服务 | [Webhooks](/docs/configure/webhooks) |
+| 部署到生产 | [Production Readiness](/docs/operate/production) |

@@ -1,0 +1,65 @@
+---
+title: 环境变量
+description: ObjectOS 运行时环境变量参考。
+---
+
+# 环境变量
+
+使用环境变量进行部署级配置和密钥管理。
+使用系统设置进行租户/用户可编辑的应用配置。
+
+## 核心
+
+| 变量 | 是否必需 | 说明 |
+|---|---:|---|
+| `PORT` | 否 | 容器内的 HTTP 端口。Docker Compose 中默认 `3000`。 |
+| `OS_AUTH_SECRET` | 启用 auth 时必需 | 用于派生各项目 auth 密钥的基础密钥。 |
+
+## Artifact 与项目解析
+
+| 变量 | 是否必需 | 说明 |
+|---|---:|---|
+| `OS_ARTIFACT_FILE` | 文件模式 | 本地已编译 `objectstack.json` 的路径。由 ObjectOS 应用 wrapper 读取并转发为 `fileConfig.artifactPath`。 |
+| `OS_ARTIFACT_PATH` | 备选 | 同一路径或 `http(s)://` URL 的框架级名称。`@objectstack/runtime` 直接识别（CLI `dev`/`start`、独立模式）。 |
+| `OS_PROJECT_ID` | 可选 | `OS_ENVIRONMENT_ID` 的旧别名,ObjectOS wrapper 为向后兼容接受。新部署中优先使用 `OS_ENVIRONMENT_ID`。 |
+| `OS_ENVIRONMENT_ID` | 可选 | 独立/文件支持模式下的环境 id（默认 `proj_local`）。也用于派生项目级 auth 密钥。ObjectOS wrapper 也接受旧别名 `OS_PROJECT_ID`。 |
+| `OS_ORGANIZATION_ID` | 可选 | 文件支持模式下的默认组织 id（默认 `org_local`）。 |
+| `OS_WATCH_ARTIFACT` | 否 | 设为 `1` 时在本地 artifact 变更时重载。仅用于开发。 |
+| `OS_CLOUD_URL` | Cloud 模式 | 用于主机名解析和 artifact 拉取的控制平面基础 URL。设为 `off` 或 `local` 退出云端联动行为。 |
+| `OS_CLOUD_API_KEY` | 可选 | 用于私有控制平面 Artifact API 访问的 Bearer token。 |
+| `OS_MULTI_TENANT` | 否 | 设为 `false` 以禁用多租户路由（默认 `true`）。 |
+| `OS_RUNTIME_PORT` | 仅开发 | 当在 `http://localhost:<port>` 开发时,用于构建平台 SSO 回调 URL 的本地端口。 |
+
+## 缓存
+
+| 变量 | 默认值 | 说明 |
+|---|---:|---|
+| `OS_KERNEL_CACHE_SIZE` | `32` | 缓存项目内核的最大数量。 |
+| `OS_KERNEL_TTL_MS` | `900000` | 项目内核的空闲 TTL。 |
+| `OS_ENV_CACHE_TTL_MS` | `300000` | 环境/主机名缓存 TTL。 |
+| `OS_ARTIFACT_CACHE_TTL_MS` | `300000` | Artifact 响应缓存 TTL。 |
+
+## Auth 与可信来源
+
+| 变量 | 说明 |
+|---|---|
+| `AUTH_SECRET` | 框架包使用的回退 auth 密钥名。ObjectOS 优先使用 `OS_AUTH_SECRET`。 |
+| `OS_TRUSTED_ORIGINS` | 逗号分隔的额外可信来源。 |
+| `OS_ROOT_DOMAIN` | 平台 SSO 部署中信任项目子域的根域。 |
+| `OS_PLATFORM_SSO` | 设为 `false` 以禁用平台 SSO 装配。 |
+| `OS_RUNTIME_PORT` | 用于 localhost 项目主机名的本地开发辅助。 |
+
+## 数据库
+
+云端联动模式下,控制平面在 artifact 响应中返回每个项目的运行时数据库配置。文件支持模式下,ObjectOS 从 artifact 读取数据源声明。作为最后回退,框架还识别以下变量：
+
+| 变量 | 说明 |
+|---|---|
+| `OS_DATABASE_URL` | 连接 URL（`file:./db.sqlite`、`libsql://…`、`postgres://…`、`mongodb://…`、`memory://`）。独立模式与 CLI `dev` 使用。 |
+| `OS_DATABASE_DRIVER` | 覆盖根据 URL 自动检测的驱动。 |
+| `OS_DATABASE_AUTH_TOKEN` | 用于 Turso/libSQL 等托管驱动的 auth token。 |
+| `OS_BUSINESS_DB_URL` | ObjectOS wrapper 对每个项目业务数据库 URL 的约定。在部署中将其解析到 `OS_DATABASE_URL` 或运行时数据源覆盖。 |
+| `OS_CACHE_DIR` | 本地 artifact 与运行时缓存目录（默认 `/var/cache/objectos`）。 |
+| `OS_SKIP_SCHEMA_SYNC` | 设为 `1` 时在启动时跳过 ObjectQL DDL 同步。schema 由外部管理时使用。 |
+
+对 ObjectOS 客户部署,优先使用显式控制平面运行时配置或 artifact 数据源配置,而非依赖容器本地默认值。

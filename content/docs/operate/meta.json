@@ -1,4 +1,5 @@
 {
   "title": "Operate",
+  "defaultOpen": false,
   "pages": ["production", "observability", "backup", "upgrade", "troubleshooting"]
 }

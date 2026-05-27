@@ -1,0 +1,150 @@
+---
+title: CEL 表达式
+description: 用于公式、谓词、调度和模板字符串的表达式语言 —— 通过五个标签模板暴露。
+---
+
+# CEL 表达式
+
+ObjectOS 在所有需要小型、安全、沙箱化表达式的地方使用 [CEL](https://github.com/google/cel-spec)（Common Expression Language）：公式字段、校验规则、可见性谓词、共享条件、流程守卫、调度和模板字符串。
+
+编写通过从 `@objectstack/spec` 导入的**五个标签模板**完成。它们都生成一个由运行时解析的小型 JSON 对象：
+
+```ts
+{ dialect: 'cel' | 'template' | 'cron', source: string }
+```
+
+Schema 源码：
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts)。
+
+## 五个标签模板
+
+| 模板 | Dialect | 用途 | 示例 |
+|:--|:--|:--|:--|
+| `` F`...` `` | `cel` | **公式字段** —— 与记录一同存储的派生值 | `` F`record.amount * 0.1` `` |
+| `` P`...` `` | `cel` | **谓词** —— 用于校验/共享/可见性/条件的布尔值 | `` P`record.status == "open"` `` |
+| `` cel`...` `` | `cel` | **通用 CEL** —— 当 F 或 P 都不合适时（例如参数值） | `` cel`now() + duration("P30D")` `` |
+| `` tmpl`...` `` | `template` | 带 `{{var}}` 插值的**字符串模板** | `` tmpl`Order from {{record.customer.name}}` `` |
+| `` cron`...` `` | `cron` | **调度** —— 标准 5 字段 cron 语法 | `` cron`0 9 * * 1-5` `` |
+
+`F`、`P`、`cel` 在求值时没有功能差异 —— 它们都运行 CEL。区分的存在是为了让 schema（和 AI Agent）知道表达式扮演什么角色,并让编辑器能进行类型检查（公式必须返回值,谓词必须返回 bool）。
+
+### 导入
+
+```ts
+import { F, P, cel, tmpl, cron } from '@objectstack/spec'
+```
+
+## 各自的使用位置
+
+| Spec 上的字段 | 标签 | 示例位置 |
+|:--|:--|:--|
+| `Field.expression`（formula 类型） | `F` | `*.object.ts` 公式字段 |
+| `Field.conditionalRequired` | `P` | 对象字段 |
+| `Validation.predicate` | `P` | 对象校验 |
+| `SharingRule.condition` | `P` | 共享规则 |
+| `View.conditionalFormatting[].condition` | `P` | 视图 |
+| `Flow.step.when` / `Flow.transition.when` | `P` | 流程 |
+| `Action.guard` | `P` | Action |
+| 通知主题/消息正文 | `tmpl` | 通知 |
+| `Schedule.cron` | `cron` | 调度流程/报表 |
+| 任意值参数 | `cel` | 流程步骤输入 |
+
+## 变量作用域
+
+CEL 表达式在带有以下顶级变量的上下文中求值：
+
+| 变量 | 何时可用 | 内容 |
+|:--|:--|:--|
+| `record` | 几乎总是 | 当前正在求值的记录 |
+| `previous` | 更新 Hook/变更检测 | 记录变更前的状态（或 `null`） |
+| `input` | Action、流程步骤 | 用户提交的输入载荷 |
+| `os.user` | 总是 | `{ id, roles: string[], permissions: string[] }` |
+| `os.org` | 总是 | 组织/租户上下文 |
+| `os.env` | 总是 | 暴露给表达式的环境变量 |
+
+> 旧的 `OLD` / `NEW` 变量已在 M9.5 中移除。请使用 `previous` 和 `record`。
+
+## 标准库
+
+注册位置：
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts)。
+最常用的内置函数：
+
+### 时间
+
+| 函数 | 返回 | 说明 |
+|:--|:--|:--|
+| `now()` | `Timestamp` | 钉在求值上下文 —— 单次查询内稳定 |
+| `today()` | `Timestamp` | UTC 当日开始 |
+| `daysFromNow(int)` | `Timestamp` | 未来日期 |
+| `daysAgo(int)` | `Timestamp` | 过去日期 |
+
+CEL 还包含原生 `timestamp(...)`、`duration(...)`、`date.getDayOfWeek()` 等 —— 参见
+[CEL spec](https://github.com/google/cel-spec/blob/master/doc/langdef.md#standard-definitions)。
+
+### 工具
+
+| 函数 | 用途 |
+|:--|:--|
+| `isBlank(x)` | `null`、`undefined`、`""` 或空列表时为 `true` |
+| `coalesce(a, b)` | 第一个非空值 |
+| `trim(s)` | 去除空白 |
+| `joinNonEmpty(list, sep)` | 拼接非空条目 |
+
+原生 CEL 字符串辅助函数（`.contains(...)`、`.startsWith(...)`、`.matches(...)`、`.size()`）始终可用。
+
+## 示例
+
+**公式字段** —— 行项目合计：
+
+```ts
+{ name: 'subtotal', type: 'formula', expression: F`record.quantity * record.unit_price` }
+```
+
+**校验** —— 关闭日期必须在今日之后：
+
+```ts
+{ message: 'Close date must be in the future', predicate: P`record.close_date > today()` }
+```
+
+**可见性** —— 仅向经理显示字段：
+
+```ts
+{ visibleIf: P`'manager' in os.user.roles` }
+```
+
+**流程守卫** —— 金额小时跳过步骤：
+
+```ts
+{ when: P`record.amount >= 1000` }
+```
+
+**调度** —— 工作日 9 点：
+
+```ts
+{ schedule: cron`0 9 * * 1-5` }
+```
+
+**模板** —— 通知主题：
+
+```ts
+{ subject: tmpl`[{{record.priority}}] {{record.subject}}` }
+```
+
+## 错误
+
+表达式在加载时编译。失败以带源码位置的 `VALIDATION_ERROR` 呈现：
+
+```json
+{ "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
+```
+
+运行时求值失败：公式字段视为 `null`,谓词视为 `false`,并在审计日志中写入一条记录。
+
+## 参见
+
+- [字段类型](./field-types) —— 公式和条件必填字段
+- [Build → 数据模型](/docs/build/data-model) —— 校验和谓词
+- [Build → 流程](/docs/build/flows) —— 守卫和调度
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) —— schema
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) —— 内置函数

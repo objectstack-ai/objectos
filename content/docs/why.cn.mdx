@@ -1,0 +1,110 @@
+---
+title: 为什么选 ObjectOS
+description: 老实话 —— 什么时候应该用它，什么时候不应该，以及它的不同之处。
+---
+
+# 为什么选 ObjectOS
+
+这一页存在的意义是：让你不必在其他文档之间反复揣摩，就能判断 ObjectOS 是否适合你。
+
+## 这个赌注的形状
+
+ObjectOS 押下了一个观点鲜明的赌注：**AI 编写你应用的元数据，你拥有运行它的运行时。**
+
+你不再一个文件一个文件地手写对象、字段、视图、流程和权限。用户用自然语言向 Studio 内置的 [AI Builder](/docs/build/ai-builder) 描述需求；它调用一小组受审计的工具，将每次变更排队等待人工审批，结果立刻上线 —— REST 端点、Studio 界面、RBAC、审计日志，全部由同一份元数据生成。
+
+运行时位于**你的** VPC、**你的**数据库、**你的** Apache-2.0 fork。模型只与沙箱化的元数据 API 对话，不接触你的数据仓库。
+
+这就是全部主张。本页其余部分是关于谁适合、谁不适合。
+
+## 如果你…… 就用 ObjectOS
+
+- 需要一个内部工具、管理后台或后办公应用，**且**
+- 希望使用它的人（或代表他们的 AI Agent）能在不开工单的情况下*扩展*它，**且**
+- 不能（或不愿）把数据放到别人的云上，**且**
+- 不想第十次重建认证 + RBAC + 审计 + 文件上传 + 任务 + Webhook。
+
+常见的适用场景：
+
+| 场景 | 为什么合适 |
+|---|---|
+| 因为安全评审提到数据主权而要替换 Retool / Appsmith 应用 | ObjectOS 跑在你的 VPC 里；数据从不离开 |
+| 为受监管业务构建合规 / 风险 / 供应商管理工具 | 审计日志、RBAC、字段安全、行级隔离都是头等公民 —— 每次 AI 驱动的变更本身也是一条审计 |
+| 为 SaaS 产品建立内部管理后台 | 一个 Node 进程，与你现有服务并列 |
+| 为企业客户做气隙或本地部署 | 头等部署目标，无需出网（自带本地模型） |
+| 多租户内部门户（一个运行时，多个小应用） | 按项目内核 + LRU 缓存正是为此设计 |
+| 你希望用户安全地 "vibe-code" 自己的扩展 | AI Builder + HITL 审批队列 + 审计日志就是核心 |
+
+## 如果你…… 别用 ObjectOS
+
+- 在构建高流量的消费级产品 → 用传统 Web 框架，你能掌控更多。
+- 需要为终端用户打造像素级定制 UI → ObjectOS 的 Studio 面向管理/内部用途；把它和你自己的前端通过 REST 配对使用。
+- 想要给非工程师用的无代码拖拽生成器 + 托管云 → 用 Retool、Bubble 或 Airtable。ObjectOS 是代码优先、AI 驱动、自托管的。
+- 需要 Figma 风格的实时协作编辑 → 不是 realtime 插件要解决的问题。
+
+## 与你现在大概率在用的东西对比
+
+### vs. Retool / Appsmith / Internal
+
+| | Retool | ObjectOS |
+|---|---|---|
+| 数据位置 | 他们的云（高阶可自托管） | 始终在你的网络中 |
+| UI 构建器 | 拖拽，非常打磨 | 元数据驱动、自动生成；定制空间更小 |
+| 价格 | 按用户计费，扩张痛苦 | 自托管，Apache-2.0 |
+| 工作流 / 触发器 | 他们的工作流引擎 | 声明式流程 + 插件 |
+| 后端逻辑 | 限于他们的查询编辑器 | 完整 TypeScript，完整 Node 生态 |
+| 最适合 | 在现有 API 上做快速仪表盘 | *拥有自己数据*的应用 |
+
+### vs. Supabase / Firebase
+
+| | Supabase | ObjectOS |
+|---|---|---|
+| 启动时间 | ~30 秒 | ~30 秒 |
+| 数据库 | Postgres，他们的（可自托管） | 任意 Postgres / MySQL / SQLite / Turso / Mongo，**你的** |
+| 认证 | 内置 | 内置 |
+| 生成的 API | PostgREST | ObjectQL 生成的 REST |
+| 管理 UI | Studio（基础） | Studio + Console + Account |
+| RBAC | 基于 Postgres RLS 的行级 | RBAC + 行级 + 字段级，声明式 |
+| 审计日志 | DIY | 头等支持 |
+| 厂商锁定 | 他们的认证 + 存储 + realtime | 无 —— 每一层都是插件 |
+| 最适合 | 想要 BaaS 的新应用 | 需要拥有运行时的应用 |
+
+### vs. Salesforce / NetSuite / ServiceNow
+
+| | Salesforce | ObjectOS |
+|---|---|---|
+| 数据模型 | 对象 + 字段 + 关系 | 一致 |
+| 权限 | Profile + permission sets + sharing rules + FLS | **同样的词汇**，声明式 TypeScript |
+| 每用户成本 | 150-300 美元/用户/月 | 0 美元 |
+| 定制 | Apex + Lightning + flows | TypeScript + flows |
+| 运行位置 | 他们的云，没得选 | 你的基础设施 |
+| 到达 "归我所有" 的时间 | 几个月的咨询工作 | 一个下午 |
+| 最适合 | 愿意为生态付费的销售导向公司 | 想要模型但不想交税的团队 |
+
+### vs. 自己拼（Next.js + Prisma + NextAuth）
+
+| | DIY | ObjectOS |
+|---|---|---|
+| 第一个 REST 端点 | 几个小时 | 60 秒 |
+| 认证（邮箱 + OAuth + OIDC + Passkey + 2FA） | 数周 | 已包含 |
+| 每个对象的管理 UI | 逐个构建 | 自动生成 |
+| 审计日志 | DIY | 插件，声明式 |
+| 带权限的 S3 文件上传 | DIY | 插件 |
+| 后台任务 + 重试 + 死信 | DIY | 插件 |
+| 多租户 | DIY（你会做错两次） | 内置 |
+| 最适合 | 有定制 UX 的对外应用 | 速度优先的内部工具 |
+
+## 老实说的权衡
+
+- **比 Retool 的 UI 自由度低。** Studio 是从元数据生成的。你可以把它与定制前端配对（REST API 就是 Studio 在用的那一个），但如果你需要手工打磨像素级 UI，那就自己写前端，把 ObjectOS 当作后端。
+- **TypeScript 优先。** 非工程师不会直接编写对象。Salesforce 管理员习惯了通过 UI 构建器点击；这里靠 `git`。
+- **比 Salesforce 年轻。** Salesforce 有 25 年的边缘案例文档。我们只有几百条。协议稳定；生态在成长。
+- **Apache-2.0。** 可用于商业产品、可嵌入、可私自修改。无 copyleft 惊喜。可选商业支持单独提供。
+
+## 现实检验
+
+最小可用的 ObjectOS 部署是一个 `pnpm dev` 或一个 SQLite Docker 容器。目前生产中最大的部署使用 Postgres + S3 + Redis，在多个区域为数万名内部用户提供服务。两者是同一份软件。
+
+用 `npx @objectstack/cli init my-app` 启动，五分钟内做决定。如果不合适，你只花了五分钟。
+
+[**试试 Quickstart →**](/docs/quickstart)

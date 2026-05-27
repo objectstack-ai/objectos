@@ -1,0 +1,76 @@
+---
+title: ObjectOS
+description: 留在你网络内的内部工具运行时。一条命令启动，你的数据库、你的认证、你的数据 —— 永远不归我们所有。
+---
+
+# ObjectOS
+
+**ObjectOS 是一个自托管运行时，用于构建内部工具、管理后台和后办公应用，且不必交出你的数据。** 向 Studio 内置的 AI Builder 描述你要的东西 —— 或者 fork 一个模板 —— 你就能得到 REST API、生成的管理 UI、认证、RBAC、审计日志、文件存储、后台任务、Webhook 和 AI 集成。所有这些都运行在你的网络中，使用你的数据库。
+
+如果 Retool、Supabase 和 Salesforce 生了一个孩子并让它运行在你的防火墙内 —— 由 AI 替你构建应用 —— 那大概就是它的样子。
+
+## 60 秒内启动
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+打开 **http://localhost:3000**，你就拥有了一个可工作的 ObjectOS，包含 Studio、Account、Console、审计日志和一个 SQLite 数据库 —— 零配置、零脚手架。
+
+然后你可以：
+
+- **与 AI Builder 对话** —— *"我需要追踪支持工单，包含优先级和负责人"* —— 看着元数据被生成。参见 [Build → AI Builder](/docs/build/ai-builder)。
+- 从 Studio 内置市场**安装模板**（Todo、Contracts、Helpdesk……），一键就能拥有一个真实可用的应用。
+- 如果你想要 TypeScript 源码归你控制，可以 **fork 一个 [模板](/docs/build/templates)**。
+
+## 为什么选 ObjectOS 而不是 ……
+
+| 你在用 | 痛点 | ObjectOS 给你的 |
+|---|---|---|
+| **Retool / Appsmith** | UI 构建器很好，但你的数据在他们的云上，价格随用户数膨胀 | 数据从不离开你的网络；Apache-2.0，无人头税 |
+| **Supabase / Firebase** | BaaS 很快但被供应商锁定；本质上是多租户 SaaS | 同样的 DX（自动 API、认证、存储），但你拥有运行时和数据库 |
+| **Salesforce / NetSuite** | 平台强大，定制痛苦，每席位成本惊人 | 同样的元数据驱动模型（对象、字段、角色、共享规则），自托管，无人头税 |
+| **自己造轮子（Next + Prisma + NextAuth）** | 你每次都在重新实现 RBAC、审计、文件上传、设置、Webhook、任务 | 直接写业务逻辑；平台底座已就绪 |
+
+## 开箱即用
+
+| 入口 | 是什么 |
+|---|---|
+| **自动 REST API** | 你声明的每个对象都自动获得 `/api/v1/data/<object>`，支持过滤/排序/分页 |
+| **Studio** (`/_studio/`) | 生成的管理 UI，用于浏览、编辑、管理记录 |
+| **Account** (`/_account/`) | 登录、注册、密码重置、OAuth、OIDC/SSO、Passkey、2FA |
+| **Console** (`/_console/`) | 用户、角色、权限集、审计日志、会话、API Key、设置 |
+| **23 个插件** | RBAC + 行级安全、审计、文件存储、队列、任务、邮件、AI、Webhook —— 声明式、按需启用 |
+
+## 你保留控制的部分
+
+| 资产 | 存放位置 |
+|---|---|
+| 业务数据 | **你的**数据库（Postgres、SQLite、MySQL、Turso、MongoDB） |
+| 用户身份与会话 | **你的**数据库 |
+| 审计日志 | **你的**数据库 |
+| 文件 | **你的**存储（本地磁盘、S3、R2） |
+| 密钥 | **你的**密钥管理器 |
+| 运行时本身 | **你的**服务器、容器或笔记本 |
+
+ObjectOS 从不回传数据。无遥测。无授权服务器。气隙网络是头等部署目标 —— 参见 [Air-gapped](/docs/deploy/air-gapped)。
+
+## 下一步去哪里
+
+| 如果你想…… | 阅读 |
+|---|---|
+| 看它真正运行起来 | [Quickstart](/docs/quickstart) |
+| 理解盒子里有什么 | [Architecture](/docs/architecture) |
+| 用 Docker 运行 | [Docker](/docs/deploy/docker) |
+| 部署到 Kubernetes | [Kubernetes](/docs/deploy/kubernetes) |
+| 接到 Postgres / 你的数据库 | [Runtime Configuration](/docs/configure/runtime) |
+| 配置 SSO | [Authentication](/docs/configure/authentication) |
+| 锁定谁能看到什么 | [Permissions](/docs/configure/permissions) |
+| 从另一个服务调用它 | [API Access](/docs/configure/api-access) |
+| 向其他系统发送事件 | [Webhooks](/docs/configure/webhooks) |
+| 上线生产 | [Production Readiness](/docs/operate/production) |
+
+## 许可与价格
+
+ObjectOS 运行时采用 **Apache-2.0** —— 主流 OSS 许可证中最宽松的一种。可用于商业产品、可嵌入、可再发布，你的修改可以保持私有。无人头费、无授权服务器、无 "起价 5 万美元/年"。可选的商业支持和托管服务单独提供 —— 参见 [License](/docs/resources/license)。

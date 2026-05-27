@@ -94,18 +94,6 @@ export interface HomepageTranslations {
     };
   };
 
-  // Comparison Section
-  comparison: {
-    heading: string;
-    subheading: string;
-    columns: {
-      criterion: string;
-      saas: string;
-      objectos: string;
-    };
-    rows: Array<{ criterion: string; saas: string; objectos: string }>;
-  };
-
   // Bottom CTA
   bottomCta: {
     heading: string;
@@ -114,6 +102,15 @@ export interface HomepageTranslations {
     primaryHref: string;
     secondary: string;
     secondaryHref: string;
+  };
+
+  // Footer
+  footer: {
+    copyright: string;
+    privacy: string;
+    privacyHref: string;
+    terms: string;
+    termsHref: string;
   };
 
   // Personas Section
@@ -237,23 +234,6 @@ export const en: HomepageTranslations = {
       cta: 'Air-gapped guide',
     },
   },
-  comparison: {
-    heading: 'ObjectOS vs. Hosted SaaS',
-    subheading: 'For teams that cannot — or will not — put customer data into someone else’s cloud.',
-    columns: {
-      criterion: '',
-      saas: 'Hosted SaaS',
-      objectos: 'ObjectOS',
-    },
-    rows: [
-      { criterion: 'Where data lives', saas: 'Vendor cloud', objectos: 'Your infrastructure' },
-      { criterion: 'Network egress required', saas: 'Always', objectos: 'Optional / none' },
-      { criterion: 'Identity provider', saas: 'Vendor-controlled', objectos: 'Your SSO / OIDC / SAML' },
-      { criterion: 'Audit & backup target', saas: 'Vendor storage', objectos: 'Your storage' },
-      { criterion: 'Failure radius', saas: 'Vendor outage', objectos: 'Your operations' },
-      { criterion: 'Upgrade cadence', saas: 'Forced', objectos: 'You decide' },
-    ],
-  },
   bottomCta: {
     heading: 'Run it where your data already lives.',
     subheading: 'A single artifact, the same behavior everywhere — from a laptop to an air-gapped data center.',
@@ -261,6 +241,13 @@ export const en: HomepageTranslations = {
     primaryHref: '/docs/quickstart',
     secondary: 'Architecture',
     secondaryHref: '/docs/architecture',
+  },
+  footer: {
+    copyright: '© 2026 ObjectStack AI LLC.',
+    privacy: 'Privacy Policy',
+    privacyHref: '/privacy',
+    terms: 'Terms of Service',
+    termsHref: '/terms',
   },
 };
 
@@ -364,23 +351,6 @@ export const cn: HomepageTranslations = {
       cta: '离线部署指南',
     },
   },
-  comparison: {
-    heading: 'ObjectOS 与托管 SaaS 的对比',
-    subheading: '面向那些不能 —— 或不愿 —— 把客户数据放到别人云上的团队。',
-    columns: {
-      criterion: '',
-      saas: '托管 SaaS',
-      objectos: 'ObjectOS',
-    },
-    rows: [
-      { criterion: '数据存放位置', saas: '厂商云', objectos: '你的基础设施' },
-      { criterion: '是否需要公网出口', saas: '始终需要', objectos: '可选 / 完全不需要' },
-      { criterion: '身份提供方', saas: '由厂商控制', objectos: '你的 SSO / OIDC / SAML' },
-      { criterion: '审计与备份目标', saas: '厂商存储', objectos: '你自己的存储' },
-      { criterion: '故障影响范围', saas: '厂商宕机', objectos: '你自己的运维' },
-      { criterion: '升级节奏', saas: '强制升级', objectos: '由你决定' },
-    ],
-  },
   bottomCta: {
     heading: '让应用跑在你数据已经在的地方。',
     subheading: '一份发布包,在笔记本和完全离线的数据中心里表现一致。',
@@ -388,6 +358,13 @@ export const cn: HomepageTranslations = {
     primaryHref: '/docs/quickstart',
     secondary: '架构总览',
     secondaryHref: '/docs/architecture',
+  },
+  footer: {
+    copyright: '© 2026 ObjectStack AI LLC.',
+    privacy: '隐私政策',
+    privacyHref: '/privacy',
+    terms: '服务条款',
+    termsHref: '/terms',
   },
 };
 

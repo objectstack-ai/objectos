@@ -1,0 +1,66 @@
+---
+title: 升级与回滚
+description: 安全升级 ObjectOS 与应用产物。
+---
+
+# 升级与回滚
+
+ObjectOS 有两条版本流：
+
+| 版本 | 拥有者 | 回滚 |
+|---|---|---|
+| ObjectOS 镜像/运行时 | 平台/运行时团队 | 上一个容器 tag |
+| 应用产物 | 应用/控制面发布团队 | 上一个产物或项目版本指针 |
+
+不要就地修改产物。请发布一个新产物，再把运行时切换过去。
+
+## 升级 ObjectOS
+
+Docker Compose：
+
+```bash
+docker compose -f docker/docker-compose.yml pull
+docker compose -f docker/docker-compose.yml up -d
+```
+
+Kubernetes 下，更新镜像 tag，让 Deployment 滚动更新。
+
+## 升级产物
+
+文件挂载模式：
+
+```bash
+cp objectstack-2026-05-24.json docker/artifacts/objectstack.json
+docker compose -f docker/docker-compose.yml restart objectos
+```
+
+云连接模式：
+
+1. 将新产物发布到控制面。
+2. 把当前的项目/环境指针指向新版本。
+3. 等待 ObjectOS 在缓存过期后重新拉取，或重启以强制重新加载。
+
+## 回滚
+
+回滚 ObjectOS：
+
+```bash
+docker compose -f docker/docker-compose.yml up -d objectos
+```
+
+使用上一个镜像 tag 即可。
+
+回滚产物：
+
+- 恢复之前挂载的文件;或
+- 将控制面指针移回上一个产物版本。
+
+## 兼容性检查
+
+升级前：
+
+- 确认产物所针对的 ObjectStack 版本与目标兼容;
+- 确认所需能力在 ObjectOS 镜像中可用;
+- 确认数据库迁移或 schema 同步行为已被理解;
+- 跑一遍认证与权限的冒烟测试;
+- 确认回滚不需要破坏性的数据变更。

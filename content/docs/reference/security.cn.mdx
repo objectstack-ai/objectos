@@ -1,0 +1,220 @@
+---
+title: 安全与合规
+description: 保护什么、如何保护、谁负责 —— 供安全评审。
+---
+
+# 安全与合规
+
+本页面面向安全评审者、IT 管理员,以及需要回答"引入它安全吗?"的任何人。
+
+## 一句话威胁模型
+
+ObjectOS 作为单个 Node.js 进程运行在**你**的网络内,与**你**的数据库通信,从不回传。被攻破的爆炸半径即其连接的数据库上的数据 —— 仅此而已。
+
+## 数据驻留
+
+| 数据类别 | 存放在 | 是否离开你的网络? |
+|---|---|---|
+| 业务记录 | 你的数据库 | **否** |
+| 用户账户、会话、OAuth token | 你的数据库 | **否** |
+| 审计日志 | 你的数据库 | **否** |
+| 设置、API key | 你的数据库 / 你的密钥管理器 | **否** |
+| 上传文件 | 你的磁盘或 S3 兼容存储桶 | **否** |
+| 遥测/使用数据 | — | **不收集** |
+
+ObjectOS **零外发调用**,除非你显式配置（OIDC discovery、邮件提供商、AI 提供商、webhook 目标、外部存储）。它不回传、不查 license server、不轮询更新。
+
+## 加密
+
+| 层 | 机制 | 责任方 |
+|---|---|---|
+| 传输中（浏览器 ↔ ObjectOS） | TLS,在你的 edge / ingress 终结 | 你 |
+| 传输中（ObjectOS ↔ 数据库） | 驱动级 TLS（Postgres `sslmode=require`、MongoDB `tls=true`……） | 你 —— 设置连接字符串 |
+| 静态（业务数据） | 数据库原生（如 Postgres TDE、RDS encryption） | 你 |
+| 静态（上传文件） | 存储原生（S3 SSE、R2 默认、磁盘级 FDE） | 你 |
+| DB 中密钥（settings、OIDC client secret） | 由 settings 服务加密 | ObjectOS |
+| 会话 cookie / token | 用 `OS_AUTH_SECRET` 进行 HMAC 签名 | ObjectOS |
+| API key 值 | DB 中**哈希存储** —— 泄露的 DB 行无法重建 key | ObjectOS |
+
+## 认证
+
+内置（通过 `@objectstack/plugin-auth`,基于 Better Auth）：
+
+- 带验证 + 重置的邮箱/密码
+- 带撤销的会话管理
+- Social OAuth（Google、GitHub、Microsoft、Apple……）
+- 企业 OIDC/SSO（Okta、Entra ID、Keycloak、Ping）
+- 双因素（TOTP）
+- Passkey / WebAuthn
+- 魔法链接
+- CLI/浏览器设备流
+- API key（哈希、可过期、可撤销、绑定到用户）
+
+见[认证](/docs/configure/authentication)。
+
+## 授权
+
+分层强制（通过 `@objectstack/plugin-security`）：
+
+1. **对象权限** —— 每个权限集对每个对象的 CRUD
+2. **行级安全** —— 注入查询的声明式策略表达式;不可选
+3. **字段级安全** —— 响应中剥离字段 / 写入时拒绝
+4. **组织作用域** —— 多租户隔离;绕过需要显式 `viewAllRecords`
+
+系统上下文操作绕过检查以便内部作业 / 迁移可运行 —— 这些路径可审计。
+
+见[权限](/docs/configure/permissions)。
+
+## 审计与证据
+
+当审计能力被加载时（`@objectstack/plugin-audit`）：
+
+- 每个对象上的每次 CRUD 操作 → 审计行。
+- 字段变更的前后值。
+- 认证、权限授予、会话撤销事件。
+- 审计行**不可变**：不能修改,只能归档。
+- 保留期可配置;与你的 DB 归档策略配合。
+
+这是 SOC 2 CC6/CC7、ISO 27001 A.12.4、HIPAA §164.312(b) 和 GDPR Article 30 的证据基础。
+
+## 合规框架
+
+ObjectOS 提供每个常见框架所要求的**技术原语**。认证是部署的属性,而非软件的属性 —— 但控制项映射清晰：
+
+| 框架 | ObjectOS 提供 |
+|---|---|
+| **SOC 2** | 访问控制（CC6）、变更管理（审计日志）、加密（部署）、监控（可观测性）、备份（operate/backup） |
+| **ISO 27001** | A.5 政策（RBAC）、A.8 资产管理（对象目录）、A.9 访问控制、A.12 运营、A.18 合规 |
+| **HIPAA** | 访问控制（§164.312(a)）、审计控制（§164.312(b)）、完整性（不可变审计）、传输安全（TLS） |
+| **GDPR** | Article 30 处理记录（审计）、Article 32 处理安全、Article 17 删除权（支持软删 + 硬删）、数据驻留（你选择区域） |
+| **CCPA / 中国 DSL / 俄罗斯 152-FZ** | 在正确区域自托管即满足驻留;访问控制 + 审计覆盖大部分报告义务 |
+
+ObjectOS 本身**未认证**,因为认证针对运行中的部署,而非二进制。你的部署可以被认证 —— 已有许多达成。
+
+## 密钥处理
+
+| 密钥 | 放置位置 |
+|---|---|
+| `OS_AUTH_SECRET` | 你的密钥管理器（Vault、AWS Secrets Manager、k8s Secret）;注入为环境变量 |
+| 带凭据的数据库 URL | 同 |
+| OIDC client secret | 同 |
+| OAuth provider secret | 同 |
+| API provider key（邮件、存储、AI） | 同 |
+| DB 中存储的 settings | 由 settings 服务静态加密 |
+
+**绝不要**将密钥烘焙到 artifact（`objectstack.json`）、Docker 镜像、compose 文件或 Git 中。Console 中的 settings UI 将 env 管理的值显示为锁定状态,运维不会意外覆盖。
+
+## 网络模型
+
+必需入站：
+- 从你的 ingress / 负载均衡器到 ObjectOS `:3000`（默认）的 HTTPS。
+
+必需出站（仅当你配置这些功能时）：
+- 你的数据库（Postgres / Mongo / Turso / ……）。
+- S3 兼容存储（若启用 `storage` 能力且使用 S3 适配器）。
+- OIDC discovery URL（若启用 SSO）。
+- 邮件提供商 API（Resend / Postmark）。
+- AI 提供商 API（OpenAI / Anthropic / Google / ……）。
+- Webhook 目标。
+
+这就是全部出站表面。见[气隙](/docs/deploy/air-gapped)了解切断更多的部署。
+
+## AI：工具、审批、隔离
+
+AI Builder 是你将暴露的最敏感安全表面,因此除上述一切之外还有自己的强制层。
+
+### AI 如何变更状态
+
+模型**无法直接写入**你的数据库。状态变更的唯一方式是发出结构化的工具调用,由 AI 服务接收、校验和入队。链条：
+
+```text
+user prompt
+  → model emits tool call (e.g. add_field { object: 'ticket', name: 'severity', type: 'select' })
+  → AI service validates payload against the tool's Zod schema
+  → if the tool is "mutating": queue as pending action (no state change yet)
+  → human reviewer approves → mutation applied → audit row written
+  → if the tool is "read-only": run immediately, response returned to model
+```
+
+有 11 个第一方元数据工具（[见 Build → AI Builder](/docs/build/ai-builder)）加每个已声明 Action 对应的一个 `action_<name>` 工具。每个工具 —— 第一方或自定义 —— 都遵循相同的生命周期。
+
+### 权限键
+
+| 键 | 授予 |
+|:--|:--|
+| `ai:chat` | 进行对话;消费模型;让 Agent 调用只读工具 |
+| `ai:complete` | 原始补全端点（无 Agent 循环） |
+| `ai:conversations` | 列出/检查/删除对话（取决于 RBAC 作用域,自己或全部） |
+| `ai:agents` | 管理 Agent 元数据（与 `ai:chat` 一同用于调用） |
+| `ai:tools` | 列出工具目录 |
+| `ai:execute` | 通过 REST 直接调用工具（高级 —— 通常仅 ambient agent 需要） |
+| `ai:read` | 读取 pending-actions 队列与模型列表 |
+| `ai:approve` | 批准/拒绝排队中的变更 |
+| `ai:admin` | 完全的 AI 服务管理 |
+
+关键拆分是 **`ai:chat` ≠ `ai:approve`**。给大多数用户 `ai:chat` 使助手可用;为应审查结构性变更的管理员 / 应用所有者保留 `ai:approve`。最终用户因此可以安全地"vibe-build" —— 他们最坏只能将糟糕的变更入队,需别人接受。
+
+### 租户隔离
+
+- Agent、对话、知识库和 pending action 作用于一个**环境**（租户）。租户 A 不能看到租户 B 的对话、AI 提议的工具或知识语料 —— 即使从同一 marketplace 包安装的同一 Agent 定义也不行。
+- 元数据工具（`create_object`、`add_field`……）针对调用方租户中的**激活包**操作。它们无法触及包外。
+- 工具输入经 CEL 校验,引擎拒绝对保留系统包（`sys.*`）或其他租户对象名的引用。
+
+### 审计事件
+
+当审计能力被加载时：
+
+- `ai.chat.message` —— 每条用户/助手消息,带模型 + token 计数
+- `ai.tool.call` —— 工具名、已校验输入、完整输出（或错误）
+- `ai.pending_action.queued` —— 提议的变更,完整 diff
+- `ai.pending_action.approved` / `.rejected` —— 谁、何时、为何决定
+- `ai.metadata.applied` —— 对元数据存储的实际写入,带 diff
+
+这些行不可变,可导出用于安全审查或费用分摊。按（提供商、模型、用户）的 token 计数供成本归因。
+
+### 提示注入态势
+
+间接提示注入（如 Agent 检索的文档中含恶意内容）是真实风险;ObjectOS 通过构造减少爆炸半径：
+
+- AI **无法绕过工具校验** —— 即使被说服发出恶意载荷,Zod schema 也会在到达引擎前拒绝畸形输入。
+- 变更性工具始终入队。注入的提示无法静默写入数据库。
+- 工具调用继承**最终用户的权限**,而非模型的服务账户权限。用户永远无法通过 AI 做他们自己在 Studio 或 REST 中也做不到的事。
+- 加载到 Agent 中的 Skill 是版本化且显式的 —— 见 [Build → IDE Skills](/docs/build/ai-skills) 和 [Build → AI Builder](/docs/build/ai-builder)。
+
+### 外部 AI 提供商数据流
+
+当你配置一个提供商（OpenAI、Anthropic……）时,仅以下内容离开你的网络：
+
+- 模型所需的对话历史（受你的 AI 服务 `redact` 配置约束 —— 见 [Configure → AI](/docs/configure/ai)）
+- 工具定义（名称、JSON schema —— 无记录数据）
+- 模型继续所需的工具输出（如用户明确请求的查询结果）
+
+对气隙部署,将 AI 服务指向本地 Ollama / vLLM / TGI 端点,同样的流程仍在你的边界内。
+
+## 漏洞披露
+
+请私下报告安全问题至
+**security@objectstack.ai**。我们将在 1 个工作日内响应。请勿就安全问题提交公开 GitHub issue。
+
+## 供应链
+
+- 预构建镜像由 [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos) 发布,带可复现构建溯源。
+- 所有 `@objectstack/*` 包在 GitHub 上有发布源码 —— Apache-2.0,无混淆。
+- 生产中使用 SHA 钉死的镜像 tag（`sha-<short>`）以避免漂移;见 [Docker](/docs/deploy/docker)。
+
+## 推荐加固清单
+
+- [ ] 在 edge 用真实证书终结 TLS。
+- [ ] `OS_AUTH_SECRET` 为 32+ 字节随机,放在密钥管理器。
+- [ ] 数据库连接使用 TLS。
+- [ ] TLS 校验后启用 HSTS。
+- [ ] CORS origin 显式（带凭据时永不 `*`）。
+- [ ] auth 端点限速（推荐 `10/min/IP`）。
+- [ ] 审计保留期匹配策略。
+- [ ] 人类账户用 OIDC;机器账户用 API key。
+- [ ] 备份 + 恢复演练已执行并计时。
+- [ ] 反向测试：跨组织访问被拒、字段安全有效、过期会话被拒。
+- [ ] 镜像固定到 `sha-<short>` 或语义版本 tag。
+- [ ] 每次发布前在 CI 中 `os doctor` 干净。
+
+完整上线清单见[生产就绪](/docs/operate/production)。

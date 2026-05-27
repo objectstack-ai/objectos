@@ -1,0 +1,169 @@
+---
+title: 存储
+description: ObjectOS 把文件放在哪里 —— 本地磁盘、S3、R2、MinIO、Spaces。
+---
+
+# 存储
+
+ObjectOS 的文件（附件、上传、生成的文档）经过**存储服务**——一个可插拔的抽象，包含两类适配器：**本地文件系统**（默认）和 **S3 兼容**（生产）。
+
+该服务由 `@objectstack/service-storage` 提供，在 standalone 和 project 启动时默认启用。
+
+## 用户如何与之交互
+
+| 入口 | 行为 |
+|---|---|
+| Studio 文件/图片字段 | 浏览器通过预签名 URL 直接上传到存储 |
+| REST `/api/v1/storage/*` | 编程式上传/下载端点 |
+| 对象 `attachment` / `image` 字段 | 渲染为上传控件；元数据持久化在 `sys_file` |
+
+文件以 `sys_file` 系统对象追踪，而非以原始路径出现在你的记录中。这让你的数据模型与存储后端解耦。
+
+## 本地文件系统（默认）
+
+适用于：开发、单节点部署、演示。
+
+```ts
+// objectstack.config.ts (or wherever you assemble plugins)
+import { StorageServicePlugin } from '@objectstack/service-storage';
+
+new StorageServicePlugin({
+  adapter: 'local',
+  local: {
+    rootDir: './uploads',
+    baseUrl: 'http://localhost:3000',  // for presigned URLs
+    signingSecret: process.env.OS_STORAGE_SIGNING_SECRET, // optional; auto-generated if omitted
+  },
+  presignedTtl: 3600,   // seconds — TTL for presigned URLs
+  sessionTtl: 86400,    // seconds — TTL for chunked upload sessions
+});
+```
+
+在 standalone 模式（无项目执行 `os start`）下，运行时会在 `~/.objectstack/data/uploads/` 下自动配置本地存储。
+
+**不适合生产**，除非你只有一个节点并能容忍该节点磁盘故障导致的文件丢失。多节点或需要持久化的场景请使用 S3 兼容存储。
+
+## S3 兼容（生产）
+
+适用于：生产、多节点、持久化 + 生命周期管理。
+
+```bash
+pnpm add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+```
+
+```ts
+import { StorageServicePlugin } from '@objectstack/service-storage';
+
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'us-east-1',
+    // omit credentials to use the AWS SDK's default chain
+    // (env, ~/.aws, IAM role)
+  },
+});
+```
+
+AWS SDK 按其默认链读取凭据：
+
+| 来源 | 环境变量 |
+|---|---|
+| 标准 env | `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_REGION` |
+| Session token | `AWS_SESSION_TOKEN` |
+| 共享配置 | `~/.aws/credentials`、`AWS_PROFILE` |
+| IAM 角色 | 在 EC2 / ECS / EKS / Lambda 上自动生效 —— 无需配置 |
+
+### Cloudflare R2
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'auto',
+    endpoint: 'https://<account-id>.r2.cloudflarestorage.com',
+    forcePathStyle: false,
+  },
+});
+```
+
+凭据：R2 access key id + secret，通过标准 `AWS_*` 环境变量或你的 secret manager 传入。
+
+### MinIO（自托管）
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'us-east-1',
+    endpoint: 'http://minio.internal:9000',
+    forcePathStyle: true,
+  },
+});
+```
+
+### DigitalOcean Spaces
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'nyc3',
+    endpoint: 'https://nyc3.digitaloceanspaces.com',
+    forcePathStyle: false,
+  },
+});
+```
+
+### S3 bucket 策略
+
+存储使用预签名 PUT/GET URL。推荐的 bucket 策略：
+
+- 阻止所有公共访问。
+- CORS：允许来自 ObjectOS 主机名的 `PUT`/`GET`。
+- 生命周期：1–7 天后过期未完成的 multipart 上传；24 小时后过期带 `temp=true` 标签的对象。
+- Versioning + Object Lock：可选，在合规部署中推荐启用。
+
+## REST 接口
+
+`@objectstack/client` 会调用以下接口 —— 通常你不直接调用：
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| POST | `/api/v1/storage/upload/presigned` | 获取预签名上传 URL |
+| POST | `/api/v1/storage/upload/complete` | 提交完成的上传 |
+| POST | `/api/v1/storage/upload/chunked` | 开始分块上传 |
+| PUT  | `/api/v1/storage/upload/chunked/:uploadId/chunk/:i` | 上传一个分块 |
+| POST | `/api/v1/storage/upload/chunked/:uploadId/complete` | 完成分块上传 |
+| GET  | `/api/v1/storage/upload/chunked/:uploadId/progress` | 轮询进度 |
+| GET  | `/api/v1/storage/files/:fileId/url` | 获取预签名下载 URL |
+
+每个文件的鉴权由 security 插件的权限求值器针对 `sys_file` 对象处理 —— 无需独立的存储层 ACL。
+
+## 实时配置
+
+settings 服务启用时（默认启用），管理员可以在 **Console → Configuration → Storage** 中切换存储适配器而无需重启：
+
+- 选择适配器、bucket、region、endpoint；
+- 粘贴凭据（在 `sys_setting` 中加密存储）；
+- 保存前点击 **Test connection**。
+
+变更在下一次请求时生效——无需重启。
+
+## 容量
+
+| 资源 | 默认值 | 可调项 |
+|---|---|---|
+| 预签名 URL TTL | 1 小时 | 插件选项 `presignedTtl` |
+| 分块上传会话 TTL | 24 小时 | 插件选项 `sessionTtl` |
+| 单次上传上限 | 取决于后端（S3 = 5 GB） | — |
+| 分块上传上限 | 取决于后端（S3 = 5 TB） | — |
+
+## 下一步
+
+- [Configuration overview](/docs/configure) —— Configure 章节的其余内容
+- [Production Readiness](/docs/operate/production) —— 包含对象存储持久化和备份的清单
+- [GitHub 上的 `@objectstack/service-storage`](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-storage) —— 源码与完整选项参考

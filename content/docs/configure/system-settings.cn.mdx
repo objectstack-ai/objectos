@@ -1,0 +1,62 @@
+---
+title: 系统设置
+description: 通过 manifest 和共享 K/V 存储配置租户与用户设置。
+---
+
+# 系统设置
+
+ObjectStack 内置了用于运行时与插件设置的 settings 服务。当应用 artifact 需要 settings 能力时，ObjectOS 通过 Console 暴露这些设置。
+
+## 设置模型
+
+设置由代码声明，并以值的形式存储：
+
+| 层 | 用途 |
+|---|---|
+| Settings Manifest | 定义字段、标签、默认值、校验、可见性和操作 |
+| `sys_setting` | 存储租户/用户的 K/V 值 |
+| Resolver | 读取生效值 |
+| Console UI | 渲染标准设置页 |
+
+对于普通配置，插件不应自建一次性的设置表。它们应声明设置 manifest，让 ObjectOS 统一渲染和存储。
+
+## 解析顺序
+
+生效值按以下顺序解析：
+
+```text
+Environment override
+Tenant setting
+User setting
+Manifest default
+```
+
+环境覆盖是锁定的。如果某个值由环境变量设置，Console UI 应将其显示为由宿主托管，并拒绝运行时编辑。
+
+## 常见设置类别
+
+面向客户的设置通常包括：
+
+| 类别 | 示例 |
+|---|---|
+| Email | SMTP 主机、Provider API Key、发件人地址、测试邮件 |
+| 品牌 | 产品名称、Logo URL、强调色、默认主题 |
+| Feature flag | 租户级特性开关 |
+| Storage | 本地文件系统或对象存储凭据 |
+| AI Provider | 模型 Provider、API Key、预算上限 |
+| SSO | OIDC Provider 设置和连接测试 |
+
+## Secret
+
+密码和凭据字段应由 settings 服务加密存储，或以环境托管值的形式提供。不要把 secret 存于 artifact、compose 文件或 Git 中。
+
+## 测试操作
+
+设置 manifest 可以声明标准操作按钮，例如：
+
+- 发送测试邮件；
+- 测试 SSO discovery；
+- 验证对象存储凭据；
+- 校验 webhook 目标。
+
+在客户初始化流程中使用这些操作，而不是让运维先去翻日志。

@@ -5,17 +5,11 @@
     "why",
     "quickstart",
     "architecture",
-    "---Deploy---",
-    "...deploy",
-    "---Build---",
-    "...build",
-    "---Configure---",
-    "...configure",
-    "---Operate---",
-    "...operate",
-    "---Resources---",
-    "...resources",
-    "---Reference---",
-    "...reference"
+    "deploy",
+    "build",
+    "configure",
+    "operate",
+    "resources",
+    "reference"
   ]
 }

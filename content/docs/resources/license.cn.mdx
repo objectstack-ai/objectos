@@ -1,0 +1,97 @@
+---
+title: 许可证
+description: ObjectOS 的许可 —— Apache-2.0、商业选项与 FAQ。
+---
+
+# 许可证
+
+## ObjectOS 运行时 —— Apache-2.0
+
+ObjectOS 运行时与所有 `@objectstack/*` 开源包采用
+[Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)。
+
+通俗地讲：
+
+| 你可以 | 你必须 |
+|---|---|
+| 用于商业产品 | 再分发时附带 LICENSE 与 NOTICE 文件 |
+| 修改而不公开变更 | 把修改过的文件标注为已修改 |
+| 嵌入到专有软件中 | 不能未经许可使用 ObjectStack 商标 |
+| 在任何场景、任意位置运行 | — |
+| 作为更大作品的一部分再许可 | — |
+
+**没有 copyleft**。你为内部使用所做的修改，或者在闭源产品中发布的
+修改，**不必**回馈上游。Apache-2.0 还包含贡献者的**显式专利授权** ——
+这对企业法务审查很重要。
+
+完整文本：[LICENSE](https://github.com/objectstack-ai/framework/blob/main/LICENSE)
+
+## Apache-2.0 涵盖范围
+
+| | 许可证 |
+|---|---|
+| ObjectOS 运行时镜像 | Apache-2.0 |
+| 所有 `@objectstack/*` npm 包（运行时、插件、服务、驱动、adapter、CLI、客户端 SDK） | Apache-2.0 |
+| 模板仓库（`objectstack-ai/templates`） | Apache-2.0 |
+| Studio、Account、Console UI | Apache-2.0 |
+| 文档 | CC-BY-4.0 |
+
+## 何时可能需要商业协议
+
+Apache-2.0 已经覆盖大多数场景。在以下情况下你可能仍想要商业协议：
+
+| 场景 | 我们的提供 |
+|---|---|
+| 你需要**带 SLA 的支持** | 商业支持 |
+| 你想要**我们替你托管** | 托管云（ObjectStack Cloud） |
+| 你需要 **OEM 权利**（使用 ObjectStack 商标，作为你自家品牌发布） | OEM 协议 |
+| 你需要**保修 / 赔偿** | 商业协议（Apache-2.0 不提供保修） |
+| 你需要**合规证明**（运行时镜像的 SOC 2 报告、ISO 证书） | 企业版 |
+
+请联系 **sales@objectstack.ai** 进一步沟通。
+
+## 开源运行时的定价
+
+**免费**。永远免费。没有席位计费、没有用量层级、没有许可证服务器、
+没有 key。
+
+可以运行在：
+- 你的笔记本上
+- 你的服务器上
+- 你客户的服务器上
+- 一台树莓派上
+- 一个 1000 个 Pod 的 Kubernetes 集群上
+
+所有情形下许可一致。
+
+## 第三方组件
+
+ObjectOS 依赖若干上游开源项目（Node.js、Hono、Zod、Better Auth、
+AI SDK……）。每个项目都有各自的许可证 —— 都是与商业使用兼容的
+Apache-2.0、MIT 或 BSD 风格的宽松许可。完整清单见每次发布附带的
+SBOM。
+
+## FAQ
+
+**Q：可以在我对外销售的闭源 SaaS 里使用 ObjectOS 吗？**
+A：可以。Apache-2.0 没有 copyleft。你不必公开自己的代码。
+
+**Q：可以修改 ObjectOS 而不公开修改吗？**
+A：可以。Apache-2.0 不要求公开修改。
+
+**Q：能把 Studio 重新品牌化成我产品的一部分吗？**
+A：UI 本身可以。但若要用 "ObjectStack" 的名称或 Logo 推广你的
+产品，则需要 OEM 协议 —— 请联系销售。
+
+**Q：如果我的产品赚钱了需要付费给你们吗？**
+A：不需要。没有版税或营收分成。
+
+**Q：ObjectOS 会回传使用数据吗？**
+A：不会。没有遥测、没有许可证校验、没有更新探活。见
+[安全与合规](/docs/reference/security#data-residency)。
+
+**Q：如果我想要合同保修怎么办？**
+A：Apache-2.0 不提供保修。可购买商业协议，我们会提供保修。
+
+**Q：开源版本会一直免费吗？**
+A：会。Apache-2.0 授权不可撤销。
