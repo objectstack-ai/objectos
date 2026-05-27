@@ -6,14 +6,14 @@ description: The runtime for internal tools that stays in your network. One comm
 # ObjectOS
 
 **ObjectOS is a self-hosted runtime for building internal tools, admin
-panels, and back-office apps without giving up your data.** You declare
-your data model in TypeScript, run one command, and get REST APIs, a
-generated admin UI, authentication, RBAC, audit logs, file storage,
-background jobs, webhooks, and AI integration — all running in your
-network, on your database.
+panels, and back-office apps without giving up your data.** Describe
+what you need to the in-Studio AI Builder — or fork a template — and
+get REST APIs, a generated admin UI, authentication, RBAC, audit logs,
+file storage, background jobs, webhooks, and AI integration. All
+running in your network, on your database.
 
-It's what you'd get if Retool, Supabase, and Salesforce had a child that
-ran inside your firewall.
+It's what you'd get if Retool, Supabase, and Salesforce had a child
+that ran inside your firewall — with an AI that builds the apps for you.
 
 ## Get running in 60 seconds
 
@@ -24,12 +24,17 @@ os start
 
 Open **http://localhost:3000** and you have a working ObjectOS with
 Studio, Account, Console, an audit log, and a SQLite database — zero
-configuration, zero scaffolding. Browse the in-Studio **marketplace**
-to install ready-made apps (Todo, Contracts, Helpdesk, …).
+configuration, zero scaffolding.
 
-Building your own app? See the [Quickstart](/docs/quickstart) — it
-covers both the operator path (`os start`) and the developer path
-(`os init` + hot-reload).
+Then either:
+
+- **Talk to the AI Builder** — *"I need to track support tickets with
+  priority and assignee"* — and watch the metadata get generated. See
+  [Build → AI Builder](/docs/build/ai-builder).
+- **Install a template** from the in-Studio marketplace (Todo,
+  Contracts, Helpdesk, …) and have a real app in one click.
+- **Fork a [template](/docs/build/templates)** if you want TypeScript
+  source under your control.
 
 ## Why ObjectOS instead of …
 
