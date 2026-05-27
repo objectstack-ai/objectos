@@ -1,24 +1,26 @@
 import { cn } from '@/lib/utils';
+import type { HomepageTranslations } from '@/lib/homepage-i18n';
 
 interface CodePreviewProps {
   className?: string;
+  t: HomepageTranslations['agentPreview'];
 }
 
 /**
- * Homepage code preview.
+ * Homepage hero preview.
  *
- * Shows a real docker-compose.yml that an enterprise operator can copy,
- * paste, and run to bring ObjectOS up against their own database in a
- * single command. Replaces the previous developer-flavored object
- * definition snippet.
+ * An end-user conversation with an ObjectOS Agent — querying, analyzing,
+ * and acting on live business data through natural language.
  */
-export function CodePreview({ className }: CodePreviewProps) {
-  const kw = 'text-purple-600 dark:text-purple-400 font-semibold';
-  const str = 'text-green-600 dark:text-green-300';
-  const num = 'text-amber-600 dark:text-yellow-300';
-  const key = 'text-cyan-600 dark:text-sky-300';
-  const fg = 'text-foreground';
-  const cm = 'text-foreground/40 italic';
+export function CodePreview({ className, t }: CodePreviewProps) {
+  const user = 'text-foreground';
+  const ai = 'text-foreground/90';
+  const label = 'text-cyan-600 dark:text-sky-300 font-semibold';
+  const aiLabel = 'text-purple-600 dark:text-purple-400 font-semibold';
+  const ok = 'text-green-600 dark:text-green-400';
+  const dim = 'text-foreground/50';
+  const accent = 'text-amber-600 dark:text-yellow-300';
+  const tool = 'text-blue-600 dark:text-blue-300';
 
   return (
     <div className={cn(
@@ -32,62 +34,52 @@ export function CodePreview({ className }: CodePreviewProps) {
           <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
           <div className="h-3 w-3 rounded-full bg-green-500/80" />
           <div className="ml-2 text-xs font-medium text-muted-foreground font-mono">
-            docker-compose.yml
+            {t.windowTitle}
           </div>
         </div>
 
-        {/* Code Content — real docker-compose deployment */}
+        {/* Conversation */}
         <div className="overflow-x-auto p-6 text-left bg-gradient-to-br from-card to-muted/20">
-          <pre className="font-mono text-sm leading-7">
+          <pre className="font-mono text-sm leading-7 whitespace-pre-wrap break-words">
             <code>
-              <span className={cm}>{'# Run ObjectOS against your own Postgres'}</span>
+              <span className={label}>{t.userLabel}</span>
               <br/>
-              <span className={key}>services</span><span className={fg}>:</span>
+              <span className={user}>{t.user1Line1}</span>
               <br/>
-              {'  '}<span className={key}>objectos</span><span className={fg}>:</span>
-              <br/>
-              {'    '}<span className={key}>image</span><span className={fg}>:</span>{' '}
-              <span className={str}>ghcr.io/objectstack/objectos:latest</span>
-              <br/>
-              {'    '}<span className={key}>ports</span><span className={fg}>:</span>{' '}
-              [<span className={str}>&quot;3000:3000&quot;</span>]
-              <br/>
-              {'    '}<span className={key}>environment</span><span className={fg}>:</span>
-              <br/>
-              {'      '}<span className={key}>OS_ARTIFACT_FILE</span><span className={fg}>:</span>{' '}
-              <span className={str}>/artifacts/objectstack.json</span>
-              <br/>
-              {'      '}<span className={key}>OS_DATABASE_URL</span><span className={fg}>:</span>{' '}
-              <span className={str}>postgres://app@db:5432/objectos</span>
-              <br/>
-              {'      '}<span className={key}>OS_AUTH_SECRET</span><span className={fg}>:</span>{' '}
-              <span className={fg}>$</span><span className={key}>{'{AUTH_SECRET}'}</span>
-              <br/>
-              {'    '}<span className={key}>volumes</span><span className={fg}>:</span>
-              <br/>
-              {'      '}<span className={fg}>-</span>{' '}
-              <span className={str}>./artifacts:/artifacts:ro</span>
-              <br/>
-              {'      '}<span className={fg}>-</span>{' '}
-              <span className={str}>objectos-data:/var/lib/objectos</span>
-              <br/>
-              {'    '}<span className={key}>depends_on</span><span className={fg}>:</span>{' '}
-              [<span className={str}>db</span>]
+              <span className={user}>{t.user1Line2}</span>
               <br/><br/>
-              {'  '}<span className={key}>db</span><span className={fg}>:</span>
+
+              <span className={aiLabel}>{t.agentLabel}</span>
+              <span className={dim}>{'  '}</span>
+              <span className={tool}>{t.tool1Name}</span>
+              <span className={dim}>{t.tool1Target}</span>
               <br/>
-              {'    '}<span className={key}>image</span><span className={fg}>:</span>{' '}
-              <span className={str}>postgres:</span><span className={num}>16</span>
+              <span className={ai}>{t.matchSummary}</span>
               <br/>
-              {'    '}<span className={key}>volumes</span><span className={fg}>:</span>{' '}
-              [<span className={str}>db-data:/var/lib/postgresql/data</span>]
+              <span className={ai}>    • </span><span className={accent}>TKT-2041</span><span className={ai}>{t.ticket1Meta}</span><span className={dim}>{t.ticket1Note}</span>
+              <br/>
+              <span className={ai}>    • </span><span className={accent}>TKT-2038</span><span className={ai}>{t.ticket2Meta}</span><span className={dim}>{t.ticket2Note}</span>
+              <br/>
+              <span className={ai}>    • </span><span className={accent}>TKT-2035</span><span className={ai}>{t.ticket3Meta}</span><span className={dim}>{t.ticket3Note}</span>
+              <br/>
+              <span className={ai}>{t.insight}</span>
               <br/><br/>
-              <span className={key}>volumes</span><span className={fg}>:</span>{' '}
-              <span className={fg}>{'{ objectos-data: {}, db-data: {} }'}</span>
-              <br/><br/>
-              <span className={cm}>{'# → Application at http://localhost:3000'}</span>
+
+              <span className={label}>{t.userLabel}</span>
               <br/>
-              <span className={cm}>{'# → Setup app at  http://localhost:3000/_setup/'}</span>
+              <span className={user}>{t.user2}</span>
+              <br/><br/>
+
+              <span className={aiLabel}>{t.agentLabel}</span>
+              <span className={dim}>{'  '}</span>
+              <span className={tool}>{t.tool2Name}</span>
+              <span className={dim}>{t.tool2Count}</span>
+              <span className={tool}>{t.tool3Name}</span>
+              <span className={dim}>{t.tool3Count}</span>
+              <br/>
+              <span className={ok}>{t.actionResult}</span>
+              <br/>
+              <span className={dim}>{t.governance}</span>
             </code>
           </pre>
         </div>

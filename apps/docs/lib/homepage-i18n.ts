@@ -104,6 +104,33 @@ export interface HomepageTranslations {
     secondaryHref: string;
   };
 
+  // Hero Agent Preview (conversation shown under the hero)
+  agentPreview: {
+    windowTitle: string;
+    userLabel: string;
+    agentLabel: string;
+    user1Line1: string;
+    user1Line2: string;
+    tool1Name: string;
+    tool1Target: string;
+    matchSummary: string;
+    ticket1Meta: string;
+    ticket1Note: string;
+    ticket2Meta: string;
+    ticket2Note: string;
+    ticket3Meta: string;
+    ticket3Note: string;
+    insight: string;
+    user2: string;
+    tool2Name: string;
+    tool2Count: string;
+    tool2Sep: string;
+    tool3Name: string;
+    tool3Count: string;
+    actionResult: string;
+    governance: string;
+  };
+
   // Footer
   footer: {
     copyright: string;
@@ -139,17 +166,17 @@ export interface HomepageTranslations {
  */
 export const en: HomepageTranslations = {
   badge: {
-    status: 'Customer-Hosted Runtime',
+    status: 'AI-Native Business OS',
     version: SPEC_VERSION,
   },
   hero: {
     title: {
-      line1: 'Your Data.',
-      line2: 'Your Network. Your Rules.',
+      line1: 'The Business OS',
+      line2: 'for the AI-Native Era.',
     },
     subtitle: {
-      line1: 'ObjectOS runs ObjectStack applications inside your own infrastructure — private cloud, customer data centers, or fully air-gapped networks.',
-      line2: 'No vendor lock-in. No data leaving your perimeter.',
+      line1: 'Define business objects, permissions, workflows, APIs, UI metadata, and Agent tools — once — as structured Zod metadata.',
+      line2: 'ObjectStack is the metadata-driven business backend that lets AI Agents safely understand, operate, and audit your systems. Agent-ready, permission-built-in, versioned, audit-friendly.',
     },
     cta: {
       primary: 'Quickstart',
@@ -249,6 +276,31 @@ export const en: HomepageTranslations = {
     terms: 'Terms of Service',
     termsHref: '/terms',
   },
+  agentPreview: {
+    windowTitle: 'Studio · Support Copilot',
+    userLabel: 'You',
+    agentLabel: 'Agent',
+    user1Line1: 'Which urgent tickets have been open more than 24h,',
+    user1Line2: "and who's on the hook?",
+    tool1Name: 'query_data',
+    tool1Target: ' · support_ticket',
+    matchSummary: '  3 tickets match — grouped by assignee:',
+    ticket1Meta: ' · 31h open · Maya  ',
+    ticket1Note: '(billing outage)',
+    ticket2Meta: ' · 28h open · Maya  ',
+    ticket2Note: '(SSO failure)',
+    ticket3Meta: ' · 26h open · Jordan',
+    ticket3Note: ' (export bug)',
+    insight: '  Maya is carrying 2/3 — likely the bottleneck.',
+    user2: "Escalate all three and reassign Maya's to the on-call.",
+    tool2Name: 'action_escalate_ticket',
+    tool2Count: ' ×3 · ',
+    tool2Sep: '',
+    tool3Name: 'action_reassign',
+    tool3Count: ' ×2',
+    actionResult: '  ✓ priority → urgent · on-call notified · audited',
+    governance: '  Runs as you. Permissions + field rules enforced.',
+  },
 };
 
 /**
@@ -256,17 +308,17 @@ export const en: HomepageTranslations = {
  */
 export const cn: HomepageTranslations = {
   badge: {
-    status: '客户自托管运行时',
+    status: 'AI-Native Business OS',
     version: SPEC_VERSION,
   },
   hero: {
     title: {
-      line1: '你的数据，',
-      line2: '你的网络，你的规则。',
+      line1: 'AI 原生时代的',
+      line2: '业务操作系统。',
     },
     subtitle: {
-      line1: 'ObjectOS 让 ObjectStack 应用运行在你自己的基础设施上 —— 私有云、客户数据中心、或完全离线的内网环境。',
-      line2: '无厂商锁定，数据不离开企业边界。',
+      line1: '把业务对象、权限、工作流、API、UI 元数据与 Agent 工具，一次性定义为结构化的 Zod 元数据。',
+      line2: 'ObjectStack 是一套元数据驱动的业务后端，让 AI Agent 能够安全地理解、操作并审计你的业务系统。Agent 就绪、权限内建、版本化、可审计。',
     },
     cta: {
       primary: '快速开始',
@@ -365,6 +417,31 @@ export const cn: HomepageTranslations = {
     privacyHref: '/privacy',
     terms: '服务条款',
     termsHref: '/terms',
+  },
+  agentPreview: {
+    windowTitle: 'Studio · 客服副驾',
+    userLabel: '你',
+    agentLabel: 'Agent',
+    user1Line1: '哪些紧急工单已经超过 24 小时没关,',
+    user1Line2: '分别是谁在跟?',
+    tool1Name: 'query_data',
+    tool1Target: ' · support_ticket',
+    matchSummary: '  匹配到 3 条 —— 按负责人分组：',
+    ticket1Meta: ' · 已开 31h · Maya  ',
+    ticket1Note: '(账单中断)',
+    ticket2Meta: ' · 已开 28h · Maya  ',
+    ticket2Note: '(SSO 故障)',
+    ticket3Meta: ' · 已开 26h · Jordan',
+    ticket3Note: ' (导出 bug)',
+    insight: '  Maya 一人扛 2/3 —— 很可能是瓶颈。',
+    user2: '把三条都升级,Maya 的两条转给值班工程师。',
+    tool2Name: 'action_escalate_ticket',
+    tool2Count: ' ×3 · ',
+    tool2Sep: '',
+    tool3Name: 'action_reassign',
+    tool3Count: ' ×2',
+    actionResult: '  ✓ 优先级 → 紧急 · 值班已通知 · 已审计',
+    governance: '  以你本人身份执行。权限与字段规则照常生效。',
   },
 };
 

@@ -126,7 +126,7 @@ export default async function HomePage({
             cta={t.hero.cta}
             quickStart={t.hero.quickStart}
           />
-          <CodePreview />
+          <CodePreview t={t.agentPreview} />
         </section>
 
         {/* Deploy Modes */}
