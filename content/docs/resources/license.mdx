@@ -1,0 +1,101 @@
+---
+title: License
+description: ObjectOS licensing — Apache-2.0, commercial options, and FAQ.
+---
+
+# License
+
+## ObjectOS runtime — Apache-2.0
+
+The ObjectOS runtime and all `@objectstack/*` open-source packages are
+licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+In plain English:
+
+| You can | You must |
+|---|---|
+| Use it in commercial products | Include the LICENSE and NOTICE files when you redistribute |
+| Modify it without sharing changes | Mark modified files as modified |
+| Embed it in proprietary software | Not use ObjectStack trademarks without permission |
+| Run it for any purpose, anywhere | — |
+| Sublicense it as part of a larger work | — |
+
+There is **no copyleft**. Modifications you make for internal use, or
+that you ship in a closed-source product, do **not** have to be
+contributed back. The Apache-2.0 license also includes an **express
+patent grant** from contributors — important for enterprise legal
+review.
+
+Full text: [LICENSE](https://github.com/objectstack-ai/framework/blob/main/LICENSE)
+
+## What's included under Apache-2.0
+
+| | License |
+|---|---|
+| ObjectOS runtime image | Apache-2.0 |
+| All `@objectstack/*` npm packages (runtime, plugins, services, drivers, adapters, CLI, client SDKs) | Apache-2.0 |
+| Templates repo (`objectstack-ai/templates`) | Apache-2.0 |
+| Studio, Account, Console UIs | Apache-2.0 |
+| Documentation | CC-BY-4.0 |
+
+## When you might want a commercial agreement
+
+Apache-2.0 covers most use cases. You may still want a commercial
+agreement when:
+
+| Scenario | What we offer |
+|---|---|
+| You need **support with SLAs** | Commercial support |
+| You want us to **host it for you** | Managed cloud (ObjectStack Cloud) |
+| You want **OEM rights** (use ObjectStack trademarks, badge it as your own) | OEM agreement |
+| You want a **warranty / indemnification** | Commercial agreement (Apache-2.0 disclaims warranty) |
+| You need **regulatory attestations** (SOC 2 report, ISO certificate of the runtime image) | Enterprise tier |
+
+Contact **sales@objectstack.ai** to discuss.
+
+## Pricing for the open-source runtime
+
+**Free.** Forever. No seats, no usage tier, no license server, no key.
+
+Run it on:
+- Your laptop
+- Your servers
+- Your customers' servers
+- A Raspberry Pi
+- A Kubernetes cluster of 1000 pods
+
+The license is the same in every case.
+
+## Third-party components
+
+ObjectOS depends on several upstream open-source projects (Node.js,
+Hono, Zod, Better Auth, AI SDK, …). Each ships with its own license —
+all of which are either Apache-2.0, MIT, or BSD-style permissive
+licenses compatible with commercial use. See the SBOM published with
+each release for the full inventory.
+
+## FAQ
+
+**Q: Can I use ObjectOS in a closed-source SaaS I sell to my customers?**
+A: Yes. Apache-2.0 has no copyleft. You don't need to share your code.
+
+**Q: Can I modify ObjectOS and not share my changes?**
+A: Yes. Apache-2.0 doesn't require you to share modifications.
+
+**Q: Can I rebrand Studio as part of my product?**
+A: The UI itself, yes. Using the "ObjectStack" name or logo to promote
+your product requires an OEM agreement — contact sales.
+
+**Q: Do I owe you anything if my product makes money?**
+A: No. There's no royalty or revenue share.
+
+**Q: Does ObjectOS phone home with usage data?**
+A: No. There's no telemetry, no license check, no update ping.
+See [Security & Compliance](/docs/reference/security#data-residency).
+
+**Q: What if I want a contractual warranty?**
+A: Apache-2.0 disclaims warranty. Buy a commercial agreement and we
+provide one.
+
+**Q: Will the open-source version always be free?**
+A: Yes. Apache-2.0 grants are irrevocable.

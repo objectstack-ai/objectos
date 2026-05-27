@@ -1,0 +1,186 @@
+---
+title: Storage
+description: Where ObjectOS puts files — local disk, S3, R2, MinIO, Spaces.
+---
+
+# Storage
+
+ObjectOS files (attachments, uploads, generated documents) flow through
+the **storage service** — a pluggable abstraction with two adapters:
+**local filesystem** (default) and **S3-compatible** (production).
+
+The service is provided by `@objectstack/service-storage` and is
+enabled by default in standalone and project boots.
+
+## How users interact with it
+
+| Surface | Behavior |
+|---|---|
+| Studio file/image fields | Browser uploads directly to storage via presigned URLs |
+| REST `/api/v1/storage/*` | Programmatic upload/download endpoints |
+| Object `attachment` / `image` fields | Render as upload widgets; metadata persists in `sys_file` |
+
+Files are tracked in the `sys_file` system object — never as raw paths
+in your records. That decouples your data model from the storage
+backend.
+
+## Local filesystem (default)
+
+Good for: development, single-node deployments, demos.
+
+```ts
+// objectstack.config.ts (or wherever you assemble plugins)
+import { StorageServicePlugin } from '@objectstack/service-storage';
+
+new StorageServicePlugin({
+  adapter: 'local',
+  local: {
+    rootDir: './uploads',
+    baseUrl: 'http://localhost:3000',  // for presigned URLs
+    signingSecret: process.env.OS_STORAGE_SIGNING_SECRET, // optional; auto-generated if omitted
+  },
+  presignedTtl: 3600,   // seconds — TTL for presigned URLs
+  sessionTtl: 86400,    // seconds — TTL for chunked upload sessions
+});
+```
+
+In standalone mode (`os start` with no project), the runtime configures
+local storage automatically under `~/.objectstack/data/uploads/`.
+
+**Not suitable for production** unless you have one node and tolerate
+file loss on that node's disk. Use S3-compatible storage for anything
+multi-node or durable.
+
+## S3-compatible (production)
+
+Good for: production, multi-node, durability + lifecycle management.
+
+```bash
+pnpm add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+```
+
+```ts
+import { StorageServicePlugin } from '@objectstack/service-storage';
+
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'us-east-1',
+    // omit credentials to use the AWS SDK's default chain
+    // (env, ~/.aws, IAM role)
+  },
+});
+```
+
+The AWS SDK reads credentials from its normal chain:
+
+| Source | Env var |
+|---|---|
+| Standard env | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` |
+| Session token | `AWS_SESSION_TOKEN` |
+| Shared config | `~/.aws/credentials`, `AWS_PROFILE` |
+| IAM role | Auto on EC2 / ECS / EKS / Lambda — no config |
+
+### Cloudflare R2
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'auto',
+    endpoint: 'https://<account-id>.r2.cloudflarestorage.com',
+    forcePathStyle: false,
+  },
+});
+```
+
+Credentials: R2 access key ID + secret, passed via the standard
+`AWS_*` env vars or your secret manager.
+
+### MinIO (self-hosted)
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'us-east-1',
+    endpoint: 'http://minio.internal:9000',
+    forcePathStyle: true,
+  },
+});
+```
+
+### DigitalOcean Spaces
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'nyc3',
+    endpoint: 'https://nyc3.digitaloceanspaces.com',
+    forcePathStyle: false,
+  },
+});
+```
+
+### S3 bucket policy
+
+Storage uses presigned PUT/GET URLs. Recommended bucket policy:
+
+- Block all public access.
+- CORS: allow `PUT`/`GET` from your ObjectOS hostname(s).
+- Lifecycle: expire incomplete multipart uploads after 1–7 days; expire
+  objects tagged `temp=true` after 24 hours.
+- Versioning + Object Lock: optional, recommended for compliance
+  deployments.
+
+## REST surface
+
+`@objectstack/client` calls these — you usually don't hit them directly:
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/v1/storage/upload/presigned` | Get a presigned upload URL |
+| POST | `/api/v1/storage/upload/complete` | Commit a finished upload |
+| POST | `/api/v1/storage/upload/chunked` | Begin chunked upload |
+| PUT  | `/api/v1/storage/upload/chunked/:uploadId/chunk/:i` | Upload a chunk |
+| POST | `/api/v1/storage/upload/chunked/:uploadId/complete` | Finish chunked upload |
+| GET  | `/api/v1/storage/upload/chunked/:uploadId/progress` | Poll progress |
+| GET  | `/api/v1/storage/files/:fileId/url` | Get a presigned download URL |
+
+Per-file authorization is handled by the security plugin's permission
+evaluator against the `sys_file` object — you don't need separate
+storage-layer ACLs.
+
+## Live configuration
+
+When the settings service is enabled (it is by default), an admin can
+swap storage adapter in **Console → Configuration → Storage** without
+restarting:
+
+- pick adapter, bucket, region, endpoint;
+- paste credentials (encrypted at rest in `sys_setting`);
+- click **Test connection** before saving.
+
+The change applies to the next request — no restart needed.
+
+## Sizing
+
+| Resource | Default | Tunable |
+|---|---|---|
+| Presigned URL TTL | 1 hour | `presignedTtl` plugin option |
+| Chunked upload session TTL | 24 hours | `sessionTtl` plugin option |
+| Max single-part upload | Backend-imposed (S3 = 5 GB) | — |
+| Max chunked upload | Backend-imposed (S3 = 5 TB) | — |
+
+## Where to go next
+
+- [Configuration overview](/docs/configure) — the rest of the
+  Configure section
+- [Production Readiness](/docs/operate/production) — checklist that
+  includes object storage durability and backup
+- [`@objectstack/service-storage` on GitHub](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-storage) — source and full option reference

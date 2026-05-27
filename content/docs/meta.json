@@ -7,10 +7,14 @@
     "architecture",
     "---Deploy---",
     "...deploy",
+    "---Build---",
+    "...build",
     "---Configure---",
     "...configure",
     "---Operate---",
     "...operate",
+    "---Resources---",
+    "...resources",
     "---Reference---",
     "...reference"
   ]

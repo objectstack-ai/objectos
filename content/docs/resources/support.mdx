@@ -1,0 +1,78 @@
+---
+title: Support
+description: Where to get help, how to report bugs, response expectations.
+---
+
+# Support
+
+## Where to go for what
+
+| If you … | Go to |
+|---|---|
+| Have a "how do I" question | [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions) — community + maintainers |
+| Found a bug | [GitHub Issues](https://github.com/objectstack-ai/objectos/issues) — please include version, repro, expected vs actual |
+| Found a security vulnerability | **security@objectstack.ai** — do **not** open a public issue |
+| Need commercial support / SLA | **sales@objectstack.ai** |
+| Want to chat with users + maintainers | [Discord](https://discord.gg/objectstack) (community-run) |
+| Want to follow releases | Watch [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos) → Releases |
+| Want a paid feature implemented | Open a Discussion → tag with `funding` |
+
+## Filing a good bug report
+
+The 30-second version:
+
+```text
+ObjectOS version:           4.0.4 (or sha-abc123)
+Node version:               22.4.0
+Install method:             docker / npm -g / source
+Database:                   postgres 16 / sqlite / turso / mongo
+Repro steps:                1. ...  2. ...  3. ...
+Expected:                   ...
+Actual:                     ...
+Logs:                       (sanitized, last 30 lines)
+```
+
+For configuration issues, attach the output of `os doctor` — it
+diagnoses 80% of misconfigurations on its own.
+
+## Response expectations
+
+| Channel | Best-effort response time |
+|---|---|
+| Security email | 1 business day |
+| GitHub Issues — bug, with repro | 3 business days for triage, fix on the next release train |
+| GitHub Issues — feature request | 7 business days for triage |
+| GitHub Discussions | Community-driven; maintainers chime in regularly |
+| Commercial support | Per your support contract |
+
+These are best-effort, not SLAs. Commercial support contracts carry
+formal SLAs.
+
+## Commercial support & services
+
+Available from the ObjectStack team:
+
+- **Commercial support** with response-time SLAs.
+- **Managed hosting** — we run it for you.
+- **Architecture review** — pre-deployment sanity check.
+- **Custom plugins / capabilities** built to your spec.
+- **OEM redistribution** — embed ObjectOS in your product.
+
+Contact **sales@objectstack.ai**.
+
+## Contributing back
+
+ObjectOS is Apache-2.0 and accepts contributions:
+
+- [CONTRIBUTING.md](https://github.com/objectstack-ai/framework/blob/main/CONTRIBUTING.md)
+- [Code of Conduct](https://github.com/objectstack-ai/framework/blob/main/CODE_OF_CONDUCT.md)
+- Open a draft PR early — we'd rather review a sketch than have
+  duplicate effort.
+
+## Status & incidents
+
+Hosted services (ObjectStack Cloud, package registry):
+[status.objectstack.ai](https://status.objectstack.ai).
+
+For your self-hosted ObjectOS deployment, status is your concern —
+wire it to your normal monitoring (see [Observability](/docs/operate/observability)).

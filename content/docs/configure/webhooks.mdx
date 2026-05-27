@@ -17,7 +17,7 @@ include `@objectstack/plugin-webhooks`, and the application artifact
 must register webhook subscriptions (typically as records of a
 `sys_webhook` object).
 
-When enabled, two objects show up in the Setup app:
+When enabled, two objects show up in the Console:
 
 | Object | Purpose |
 |---|---|
@@ -78,7 +78,7 @@ When something fails:
    `response_body`, and `attempt` are recorded.
 2. Confirm outbound network access from ObjectOS to the receiver.
 3. If the receiver was permanently changed, update the subscription URL
-   and re-deliver the row from Setup.
+   and re-deliver the row from the Console.
 4. For incident review, audit logs (`sys_audit_log`) capture
    subscription edits but not payloads — payloads stay in the outbox.
 

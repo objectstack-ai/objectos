@@ -51,7 +51,7 @@ leaked key cannot be reconstructed from the database.
 
 To issue a key:
 
-1. Sign in to **Setup → API Keys** as an administrator.
+1. Sign in to **Console → API Keys** as an administrator.
 2. Choose the owning user (the API call inherits that user's
    permissions and record access).
 3. Optionally set an expiration date.
@@ -65,7 +65,7 @@ curl https://app.example.com/api/v1/data/account \
 ```
 
 To revoke a key, run the `revoke_api_key` action on the corresponding
-`sys_api_key` record (also available in the Setup UI). Revocation takes
+`sys_api_key` record (also available in the Console UI). Revocation takes
 effect immediately on the next request.
 
 ## Pagination, filtering, and sorting

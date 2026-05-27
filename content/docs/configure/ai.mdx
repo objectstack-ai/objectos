@@ -1,0 +1,206 @@
+---
+title: AI Service
+description: LLMs, embedders, RAG, and MCP — pluggable across providers, swappable at runtime.
+---
+
+# AI Service
+
+ObjectOS treats AI as a first-class capability with **three pluggable
+layers**:
+
+| Layer | Package | What it does |
+|---|---|---|
+| **Chat / generation** | `@objectstack/service-ai` | Conversations, tool calls, streaming |
+| **Embeddings** | `@objectstack/service-embedder` + adapter | Text → vectors for semantic search and RAG |
+| **Knowledge / RAG** | `@objectstack/service-knowledge` + adapter | Documents → indexed knowledge bases |
+
+All three are optional, all three are provider-agnostic, and all three
+can be reconfigured at runtime from **Console → Configuration**
+without a restart.
+
+## Chat / generation
+
+Powered by the [Vercel AI SDK](https://ai-sdk.dev). Install the
+provider(s) you want as peer deps:
+
+```bash
+pnpm add @ai-sdk/openai          # OpenAI
+pnpm add @ai-sdk/anthropic       # Claude
+pnpm add @ai-sdk/google          # Gemini
+pnpm add @ai-sdk/gateway         # AI gateway / OpenRouter / proxies
+```
+
+Then register the service with one or more models:
+
+```ts
+import { ServiceAI } from '@objectstack/service-ai';
+import { openai }     from '@ai-sdk/openai';
+import { anthropic }  from '@ai-sdk/anthropic';
+
+ServiceAI.configure({
+  defaultModel: 'fast',
+  models: {
+    fast:     openai('gpt-4o-mini'),
+    smart:    openai('gpt-4o'),
+    claude:   anthropic('claude-3-5-sonnet-latest'),
+  },
+  enableStreaming: true,
+  maxHistoryLength: 50,
+});
+```
+
+Provider API keys come from each SDK's normal env vars:
+
+| Provider | Env var |
+|---|---|
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| AI Gateway | `AI_GATEWAY_API_KEY` |
+
+In Console you can paste these as runtime settings instead — they go
+through the same precedence (env > settings) but live editing means
+no restart.
+
+### Using the AI service from code
+
+```ts
+const ai = kernel.getService<IAIService>('ai');
+
+const convo = await ai.createConversation({
+  model: 'smart',
+  systemPrompt: 'You are a helpful assistant.',
+});
+
+const reply = await ai.sendMessage({
+  conversationId: convo.id,
+  message: 'Summarize ObjectStack in two sentences.',
+});
+```
+
+### Using it from a flow
+
+The `automation` capability exposes an `ai_call` step type:
+
+```ts
+{
+  type: 'action',
+  action: 'ai_call',
+  inputs: {
+    model:   'fast',
+    prompt:  'Categorize this ticket: {!trigger.record.subject}',
+    schema:  { category: 'string', priority: 'string' },
+  },
+  output: 'classified',
+}
+```
+
+See [Flows & Automation](/docs/build/flows) for the surrounding
+context.
+
+## Embedders
+
+The embedder service converts text to dense vectors. ObjectStack
+ships adapters for many providers — chosen because the embedding
+landscape moves fast and your "best" choice depends on cost, latency,
+and language.
+
+| Provider | Adapter | Notes |
+|---|---|---|
+| OpenAI | `@objectstack/embedder-openai` | `text-embedding-3-small`/`-large` |
+| Azure OpenAI | `@objectstack/embedder-openai` (Azure config) | Enterprise, regional |
+| 阿里通义 DashScope | `@objectstack/embedder-dashscope` | `text-embedding-v3` |
+| 智谱 GLM | `@objectstack/embedder-zhipu` | `embedding-2` |
+| 硅基流动 SiliconFlow | `@objectstack/embedder-siliconflow` | Aggregator of OSS models |
+| 火山 Doubao | `@objectstack/embedder-doubao` | ByteDance |
+| MiniMax | `@objectstack/embedder-minimax` | — |
+| Ollama (self-hosted) | `@objectstack/embedder-ollama` | Air-gapped friendly |
+| Custom | `@objectstack/embedder-custom` | Bring your own HTTP endpoint |
+| None | _builtin_ | Disable embeddings entirely |
+
+Configure in code:
+
+```ts
+import { ServiceEmbedder }      from '@objectstack/service-embedder';
+import { OpenAIEmbedderPlugin } from '@objectstack/embedder-openai';
+
+ServiceEmbedder.configure({ defaultModel: 'small' });
+// then register the adapter plugin:
+new OpenAIEmbedderPlugin({
+  model: 'text-embedding-3-small',
+  // OPENAI_API_KEY from env
+});
+```
+
+Or pick at runtime from **Console → Configuration → AI → Embedder**.
+Switch providers without restart; existing vectors stay searchable
+(you can re-index in the background).
+
+## Knowledge / RAG
+
+The knowledge service orchestrates document ingestion, chunking,
+embedding (via the embedder service), and retrieval. The actual
+storage and search backend is pluggable:
+
+| Adapter | Backend | Good for |
+|---|---|---|
+| `@objectstack/knowledge-memory` | In-process | Dev, demos, small KBs |
+| `@objectstack/knowledge-turso` | Turso/libSQL + sqlite-vss | Single-region production, embedded vectors |
+| `@objectstack/knowledge-ragflow` | [RAGFlow](https://github.com/infiniflow/ragflow) | High-quality OSS RAG with chunking + reranking |
+
+```ts
+import { ServiceKnowledge }     from '@objectstack/service-knowledge';
+import { TursoKnowledgePlugin } from '@objectstack/knowledge-turso';
+
+ServiceKnowledge.configure();
+new TursoKnowledgePlugin({
+  databaseUrl: process.env.TURSO_DATABASE_URL,
+  authToken:   process.env.TURSO_AUTH_TOKEN,
+});
+```
+
+Indexed knowledge bases become first-class objects — query them from
+flows, surface them in Studio, attach them to AI assistants as
+retrieval context.
+
+## MCP — Model Context Protocol
+
+ObjectOS can expose itself as a tool server to AI agents (Claude
+Desktop, IDEs, custom agents) via the open [Model Context
+Protocol](https://modelcontextprotocol.io).
+
+```ts
+import { McpServerPlugin } from '@objectstack/plugin-mcp-server';
+
+new McpServerPlugin({
+  // expose specific objects + actions as MCP tools
+  expose: ['todo_task', 'support_ticket'],
+});
+```
+
+Agents discover and invoke ObjectOS actions through MCP — subject to
+the calling user's permission set. The MCP server also exposes a
+small set of universal tools: `search_records`, `get_record`,
+`create_record`, `invoke_action`.
+
+## Operational guarantees
+
+- **No mandatory cloud dependency.** Use Ollama for chat + Ollama
+  embedder + memory knowledge — entirely air-gapped.
+- **Live swappable.** Change provider in Console; new requests use the
+  new provider on next call. No restart.
+- **Per-tenant config.** Each Environment has its own AI settings.
+  Tenant A on OpenAI, tenant B on Anthropic — same runtime.
+- **Audit log entries.** Every conversation, tool call, and embedder
+  request can be audited (`@objectstack/plugin-audit`).
+- **Cost-aware.** Token counts and provider IDs flow through to the
+  audit log for chargeback / cost analysis.
+
+## Where to go next
+
+- [Flows & Automation](/docs/build/flows) — call AI from declarative business logic
+- [Marketplace](/docs/build/marketplace) — AI-powered apps in the default catalog
+- [Security & Compliance](/docs/reference/security) — how AI data flows are isolated
+- [`@objectstack/service-ai` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-ai)
+- [`@objectstack/service-embedder` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-embedder)
+- [`@objectstack/service-knowledge` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-knowledge)

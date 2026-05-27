@@ -15,8 +15,31 @@ ObjectOS runtime configuration answers three questions:
 
 | Mode | Use when | Key configuration |
 |---|---|---|
+| Standalone | `os start` with no config — quick demo, empty kernel, ~23 plugins, local SQLite at `~/.objectstack/data/standalone.db` | _none_ (defaults) |
 | File-backed | Single project, demo, customer offline bundle, air-gapped deployment | `OS_ARTIFACT_FILE` |
 | Cloud-connected | Hosted or private control plane publishes project artifacts | `OS_CLOUD_URL`, `OS_PROJECT_ID` or hostname resolution |
+
+### Standalone mode
+
+The default when you run `os start` without a config or artifact.
+ObjectOS boots an empty kernel with the platform plugins loaded
+(`auth`, `security`, `audit`, `storage`, `webhooks`, `mcp-server`,
+`marketplace-proxy`, `marketplace-install-local`, …), opens local
+SQLite at `~/.objectstack/data/standalone.db`, and serves Studio,
+Account, and Console.
+
+Install apps from the marketplace tab in Studio to populate the kernel
+with objects, views, and flows — no rebuild, no restart. Best for
+demos, evaluation, and "show me what this thing does" exploration.
+
+`os start` escalates automatically:
+
+| Detected | Behavior |
+|---|---|
+| Nothing | Standalone mode (above) |
+| `objectstack.config.ts` in cwd | Project mode — auto-compile, `HOME=<cwd>/.objectstack` |
+| Compiled artifact in cwd | Artifact mode — load that artifact |
+| Explicit `--artifact <path>` or `OS_CLOUD_URL` | File-backed / cloud-connected modes |
 
 ## File-backed mode
 

@@ -1,0 +1,231 @@
+---
+title: Glossary
+description: The vocabulary used across ObjectOS and ObjectStack — one definition each.
+---
+
+# Glossary
+
+A single canonical definition for each term used in this documentation.
+
+### Artifact
+
+A compiled `objectstack.json` file. Self-contained, immutable
+description of an app — manifest, objects, views, apps, flows,
+permissions, translations. Produced by `os compile`. The thing
+ObjectOS actually executes.
+
+### Action
+
+A named operation declared in metadata, invocable via REST
+(`/api/v1/data/<object>/actions/<action>`), Studio buttons, or flow
+steps. Inherits the caller's permissions.
+
+### Adapter
+
+A framework package that integrates ObjectStack with a host runtime —
+Express, Fastify, Hono, Next.js, Nuxt, SvelteKit, NestJS. Most
+ObjectOS deployments don't need one; ObjectOS bundles its own HTTP
+server.
+
+### App
+
+A bundle of objects + views + permissions presented as a single
+navigable application in Studio. Multiple apps can coexist in one
+runtime (e.g. CRM + Helpdesk + Setup).
+
+### Better Auth
+
+The auth library powering `@objectstack/plugin-auth`. You don't
+configure Better Auth directly; the plugin wraps it.
+
+### Capability
+
+An optional runtime feature declared by an artifact in its `requires`
+list. Maps to a package — e.g. `audit` → `@objectstack/plugin-audit`.
+Loaded on demand by ObjectOS. See
+[Runtime Capabilities](/docs/reference/runtime-capabilities).
+
+### CEL
+
+[Common Expression Language](https://github.com/google/cel-spec) —
+Google's safe, sandboxed expression syntax. Used in formulas,
+validation rules, permission predicates, sharing rules, and flow
+conditions.
+
+### Console
+
+The system UI at `/_console/` — manages users, roles, permission sets,
+audit log, sessions, API keys, system settings. Distinct from Studio
+(business UI).
+
+### Control Plane
+
+An optional service that publishes versioned artifacts to ObjectOS
+instances. Hosted as ObjectStack Cloud or self-hosted. Most
+deployments don't need one — file-backed mode works for single-app
+production.
+
+### Driver
+
+A data backend implementation: `driver-sql` (Postgres, MySQL, SQLite,
+Turso/libSQL), `driver-mongodb`, `driver-memory`. Picked at boot via
+the database URL.
+
+### Embedder
+
+The service that converts text to vectors for RAG / semantic search.
+Pluggable across providers (OpenAI, Azure, 硅基流动, Ollama, …).
+See [AI Service](/docs/configure/ai).
+
+### Environment
+
+A per-tenant runtime instance backed by its own database and identity.
+On v4.x sometimes called *Project* (alias kept). v5.0 standardizes on
+*Environment* across CLI, HTTP, env vars, and schemas.
+
+### Field
+
+A typed property on an Object. ~25 built-in types: `text`, `select`,
+`lookup`, `markdown`, `attachment`, `formula`, `rollup`, etc. See
+[Data Model](/docs/build/data-model).
+
+### Flow
+
+Declarative business logic — autolaunched (record trigger), scheduled
+(cron), or manual (button / API). Executes as a DAG with
+condition/loop/retry/parallel primitives. See
+[Flows & Automation](/docs/build/flows).
+
+### Formula field
+
+A computed field whose value is a CEL expression evaluated at read
+time. Not stored.
+
+### Hook
+
+A function injected into the object lifecycle (`beforeInsert`,
+`afterUpdate`, …). Authored in TypeScript. Different from a flow:
+hooks are first-class code; flows are metadata.
+
+### Kernel
+
+The microkernel inside ObjectOS that loads plugins, holds the DI
+container, dispatches events, and serves a single Environment's
+metadata. One process can hold many cached kernels (one per
+Environment) in an LRU.
+
+### Manifest
+
+The top-level metadata at the head of an artifact: `id`, `namespace`,
+`version`, `type` (`app` / `plugin` / `service`), `name`,
+`description`, `requires` list.
+
+### Marketplace
+
+The in-Studio catalog of installable apps. Backed by a configurable
+package registry. See [Marketplace](/docs/build/marketplace).
+
+### MCP (Model Context Protocol)
+
+An open protocol for AI agents to discover and call tools.
+ObjectOS can expose its objects + actions as MCP via
+`@objectstack/plugin-mcp-server`.
+
+### Object
+
+A typed business entity — `task`, `account`, `invoice`. Declared as a
+TypeScript schema; generates REST APIs, Studio views, audit entries,
+RBAC checkpoints automatically. See [Data Model](/docs/build/data-model).
+
+### ObjectOS
+
+The runtime — a single Node.js process that serves your apps. Open
+source, Apache-2.0. **This documentation site is for ObjectOS.**
+
+### ObjectQL
+
+The data layer protocol and query engine. Compiles declarative queries
+to native SQL / Mongo queries. Used by REST endpoints, Studio,
+flows — all the same engine.
+
+### ObjectStack
+
+The umbrella project: the framework (`@objectstack/*` npm packages),
+the runtime (ObjectOS), the optional cloud service, and the
+marketplace. Sometimes called "the platform."
+
+### ObjectUI
+
+The view layer protocol — apps, views, pages, dashboards, actions,
+charts, navigation. Studio renders ObjectUI declarations.
+
+### Permission Set
+
+A bundle of grants — object permissions, field permissions, system
+permissions. Attached to users directly or via roles. The primary
+authorization unit. See [Permissions](/docs/configure/permissions).
+
+### Plugin
+
+A framework package that extends the runtime with a capability —
+`plugin-auth`, `plugin-security`, `plugin-audit`, `plugin-webhooks`,
+`plugin-mcp-server`, etc. Activated via DI + lifecycle hooks
+(`init → start → destroy`).
+
+### Project
+
+Old name for **Environment**. Still used in v4.x CLI/env (aliased).
+Removed in v5.0.
+
+### Record Share
+
+A direct grant of access to a specific record for a specific user /
+role / group. Stored as `sys_record_share` rows. Different from
+sharing rules (declarative criteria).
+
+### Sharing Rule
+
+A declarative rule that grants record access based on criteria
+("regional managers can see records in their region"). Evaluated at
+query time, compiled into row-level filters.
+
+### Studio
+
+The business UI at `/_studio/` — browse, create, edit records,
+configure views, install apps from the marketplace. Distinct from
+Console (system UI).
+
+### Surface
+
+One of the four HTTP entry points a running ObjectOS exposes:
+`/` (REST API), `/_studio/`, `/_account/`, `/_console/`.
+
+### System Context
+
+The internal execution mode used by plugins, hooks, and seed scripts
+that need to bypass security checks. Auditable; not exposed to user
+code.
+
+### Tenant
+
+A logical isolation boundary in multi-tenant deployments. One tenant
+typically maps to one Environment. Cookies and sessions are scoped per
+hostname; data is scoped per Environment.
+
+### Trigger
+
+The condition that fires a flow — record event (`after_insert`),
+schedule (cron), or manual invocation.
+
+### View
+
+A declarative UI configuration — list, form, kanban, calendar, gantt —
+attached to an Object. Studio renders it; you don't write the
+component.
+
+### Zod schema
+
+The runtime + compile-time type system used by `@objectstack/spec`.
+Every object, field, view, app, flow is parsed and validated by a Zod
+schema. JSON Schema, TypeScript types, and REST request validators are
+all derived from the same Zod definitions.

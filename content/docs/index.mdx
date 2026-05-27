@@ -18,23 +18,24 @@ ran inside your firewall.
 ## Get running in 60 seconds
 
 ```bash
-npx @objectstack/cli init my-app -t app --install
-cd my-app
-pnpm dev
+npm i -g @objectstack/cli
+os start
 ```
 
-Open **http://localhost:3002** and you have a working app with an admin
-UI, REST API, login screen, audit log, and SQLite database — zero
-configuration.
+Open **http://localhost:3000** and you have a working ObjectOS with
+Studio, Account, Console, an audit log, and a SQLite database — zero
+configuration, zero scaffolding. Browse the in-Studio **marketplace**
+to install ready-made apps (Todo, Contracts, Helpdesk, …).
 
-Go to the [Quickstart](/docs/quickstart) for screenshots and the next
-five minutes.
+Building your own app? See the [Quickstart](/docs/quickstart) — it
+covers both the operator path (`os start`) and the developer path
+(`os init` + hot-reload).
 
 ## Why ObjectOS instead of …
 
 | You're using | Pain point | What ObjectOS gives you |
 |---|---|---|
-| **Retool / Appsmith** | UI builder is great, but your data sits in their cloud and their pricing scales with users | Your data never leaves your network; flat self-host pricing |
+| **Retool / Appsmith** | UI builder is great, but your data sits in their cloud and their pricing scales with users | Your data never leaves your network; Apache-2.0, no seat tax |
 | **Supabase / Firebase** | Backend-as-a-service is fast but vendor-locked; multi-tenant SaaS by design | Same DX (auto APIs, auth, storage), but you own the runtime and database |
 | **Salesforce / NetSuite** | Powerful platform, painful customization, eye-watering per-seat cost | Same metadata-driven model (objects, fields, roles, sharing rules), self-hosted, no seat tax |
 | **Rolling your own (Next + Prisma + NextAuth)** | You rebuild RBAC, audit, file uploads, settings, webhooks, jobs every time | Ship the actual business logic; the platform plumbing is already there |
@@ -81,7 +82,8 @@ networks are a first-class deployment target — see
 
 ## License & pricing
 
-ObjectOS runtime is **AGPL-3.0**. Run it for free, in any environment,
-forever. Commercial license available for OEM redistribution or if AGPL
-doesn't fit — contact us. No per-user fee. No seat tax. No "starting at
-$50K/year."
+ObjectOS runtime is **Apache-2.0** — the most permissive widely-used
+OSS license. Use it in commercial products, embed it, redistribute it,
+keep your modifications private. No per-seat fee, no license server,
+no "starting at $50K/year." Optional commercial support and managed
+hosting are available separately — see [License](/docs/resources/license).

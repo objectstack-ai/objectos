@@ -12,10 +12,10 @@ assigned directly to users or indirectly through roles.
 
 | Permission type | Examples |
 |---|---|
-| Application access | User can open CRM or Setup |
+| Application access | User can open CRM or Console |
 | Object permissions | Create, read, update, delete records |
 | Field permissions | Read or update selected fields |
-| System permissions | Access Setup, run reports, export data |
+| System permissions | Access Console, run reports, export data |
 | Integration permissions | Use API keys, webhooks, or admin actions |
 
 ## Object permissions
@@ -47,7 +47,7 @@ super-user grant for that object.
 
 System permissions are for platform actions such as:
 
-- Setup access;
+- Console access;
 - manage users;
 - manage roles and permission sets;
 - run reports;
@@ -92,7 +92,7 @@ is no "back door" through a lower-level API.
 
 ### Typical patterns
 
-| Use case | Setup |
+| Use case | Recommendation |
 |---|---|
 | HR data on `sys_user` (salary, SSN) | Hide for everyone except an `HR` permission set |
 | External system identifiers | Read-only for support, writable for integration operators |

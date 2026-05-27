@@ -1,0 +1,188 @@
+---
+title: FAQ
+description: Answers to questions we get asked the most.
+---
+
+# FAQ
+
+## Getting started
+
+**Q: What's the absolute fastest way to try ObjectOS?**
+A: `npm i -g @objectstack/cli && os start` — then open
+http://localhost:3000. See [Quickstart](/docs/quickstart).
+
+**Q: Do I need Docker?**
+A: No. Node 20+ and the CLI are enough. Docker is the recommended
+production deployment shape.
+
+**Q: Do I need a database?**
+A: No, not to start — ObjectOS uses local SQLite by default. Swap for
+Postgres / MySQL / Turso / Mongo when you go to production.
+
+**Q: Do I need an account / cloud service?**
+A: No. ObjectOS is fully self-contained. ObjectStack Cloud is optional
+for multi-environment / multi-app deployments with a control plane.
+
+## Architecture
+
+**Q: Can I use Postgres / MySQL / MongoDB?**
+A: Yes — Postgres, MySQL, SQLite, Turso/libSQL, and MongoDB are
+supported drivers. See [Runtime Configuration](/docs/configure/runtime).
+
+**Q: Can I disable Studio / Account / Console and use only the REST API?**
+A: Yes. Run `os start --no-ui` or set the corresponding flags. The
+REST API is the same whether the UIs are mounted or not.
+
+**Q: Can I use my own front-end instead of Studio?**
+A: Yes. Studio uses the same `/api/v1/*` endpoints you'd call from
+your own code. Use `@objectstack/client` SDK or any HTTP client.
+
+**Q: Does ObjectOS support GraphQL?**
+A: REST is the primary surface. GraphQL is on the roadmap — until then,
+the ObjectQL query language (over REST `?filter=`/`?sort=`) covers the
+same ground.
+
+**Q: How is multi-tenancy handled?**
+A: One ObjectOS process can serve many Environments (tenants). Hostname
+→ Environment resolution caches in an LRU; each Environment has its own
+database, identity, and audit log. Cookies are scoped per hostname so
+sessions can't leak across tenants.
+
+**Q: Can ObjectOS run in a serverless / Lambda environment?**
+A: The runtime is a long-lived Node process — designed for containers
+or VMs, not stateless functions. The kernel cache and Better Auth
+session model both depend on warm in-process state.
+
+**Q: Does it scale horizontally?**
+A: Yes. Run multiple instances behind a load balancer. Sessions live in
+the database (not in-memory), so any instance can serve any request.
+Use Redis for shared rate limiting and queue if you enable those
+capabilities.
+
+## Data & migrations
+
+**Q: How are schema migrations handled?**
+A: The driver syncs the database schema to your declared objects on
+boot. For Postgres, that's `CREATE TABLE` / `ALTER TABLE` statements.
+For controlled migrations in regulated environments, set
+`OS_SKIP_SCHEMA_SYNC=1` and manage DDL yourself.
+
+**Q: What happens to data when I rename a field?**
+A: A rename is a destructive change at the data layer (it looks like
+"drop old column, add new column"). Use `os diff` to detect this and
+add a migration step (rename column in DB before deploying the new
+artifact).
+
+**Q: Can I import data from CSV / Excel / Salesforce?**
+A: CSV: yes, via `os data create` in a loop or the Studio bulk upload.
+Salesforce: best path today is to export to CSV and import. Native
+connectors are on the roadmap.
+
+**Q: Will upgrading ObjectOS lose my data?**
+A: No. Patch and minor upgrades are non-destructive. Major upgrades
+(e.g. 4 → 5) document required migrations explicitly. Back up first —
+[Backup & DR](/docs/operate/backup).
+
+## Permissions & multi-tenancy
+
+**Q: How do I do row-level security?**
+A: Declare a sharing rule (declarative, like Salesforce) or a CEL
+predicate on an object's `recordAccess` config. The security plugin
+injects the corresponding filter on every query. See
+[Permissions](/docs/configure/permissions).
+
+**Q: Can I make some fields invisible to certain users?**
+A: Yes — field-level security in permission sets. Hide or read-only,
+per field per permission set. Enforced uniformly across REST, ObjectQL,
+and Studio. See [Permission Sets](/docs/configure/permissions/permission-sets).
+
+**Q: How do I integrate Okta / Entra / Keycloak?**
+A: OIDC. Configure the discovery URL + client id/secret in **Console →
+Authentication** (or via env). Provider callback URL is
+`/api/v1/auth/oauth2/callback/<provider-id>`. See [Authentication](/docs/configure/authentication).
+
+## Integrations
+
+**Q: Can I send webhooks?**
+A: Yes — enable `webhooks` in `requires`. ObjectOS uses a persistent
+outbox with HMAC-SHA256 signing. See [Webhooks](/docs/configure/webhooks).
+
+**Q: Can I integrate with Zapier / Make / n8n?**
+A: Yes — webhooks for outbound and the REST API + API keys for inbound.
+Native connectors for popular iPaaS tools are on the roadmap.
+
+**Q: Can AI agents call my ObjectOS?**
+A: Yes, via MCP (`@objectstack/plugin-mcp-server`) — exposes objects
+and actions as MCP tools that Claude Desktop, IDEs, or other MCP
+clients can use. See [AI Service](/docs/configure/ai).
+
+## Customization
+
+**Q: Can I write custom plugins?**
+A: Yes — plugins follow a simple DI + lifecycle pattern
+(`init → start → destroy`). See `@objectstack/plugin-*` packages on
+GitHub for examples.
+
+**Q: Can I customize Studio's look?**
+A: Branding (logo, accent color, default theme) is in **Console →
+System Settings**. Deep UI customization means forking
+`@objectstack/client-react` or building your own front-end against the
+REST API.
+
+**Q: Can I add languages other than English?**
+A: Yes — i18n is first-class. Use `os i18n extract` / `os i18n check`
+and ship a translation bundle.
+
+## Operations
+
+**Q: What's the recommended production deployment?**
+A: Docker (or Kubernetes for multi-pod) + managed Postgres + S3 or R2
+for files + your secret manager for `OS_AUTH_SECRET`. See
+[Production Readiness](/docs/operate/production).
+
+**Q: Does ObjectOS have a status page?**
+A: For your self-hosted deployment, status is your concern — wire
+`/health` to your monitor. For hosted services, see
+[status.objectstack.ai](https://status.objectstack.ai).
+
+**Q: What metrics should I monitor?**
+A: 5xx rate, p95 latency, auth failure rate, kernel cache miss rate,
+queue depth. Minimal Prometheus example in [Observability](/docs/operate/observability).
+
+**Q: How do I take a backup?**
+A: Back up the **database** and the **storage bucket** — those hold
+all customer data. ObjectOS itself is stateless. See [Backup](/docs/operate/backup).
+
+## Pricing & legal
+
+**Q: Is ObjectOS really free?**
+A: Yes. Apache-2.0. No seats, no usage tier, no license server.
+
+**Q: Can I use ObjectOS in a commercial product I sell?**
+A: Yes. Apache-2.0 allows commercial use. See [License](/docs/resources/license).
+
+**Q: Do you collect telemetry?**
+A: No. Zero outbound calls unless you configure them (OIDC, email, AI,
+webhooks). See [Security & Compliance](/docs/reference/security#data-residency).
+
+**Q: Is ObjectOS SOC 2 / ISO 27001 / HIPAA / GDPR compliant?**
+A: ObjectOS provides the **primitives** every framework requires (RBAC,
+audit, encryption-ready, residency). Certification is a property of
+your **deployment**, not the binary. Many ObjectOS deployments are
+certified. See [Security & Compliance](/docs/reference/security#compliance-frameworks).
+
+## Getting unstuck
+
+**Q: Something's broken — where do I start?**
+A: `os doctor`. It catches 80% of misconfigurations on its own. After
+that, [Troubleshooting](/docs/operate/troubleshooting).
+
+**Q: Where do I report a bug?**
+A: [GitHub Issues](https://github.com/objectstack-ai/objectos/issues).
+Include `os doctor` output. Security issues:
+**security@objectstack.ai**.
+
+**Q: Where do I get help from humans?**
+A: [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions),
+the community Discord, or **sales@objectstack.ai** for commercial
+support.

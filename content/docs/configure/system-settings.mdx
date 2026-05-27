@@ -6,7 +6,7 @@ description: Configure tenant and user settings through manifests and a shared K
 # System Settings
 
 ObjectStack includes a settings service for runtime and plugin settings.
-ObjectOS exposes those settings through the Setup app when the application
+ObjectOS exposes those settings through the Console when the application
 artifact requires the settings capability.
 
 ## Settings model
@@ -18,7 +18,7 @@ Settings are declared by code and stored as values:
 | Settings Manifest | Defines fields, labels, defaults, validation, visibility, and actions |
 | `sys_setting` | Stores tenant/user K/V values |
 | Resolver | Reads the effective value |
-| Setup UI | Renders standard settings pages |
+| Console UI | Renders standard settings pages |
 
 Plugins should not create one-off settings tables for ordinary
 configuration. They should declare settings manifests and let ObjectOS
@@ -36,7 +36,7 @@ Manifest default
 ```
 
 Environment overrides are locked. If a value is set through an
-environment variable, the Setup UI should show it as managed by the host
+environment variable, the Console UI should show it as managed by the host
 and reject runtime edits.
 
 ## Common settings areas

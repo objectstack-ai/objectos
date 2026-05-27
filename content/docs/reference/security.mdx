@@ -1,0 +1,173 @@
+---
+title: Security & Compliance
+description: What's protected, how, who's responsible — for security review.
+---
+
+# Security & Compliance
+
+This page is for security reviewers, IT admins, and anyone who has to
+answer "is it safe to bring this in?"
+
+## Threat model in one sentence
+
+ObjectOS runs as a single Node.js process inside **your** network,
+talks to **your** database, and never calls home. The blast radius of
+a compromise is the data on the database it connects to — nothing
+more.
+
+## Data residency
+
+| Data class | Lives in | Leaves your network? |
+|---|---|---|
+| Business records | Your database | **No** |
+| User accounts, sessions, OAuth tokens | Your database | **No** |
+| Audit log | Your database | **No** |
+| Settings, API keys | Your database / your secret manager | **No** |
+| Uploaded files | Your disk or S3-compatible bucket | **No** |
+| Telemetry / usage data | — | **None collected** |
+
+ObjectOS makes **zero outbound calls** unless you explicitly configure
+them (OIDC discovery, email provider, AI provider, webhook targets,
+external storage). It does not phone home, does not check a license
+server, does not ping for updates.
+
+## Encryption
+
+| Layer | Mechanism | Responsibility |
+|---|---|---|
+| In transit (browser ↔ ObjectOS) | TLS, terminated at your edge / ingress | You |
+| In transit (ObjectOS ↔ database) | Driver-level TLS (Postgres `sslmode=require`, MongoDB `tls=true`, …) | You — set the connection string |
+| At rest (business data) | Database-native (e.g. Postgres TDE, RDS encryption) | You |
+| At rest (uploaded files) | Storage-native (S3 SSE, R2 default, disk-level FDE) | You |
+| Secrets in DB (settings, OIDC client secret) | Encrypted by the settings service | ObjectOS |
+| Session cookies / tokens | HMAC-signed with `OS_AUTH_SECRET` | ObjectOS |
+| API key values | **Hashed** in DB — leaked DB row cannot reconstruct the key | ObjectOS |
+
+## Authentication
+
+Built-in (via `@objectstack/plugin-auth`, powered by Better Auth):
+
+- email/password with verification + reset
+- session management with revocation
+- social OAuth (Google, GitHub, Microsoft, Apple, …)
+- enterprise OIDC/SSO (Okta, Entra ID, Keycloak, Ping)
+- two-factor (TOTP)
+- passkeys / WebAuthn
+- magic links
+- CLI/browser device flow
+- API keys (hashed, expirable, revocable, bound to a user)
+
+See [Authentication](/docs/configure/authentication).
+
+## Authorization
+
+Layered enforcement (via `@objectstack/plugin-security`):
+
+1. **Object permissions** — CRUD per object per permission set
+2. **Row-level security** — declarative policy expressions injected into
+   queries; not optional
+3. **Field-level security** — fields stripped from responses /
+   rejected on write
+4. **Organization scoping** — multi-tenant isolation; bypass requires
+   explicit `viewAllRecords`
+
+System-context operations bypass checks so internal jobs / migrations
+can run — these paths are auditable.
+
+See [Permissions](/docs/configure/permissions).
+
+## Audit & evidence
+
+When the audit capability is loaded (`@objectstack/plugin-audit`):
+
+- Every CRUD operation across every object → audit row.
+- Before/after values for field changes.
+- Authentication, permission grants, session revocation events.
+- Audit rows are **immutable**: cannot be modified, only archived.
+- Retention is configurable; pair with your DB's archive policy.
+
+This is the evidence base for SOC 2 CC6/CC7, ISO 27001 A.12.4, HIPAA
+§164.312(b), and GDPR Article 30.
+
+## Compliance frameworks
+
+ObjectOS provides the **technical primitives** every common framework
+asks for. Certification is a property of the deployment, not the
+software — but the controls map cleanly:
+
+| Framework | What ObjectOS gives you |
+|---|---|
+| **SOC 2** | Access control (CC6), change management (audit log), encryption (deployment), monitoring (observability), backup (operate/backup) |
+| **ISO 27001** | A.5 policies (RBAC), A.8 asset management (object catalog), A.9 access control, A.12 operations, A.18 compliance |
+| **HIPAA** | Access controls (§164.312(a)), audit controls (§164.312(b)), integrity (immutable audit), transmission security (TLS) |
+| **GDPR** | Article 30 records of processing (audit), Article 32 security of processing, Article 17 right to erasure (soft + hard delete supported), data residency (you choose the region) |
+| **CCPA / China DSL / Russia 152-FZ** | Self-hosting in the right region satisfies residency; access controls + audit cover most reporting obligations |
+
+ObjectOS itself is **not certified** because the certification is of a
+running deployment, not a binary. Your deployment can be certified —
+many already are.
+
+## Secrets handling
+
+| Secret | Where to put it |
+|---|---|
+| `OS_AUTH_SECRET` | Your secret manager (Vault, AWS Secrets Manager, k8s Secret); inject as env var |
+| Database URL with credentials | Same |
+| OIDC client secret | Same |
+| OAuth provider secrets | Same |
+| API provider keys (email, storage, AI) | Same |
+| Settings stored in DB | Encrypted by the settings service at rest |
+
+**Never** bake secrets into the artifact (`objectstack.json`), the
+Docker image, the compose file, or Git. The settings UI in Console
+shows env-managed values as locked, so operators can't accidentally
+override them.
+
+## Network model
+
+Required inbound:
+- HTTPS from your ingress / load balancer to ObjectOS on `:3000` (default).
+
+Required outbound (only if you configure these features):
+- Your database (Postgres / Mongo / Turso / …).
+- S3-compatible storage (if `storage` capability enabled with S3 adapter).
+- OIDC discovery URL (if SSO enabled).
+- Email provider API (Resend / Postmark).
+- AI provider API (OpenAI / Anthropic / Google / …).
+- Webhook targets.
+
+That's the entire egress surface. See [Air-gapped](/docs/deploy/air-gapped)
+for deployments that cut even more.
+
+## Vulnerability disclosure
+
+Report security issues privately to
+**security@objectstack.ai**. We respond within 1 business day. Do not
+file public GitHub issues for security problems.
+
+## Supply chain
+
+- Pre-built images published from [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos)
+  with reproducible build provenance.
+- All `@objectstack/*` packages have published source on GitHub —
+  Apache-2.0, no obfuscation.
+- Use SHA-pinned image tags (`sha-<short>`) in production to avoid
+  drift; see [Docker](/docs/deploy/docker).
+
+## Suggested hardening checklist
+
+- [ ] TLS terminated at the edge with a real certificate.
+- [ ] `OS_AUTH_SECRET` is 32+ bytes random, in a secret manager.
+- [ ] Database connection uses TLS.
+- [ ] HSTS enabled after TLS validation.
+- [ ] CORS origins explicit (never `*` with credentials).
+- [ ] Rate limits on auth endpoints (`10/min/IP` recommended).
+- [ ] Audit retention matches policy.
+- [ ] OIDC for human accounts; API keys for machine accounts.
+- [ ] Backup + restore drill executed and timed.
+- [ ] Negative tests: cross-org access denied, field security holds, expired session rejects.
+- [ ] Image pinned to `sha-<short>` or semver tag.
+- [ ] `os doctor` clean in CI before each release.
+
+See [Production Readiness](/docs/operate/production) for the full
+go-live checklist.

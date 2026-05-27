@@ -1,0 +1,98 @@
+---
+title: Changelog & Versioning
+description: How ObjectOS is versioned, what changes between releases, and what's supported.
+---
+
+# Changelog & Versioning
+
+## Versioning policy
+
+ObjectOS follows **[Semantic Versioning](https://semver.org/)**: `MAJOR.MINOR.PATCH`.
+
+| Version bump | What it means | What to do |
+|---|---|---|
+| **Patch** (`4.0.1 → 4.0.2`) | Bug fixes, no behavior change | Roll forward, no app changes needed |
+| **Minor** (`4.0 → 4.1`) | New features, backward-compatible | Roll forward, optionally adopt new features |
+| **Major** (`4 → 5`) | Breaking changes documented in release notes | Read the migration guide before upgrading |
+
+All `@objectstack/*` packages release together with a synchronized
+version number — they're tested as a matrix, not independently.
+
+## Compatibility matrix
+
+| Component | Compatibility rule |
+|---|---|
+| ObjectOS image ↔ compiled artifact | Same minor version. A 4.0.x image runs a 4.0.x artifact; a 4.1 artifact may use features unavailable in a 4.0 image. |
+| ObjectOS ↔ CLI | Same minor version recommended. The CLI in `npm i -g` writes scaffolds pinned to its own version. |
+| ObjectOS ↔ database driver | Driver pinned by image build; verify Postgres ≥ 13 / MongoDB ≥ 5 / Turso (any current). |
+| Node.js | **20 LTS or newer**. 22 LTS recommended for new deployments. |
+
+## Support windows
+
+| Branch | Status | Until |
+|---|---|---|
+| **4.x** (current) | Active development; new features and fixes | At least 12 months after 5.0 ships |
+| **3.x** | Security fixes only | EOL on 5.0 release |
+| **≤ 2.x** | Unsupported | Already EOL |
+
+Critical security fixes are backported to the current and previous
+major. Everything else lands on `main`.
+
+## Release notes
+
+Released ObjectOS versions and their CHANGELOG entries are published at:
+
+- **npm**: [`@objectstack/runtime`](https://www.npmjs.com/package/@objectstack/runtime)
+- **GitHub**: [github.com/objectstack-ai/objectos/releases](https://github.com/objectstack-ai/objectos/releases)
+- **Source CHANGELOG**: [`CHANGELOG.md`](https://github.com/objectstack-ai/framework/blob/main/CHANGELOG.md)
+- **Long-form release notes**: [`RELEASE_NOTES.md`](https://github.com/objectstack-ai/framework/blob/main/RELEASE_NOTES.md)
+
+Subscribe to releases on GitHub to get notified.
+
+## Recent highlights
+
+### 4.0.x — current release train
+
+- **42 packages** published to npm under `@objectstack/*`.
+- Console gained complete Configuration settings pages (AI, Storage,
+  Knowledge).
+- Embedder service: 10 providers (`openai`, `azure`, 阿里通义,
+  智谱, 硅基流动, 火山, MiniMax, Ollama, custom).
+- Live settings → runtime bridge — change provider in Console, in-process
+  swap without restart.
+
+### 5.0 (upcoming) — `project` → `environment` rename
+
+The runtime concept formerly called *Project* is renamed to *Environment*
+throughout. Affects:
+
+- CLI flags: `--environment` / `-e`
+- HTTP paths: `/api/v1/environments/:environmentId/...`
+- Headers: `X-Environment-Id`
+- Env vars: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` kept as alias on 4.x, removed in 5.0)
+- DB columns: `environment_id`
+- JSON schemas: `EnvironmentArtifact`
+
+No aliases or deprecation shims. Plan to upgrade carefully — see the
+5.0 migration guide on release.
+
+## Upgrading
+
+See [Upgrade and Rollback](/docs/operate/upgrade) for the mechanical
+steps. Pre-flight:
+
+1. Read the CHANGELOG entry for every minor between your current and
+   target version.
+2. Run `os diff <old-artifact> <new-artifact>` to surface breaking
+   schema changes.
+3. Run `os doctor` against the target version.
+4. Bring up one canary instance before rolling the fleet.
+5. Have a rollback plan for both the image tag and the artifact
+   version (they roll independently).
+
+## Reporting regressions
+
+If a patch or minor breaks something previously working, file a bug at
+[github.com/objectstack-ai/objectos/issues](https://github.com/objectstack-ai/objectos/issues)
+with the version you upgraded from / to. We treat regressions as the
+highest-priority class of bug.

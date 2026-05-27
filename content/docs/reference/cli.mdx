@@ -1,0 +1,210 @@
+---
+title: CLI Reference
+description: Every `os` command, what it does, and the most useful flags.
+---
+
+# CLI Reference
+
+The `@objectstack/cli` package installs a single binary, `os` (also
+available as `objectstack`). All examples below use the shorter `os`.
+
+```bash
+npm i -g @objectstack/cli
+os --help
+```
+
+## Server commands
+
+### `os start` — zero-config boot
+
+Auto-detects 4 escalating modes:
+
+1. **Empty boot** — no artifact, no config in cwd → boots a bare
+   kernel with Studio + marketplace.
+2. **Project boot** — `objectstack.config.ts` in cwd → auto-compiles
+   to `./dist/objectstack.json` and boots from it.
+3. **Artifact boot** — `dist/objectstack.json` reachable → boots from
+   it directly.
+4. **Explicit overrides** — `--artifact`, `--database`, `--port` win.
+
+```bash
+os start                                # default port 3000
+os start --port 8080
+os start --artifact ./build/myapp.json
+os start --artifact https://cdn.example.com/app.json
+os start --database file:./data/prod.db
+os start --database postgres://user:pass@host:5432/mydb
+os start --database libsql://my-db.turso.io --database-auth-token $TURSO
+os start --auth-secret "$(openssl rand -hex 32)"
+os start --home /var/lib/objectos      # persistent home dir
+os start --no-ui                       # API only (no Studio/Account/Console)
+```
+
+HOME directory default:
+- with a project config in cwd → `<cwd>/.objectstack` (project-local)
+- without → `~/.objectstack` (global, shared across invocations)
+
+### `os serve` — production server
+
+Reads `objectstack.config.ts` if present, otherwise falls back to
+`dist/objectstack.json` (or `OS_ARTIFACT_PATH`, including `http(s)://` URLs).
+Use this in production containers when you want strict behavior.
+
+```bash
+os serve                       # port 3000
+os serve --port 4000 --no-ui
+```
+
+### `os dev` — development with hot-reload
+
+Watches `objectstack.config.ts` and `src/`. Recompiles + reloads on
+save. Used as the npm `dev` script in scaffolded projects.
+
+```bash
+os dev                         # port 3002 by default
+os dev -p 4002
+```
+
+### `os studio` — Studio with dev server
+
+Same as `os dev` but with Studio explicitly enabled.
+
+## Project commands
+
+### `os init` — scaffold a new project
+
+```bash
+os init my-app                       # interactive
+os init my-app -t app --install      # auto-install with default pnpm
+os init my-app -t app --install -p npm
+os init my-app -t plugin             # plugin scaffold
+os init my-app -t empty              # bare minimum
+```
+
+Templates:
+| Template | What it gives you |
+|---|---|
+| `app` | Full app — objects, views, actions, ready to extend |
+| `plugin` | Plugin scaffold for distributing reusable capabilities |
+| `empty` | Manifest + tsconfig only |
+
+### `os create` — create a package, plugin, or example from template
+
+```bash
+os create plugin my-plugin
+os create example my-example
+```
+
+## Build / validate commands
+
+| Command | Purpose |
+|---|---|
+| `os compile` (`os build`) | Compile `objectstack.config.ts` → `dist/objectstack.json` |
+| `os validate` | Validate config against the protocol schema |
+| `os lint` | Style and convention checks (recommended in CI) |
+| `os diff <old> <new>` | Compare two configs, detect breaking changes |
+| `os info` | Print metadata summary of a config or artifact |
+| `os explain <object>` | Human-readable explanation of an object schema |
+| `os doctor` | Health check: detects circular deps, broken refs, env issues |
+| `os generate` (`os g`) | Generate TypeScript types / metadata files |
+
+`os doctor` is the **first thing to run when something feels off** — it
+catches misconfigurations the runtime would only surface as a runtime
+warning.
+
+## Data commands
+
+Operate on records from the terminal — useful for seeding, migrations,
+and CI smoke tests.
+
+```bash
+os data create <object> --data '{"subject": "Hello"}'
+os data get <object> <id>
+os data query <object> --filter 'status:active' --limit 10
+os data update <object> <id> --data '{"done": true}'
+os data delete <object> <id>
+```
+
+## Metadata commands
+
+Read/write metadata records (objects, views, permission sets, …) at
+runtime.
+
+```bash
+os meta list <kind>
+os meta get <kind> <id>
+os meta register <file>
+os meta delete <kind> <id>
+```
+
+## i18n commands
+
+```bash
+os i18n extract               # extract translation keys from source
+os i18n check                 # find missing keys across configured locales
+```
+
+## Cloud commands
+
+For users of ObjectStack Cloud (the optional hosted control plane).
+
+```bash
+os login                      # interactive
+os logout
+os whoami
+os register                   # create an account
+os cloud login | logout | whoami
+```
+
+## Publish / package commands
+
+```bash
+os package publish            # publish artifact as a versioned package
+os publish                    # publish to ObjectStack Cloud
+os rollback <revision>        # activate a previous artifact revision
+```
+
+## Environment commands
+
+For deployments using multiple environments per project (dev, staging,
+prod) backed by a control plane.
+
+```bash
+os environments list
+os environments show <id>
+os environments create <name>
+os environments switch <id>
+os environments bind          # bind local artifact to an environment
+```
+
+## Test command
+
+```bash
+os test                       # run Quality Protocol scenarios against a running server
+```
+
+## Common flag conventions
+
+| Flag | Meaning |
+|---|---|
+| `-p, --port` | HTTP port |
+| `-a, --artifact` | Path or URL to compiled artifact |
+| `-d, --database` | Database URL |
+| `--home` | Persistent state directory |
+| `-v, --verbose` | Verbose output |
+| `--no-ui` | Disable Studio / Account / Console portals |
+
+Run any command with `--help` for the full flag list:
+
+```bash
+os start --help
+os data query --help
+```
+
+## Where the CLI fits
+
+- **Operator / first run** → `os start`
+- **Developer building an app** → `os init` → `os dev` → `os compile`
+- **CI / release pipeline** → `os lint && os validate && os compile && os test`
+- **Production runtime** → `os serve` (typically inside the Docker image's `CMD`)
+- **Diagnostics** → `os doctor`, `os info`, `os explain`

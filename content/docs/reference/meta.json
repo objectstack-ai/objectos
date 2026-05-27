@@ -1,4 +1,4 @@
 {
   "title": "Reference",
-  "pages": ["environment-variables", "runtime-capabilities"]
+  "pages": ["cli", "environment-variables", "runtime-capabilities", "security"]
 }
