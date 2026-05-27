@@ -31,7 +31,7 @@ Match the strategy to the driver:
 | PostgreSQL | Continuous WAL archiving + base backup; point-in-time restore |
 | Turso / libSQL | Use the platform's backup feature; export to SQLite locally for cold copy |
 | MongoDB | Replica-set snapshots; oplog for PITR |
-| SQLite (single-node evaluation only) | File-level snapshot when the runtime is idle; **not** production-grade |
+| SQLite (single-node / desktop) | WAL mode + hot snapshots via `VACUUM INTO` or the Online Backup API; optionally Litestream for continuous replication — see [SQLite deployments](#sqlite-deployments) below |
 
 Whatever the driver, validate that:
 
@@ -39,6 +39,68 @@ Whatever the driver, validate that:
 - a fresh database can boot ObjectOS from the same artifact and serve
   traffic;
 - restore tests are exercised end-to-end at least once a quarter.
+
+## SQLite deployments
+
+SQLite is the default driver and is a legitimate production choice for
+**single-node** ObjectOS — desktop apps, internal tools for a small
+team, edge / on-prem appliances, evaluation environments. The trade-off
+is structural: SQLite is single-writer, so it does not fit multi-node
+ObjectOS, high concurrent write throughput, or shared-database
+deployments. For those, use PostgreSQL.
+
+When you do run SQLite in production, the configuration that makes it
+safe and the backup recipe go together:
+
+**Runtime configuration**
+
+- Enable WAL: `PRAGMA journal_mode=WAL` (readers don't block the
+  writer; crash-safe).
+- `PRAGMA synchronous=NORMAL` is the usual desktop/single-node default
+  — safe with WAL, much faster than `FULL`.
+- Keep the database file on **local disk**. Do **not** put it on NFS,
+  SMB, or inside a folder synced by Dropbox / OneDrive / iCloud while
+  the runtime is running — SQLite's locking is unreliable on those and
+  this is the most common way SQLite deployments corrupt.
+
+**Hot snapshot (no downtime)**
+
+The runtime keeps serving traffic while you take a snapshot using
+SQLite's Online Backup API or `VACUUM INTO`:
+
+```sql
+VACUUM INTO '/var/backups/objectos/db-2026-05-27T13-00Z.sqlite';
+```
+
+Schedule it (cron, systemd timer, or the in-process scheduler) at a
+cadence matching your RPO. Tag each snapshot with the artifact version
+that produced it so you can roll database + artifact back together
+(see [Artifact versioning](#artifact-versioning) below).
+
+**Offsite copy**
+
+A local snapshot doesn't survive disk loss. Push each snapshot to
+durable storage:
+
+- Server / VM: push to S3 or any S3-compatible bucket (you likely
+  already have one configured for the `storage` capability).
+- Desktop app: write the snapshot to a user-controlled sync folder
+  (OneDrive / iCloud / Google Drive) — acceptable here because the
+  snapshot file is **closed and immutable**, unlike the live database.
+
+**Continuous replication (lower RPO)**
+
+For sub-minute RPO without giving up SQLite, run
+[Litestream](https://litestream.io) alongside the ObjectOS process. It
+streams the WAL to S3-compatible storage and supports point-in-time
+restore. This is the recommended path when a single-node SQLite
+deployment needs near-zero data loss.
+
+**Restore**
+
+Stop the runtime, replace the database file with the chosen snapshot
+(or run `litestream restore`), start the runtime against the same
+artifact version that produced the snapshot.
 
 ## Artifact versioning
 
@@ -61,6 +123,7 @@ A workable starting target for customer deployments:
 | Class | RPO | RTO | Notes |
 |---|---|---|---|
 | Evaluation / demo | best-effort | best-effort | SQLite snapshot is fine |
+| Desktop app / small-team single-node | ≤ 1 hour (snapshots) or ≤ seconds (Litestream) | minutes | SQLite + WAL + scheduled `VACUUM INTO` + offsite copy |
 | Single-tenant production | ≤ 15 min | ≤ 1 hour | Managed PostgreSQL with PITR + warm image |
 | Multi-tenant / regulated | ≤ 5 min | ≤ 30 min | HA database + multi-AZ ObjectOS + tested runbook |
 

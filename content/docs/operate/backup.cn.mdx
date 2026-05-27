@@ -31,13 +31,67 @@ ObjectOS **不**需要对其容器文件系统做单独备份。缓存目录
 | PostgreSQL | 持续 WAL 归档 + 基础备份;支持时间点恢复 |
 | Turso / libSQL | 使用平台的备份功能;本地导出为 SQLite 作冷备 |
 | MongoDB | 副本集快照;通过 oplog 实现 PITR |
-| SQLite（仅限单节点评估） | 运行时空闲时做文件级快照;**不适合**生产 |
+| SQLite（单节点 / 桌面） | 启用 WAL 模式 + 用 `VACUUM INTO` 或 Online Backup API 做热快照;如需更低 RPO 可叠加 Litestream 持续复制 —— 见下方 [SQLite 部署](#sqlite-部署) |
 
 无论使用哪种驱动，都需验证：
 
 - 备份能在客户的 RPO 内完成;
 - 一个全新数据库能基于同一份产物启动 ObjectOS 并对外服务;
 - 至少每季度执行一次端到端的恢复演练。
+
+## SQLite 部署
+
+SQLite 是默认驱动，对于**单节点**形态的 ObjectOS 完全可以用于生产
+—— 桌面端应用、小团队内部工具、边缘 / 本地一体机、评估环境。它的
+取舍是结构性的：SQLite 是单写者，因此不适合多节点 ObjectOS、高并发
+写入或共享数据库的部署。这些场景请使用 PostgreSQL。
+
+当你确实在生产中使用 SQLite 时，让它稳定运行的配置和备份方案是配套的：
+
+**运行时配置**
+
+- 启用 WAL：`PRAGMA journal_mode=WAL`（读不阻塞写;崩溃安全）。
+- `PRAGMA synchronous=NORMAL` 是桌面 / 单机生产的常用默认值 —— 在
+  WAL 下安全，且比 `FULL` 快得多。
+- 数据库文件放在**本地磁盘**上。**不要**放在 NFS、SMB，或者在运行时
+  正在使用的情况下放在被 Dropbox / OneDrive / iCloud 同步的目录里
+  —— SQLite 的文件锁在这些位置不可靠，这是 SQLite 部署最常见的损坏
+  原因。
+
+**热快照（无需停机）**
+
+运行时继续对外服务的同时，可以用 SQLite 的 Online Backup API 或
+`VACUUM INTO` 生成一致性快照：
+
+```sql
+VACUUM INTO '/var/backups/objectos/db-2026-05-27T13-00Z.sqlite';
+```
+
+按照你的 RPO 节奏用 cron、systemd timer 或运行时内置 scheduler 触发。
+给每份快照打上当时所用的产物版本标签，以便将数据库和产物作为一组
+回滚（见下方 [产物版本化](#产物版本化)）。
+
+**异地副本**
+
+本地快照扛不住磁盘故障。把每份快照推送到可持续存储：
+
+- 服务器 / VM：推到 S3 或任何 S3 兼容 bucket（你大概率已经为
+  `storage` 能力配过一个了）。
+- 桌面端应用：把快照写入用户控制的同步目录（OneDrive / iCloud /
+  Google Drive）—— 这里可以接受，因为快照文件是**关闭且不可变**的，
+  和活动数据库不同。
+
+**持续复制（更低 RPO）**
+
+在不放弃 SQLite 的前提下要拿到分钟级以下的 RPO，把
+[Litestream](https://litestream.io) 与 ObjectOS 进程一起跑。它把 WAL
+流式复制到 S3 兼容存储，并支持时间点恢复。当单节点 SQLite 部署需要
+近零数据丢失时，这是推荐路径。
+
+**恢复**
+
+停掉运行时，用选定的快照替换数据库文件（或执行 `litestream
+restore`），用产生该快照时所对应的产物版本重新启动运行时。
 
 ## 产物版本化
 
@@ -57,6 +111,7 @@ ObjectOS **不**需要对其容器文件系统做单独备份。缓存目录
 | 等级 | RPO | RTO | 备注 |
 |---|---|---|---|
 | 评估 / 演示 | 尽力而为 | 尽力而为 | SQLite 快照即可 |
+| 桌面端应用 / 小团队单节点 | ≤ 1 小时（快照）或 ≤ 秒级（Litestream） | 分钟级 | SQLite + WAL + 定时 `VACUUM INTO` + 异地副本 |
 | 单租户生产 | ≤ 15 分钟 | ≤ 1 小时 | 托管 PostgreSQL + PITR + 热镜像 |
 | 多租户 / 受监管 | ≤ 5 分钟 | ≤ 30 分钟 | 高可用数据库 + 多可用区 ObjectOS + 经过演练的 runbook |
 

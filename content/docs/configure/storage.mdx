@@ -47,9 +47,14 @@ new StorageServicePlugin({
 In standalone mode (`os start` with no project), the runtime configures
 local storage automatically under `~/.objectstack/data/uploads/`.
 
-**Not suitable for production** unless you have one node and tolerate
-file loss on that node's disk. Use S3-compatible storage for anything
-multi-node or durable.
+**Production fit depends on the deployment shape:**
+
+- ✅ Desktop apps, single-node internal tools, edge / on-prem
+  appliances — local storage is fine, as long as the `uploads/`
+  directory is included in your filesystem backup (or lives on a
+  user-controlled sync folder for desktop apps).
+- ❌ Multi-node, multi-AZ, or anything that needs cross-region
+  durability — use S3-compatible storage.
 
 ## S3-compatible (production)
 
