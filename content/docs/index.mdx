@@ -1,64 +1,80 @@
 ---
 title: ObjectOS
-description: Customer-hosted runtime for ObjectStack applications.
+description: Customer-hosted runtime for ObjectStack applications. Private, compliant, yours.
 ---
 
 # ObjectOS
 
-ObjectOS is the customer-hosted runtime for ObjectStack applications. It
-loads a compiled `objectstack.json` artifact, boots the ObjectStack
-runtime, and serves the application APIs, metadata-driven UI, identity,
-permissions, settings, automation, and integration surfaces described by
-that artifact.
+**ObjectOS is the customer-hosted runtime for ObjectStack applications.**
+It runs inside your environment — private cloud, customer data center, or
+fully air-gapped network — loads a compiled `objectstack.json` artifact,
+and serves the application APIs, metadata-driven UI, identity,
+permissions, settings, automation, and integration surfaces described
+by that artifact.
 
-ObjectOS is designed for the environments customers actually deploy:
-private servers, Docker, Kubernetes, private cloud, and air-gapped
-networks.
+If you operate a regulated business, a private cloud, or any
+infrastructure where customer data must stay inside your perimeter,
+ObjectOS is what you deploy.
+
+## Try it in two commands
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+ObjectOS comes up at `http://localhost:3000` with an embedded database
+and a sample application. See the [Quickstart](/docs/quickstart) for
+Docker, desktop, and bring-your-own-database paths.
 
 ## What ObjectOS is
 
 ObjectOS is the **runtime distribution** of ObjectStack:
 
-- It runs compiled ObjectStack applications.
+- It runs compiled ObjectStack applications inside your infrastructure.
 - It owns the customer-side HTTP runtime.
-- It connects to the business database configured for the project.
+- It connects to the business database **you** configure for the project.
 - It enforces authentication, permissions, row-level access, and field
   security when those capabilities are enabled.
-- It exposes platform administration surfaces such as users, roles,
-  settings, sessions, audit logs, webhooks, and diagnostics through the
-  Setup app.
+- It exposes platform administration surfaces — users, roles, settings,
+  sessions, audit logs, webhooks, diagnostics — through the Setup app.
 
 ## What ObjectOS is not
 
-ObjectOS is not the low-code builder, not the control-plane database, and
-not the protocol specification. Those belong to the ObjectStack framework
-and cloud/control-plane layers.
+ObjectOS is not the low-code builder, not the control-plane database,
+and not the protocol specification. Those belong to the ObjectStack
+framework and cloud / control-plane layers.
 
 The boundary is intentional:
 
 | Layer | Responsibility |
 |---|---|
 | ObjectStack framework | Protocol, kernel, metadata model, drivers, services, plugins, SDKs |
-| Control plane | Project authoring, artifact publishing, hostname/project resolution |
-| ObjectOS | Customer-hosted runtime that consumes artifacts and serves applications |
+| Control plane | Project authoring, artifact publishing, hostname / project resolution |
+| **ObjectOS** | **Customer-hosted runtime that consumes artifacts and serves applications** |
 
-In cloud-connected deployments, ObjectOS talks to the control plane over
-the Artifact API. It does not require direct access to the control-plane
-database.
+In cloud-connected deployments, ObjectOS talks to the control plane
+over the Artifact API. **It does not require direct access to the
+control-plane database**, and in air-gapped deployments it does not
+talk to the control plane at all.
 
-## What customers usually configure
+## Where to start
 
-Most customer deployments need answers to five questions:
+Most enterprise deployments need answers to a handful of questions.
+Each one has a dedicated page:
 
 | Question | Start here |
 |---|---|
 | How do I try it quickly? | [Quickstart](/docs/quickstart) |
 | What am I actually deploying? | [Architecture](/docs/architecture) |
-| Which deployment model should I use? | [Deployment overview](/docs/deployment) |
+| Which deployment model should I use? | [Deployment Overview](/docs/deployment) |
 | How does ObjectOS find my app and database? | [Runtime configuration](/docs/configure/runtime) |
-| How do login, users, roles, and data permissions work? | [Authentication](/docs/configure/authentication) and [Permissions](/docs/configure/permissions) |
+| How do users log in? | [Authentication](/docs/configure/authentication) |
+| How do permissions and field security work? | [Permissions](/docs/configure/permissions) |
 | How do I integrate with the outside world? | [API access](/docs/configure/api-access), [Webhooks](/docs/configure/webhooks), [Email](/docs/configure/email) |
-| What should I check before production? | [Production readiness](/docs/operate/production) and [Backup & DR](/docs/operate/backup) |
+| What do I check before production? | [Production readiness](/docs/operate/production), [Backup &amp; DR](/docs/operate/backup) |
+| Can I run without internet egress? | [Air-gapped deployment](/docs/deploy/air-gapped) |
 
-For developer-facing protocol references such as objects, fields, views,
-flows, hooks, and ObjectQL, use the ObjectStack framework documentation.
+For developer-facing protocol references — objects, fields, views,
+flows, hooks, ObjectQL — use the ObjectStack framework documentation.
+

@@ -1,8 +1,13 @@
 /**
  * Homepage Internationalization
- * 
- * Translations for the ObjectStack homepage
- * Supports: en (English), cn (Chinese/中文)
+ *
+ * Translations for the ObjectOS homepage.
+ *
+ * Audience: enterprise IT, security/compliance, and business owners
+ * evaluating a customer-hosted runtime for ObjectStack applications —
+ * NOT framework developers.
+ *
+ * Supports: en (English), cn (Chinese / 中文)
  */
 
 import { SPEC_VERSION } from './version';
@@ -36,27 +41,27 @@ export interface HomepageTranslations {
 
   // Features Section
   features: {
-    restApi: {
+    selfHosted: {
       title: string;
       description: string;
     };
-    studio: {
+    deployAnywhere: {
       title: string;
       description: string;
     };
-    multiDb: {
+    airGapped: {
       title: string;
       description: string;
     };
-    typeSafety: {
+    identity: {
       title: string;
       description: string;
     };
-    namespace: {
+    permissions: {
       title: string;
       description: string;
     };
-    plugins: {
+    observability: {
       title: string;
       description: string;
     };
@@ -65,17 +70,17 @@ export interface HomepageTranslations {
   // Personas Section
   personas: {
     heading: string;
-    fullStack: {
+    itOps: {
       title: string;
       description: string;
       action: string;
     };
-    platformTeam: {
+    security: {
       title: string;
       description: string;
       action: string;
     };
-    lowCode: {
+    business: {
       title: string;
       description: string;
       action: string;
@@ -88,75 +93,74 @@ export interface HomepageTranslations {
  */
 export const en: HomepageTranslations = {
   badge: {
-    status: 'Open Source',
+    status: 'Customer-Hosted Runtime',
     version: SPEC_VERSION,
   },
   hero: {
     title: {
-      line1: 'Define Once,',
-      line2: 'Run Everywhere',
+      line1: 'Your Data.',
+      line2: 'Your Network. Your Rules.',
     },
     subtitle: {
-      line1: 'A metadata-driven framework that turns object definitions into REST APIs, admin consoles, and database schemas.',
-      line2: 'No boilerplate. No code generation.',
+      line1: 'ObjectOS runs ObjectStack applications inside your own infrastructure — private cloud, customer data centers, or fully air-gapped networks.',
+      line2: 'No vendor lock-in. No data leaving your perimeter.',
     },
     cta: {
-      primary: 'Get Started',
-      primaryHref: '/docs/getting-started/quick-start',
-      secondary: 'Live Demo',
-      secondaryHref: 'https://play.objectstack.ai',
+      primary: 'Quickstart',
+      primaryHref: '/docs/quickstart',
+      secondary: 'Deployment Guide',
+      secondaryHref: '/docs/deployment',
     },
     quickStart: {
       label: 'Terminal',
       commands: [
-        'npx @objectstack/cli init my-app',
-        'cd my-app',
-        'npx os studio',
+        'npm i -g @objectstack/cli',
+        'os start',
       ],
     },
   },
   features: {
-    restApi: {
-      title: 'Object → REST API',
-      description: 'Define your data objects and get fully typed CRUD endpoints automatically. No route files, no controllers.',
+    selfHosted: {
+      title: 'Self-Hosted Runtime',
+      description: 'ObjectOS runs in your environment, on your servers, against your database. The control plane is optional; the runtime never depends on a public service to keep your application alive.',
     },
-    studio: {
-      title: 'Built-in Console',
-      description: 'Run `os studio` to get a visual admin panel for browsing data, editing records, and inspecting your schema.',
+    deployAnywhere: {
+      title: 'Docker, Kubernetes, Bare Metal',
+      description: 'Single-container Docker for evaluation, Kubernetes for production HA, or a long-running process on your own hardware. Same artifact, same behavior in every environment.',
     },
-    multiDb: {
-      title: 'Multi-Database',
-      description: 'PostgreSQL, MongoDB, SQLite — same object schema, any backend. Switch databases without changing a single line of code.',
+    airGapped: {
+      title: 'Air-Gapped Ready',
+      description: 'Ship a release bundle into a network with no internet egress. ObjectOS reads its application artifact from a local file and never reaches out to a hosted service.',
     },
-    typeSafety: {
-      title: 'Full Type Safety',
-      description: 'Zod-first schema definitions with complete TypeScript inference. Catch errors at compile time, validate at runtime.',
+    identity: {
+      title: 'Identity & SSO',
+      description: 'Local email/password, OAuth, OIDC, SAML, or your corporate SSO. Plug in the identity provider you already operate; ObjectOS enforces the session.',
     },
-    namespace: {
-      title: 'Namespace Isolation',
-      description: 'Multi-tenant by design. Each plugin gets its own namespace — no field collisions, clean data boundaries.',
+    permissions: {
+      title: 'Permissions & Field Security',
+      description: 'Role-based access, record-level rules, and field-level redaction enforced at the runtime — not at the UI. Every read and write goes through the same policy engine.',
     },
-    plugins: {
-      title: 'Plugin System',
-      description: 'Compose applications from reusable plugins. CRM, BI, Auth — mix and match building blocks for your stack.',
+    observability: {
+      title: 'Audit, Backup, Observability',
+      description: 'Every state change is auditable. Backups run against your own storage. Logs and metrics export to the observability stack you already use — no extra SaaS required.',
     },
   },
   personas: {
-    heading: 'Who Is It For?',
-    fullStack: {
-      title: 'Full-Stack Developers',
-      description: 'Build internal tools, admin dashboards, and CRUD apps in minutes with just object definitions.',
-      action: 'Developer Guide',
+    heading: 'Who Is ObjectOS For?',
+    itOps: {
+      title: 'IT & Platform Operators',
+      description: 'Deploy ObjectStack applications the same way you run the rest of your stack. Docker images, Helm charts, environment variables, and standard secrets management.',
+      action: 'Deployment Guide',
     },
-    platformTeam: {
-      title: 'Platform Teams',
-      description: 'Standardize data models and APIs across microservices with a shared metadata protocol.',
-      action: 'Read Architecture',
+    security: {
+      title: 'Security & Compliance',
+      description: 'Keep regulated data inside your perimeter. Enforce SSO, RBAC, field-level security, and full audit. Ship to air-gapped environments without compromise.',
+      action: 'Permissions Model',
     },
-    lowCode: {
-      title: 'Low-Code Builders',
-      description: 'Visual schema design via Console UI, with full code extensibility when you need it.',
-      action: 'Try Examples',
+    business: {
+      title: 'Business Owners',
+      description: 'Run the applications your teams need — CRM, contracts, procurement, helpdesk — without handing customer data to a third party.',
+      action: 'Architecture Overview',
     },
   },
 };
@@ -166,75 +170,74 @@ export const en: HomepageTranslations = {
  */
 export const cn: HomepageTranslations = {
   badge: {
-    status: '开源项目',
+    status: '客户自托管运行时',
     version: SPEC_VERSION,
   },
   hero: {
     title: {
-      line1: '定义一次，',
-      line2: '随处运行',
+      line1: '你的数据，',
+      line2: '你的网络，你的规则。',
     },
     subtitle: {
-      line1: '元数据驱动框架，将对象定义自动转换为 REST API、管理控制台和数据库表结构。',
-      line2: '无模板代码。无代码生成。',
+      line1: 'ObjectOS 让 ObjectStack 应用运行在你自己的基础设施上 —— 私有云、客户数据中心、或完全离线的内网环境。',
+      line2: '无厂商锁定，数据不离开企业边界。',
     },
     cta: {
       primary: '快速开始',
-      primaryHref: '/docs/getting-started/quick-start',
-      secondary: '在线演示',
-      secondaryHref: 'https://playground.objectstack.ai',
+      primaryHref: '/docs/quickstart',
+      secondary: '部署指南',
+      secondaryHref: '/docs/deployment',
     },
     quickStart: {
       label: '终端',
       commands: [
-        'npx @objectstack/cli init my-app',
-        'cd my-app',
-        'npx os studio',
+        'npm i -g @objectstack/cli',
+        'os start',
       ],
     },
   },
   features: {
-    restApi: {
-      title: '对象 → REST API',
-      description: '定义数据对象，自动获得完整的 CRUD 接口。无需路由文件，无需控制器。',
+    selfHosted: {
+      title: '自托管运行时',
+      description: 'ObjectOS 运行在你的环境、你的服务器、你的数据库上。控制台是可选的 —— 运行时永远不依赖任何外部服务来保持应用在线。',
     },
-    studio: {
-      title: '内置管理控制台',
-      description: '运行 `os studio` 即可获得可视化管理面板，浏览数据、编辑记录、查看 Schema。',
+    deployAnywhere: {
+      title: 'Docker、Kubernetes、裸金属',
+      description: '试用用单容器 Docker，生产用 Kubernetes 高可用，也可以直接跑在你自己的硬件上。同一个发布包,在任何环境表现一致。',
     },
-    multiDb: {
-      title: '多数据库支持',
-      description: 'PostgreSQL、MongoDB、SQLite — 同一套对象定义，任意数据库后端。切换数据库无需改一行代码。',
+    airGapped: {
+      title: '离线环境就绪',
+      description: '可以把发布包送进完全无公网出口的网络。ObjectOS 从本地文件读取应用工件,不向任何托管服务发起调用。',
     },
-    typeSafety: {
-      title: '完整类型安全',
-      description: 'Zod 优先的 Schema 定义，完整的 TypeScript 类型推断。编译时捕获错误，运行时验证数据。',
+    identity: {
+      title: '身份与单点登录',
+      description: '本地账号、OAuth、OIDC、SAML 或企业既有的 SSO。对接你已经在运行的身份提供方,会话由 ObjectOS 统一管控。',
     },
-    namespace: {
-      title: '命名空间隔离',
-      description: '原生多租户设计。每个插件拥有独立命名空间 — 无字段冲突，干净的数据边界。',
+    permissions: {
+      title: '权限与字段安全',
+      description: '基于角色的访问、行级规则、字段级脱敏,都在运行时执行 —— 而不是只挡在 UI 层。每一次读写都走同一套策略引擎。',
     },
-    plugins: {
-      title: '插件系统',
-      description: '用可复用插件组合应用。CRM、BI、认证 — 像积木一样自由搭建你的技术栈。',
+    observability: {
+      title: '审计、备份、可观测',
+      description: '每一次状态变更可审计。备份写入你自己的存储。日志和指标导出到你正在用的可观测栈 —— 不需要再多一套 SaaS。',
     },
   },
   personas: {
-    heading: '适合谁使用？',
-    fullStack: {
-      title: '全栈开发者',
-      description: '只需定义对象，几分钟内构建内部工具、管理面板和 CRUD 应用。',
-      action: '开发者指南',
+    heading: 'ObjectOS 面向谁?',
+    itOps: {
+      title: 'IT 与平台运维',
+      description: '用你管理其他系统的方式管理 ObjectStack 应用。Docker 镜像、Helm Chart、环境变量、标准密钥管理 —— 都是熟悉的工具。',
+      action: '部署指南',
     },
-    platformTeam: {
-      title: '平台团队',
-      description: '使用统一的元数据协议标准化微服务间的数据模型和 API。',
-      action: '阅读架构',
+    security: {
+      title: '安全与合规',
+      description: '让受监管的数据留在企业边界内。强制 SSO、RBAC、字段级安全、完整审计。可以部署到完全离线的内网,无需妥协。',
+    action: '权限模型',
     },
-    lowCode: {
-      title: '低代码构建者',
-      description: '通过 Console UI 可视化设计 Schema，需要时可完全用代码扩展。',
-      action: '试用示例',
+    business: {
+      title: '业务负责人',
+      description: '把团队需要的应用 —— CRM、合同、采购、客服 —— 运行起来,而无需把客户数据交给第三方。',
+      action: '架构总览',
     },
   },
 };

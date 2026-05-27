@@ -12,6 +12,9 @@ coverage/
 .env.*.local
 *.tsbuildinfo
 .vercel
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
 *.db
 *.db-journal
 docker/artifacts/*

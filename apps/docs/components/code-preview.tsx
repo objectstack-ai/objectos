@@ -4,13 +4,19 @@ interface CodePreviewProps {
   className?: string;
 }
 
+/**
+ * Homepage code preview.
+ *
+ * Shows a real docker-compose.yml that an enterprise operator can copy,
+ * paste, and run to bring ObjectOS up against their own database in a
+ * single command. Replaces the previous developer-flavored object
+ * definition snippet.
+ */
 export function CodePreview({ className }: CodePreviewProps) {
   const kw = 'text-purple-600 dark:text-purple-400 font-semibold';
   const str = 'text-green-600 dark:text-green-300';
-  const fn = 'text-blue-600 dark:text-blue-300';
-  const typ = 'text-amber-600 dark:text-yellow-300';
-  const prop = 'text-cyan-600 dark:text-sky-300';
-  const bool = 'text-red-600 dark:text-red-300';
+  const num = 'text-amber-600 dark:text-yellow-300';
+  const key = 'text-cyan-600 dark:text-sky-300';
   const fg = 'text-foreground';
   const cm = 'text-foreground/40 italic';
 
@@ -26,63 +32,67 @@ export function CodePreview({ className }: CodePreviewProps) {
           <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
           <div className="h-3 w-3 rounded-full bg-green-500/80" />
           <div className="ml-2 text-xs font-medium text-muted-foreground font-mono">
-            src/objects/task.object.ts
+            docker-compose.yml
           </div>
         </div>
-        
-        {/* Code Content — real ObjectStack API */}
+
+        {/* Code Content — real docker-compose deployment */}
         <div className="overflow-x-auto p-6 text-left bg-gradient-to-br from-card to-muted/20">
           <pre className="font-mono text-sm leading-7">
             <code>
-              <span className={kw}>import</span>{' '}
-              <span className={fg}>{'{'}</span>{' '}
-              <span className={typ}>Data</span>{' '}
-              <span className={fg}>{'}'}</span>{' '}
-              <span className={kw}>from</span>{' '}
-              <span className={str}>&apos;@objectstack/spec&apos;</span>;
+              <span className={cm}>{'# Run ObjectOS against your own Postgres'}</span>
+              <br/>
+              <span className={key}>services</span><span className={fg}>:</span>
+              <br/>
+              {'  '}<span className={key}>objectos</span><span className={fg}>:</span>
+              <br/>
+              {'    '}<span className={key}>image</span><span className={fg}>:</span>{' '}
+              <span className={str}>ghcr.io/objectstack/objectos:latest</span>
+              <br/>
+              {'    '}<span className={key}>ports</span><span className={fg}>:</span>{' '}
+              [<span className={str}>&quot;3000:3000&quot;</span>]
+              <br/>
+              {'    '}<span className={key}>environment</span><span className={fg}>:</span>
+              <br/>
+              {'      '}<span className={key}>OS_ARTIFACT_FILE</span><span className={fg}>:</span>{' '}
+              <span className={str}>/artifacts/objectstack.json</span>
+              <br/>
+              {'      '}<span className={key}>OS_DATABASE_URL</span><span className={fg}>:</span>{' '}
+              <span className={str}>postgres://app@db:5432/objectos</span>
+              <br/>
+              {'      '}<span className={key}>OS_AUTH_SECRET</span><span className={fg}>:</span>{' '}
+              <span className={fg}>$</span><span className={key}>{'{AUTH_SECRET}'}</span>
+              <br/>
+              {'    '}<span className={key}>volumes</span><span className={fg}>:</span>
+              <br/>
+              {'      '}<span className={fg}>-</span>{' '}
+              <span className={str}>./artifacts:/artifacts:ro</span>
+              <br/>
+              {'      '}<span className={fg}>-</span>{' '}
+              <span className={str}>objectos-data:/var/lib/objectos</span>
+              <br/>
+              {'    '}<span className={key}>depends_on</span><span className={fg}>:</span>{' '}
+              [<span className={str}>db</span>]
               <br/><br/>
-              <span className={kw}>const</span>{' '}
-              <span className={fn}>task</span>:{' '}
-              <span className={typ}>Data.Object</span>{' '}
-              <span className={fg}>=</span>{' '}
-              <span className={fg}>{'{'}</span>
+              {'  '}<span className={key}>db</span><span className={fg}>:</span>
               <br/>
-              {'  '}<span className={prop}>name</span>:{' '}<span className={str}>&apos;task&apos;</span>,
+              {'    '}<span className={key}>image</span><span className={fg}>:</span>{' '}
+              <span className={str}>postgres:</span><span className={num}>16</span>
               <br/>
-              {'  '}<span className={prop}>label</span>:{' '}<span className={str}>&apos;Task&apos;</span>,
-              <br/>
-              {'  '}<span className={prop}>fields</span>:{' '}<span className={fg}>{'{'}</span>
-              <br/>
-              {'    '}<span className={prop}>subject</span>:{' '}<span className={fg}>{'{'}</span>{' '}
-              <span className={prop}>type</span>:{' '}<span className={str}>&apos;text&apos;</span>,{' '}
-              <span className={prop}>required</span>:{' '}<span className={bool}>true</span>{' '}
-              <span className={fg}>{'}'}</span>,
-              <br/>
-              {'    '}<span className={prop}>status</span>:{' '}<span className={fg}>{'{'}</span>
-              <br/>
-              {'      '}<span className={prop}>type</span>:{' '}<span className={str}>&apos;select&apos;</span>,
-              <br/>
-              {'      '}<span className={prop}>options</span>:{' '}[<span className={str}>&apos;draft&apos;</span>, <span className={str}>&apos;active&apos;</span>, <span className={str}>&apos;done&apos;</span>],
-              <br/>
-              {'    '}<span className={fg}>{'}'}</span>,
-              <br/>
-              {'    '}<span className={prop}>assignee</span>:{' '}<span className={fg}>{'{'}</span>{' '}
-              <span className={prop}>type</span>:{' '}<span className={str}>&apos;lookup&apos;</span>,{' '}
-              <span className={prop}>reference</span>:{' '}<span className={str}>&apos;user&apos;</span>{' '}
-              <span className={fg}>{'}'}</span>,
-              <br/>
-              {'  '}<span className={fg}>{'}'}</span>,
-              <br/>
-              <span className={fg}>{'}'}</span>;
+              {'    '}<span className={key}>volumes</span><span className={fg}>:</span>{' '}
+              [<span className={str}>db-data:/var/lib/postgresql/data</span>]
               <br/><br/>
-              <span className={cm}>{'// → REST API at /api/v1/task'}</span>
+              <span className={key}>volumes</span><span className={fg}>:</span>{' '}
+              <span className={fg}>{'{ objectos-data: {}, db-data: {} }'}</span>
+              <br/><br/>
+              <span className={cm}>{'# → Application at http://localhost:3000'}</span>
               <br/>
-              <span className={cm}>{'// → Console UI at /_studio/'}</span>
+              <span className={cm}>{'# → Setup app at  http://localhost:3000/_setup/'}</span>
             </code>
           </pre>
         </div>
       </div>
-      
+
       {/* Glow Effect */}
       <div className="absolute -inset-4 -z-10 bg-primary/20 blur-3xl opacity-30 rounded-[50%]" />
     </div>

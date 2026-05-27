@@ -1,85 +1,105 @@
 ---
 title: Quickstart
-description: Run ObjectOS locally with a compiled ObjectStack artifact.
+description: Get ObjectOS running in your environment in under two minutes.
 ---
 
 # Quickstart
 
-This guide starts ObjectOS from a local artifact. Use it for evaluation,
-demo environments, and smoke testing a packaged ObjectStack application.
+This guide brings ObjectOS up on a single machine so you can see the
+runtime, the Setup app, and a working REST API. Use it for evaluation,
+team demos, and validating that ObjectOS fits into your environment
+before planning a production deployment.
+
+For multi-node production, see the [Deployment Overview](/docs/deployment).
 
 ## Prerequisites
 
-- Node.js 20+
-- pnpm 10+
-- Docker Desktop or another Docker-compatible runtime
-- A compiled ObjectStack artifact, usually named `dist/objectstack.json`
+- **Node.js 20 or newer** — `node --version`
+- **A terminal** with the ability to install global npm packages
+- Optional: **Docker Desktop** if you prefer the container path below
 
-If you do not have your own artifact yet, use the sample artifact already
-checked into this repository:
+No build step, no compilation, no source checkout required.
 
-```bash
-apps/objectos/dist/objectstack.json
-```
+## Option A — Install the CLI and start (recommended)
 
-## Start with Docker Compose
-
-Copy an artifact into the Docker mount:
+The CLI ships a self-contained ObjectOS runtime that boots against the
+bundled sample application. Two commands, no configuration:
 
 ```bash
-mkdir -p docker/artifacts
-cp apps/objectos/dist/objectstack.json docker/artifacts/objectstack.json
+npm i -g @objectstack/cli
+os start
 ```
 
-Start ObjectOS:
-
-```bash
-docker compose -f docker/docker-compose.yml up --build
-```
-
-Open:
+The runtime starts on `http://localhost:3000`. Open it in your browser.
 
 ```text
-http://localhost:3000
+✓ ObjectOS started
+  • Application:   http://localhost:3000
+  • Setup app:     http://localhost:3000/_setup/
+  • Data directory: ~/.objectstack
 ```
 
-The compose file mounts:
+On first launch, ObjectOS provisions an embedded database under
+`~/.objectstack` so you can explore without setting anything up. To
+point it at your own database, see
+[Runtime configuration](/docs/configure/runtime).
 
-| Mount | Purpose |
-|---|---|
-| `docker/artifacts` | Read-only artifact input |
-| `objectos-cache` | Runtime and artifact cache |
-| `objectos-data` | Local runtime data |
+## Option B — Docker
 
-## Start as a local Node process
+If you prefer to evaluate inside a container, drop this file in an empty
+directory as `docker-compose.yml`:
 
-For development, you can start the runtime package directly:
+```yaml
+services:
+  objectos:
+    image: ghcr.io/objectstack/objectos:latest
+    ports: ["3000:3000"]
+    volumes:
+      - objectos-data:/var/lib/objectos
+
+volumes:
+  objectos-data: {}
+```
+
+Then:
 
 ```bash
-pnpm install
-cd apps/objectos
-OS_ARTIFACT_FILE=dist/objectstack.json PORT=3200 pnpm start
+docker compose up
 ```
 
-Open:
+ObjectOS is available at `http://localhost:3000`. To bring your own
+artifact, mount it as `/artifacts/objectstack.json` and set
+`OS_ARTIFACT_FILE=/artifacts/objectstack.json` — see
+[Docker deployment](/docs/deploy/docker).
 
-```text
-http://localhost:3200
-```
+## Option C — Desktop app
 
-## What should work
+For non-technical evaluators, ObjectOS also ships as a native desktop
+application (macOS, Windows, Linux). Download from the
+[releases page](https://github.com/objectstack-ai/objectos/releases),
+install, launch. No terminal required.
 
-After startup, ObjectOS should be able to:
+## What you get out of the box
 
-- resolve the configured artifact;
-- boot a project kernel;
-- serve the generated REST API;
-- serve metadata-driven UI routes;
-- expose auth endpoints when `OS_AUTH_SECRET` is configured;
-- load optional services declared by the artifact `requires` list.
+Once the runtime is up:
+
+| Surface | URL | Purpose |
+|---|---|---|
+| Application | `/` | The metadata-driven UI defined by the loaded artifact |
+| REST API | `/api/v1/...` | Generated CRUD endpoints for every object in the artifact |
+| Setup app | `/_setup/` | Administer users, roles, settings, sessions, audit log, webhooks |
+| Health | `/healthz` | Liveness probe for load balancers and Kubernetes |
 
 ## Next steps
 
-Read [Deployment overview](/docs/deployment) to choose a deployment
-model, then [Runtime configuration](/docs/configure/runtime) to configure
-artifact source, database, cache, and secrets.
+You have a runtime. The next decisions are about how it fits into your
+environment:
+
+| Question | Read |
+|---|---|
+| Which deployment model should I use? | [Deployment Overview](/docs/deployment) |
+| How do I point ObjectOS at my own database? | [Runtime configuration](/docs/configure/runtime) |
+| How do users log in? | [Authentication](/docs/configure/authentication) |
+| How do permissions work? | [Permissions](/docs/configure/permissions) |
+| What do I need before going to production? | [Production readiness](/docs/operate/production) |
+| Can it run in an air-gapped network? | [Air-gapped deployment](/docs/deploy/air-gapped) |

@@ -10,7 +10,10 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "fumadocs-mdx && next typegen && tsc --noEmit",
-    "postinstall": "fumadocs-mdx"
+    "postinstall": "fumadocs-mdx",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "fumadocs-core": "16.8.12",
@@ -23,6 +26,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.13.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@types/mdx": "^2.0.13",
     "@types/negotiator": "^0.6.4",
@@ -33,6 +37,7 @@
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.7.0",
+    "wrangler": "^4.50.0",
     "zod": "4.4.3"
   },
   "engines": {
