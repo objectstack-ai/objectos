@@ -13,5 +13,8 @@
   },
   "observability": {
     "enabled": true
-  }
+  },
+  "routes": [
+    { "pattern": "www.objectos.app", "custom_domain": true }
+  ]
 }
