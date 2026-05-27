@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-docs
-      url: https://objectos.objectstack.workers.dev
+      url: https://docs-objectos.objectstack.workers.dev
     permissions:
       contents: read
     steps:
