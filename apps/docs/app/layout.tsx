@@ -4,10 +4,10 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | ObjectStack Protocol',
-    default: 'ObjectStack Protocol',
+    template: '%s | ObjectOS',
+    default: 'ObjectOS',
   },
-  description: 'The Metadata-Driven Documentation Engine for the Low-Code Era.',
+  description: 'Customer-hosted runtime for ObjectStack applications. Private, compliant, yours.',
   icons: {
     icon: 'https://objectstack.ai/logo.png',
   },

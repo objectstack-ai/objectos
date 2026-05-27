@@ -6,12 +6,12 @@
     "deployment",
     "architecture",
     "---Deploy---",
-    "deploy",
+    "...deploy",
     "---Configure---",
-    "configure",
+    "...configure",
     "---Operate---",
-    "operate",
+    "...operate",
     "---Reference---",
-    "reference"
+    "...reference"
   ]
 }

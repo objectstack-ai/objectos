@@ -14,22 +14,16 @@ export function baseOptions(): BaseLayoutProps {
         <div className="flex items-center gap-2 font-bold">
           <Image
             src="https://objectstack.ai/logo.svg"
-            alt="ObjectStack"
+            alt="ObjectOS"
             width={30}
             height={30}
           />
-          ObjectStack
+          ObjectOS
         </div>
       ),
       transparentMode: 'top',
     },
-    links: [
-      {
-        text: 'Documentation',
-        url: '/docs/',
-        active: 'nested-url',
-      },
-    ],
+    links: [],
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
   };
 }
