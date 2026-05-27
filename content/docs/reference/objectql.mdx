@@ -1,0 +1,216 @@
+---
+title: ObjectQL
+description: The structured query format used by /api/v1/data/*, views, reports, and AI tools.
+---
+
+# ObjectQL
+
+ObjectQL is the JSON query format the data engine consumes. It's what
+`/api/v1/data/:object` accepts, what views compile to, what reports
+serialise into, and what the AI `query_data` tool produces.
+
+Two shapes:
+
+- **Simple list** — pass `where`, `orderBy`, `limit`, `expand` etc. as
+  query-string params to `GET /api/v1/data/:object`.
+- **Advanced query** — POST the full query body to
+  `/api/v1/data/:object/query` (required for `groupBy` and
+  `aggregations`).
+
+## Query shape
+
+```ts
+{
+  object:        string,                  // required — target object name
+  fields?:       string[],                // projection (default: all visible fields)
+  where?:        FilterCondition,         // see Filters
+  orderBy?:      SortNode[],              // [{ field, order: 'asc' | 'desc' }]
+  limit?:        number,                  // page size
+  offset?:       number,                  // offset pagination
+  cursor?:       string,                  // cursor pagination (preferred)
+  expand?:       string[],                // batch-resolve relation fields
+  joins?:        JoinNode[],              // explicit joins (inner | left | right | full)
+  groupBy?:      (string | GroupByNode)[],
+  aggregations?: AggregationNode[],       // sum/avg/count/min/max/...
+  having?:       FilterCondition,         // filter after aggregation
+  distinct?:     boolean
+}
+```
+
+Schema source: [`packages/spec/src/data/query.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/query.zod.ts).
+
+## Filters
+
+`where` is a tree of conditions. Field operators are prefixed with
+`$`; logical combinators (`$and`, `$or`, `$not`) sit at the top level.
+
+### Comparison
+
+| Operator | Example | Notes |
+|:--|:--|:--|
+| `$eq` | `{ status: { $eq: "open" } }` | Equality |
+| `$ne` | `{ priority: { $ne: "low" } }` | Inequality |
+| `$gt`, `$gte`, `$lt`, `$lte` | `{ amount: { $gte: 1000 } }` | Comparisons |
+
+All comparison operators also accept a **field reference** for
+cross-field comparison: `{ end_at: { $gt: { $field: "start_at" } } }`.
+
+### Set & range
+
+| Operator | Example |
+|:--|:--|
+| `$in` | `{ status: { $in: ["new","open"] } }` |
+| `$nin` | `{ owner_id: { $nin: ["u_1","u_2"] } }` |
+| `$between` | `{ created_at: { $between: ["2026-01-01","2026-02-01"] } }` |
+
+### String
+
+| Operator | Example | Notes |
+|:--|:--|:--|
+| `$contains` | `{ subject: { $contains: "refund" } }` | Case-insensitive |
+| `$notContains` | `{ notes: { $notContains: "test" } }` | |
+| `$startsWith` | `{ email: { $startsWith: "@" } }` | |
+| `$endsWith` | `{ email: { $endsWith: "@acme.com" } }` | |
+
+### Null & existence
+
+| Operator | Example |
+|:--|:--|
+| `$null` | `{ closed_at: { $null: true } }` |
+| `$exists` | `{ external_id: { $exists: false } }` |
+
+### Logical combinators
+
+```jsonc
+{
+  "$and": [
+    { "status": { "$eq": "open" } },
+    {
+      "$or": [
+        { "priority": { "$in": ["high", "urgent"] } },
+        { "due_at":   { "$lt": { "$cel": "now()" } } }
+      ]
+    }
+  ]
+}
+```
+
+CEL expressions can be embedded with `{ "$cel": "..." }` — useful for
+"now-relative" filters that the server evaluates at query time.
+
+## Sorting
+
+```jsonc
+"orderBy": [
+  { "field": "priority", "order": "desc" },
+  { "field": "created_at", "order": "asc" }
+]
+```
+
+Query-string shorthand: `?orderBy=-priority,created_at`.
+
+## Pagination
+
+**Cursor (recommended).** The response includes `nextCursor`; pass it
+back as `cursor` on the next request.
+
+```http
+GET /api/v1/data/ticket?limit=50&orderBy=-created_at
+→ { items: [...], nextCursor: "eyJ..." }
+
+GET /api/v1/data/ticket?limit=50&cursor=eyJ...
+```
+
+**Offset.** Simpler but degrades on large tables.
+
+```http
+GET /api/v1/data/ticket?limit=50&offset=200
+```
+
+The runtime caps `limit` per object via `ObjectSpec.maxPageSize`
+(default 200).
+
+## Relations — `expand`
+
+`expand` batch-resolves foreign keys so you don't N+1.
+
+```jsonc
+{
+  "object": "support_ticket",
+  "expand": ["assignee", "customer.account"],
+  "limit": 20
+}
+```
+
+Returns each ticket with `assignee` and `customer.account` materialised
+as nested objects instead of just IDs.
+
+## Joins
+
+For ad-hoc joins outside the metadata graph:
+
+```jsonc
+"joins": [
+  { "type": "left", "object": "user", "as": "u", "on": "assignee_id = u.id" }
+]
+```
+
+`type`: `inner` | `left` | `right` | `full`. Joined tables are
+accessible in `where`, `orderBy`, and `aggregations` via the `as`
+alias.
+
+## Aggregation
+
+`POST /api/v1/data/:object/query` only.
+
+```jsonc
+{
+  "object": "order",
+  "where": { "status": { "$ne": "cancelled" } },
+  "groupBy": [
+    "customer_id",
+    { "field": "created_at", "dateGranularity": "month" }
+  ],
+  "aggregations": [
+    { "function": "sum",   "field": "amount", "alias": "total_sales" },
+    { "function": "count", "alias": "order_count" }
+  ],
+  "having": { "total_sales": { "$gt": 10000 } },
+  "orderBy": [{ "field": "total_sales", "order": "desc" }],
+  "limit": 25
+}
+```
+
+**Functions:** `count`, `sum`, `avg`, `min`, `max`, `count_distinct`,
+`array_agg`, `string_agg`.
+
+**Date granularity** (for time-bucketed group-by):
+`day` | `week` | `month` | `quarter` | `year`.
+
+## Distinct
+
+```jsonc
+{ "object": "ticket", "fields": ["status"], "distinct": true }
+```
+
+## Search
+
+Full-text search across `searchable: true` fields is exposed at
+`GET /api/v1/search?q=...&object=ticket`. Per-object scoring rules
+configured on the object spec.
+
+## Where ObjectQL shows up
+
+- `GET /api/v1/data/:object` — query-string form
+- `POST /api/v1/data/:object/query` — full body, supports aggregations
+- View definitions (`filter`, `sort`) — compile to ObjectQL
+- Reports — serialise to ObjectQL
+- The AI `query_data` tool — produces an ObjectQL body for the
+  approval queue
+
+## See also
+
+- [REST API](./rest-api) — endpoints that consume ObjectQL
+- [Field types](./field-types) — what's queryable
+- [CEL](./cel) — expression language used inside `$cel` filters
+- [`@objectstack/spec/data/query.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/query.zod.ts) — authoritative schema

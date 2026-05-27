@@ -1,0 +1,208 @@
+---
+title: Field Types
+description: Every field type you can declare on an object — what it stores, what options it accepts, how it surfaces in REST, Studio, and the AI Builder.
+---
+
+# Field Types
+
+53 built-in field types, grouped by family. The full Zod schema is in
+[`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — this page is a working summary.
+
+## Core properties (every field)
+
+| Property | Type | Default | Purpose |
+|:--|:--|:--|:--|
+| `name` | string (snake_case) | — | Machine identifier — REST path segment, SQL column |
+| `label` | string | — | Display label in Studio |
+| `type` | FieldType | — | See type tables below |
+| `required` | boolean | `false` | NOT NULL constraint |
+| `unique` | boolean | `false` | Unique index |
+| `searchable` | boolean | `false` | Indexed for `/api/v1/search` |
+| `multiple` | boolean | `false` | Store an array of values |
+| `defaultValue` | unknown | — | Initial value (literal or CEL) |
+| `columnName` | string | = `name` | Override physical DB column |
+| `hidden` | boolean | `false` | Hide from default Studio views |
+| `readonly` | boolean | `false` | Disable in forms |
+| `system` | boolean | `false` | Auto-injected (id, created_at, …) |
+| `index` | boolean | `false` | Create a DB index |
+| `externalId` | boolean | `false` | Eligible for upsert via external key |
+| `inlineHelpText` | string | — | Tooltip / helper text |
+| `conditionalRequired` | `P` predicate | — | Required when CEL is true |
+| `auditTrail` | boolean | `false` | Track every change in audit log |
+| `encryptionConfig` | object | — | Field-level encryption (see [Security](./security)) |
+| `maskingRule` | string | — | PII masking pattern |
+
+## Text family
+
+| Type | Use for | Key options |
+|:--|:--|:--|
+| `text` | short strings | `maxLength`, `minLength` |
+| `textarea` | multi-line | `maxLength` |
+| `email` | email | format-validated; lowercased |
+| `url` | URL | format-validated |
+| `phone` | phone | E.164 |
+| `password` | secrets | hashed; never returned by GET |
+| `markdown` | markdown body | rendered in Studio preview |
+| `html` | sanitised HTML | DOMPurify on write |
+| `richtext` | WYSIWYG | Studio editor + serialised JSON |
+
+## Numbers
+
+| Type | Use for | Key options |
+|:--|:--|:--|
+| `number` | floats | `min`, `max`, `precision`, `scale` |
+| `currency` | money | `currencyConfig: { precision, currencyMode: 'fixed' \| 'dynamic', defaultCurrency }` |
+| `percent` | 0–100 % | `min`, `max`, `scale` |
+
+> `integer` and `decimal` aren't separate types — use `number` with
+> `scale: 0` for integer, `precision`+`scale` for fixed decimal.
+
+## Date / time
+
+| Type | Stores | Notes |
+|:--|:--|:--|
+| `date` | calendar date | no timezone |
+| `datetime` | instant | UTC |
+| `time` | wall-clock time | no date |
+
+## Logic
+
+| Type | Notes |
+|:--|:--|
+| `boolean` | Checkbox |
+| `toggle` | Same as boolean, switch UI |
+
+## Selection
+
+| Type | Notes |
+|:--|:--|
+| `select` | Single choice — options declared inline or referenced from a picklist |
+| `multiselect` | Many choices, stored as an array |
+| `radio` | UI alias for `select` with radio rendering |
+| `checkboxes` | UI alias for `multiselect` with checkbox rendering |
+
+Options shape:
+
+```ts
+options: [
+  { value: 'low',    label: 'Low' },
+  { value: 'high',   label: 'High',   color: '#e02' },
+  { value: 'urgent', label: 'Urgent', color: '#c00' }
+]
+```
+
+## Relations
+
+| Type | Cardinality | Semantics |
+|:--|:--|:--|
+| `lookup` | many-to-one | Loose reference; deleting the parent doesn't delete the child by default |
+| `master_detail` | many-to-one, cascading | Child cannot exist without parent; permissions inherit from parent |
+| `tree` | self-reference | Hierarchical (parent_id on the same object) |
+
+Common options:
+
+```ts
+{
+  type: 'lookup',
+  reference: 'account',                       // target object name
+  referenceFilters: ['status:active'],        // narrow the lookup picker
+  deleteBehavior: 'set_null'                  // 'set_null' | 'cascade' | 'restrict'
+}
+```
+
+## Computed
+
+| Type | What it does | Key option |
+|:--|:--|:--|
+| `formula` | Derived value, evaluated on read or recalc | `expression: F\`record.qty * record.unit_price\`` — see [CEL](./cel) |
+| `summary` | Roll-up over a child relation | `summaryOperations: { object, field, function }` (`count` \| `sum` \| `avg` \| `min` \| `max`) |
+| `autonumber` | Auto-incrementing display number | `format` (e.g. `TKT-{0000}`), `startAt` |
+
+Formula example:
+
+```ts
+{
+  name: 'profit_margin',
+  type: 'formula',
+  expression: F`(record.revenue - record.cost) / record.revenue * 100`
+}
+```
+
+## Media
+
+| Type | Use for | Key option |
+|:--|:--|:--|
+| `image` | image attachments | `fileAttachmentConfig` (see below) |
+| `file` | any file | same |
+| `avatar` | profile pictures | square crop, sensible defaults |
+| `video` | video uploads | duration + thumbnail capture |
+| `audio` | audio | waveform preview |
+
+```ts
+fileAttachmentConfig: {
+  maxSize: 10_000_000,                        // bytes
+  allowedTypes: ['image/png','image/jpeg'],
+  virusScan: true,
+  storageProvider: 's3',                       // see Configure → Storage
+  imageValidation: { minWidth: 200, maxWidth: 4096, generateThumbnails: ['sm','md','lg'] }
+}
+```
+
+## Structured
+
+| Type | Stores | Notes |
+|:--|:--|:--|
+| `json` | arbitrary JSON | Stored as JSONB on Postgres |
+| `composite` | sub-record with named fields | Inline struct, not a separate table |
+| `repeater` | array of composite values | One-to-many without a child object |
+
+## Enhanced UI
+
+| Type | Notes |
+|:--|:--|
+| `location` | lat/long + accuracy |
+| `address` | street / city / region / postal / country |
+| `code` | source-code field — `language`, `theme`, `lineNumbers` |
+| `color` | `colorFormat: 'hex' \| 'rgb' \| 'rgba' \| 'hsl'`, `presetColors[]` |
+| `rating` | 1–N stars — `max`, `icon` |
+| `slider` | bounded number with slider UI |
+| `signature` | drawn signature, stored as image |
+| `qrcode` | renders the value as a QR — `qrErrorCorrection: 'L' \| 'M' \| 'Q' \| 'H'` |
+| `barcode` | EAN/UPC/Code128 — `barcodeFormat` |
+| `progress` | derived percent rendered as a bar |
+| `tags` | free-form tag array with autocomplete |
+| `vector` | embedding column — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
+
+## System fields (auto-injected on every object)
+
+| Field | Type | Notes |
+|:--|:--|:--|
+| `id` | text (ULID) | primary key |
+| `created_at` | datetime | UTC insert time |
+| `updated_at` | datetime | UTC last-write time |
+| `created_by` | lookup → `user` | who inserted |
+| `updated_by` | lookup → `user` | who last wrote |
+| `version` | integer | optimistic-concurrency token |
+
+You don't declare these — opt out per object with
+`ObjectSpec.systemFields: false` (rarely a good idea).
+
+## How fields flow through the stack
+
+```
+*.object.ts (field spec)
+   │
+   ├─► Postgres / MySQL / SQLite column + index + constraint
+   ├─► REST: validated on POST/PATCH, exposed on GET
+   ├─► Studio: form widget + list column
+   ├─► AI Builder: tool argument schema (so the AI knows what to ask)
+   └─► Audit: change-tracked if `auditTrail: true`
+```
+
+## See also
+
+- [Build → Data model](/docs/build/data-model) — composing fields into objects
+- [CEL](./cel) — `expression`, `conditionalRequired`, validations
+- [ObjectQL](./objectql) — querying these fields
+- [REST API](./rest-api) — endpoints that produce / consume them
+- [`@objectstack/spec/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — authoritative schema

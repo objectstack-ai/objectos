@@ -8,6 +8,20 @@ description: What you're actually running — for the engineer evaluating whethe
 A practical view of what runs on your machines when you deploy
 ObjectOS, what data leaves your network, and what doesn't.
 
+The mental model is two thin layers:
+
+1. **Metadata** — packages of objects / views / actions / flows /
+   agents. Mostly written by the [AI Builder](/docs/build/ai-builder)
+   against a sandboxed tool API; sometimes hand-edited, always
+   version-controlled and audited.
+2. **A single Node.js runtime** that interprets that metadata into a
+   working application — REST API, Studio UI, permissions, jobs, AI
+   tools — all in one process, talking to your database.
+
+No code generation step, no deploy pipeline between "user described
+what they want" and "it's live". The runtime hot-loads the new
+metadata after a HITL approval.
+
 ## What you deploy
 
 One Node.js process per ObjectOS instance. That's it.

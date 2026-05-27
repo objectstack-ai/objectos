@@ -139,6 +139,110 @@ Required outbound (only if you configure these features):
 That's the entire egress surface. See [Air-gapped](/docs/deploy/air-gapped)
 for deployments that cut even more.
 
+## AI: tools, approvals, isolation
+
+The AI Builder is the most security-sensitive surface you'll expose,
+so it has its own enforcement layer in addition to everything above.
+
+### How AI can mutate state
+
+The model **cannot write directly** to your database. The only way
+state changes is by emitting a structured tool call that the AI
+service receives, validates, and queues. The chain:
+
+```text
+user prompt
+  → model emits tool call (e.g. add_field { object: 'ticket', name: 'severity', type: 'select' })
+  → AI service validates payload against the tool's Zod schema
+  → if the tool is "mutating": queue as pending action (no state change yet)
+  → human reviewer approves → mutation applied → audit row written
+  → if the tool is "read-only": run immediately, response returned to model
+```
+
+There are 11 first-party metadata tools
+([see Build → AI Builder](/docs/build/ai-builder)) plus one
+`action_<name>` tool per declared action. Every tool — first-party or
+custom — has the same lifecycle.
+
+### Permission keys
+
+| Key | Grants |
+|:--|:--|
+| `ai:chat` | Hold a conversation; consume models; let the agent call read-only tools |
+| `ai:complete` | Raw completion endpoint (no agent loop) |
+| `ai:conversations` | List / inspect / delete conversations (own or all, depending on RBAC scope) |
+| `ai:agents` | Manage agent metadata (alongside `ai:chat` to invoke them) |
+| `ai:tools` | List the tool catalogue |
+| `ai:execute` | Invoke a tool directly via REST (advanced — normally only ambient agents need this) |
+| `ai:read` | Read the pending-actions queue and model list |
+| `ai:approve` | Approve / reject queued mutations |
+| `ai:admin` | Full AI service administration |
+
+The critical split is **`ai:chat` ≠ `ai:approve`**. Give most users
+`ai:chat` so the assistant works; reserve `ai:approve` for the
+administrators / app owners who should review structural changes. End
+users can therefore "vibe-build" safely — the worst they can do is
+queue a bad change someone else must accept.
+
+### Tenant isolation
+
+- Agents, conversations, knowledge bases, and pending actions are
+  scoped to one **Environment** (tenant). Tenant A cannot see tenant
+  B's conversations, tools the AI proposed, or knowledge corpora —
+  even if the same agent definition was installed from the same
+  marketplace package.
+- The metadata tools (`create_object`, `add_field`, …) operate against
+  the **active package** in the caller's tenant. They cannot reach
+  outside it.
+- Tool inputs are CEL-validated and the engine refuses references to
+  reserved system packages (`sys.*`) or to other tenants' object names.
+
+### Audit events
+
+When the audit capability is loaded:
+
+- `ai.chat.message` — every user / assistant message, with model + token count
+- `ai.tool.call` — tool name, validated input, full output (or error)
+- `ai.pending_action.queued` — proposed mutation, full diff
+- `ai.pending_action.approved` / `.rejected` — who decided, when, why
+- `ai.metadata.applied` — actual write to the metadata store, with diff
+
+These rows are immutable and can be exported for security review or
+chargeback. Token counts per (provider, model, user) feed cost
+attribution.
+
+### Prompt-injection posture
+
+Indirect prompt injection (e.g. malicious content in a document the
+agent retrieves) is a real risk; ObjectOS reduces blast radius by
+construction:
+
+- The AI **cannot bypass tool validation** — even if it's convinced to
+  emit a malicious payload, the Zod schema rejects malformed inputs
+  before they reach the engine.
+- Mutating tools always queue. An injected prompt cannot silently
+  write to the database.
+- Tool calls inherit the **end user's permissions**, not the model's
+  service-account permissions. A user can never use the AI to do
+  something they couldn't do themselves through Studio or REST.
+- Skills loaded into agents are versioned and explicit — see
+  [Build → IDE Skills](/docs/build/ai-skills) and
+  [Build → AI Builder](/docs/build/ai-builder).
+
+### External AI provider data flow
+
+When you configure a provider (OpenAI, Anthropic, …), only the
+following leaves your network:
+
+- The conversation history the model needs (subject to your AI service
+  `redact` config — see [Configure → AI](/docs/configure/ai))
+- Tool definitions (names, JSON schemas — no record data)
+- Tool outputs that the model needs to continue (e.g. a query result
+  the user explicitly asked for)
+
+For air-gapped deployments, point the AI service at a local Ollama /
+vLLM / TGI endpoint and the same flow stays inside your perimeter.
+
 ## Vulnerability disclosure
 
 Report security issues privately to

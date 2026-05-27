@@ -1,0 +1,165 @@
+---
+title: CEL Expressions
+description: The expression language used for formulas, predicates, schedules, and templated strings — surfaced via five tagged templates.
+---
+
+# CEL Expressions
+
+ObjectOS uses [CEL](https://github.com/google/cel-spec) (Common
+Expression Language) for every place where you need a small, safe,
+sandboxed expression: formula fields, validation rules, visibility
+predicates, sharing conditions, flow guards, schedules, and templated
+strings.
+
+Authoring is done through **five tagged templates** imported from
+`@objectstack/spec`. They all produce a small JSON object the runtime
+parses:
+
+```ts
+{ dialect: 'cel' | 'template' | 'cron', source: string }
+```
+
+Schema source:
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts).
+
+## The five tagged templates
+
+| Template | Dialect | Use it for | Example |
+|:--|:--|:--|:--|
+| `` F`...` `` | `cel` | **Formula fields** — derived values stored alongside the record | `` F`record.amount * 0.1` `` |
+| `` P`...` `` | `cel` | **Predicates** — booleans for validation / sharing / visibility / conditions | `` P`record.status == "open"` `` |
+| `` cel`...` `` | `cel` | **General CEL** — when neither F nor P fits (e.g. a parameter value) | `` cel`now() + duration("P30D")` `` |
+| `` tmpl`...` `` | `template` | **String templates** with `{{var}}` interpolation | `` tmpl`Order from {{record.customer.name}}` `` |
+| `` cron`...` `` | `cron` | **Schedules** — standard 5-field cron syntax | `` cron`0 9 * * 1-5` `` |
+
+There is no functional difference between `F`, `P`, and `cel` at
+evaluation time — they all run CEL. The split exists so that schemas
+(and AI agents) know what role the expression plays and the editor can
+type-check (formulas must return a value, predicates must return a
+bool).
+
+### Import
+
+```ts
+import { F, P, cel, tmpl, cron } from '@objectstack/spec'
+```
+
+## Where each one is used
+
+| Field on a spec | Tag | Example location |
+|:--|:--|:--|
+| `Field.expression` (formula type) | `F` | `*.object.ts` formula fields |
+| `Field.conditionalRequired` | `P` | object fields |
+| `Validation.predicate` | `P` | object validations |
+| `SharingRule.condition` | `P` | sharing rules |
+| `View.conditionalFormatting[].condition` | `P` | views |
+| `Flow.step.when` / `Flow.transition.when` | `P` | flows |
+| `Action.guard` | `P` | actions |
+| Notification subjects / message bodies | `tmpl` | notifications |
+| `Schedule.cron` | `cron` | scheduled flows / reports |
+| Any value parameter | `cel` | flow step inputs |
+
+## Variable scope
+
+CEL expressions evaluate in a context with these top-level variables:
+
+| Variable | Available when | Contents |
+|:--|:--|:--|
+| `record` | almost always | The current record being evaluated |
+| `previous` | on update hooks / change-detection | The pre-change state of the record (or `null`) |
+| `input` | actions, flow steps | The user-supplied input payload |
+| `os.user` | always | `{ id, roles: string[], permissions: string[] }` |
+| `os.org` | always | Organisation / tenant context |
+| `os.env` | always | Environment variables exposed to expressions |
+
+> Legacy `OLD` / `NEW` variables were removed in M9.5. Use `previous`
+> and `record`.
+
+## Standard library
+
+Registered in
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts).
+The most-used built-ins:
+
+### Time
+
+| Function | Returns | Notes |
+|:--|:--|:--|
+| `now()` | `Timestamp` | Pinned to the evaluation context — stable within one query |
+| `today()` | `Timestamp` | Start of UTC day |
+| `daysFromNow(int)` | `Timestamp` | Future date |
+| `daysAgo(int)` | `Timestamp` | Past date |
+
+CEL also includes the native `timestamp(...)`, `duration(...)`,
+`date.getDayOfWeek()`, etc. — see the
+[CEL spec](https://github.com/google/cel-spec/blob/master/doc/langdef.md#standard-definitions).
+
+### Utility
+
+| Function | Purpose |
+|:--|:--|
+| `isBlank(x)` | `true` if `null`, `undefined`, `""`, or empty list |
+| `coalesce(a, b)` | First non-null |
+| `trim(s)` | Strip whitespace |
+| `joinNonEmpty(list, sep)` | Concatenate non-empty entries |
+
+Native CEL string helpers (`.contains(...)`, `.startsWith(...)`,
+`.matches(...)`, `.size()`) are always available.
+
+## Examples
+
+**Formula field** — line-item total:
+
+```ts
+{ name: 'subtotal', type: 'formula', expression: F`record.quantity * record.unit_price` }
+```
+
+**Validation** — close date must be after today:
+
+```ts
+{ message: 'Close date must be in the future', predicate: P`record.close_date > today()` }
+```
+
+**Visibility** — show field only to managers:
+
+```ts
+{ visibleIf: P`'manager' in os.user.roles` }
+```
+
+**Flow guard** — skip step when amount is small:
+
+```ts
+{ when: P`record.amount >= 1000` }
+```
+
+**Schedule** — weekday 9am:
+
+```ts
+{ schedule: cron`0 9 * * 1-5` }
+```
+
+**Template** — notification subject:
+
+```ts
+{ subject: tmpl`[{{record.priority}}] {{record.subject}}` }
+```
+
+## Errors
+
+Expressions are compiled at load time. Failures show up as
+`VALIDATION_ERROR` with the source location:
+
+```json
+{ "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
+```
+
+A failed evaluation at runtime is treated as `null` for formula fields
+and `false` for predicates, plus an entry in the audit log.
+
+## See also
+
+- [Field types](./field-types) — formula and conditional-required fields
+- [Build → Data model](/docs/build/data-model) — validations and predicates
+- [Build → Flows](/docs/build/flows) — guards and schedules
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — schema
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — built-ins

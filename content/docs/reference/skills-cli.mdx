@@ -1,0 +1,100 @@
+---
+title: skills CLI
+description: The npx command that installs ObjectOS skill bundles into your coding agent.
+---
+
+# `skills` CLI
+
+The [`skills`](https://www.npmjs.com/package/skills) CLI (by
+[vercel-labs/skills](https://github.com/vercel-labs/skills)) is the
+standard way to distribute domain-scoped instructions to AI coding
+agents. ObjectOS publishes 9 official skills through it.
+
+This page is a reference card. For the conceptual overview see
+[Build → IDE Skills](/docs/build/ai-skills).
+
+## Install
+
+```bash
+npx skills add objectstack-ai/framework
+```
+
+The first run downloads the [`skills`](https://www.npmjs.com/package/skills)
+package from npm via `npx`, then fetches the skill bundle from
+[github.com/objectstack-ai/framework](https://github.com/objectstack-ai/framework)
+(`skills/<name>/` folders) and writes them into your project's agent
+config.
+
+Re-run any time to pull the latest versions.
+
+## What gets written
+
+Detected automatically based on what's in your project:
+
+| Agent | Path written |
+|:--|:--|
+| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| Cursor | `.cursor/rules/<name>.mdc` |
+| GitHub Copilot | `.github/copilot-instructions.md` (consolidated) |
+| Codex / Codex CLI | `AGENTS.md` (consolidated) |
+| Gemini CLI | `.gemini/skills/<name>/` |
+| Windsurf, Cline, Continue, Roo, Goose, Kiro, opencode, … | their native skill / rules format |
+
+Run `npx skills detect` to see what the CLI plans to write.
+
+## What ObjectOS publishes
+
+| Skill | Load for |
+|:--|:--|
+| `objectstack-platform` | `defineStack`, drivers, adapters, plugins, services, `os` CLI, deployment |
+| `objectstack-data` | `*.object.ts`, `*.seed.ts`, fields, relationships, validations, indexes, RLS, lifecycle hooks |
+| `objectstack-query` | [ObjectQL](./objectql) — filters, sorting, pagination, aggregation, joins, full-text |
+| `objectstack-ui` | [Views](/docs/build/views), Apps, Pages, Dashboards, Reports, Charts, Actions |
+| `objectstack-automation` | Flows, Workflows, Triggers, Approvals, schedules, webhooks |
+| `objectstack-ai` | Agents, Tools, Skills, Conversations, Model Registry, MCP |
+| `objectstack-api` | REST/GraphQL endpoints, auth, realtime, error envelopes |
+| `objectstack-i18n` | Translation bundles, locale fallback |
+| `objectstack-formula` | [CEL](./cel) expressions — formula fields, predicates, conditions, schedules |
+
+Each skill's `SKILL.md` frontmatter declares when the agent should
+load it and when to defer to a sibling.
+
+## Common commands
+
+```bash
+npx skills add <org>/<repo>        # add a skill bundle from a GitHub repo
+npx skills add <org>/<repo>@<ref>  # pin to a tag / branch / SHA
+npx skills list                    # list installed skills
+npx skills remove <name>           # remove a skill
+npx skills detect                  # show which agents the CLI will write to
+npx skills --help                  # full options
+```
+
+Pin a version for reproducible CI:
+
+```bash
+npx skills add objectstack-ai/framework@v5.0.0
+```
+
+## Where to commit the output
+
+**Commit it.** Skills are markdown your whole team — including CI
+agents — should share. The CLI writes to standard agent paths
+(`.claude/`, `.cursor/`, `AGENTS.md`, …) that you'd normally check in
+anyway.
+
+## Updating
+
+```bash
+npx skills add objectstack-ai/framework      # pulls latest matching the spec version range
+```
+
+Re-run after upgrading `@objectstack/spec` so the agent stays in sync
+with the latest Zod schemas, CEL helpers, and metadata vocabulary.
+
+## See also
+
+- [Build → IDE Skills](/docs/build/ai-skills) — conceptual overview, AI Builder vs skills
+- [Build → AI Builder](/docs/build/ai-builder) — the in-Studio counterpart
+- [vercel-labs/skills](https://github.com/vercel-labs/skills) — upstream CLI
+- [objectstack-ai/framework/skills](https://github.com/objectstack-ai/framework/tree/main/skills) — source of truth for every skill

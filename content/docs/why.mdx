@@ -8,9 +8,30 @@ description: The honest pitch — when you should use it, when you shouldn't, an
 This page exists so you don't have to read between the lines of every
 other doc to figure out whether ObjectOS is right for you.
 
+## The shape of the bet
+
+ObjectOS makes one opinionated bet: **AI writes your application's
+metadata, you own the runtime that runs it.**
+
+You don't hand-write objects, fields, views, flows, and permissions
+file-by-file. Your users describe what they need in plain language to
+the in-Studio [AI Builder](/docs/build/ai-builder); it calls a small
+set of audited tools, queues every change for human approval, and the
+result is live — REST endpoints, Studio screens, RBAC, audit log,
+everything generated from the same metadata.
+
+The runtime sits in **your** VPC, on **your** database, under
+**your** Apache-2.0 fork. The model talks to a sandboxed metadata API,
+not your data warehouse.
+
+That's the whole pitch. The rest of this page is who that fits and
+who it doesn't.
+
 ## Use ObjectOS if you …
 
 - need an internal tool, admin panel, or back-office app, **and**
+- want the people who use it (or the AI agents acting for them) to be
+  able to *extend* it without filing a ticket, **and**
 - can't (or won't) put the data in someone else's cloud, **and**
 - don't want to rebuild auth + RBAC + audit + file uploads + jobs +
   webhooks for the tenth time.
@@ -20,10 +41,11 @@ Common scenarios where it's a fit:
 | Scenario | Why it works |
 |---|---|
 | Replacing a Retool / Appsmith app because data sovereignty came up in security review | ObjectOS runs in your VPC; data never leaves |
-| Building a compliance / risk / vendor management tool for a regulated business | Audit log, RBAC, field security, row-level isolation are first-class |
+| Building a compliance / risk / vendor management tool for a regulated business | Audit log, RBAC, field security, row-level isolation are first-class — and every AI-driven change is itself an audit entry |
 | Standing up an internal admin for a SaaS product | One Node process, slots in next to your existing services |
-| Air-gapped or on-prem deployment for an enterprise customer | First-class deployment target, no internet egress required |
+| Air-gapped or on-prem deployment for an enterprise customer | First-class deployment target, no internet egress required (BYO local model) |
 | Multi-tenant internal portal (one runtime, many small apps) | Per-project kernel + LRU cache designed for this |
+| You want your users to "vibe-code" their own extensions safely | The AI Builder + HITL approval queue + audit log are the whole point |
 
 ## Don't use ObjectOS if you …
 
@@ -31,8 +53,8 @@ Common scenarios where it's a fit:
   framework, you'll have more control.
 - need a pixel-perfect bespoke UI for end users → ObjectOS's Studio is
   for admin/internal use; pair it with your own front-end via REST.
-- want a no-code drag-and-drop builder for non-engineers → use Retool,
-  Bubble, or Airtable. ObjectOS is code-first.
+- want a no-code drag-and-drop builder for non-engineers and a hosted
+  cloud → use Retool, Bubble, or Airtable. ObjectOS is code-first AI-driven, self-hosted.
 - need real-time collaborative editing (Figma-style) → not what the
   realtime plugin solves.
 

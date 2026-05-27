@@ -1,0 +1,190 @@
+---
+title: REST API
+description: The HTTP surface ObjectOS exposes — generated from your metadata, scoped by permissions, OpenAPI-described.
+---
+
+# REST API
+
+Every object you declare gets a full REST endpoint set automatically.
+Every action becomes a `POST`. Every flow becomes a `POST` to
+`/flows/...`. There is no separate API layer to write or deploy.
+
+Base URL: `https://<your-host>/api/v1`.
+OpenAPI spec is live at [`/api/v1/openapi.json`](#discovery).
+
+## Authentication
+
+ObjectOS uses [Better Auth](https://www.better-auth.com/). All routes
+under `/api/v1` require an authenticated session unless explicitly
+marked **public** (see [Public forms](#public-forms)). Auth methods
+configured in `apps/<app>/auth.config.ts` — typically session cookie or
+bearer token from `/api/v1/auth/sign-in`.
+
+Permissions are checked **per route, per record**. Routes annotated
+below with a permission key (e.g. `ai:chat`) call
+`requirePermission(...)`; record-level access is enforced by RBAC +
+row-level security + field-level security inside the data engine.
+
+## Discovery
+
+| Path | Method | Purpose |
+|:--|:--|:--|
+| `/api/v1` | GET | Service discovery — lists all registered routes, version, scoping mode |
+| `/api/v1/openapi.json` | GET | OpenAPI 3.0 spec for every endpoint in the running runtime |
+| `/api/v1/search` | GET | Full-text search across searchable fields on all objects |
+
+## Data — `/api/v1/data/*`
+
+CRUD + advanced query for every object you declare. `:object` is the
+object's `name` (snake_case).
+
+| Path | Method | Purpose |
+|:--|:--|:--|
+| `/data/:object` | GET | List / query — pass `where`, `orderBy`, `limit`, `offset`, `cursor`, `expand`, `select` as query params |
+| `/data/:object/query` | POST | Advanced query — full ObjectQL body with `groupBy` + `aggregations` (see [ObjectQL](./objectql)) |
+| `/data/:object/:id` | GET | Fetch one record. Supports `?select=` and `?expand=` |
+| `/data/:object` | POST | Create. Returns `201` with the new record |
+| `/data/:object/:id` | PATCH | Update. Pass `If-Match: <version>` header (or `expectedVersion` in body) for optimistic concurrency — `409 CONCURRENT_UPDATE` on conflict |
+| `/data/:object/:id` | DELETE | Delete. Same `If-Match` rule |
+| `/data/:object/import` | POST | Bulk import (CSV or JSON). Body: `{ format, csv? \| rows?, mapping?, dryRun? }`. Max 5,000 rows/request |
+| `/data/:object/export` | POST | Export records as `csv` / `xlsx` / `pdf` / `json` |
+| `/data/:object/:id/shares` | GET / POST | Per-record sharing — list grants, grant access |
+| `/data/:object/:id/shares/:shareId` | DELETE | Revoke a share |
+| `/data/lead/:id/convert` | POST | Salesforce-style lead conversion (CRM template). Body: `{ accountId?, contactId?, createOpportunity? }` |
+
+### Quick example
+
+```http
+GET /api/v1/data/support_ticket?where={"status":{"$eq":"open"}}&orderBy=-created_at&limit=20
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "items": [ { "id": "...", "subject": "...", "status": "open" } ],
+  "total": 137,
+  "nextCursor": "eyJpZCI6IjAxSDA..."
+}
+```
+
+## AI — `/api/v1/ai/*`
+
+The endpoints the [AI Builder](/docs/build/ai-builder) and your
+[agents](/docs/build/agents) ride on.
+
+| Path | Method | Permission | Purpose |
+|:--|:--|:--|:--|
+| `/ai/models` | GET | `ai:chat` | List available models from the configured providers |
+| `/ai/chat` | POST | `ai:chat` | Single-shot chat completion (sync) |
+| `/ai/chat/stream` | POST | `ai:chat` | Streaming chat (SSE) |
+| `/ai/complete` | POST | `ai:chat` | Raw completion endpoint |
+| `/ai/conversations` | GET / POST | `ai:chat` | List / create persistent conversations |
+| `/ai/conversations/:id` | GET / DELETE | `ai:chat` | Read / delete a conversation |
+| `/ai/conversations/:id/messages` | POST | `ai:chat` | Append a user message and run the agent |
+| `/ai/pending-actions` | GET | `ai:read` | The HITL approval queue — mutations the AI proposed |
+| `/ai/pending-actions/:id` | GET | `ai:read` | Inspect a queued mutation |
+| `/ai/pending-actions/:id/approve` | POST | `ai:approve` | Apply the mutation |
+| `/ai/pending-actions/:id/reject` | POST | `ai:approve` | Discard it |
+
+The split between `ai:read` and `ai:approve` is the security primitive
+that makes the AI Builder safe for end users.
+
+## Actions — `/api/v1/actions/*`
+
+Every `*.action.ts` you declare becomes an endpoint.
+
+| Path | Method | Purpose |
+|:--|:--|:--|
+| `/actions/:action` | POST | Invoke the action. Body is the action's input schema. Permissions and input validation come from the action declaration |
+
+Each action is also exposed to the AI as a `action_<name>` tool — see
+[Actions](/docs/build/actions).
+
+## Flows — `/api/v1/flows/*`
+
+| Path | Method | Purpose |
+|:--|:--|:--|
+| `/flows/:flow/start` | POST | Start a flow. Body is the flow input |
+| `/flows/:flow/runs/:runId` | GET | Status + step output of a running / completed flow |
+| `/flows/:flow/runs/:runId/cancel` | POST | Cancel an in-flight run |
+
+## Metadata — `/api/v1/meta/*`
+
+Read-only introspection into the running runtime's metadata. Useful
+for tooling and the Studio.
+
+| Path | Method | Purpose |
+|:--|:--|:--|
+| `/meta` | GET | All metadata types (`object`, `view`, `action`, `flow`, `agent`, …) |
+| `/meta/:type` | GET | List items of a type. Filter with `?package=<id>` |
+| `/meta/:type/:name` | GET | Fetch one item. `?layers=true` returns the 3-state diff view (base / package / overlay) |
+| `/meta/:type/:name/references` | GET | Find every metadata item that references this one |
+| `/meta/:type/:name/history` | GET | Audit trail for that item |
+| `/meta/:type/:section/:name` | GET / POST | Read / upsert a sectioned metadata item |
+| `/meta/:type/:section/:name` | DELETE | Delete a sectioned item |
+
+## Sharing & approvals
+
+| Path | Method | Purpose |
+|:--|:--|:--|
+| `/sharing/rules` | GET / POST / DELETE | Manage sharing rules |
+| `/sharing/rules/:idOrName/evaluate` | POST | Dry-run a rule against a context |
+| `/approvals/processes` | GET / POST | Approval process definitions |
+| `/approvals/requests` | GET / POST | Submit / list approval requests |
+| `/approvals/requests/:id/approve` | POST | Decision: approve |
+| `/approvals/requests/:id/reject` | POST | Decision: reject |
+
+## Reports & search
+
+| Path | Method | Purpose |
+|:--|:--|:--|
+| `/reports` | GET / POST / PATCH | Report CRUD |
+| `/reports/:id/run` | POST | Execute a report — returns aggregated rows |
+| `/reports/:id/schedule` | POST | Schedule recurring delivery |
+
+## Public forms
+
+The only routes that are **unauthenticated**, opt-in via
+`FormView.sharing.allowAnonymous`.
+
+| Path | Method | Auth |
+|:--|:--|:--|
+| `/forms/:slug` | GET | public — returns the form schema |
+| `/forms/:slug/submit` | POST | public — submits a response |
+
+## Utilities
+
+| Path | Method | Permission | Purpose |
+|:--|:--|:--|:--|
+| `/email/send` | POST | `email:send` | Send an email through the configured provider |
+
+## Error envelope
+
+Every non-2xx response follows the same shape:
+
+```json
+{
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "Missing ai:approve on conversation 01H…",
+    "details": { "permission": "ai:approve", "subject": "01H…" }
+  }
+}
+```
+
+Common codes: `UNAUTHENTICATED`, `PERMISSION_DENIED`,
+`VALIDATION_ERROR`, `NOT_FOUND`, `CONCURRENT_UPDATE`,
+`RATE_LIMITED`, `INTERNAL`.
+
+## Versioning
+
+`/api/v1` is the **stable** API. Breaking changes go to `/api/v2` and
+both serve in parallel for one minor release. The current version and
+deprecation horizon are in `GET /api/v1`.
+
+## See also
+
+- [ObjectQL](./objectql) — the query language used by `/data/*`
+- [Field types](./field-types) — what shapes data can take
+- [Build → Actions](/docs/build/actions) — declare custom endpoints
+- [Security](./security) — what every route checks before it runs
