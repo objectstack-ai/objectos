@@ -1,6 +1,6 @@
 ---
 title: Field Types
-description: Every field type you can declare on an object — what it stores, what options it accepts, how it surfaces in REST, Studio, and the AI Builder.
+description: Every field type you can declare on an object — what it stores, what options it accepts, how it surfaces in REST, Console, and the AI Builder.
 ---
 
 # Field Types
@@ -13,7 +13,7 @@ description: Every field type you can declare on an object — what it stores, w
 | Property | Type | Default | Purpose |
 |:--|:--|:--|:--|
 | `name` | string (snake_case) | — | Machine identifier — REST path segment, SQL column |
-| `label` | string | — | Display label in Studio |
+| `label` | string | — | Display label in Console |
 | `type` | FieldType | — | See type tables below |
 | `required` | boolean | `false` | NOT NULL constraint |
 | `unique` | boolean | `false` | Unique index |
@@ -21,7 +21,7 @@ description: Every field type you can declare on an object — what it stores, w
 | `multiple` | boolean | `false` | Store an array of values |
 | `defaultValue` | unknown | — | Initial value (literal or CEL) |
 | `columnName` | string | = `name` | Override physical DB column |
-| `hidden` | boolean | `false` | Hide from default Studio views |
+| `hidden` | boolean | `false` | Hide from default Console views |
 | `readonly` | boolean | `false` | Disable in forms |
 | `system` | boolean | `false` | Auto-injected (id, created_at, …) |
 | `index` | boolean | `false` | Create a DB index |
@@ -42,9 +42,9 @@ description: Every field type you can declare on an object — what it stores, w
 | `url` | URL | format-validated |
 | `phone` | phone | E.164 |
 | `password` | secrets | hashed; never returned by GET |
-| `markdown` | markdown body | rendered in Studio preview |
+| `markdown` | markdown body | rendered in Console preview |
 | `html` | sanitised HTML | DOMPurify on write |
-| `richtext` | WYSIWYG | Studio editor + serialised JSON |
+| `richtext` | WYSIWYG | Console editor + serialised JSON |
 
 ## Numbers
 
@@ -194,7 +194,7 @@ You don't declare these — opt out per object with
    │
    ├─► Postgres / MySQL / SQLite column + index + constraint
    ├─► REST: validated on POST/PATCH, exposed on GET
-   ├─► Studio: form widget + list column
+   ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
    └─► Audit: change-tracked if `auditTrail: true`
 ```

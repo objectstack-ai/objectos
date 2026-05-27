@@ -1,6 +1,6 @@
 ---
 title: 字段类型
-description: 你可以在对象上声明的所有字段类型 —— 存储什么、接受哪些选项、在 REST、Studio 和 AI Builder 中如何呈现。
+description: 你可以在对象上声明的所有字段类型 —— 存储什么、接受哪些选项、在 REST、Console 和 AI Builder 中如何呈现。
 ---
 
 # 字段类型
@@ -13,7 +13,7 @@ description: 你可以在对象上声明的所有字段类型 —— 存储什�
 | 属性 | 类型 | 默认值 | 用途 |
 |:--|:--|:--|:--|
 | `name` | string (snake_case) | — | 机器标识符 —— REST 路径段、SQL 列 |
-| `label` | string | — | Studio 中的显示标签 |
+| `label` | string | — | Console 中的显示标签 |
 | `type` | FieldType | — | 见下方类型表 |
 | `required` | boolean | `false` | NOT NULL 约束 |
 | `unique` | boolean | `false` | 唯一索引 |
@@ -21,7 +21,7 @@ description: 你可以在对象上声明的所有字段类型 —— 存储什�
 | `multiple` | boolean | `false` | 存储值的数组 |
 | `defaultValue` | unknown | — | 初始值（字面量或 CEL） |
 | `columnName` | string | = `name` | 覆盖物理 DB 列 |
-| `hidden` | boolean | `false` | 在默认 Studio 视图中隐藏 |
+| `hidden` | boolean | `false` | 在默认 Console 视图中隐藏 |
 | `readonly` | boolean | `false` | 表单中禁用 |
 | `system` | boolean | `false` | 自动注入（id、created_at……） |
 | `index` | boolean | `false` | 创建 DB 索引 |
@@ -42,9 +42,9 @@ description: 你可以在对象上声明的所有字段类型 —— 存储什�
 | `url` | URL | 格式校验 |
 | `phone` | 电话 | E.164 |
 | `password` | 密钥 | 哈希;GET 永不返回 |
-| `markdown` | markdown 正文 | 在 Studio 预览中渲染 |
+| `markdown` | markdown 正文 | 在 Console 预览中渲染 |
 | `html` | 清洗后的 HTML | 写入时经 DOMPurify |
-| `richtext` | 所见即所得 | Studio 编辑器 + 序列化 JSON |
+| `richtext` | 所见即所得 | Console 编辑器 + 序列化 JSON |
 
 ## 数字
 
@@ -192,7 +192,7 @@ fileAttachmentConfig: {
    │
    ├─► Postgres / MySQL / SQLite column + index + constraint
    ├─► REST: validated on POST/PATCH, exposed on GET
-   ├─► Studio: form widget + list column
+   ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
    └─► Audit: change-tracked if `auditTrail: true`
 ```

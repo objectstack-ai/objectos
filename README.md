@@ -44,7 +44,7 @@ For teams that cannot — or will not — hand customer data to a third party:
 | | ObjectStack framework | **ObjectOS** | Enterprise plugins |
 |---|---|---|---|
 | Repo | `objectstack-ai/framework` | `objectstack-ai/objectos` | `objectstack-ai/objectos-enterprise` (private) |
-| What it ships | Protocol, kernel, `@objectstack/*` packages, Studio, control plane | Runtime distribution + Docker/Helm + ops docs | SSO/SAML, SCIM, audit export, HA scheduler, … |
+| What it ships | Protocol, kernel, `@objectstack/*` packages, Console, control plane | Runtime distribution + Docker/Helm + ops docs | SSO/SAML, SCIM, audit export, HA scheduler, … |
 | Who consumes it | Framework contributors, plugin authors | **End customers** (self-host / private cloud) | Enterprise customers |
 | License | Apache-2.0 | **Apache-2.0** | Commercial |
 | Release cadence | Frequent (per `changeset`) | Distribution semver (e.g. `2026.05 LTS`) | Tracks ObjectOS |
@@ -55,7 +55,7 @@ ObjectOS boots in one of two modes, selected by environment variables:
 
 | Mode | Required env | Use case |
 |---|---|---|
-| **Cloud-connected** | `OS_CLOUD_URL`, `OS_PROJECT_ID` | Production with the ObjectStack control plane / Studio |
+| **Cloud-connected** | `OS_CLOUD_URL`, `OS_PROJECT_ID` | Production with the ObjectStack control plane / Console |
 | **Offline / air-gapped** | `OS_ARTIFACT_FILE` | Compile locally with the CLI, ship the JSON artifact, run anywhere |
 
 See [`apps/objectos/objectstack.config.ts`](apps/objectos/objectstack.config.ts).

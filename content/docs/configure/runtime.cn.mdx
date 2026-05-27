@@ -21,9 +21,9 @@ ObjectOS 的运行时配置回答三个问题：
 
 ### Standalone 模式
 
-在无配置或 artifact 的情况下执行 `os start` 时的默认行为。ObjectOS 启动一个空 kernel，加载平台插件（`auth`、`security`、`audit`、`storage`、`webhooks`、`mcp-server`、`marketplace-proxy`、`marketplace-install-local` ……），打开 `~/.objectstack/data/standalone.db` 的本地 SQLite，并提供 Studio、Account 与 Console。
+在无配置或 artifact 的情况下执行 `os start` 时的默认行为。ObjectOS 启动一个空 kernel，加载平台插件（`auth`、`security`、`audit`、`storage`、`webhooks`、`mcp-server`、`marketplace-proxy`、`marketplace-install-local` ……），打开 `~/.objectstack/data/standalone.db` 的本地 SQLite，并提供 Console 与 Account。
 
-从 Studio 的 marketplace 标签页安装应用即可在 kernel 中填充对象、视图和流程 —— 无需重建、无需重启。适合演示、评估以及"看看这玩意能干啥"的探索。
+从 Console 的 marketplace 标签页安装应用即可在 kernel 中填充对象、视图和流程 —— 无需重建、无需重启。适合演示、评估以及"看看这玩意能干啥"的探索。
 
 `os start` 会自动升级：
 

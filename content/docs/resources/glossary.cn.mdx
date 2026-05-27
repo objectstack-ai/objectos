@@ -16,7 +16,7 @@ ObjectOS 实际执行的就是它。
 ### Action
 
 在元数据中声明的命名操作，可通过 REST
-（`/api/v1/data/<object>/actions/<action>`）、Studio 按钮或流程
+（`/api/v1/data/<object>/actions/<action>`）、Console 按钮或流程
 步骤调用。继承调用者的权限。
 
 ### Adapter
@@ -27,7 +27,7 @@ ObjectOS 自带 HTTP 服务器。
 
 ### App
 
-把对象 + 视图 + 权限打包成一个在 Studio 中可导航的应用。同一个
+把对象 + 视图 + 权限打包成一个在 Console 中可导航的应用。同一个
 运行时中可以共存多个 App（如 CRM + Helpdesk + Setup）。
 
 ### Better Auth
@@ -50,7 +50,7 @@ Google 的安全沙箱表达式语法。用于公式、校验规则、权限谓�
 ### Console
 
 位于 `/_console/` 的系统 UI —— 管理用户、角色、权限集、审计日志、
-会话、API key、系统设置。与 Studio（业务 UI）有区别。
+会话、API key、系统设置。与 Console（业务 UI）有区别。
 
 ### Control Plane（控制面）
 
@@ -110,7 +110,7 @@ ObjectOS 内部的微内核，负责加载插件、持有 DI 容器、分发事�
 
 ### Marketplace（应用市场）
 
-Studio 内可安装应用的目录。背后由可配置的包注册中心支持。见
+Console 内可安装应用的目录。背后由可配置的包注册中心支持。见
 [应用市场](/docs/build/marketplace)。
 
 ### MCP（Model Context Protocol）
@@ -121,7 +121,7 @@ Studio 内可安装应用的目录。背后由可配置的包注册中心支持�
 ### Object（对象）
 
 有类型的业务实体 —— `task`、`account`、`invoice`。以 TypeScript
-schema 声明;自动生成 REST API、Studio 视图、审计条目与 RBAC 检查
+schema 声明;自动生成 REST API、Console 视图、审计条目与 RBAC 检查
 点。见 [数据模型](/docs/build/data-model)。
 
 ### ObjectOS
@@ -132,7 +132,7 @@ schema 声明;自动生成 REST API、Studio 视图、审计条目与 RBAC 检�
 ### ObjectQL
 
 数据层协议与查询引擎。把声明式查询编译成原生 SQL / Mongo 查询。
-REST 端点、Studio、流程都用同一套引擎。
+REST 端点、Console、流程都用同一套引擎。
 
 ### ObjectStack
 
@@ -142,7 +142,7 @@ REST 端点、Studio、流程都用同一套引擎。
 ### ObjectUI
 
 视图层协议 —— App、View、Page、Dashboard、Action、Chart、导航。
-Studio 渲染 ObjectUI 声明。
+Console 渲染 ObjectUI 声明。
 
 ### Permission Set（权限集）
 
@@ -171,15 +171,15 @@ v5.0 中移除。
 基于条件授予记录访问的声明式规则（"区域经理可以看到本区域的
 记录"）。查询时求值，编译为行级过滤条件。
 
-### Studio
+### Console
 
-位于 `/_studio/` 的业务 UI —— 浏览、创建、编辑记录，配置视图，
+位于 `/_console/` 的业务 UI —— 浏览、创建、编辑记录，配置视图，
 从应用市场安装应用。与 Console（系统 UI）有区别。
 
 ### Surface（表面）
 
 运行中的 ObjectOS 暴露的四类 HTTP 入口之一：`/`（REST API）、
-`/_studio/`、`/_account/`、`/_console/`。
+`/_console/`、`/_account/`、`/_console/`。
 
 ### System Context（系统上下文）
 
@@ -199,7 +199,7 @@ Cookie 与会话按主机名作用域;数据按 Environment 作用域。
 ### View（视图）
 
 绑定到对象上的声明式 UI 配置 —— list、form、kanban、calendar、
-gantt。由 Studio 渲染，你不需要写组件。
+gantt。由 Console 渲染，你不需要写组件。
 
 ### Zod schema
 

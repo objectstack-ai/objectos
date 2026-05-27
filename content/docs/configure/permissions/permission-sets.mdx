@@ -81,13 +81,13 @@ read a record, individual fields can be hidden or made read-only.
 
 | Mode | Effect |
 |---|---|
-| **Hidden** | Field is stripped from API responses and Studio views entirely |
+| **Hidden** | Field is stripped from API responses and Console views entirely |
 | **Read-only** | Field is returned but writes are rejected |
 
 ### Where it's enforced
 
 The same evaluator that checks object permissions applies field rules
-on every path — REST, ObjectQL, generated Studio forms, exports. There
+on every path — REST, ObjectQL, generated Console forms, exports. There
 is no "back door" through a lower-level API.
 
 ### Typical patterns

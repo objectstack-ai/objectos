@@ -29,12 +29,12 @@ for multi-environment / multi-app deployments with a control plane.
 A: Yes — Postgres, MySQL, SQLite, Turso/libSQL, and MongoDB are
 supported drivers. See [Runtime Configuration](/docs/configure/runtime).
 
-**Q: Can I disable Studio / Account / Console and use only the REST API?**
+**Q: Can I disable Console / Account and use only the REST API?**
 A: Yes. Run `os start --no-ui` or set the corresponding flags. The
 REST API is the same whether the UIs are mounted or not.
 
-**Q: Can I use my own front-end instead of Studio?**
-A: Yes. Studio uses the same `/api/v1/*` endpoints you'd call from
+**Q: Can I use my own front-end instead of Console?**
+A: Yes. Console uses the same `/api/v1/*` endpoints you'd call from
 your own code. Use `@objectstack/client` SDK or any HTTP client.
 
 **Q: Does ObjectOS support GraphQL?**
@@ -74,7 +74,7 @@ add a migration step (rename column in DB before deploying the new
 artifact).
 
 **Q: Can I import data from CSV / Excel / Salesforce?**
-A: CSV: yes, via `os data create` in a loop or the Studio bulk upload.
+A: CSV: yes, via `os data create` in a loop or the Console bulk upload.
 Salesforce: best path today is to export to CSV and import. Native
 connectors are on the roadmap.
 
@@ -94,7 +94,7 @@ injects the corresponding filter on every query. See
 **Q: Can I make some fields invisible to certain users?**
 A: Yes — field-level security in permission sets. Hide or read-only,
 per field per permission set. Enforced uniformly across REST, ObjectQL,
-and Studio. See [Permission Sets](/docs/configure/permissions/permission-sets).
+and Console. See [Permission Sets](/docs/configure/permissions/permission-sets).
 
 **Q: How do I integrate Okta / Entra / Keycloak?**
 A: OIDC. Configure the discovery URL + client id/secret in **Console →
@@ -123,7 +123,7 @@ A: Yes — plugins follow a simple DI + lifecycle pattern
 (`init → start → destroy`). See `@objectstack/plugin-*` packages on
 GitHub for examples.
 
-**Q: Can I customize Studio's look?**
+**Q: Can I customize Console's look?**
 A: Branding (logo, accent color, default theme) is in **Console →
 System Settings**. Deep UI customization means forking
 `@objectstack/client-react` or building your own front-end against the

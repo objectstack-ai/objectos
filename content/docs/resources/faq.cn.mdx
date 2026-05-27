@@ -28,12 +28,12 @@ A：不需要。ObjectOS 完全自包含。ObjectStack Cloud 是可选的，用�
 A：可以 —— 支持的驱动包括 Postgres、MySQL、SQLite、Turso/libSQL
 与 MongoDB。见 [运行时配置](/docs/configure/runtime)。
 
-**Q：可以关闭 Studio / Account / Console，只使用 REST API 吗？**
+**Q：可以关闭 Console / Account，只使用 REST API 吗？**
 A：可以。运行 `os start --no-ui` 或设置相应开关。无论是否挂载 UI，
 REST API 都一致。
 
-**Q：可以用自己的前端代替 Studio 吗？**
-A：可以。Studio 调用的是与你自己代码相同的 `/api/v1/*` 接口。使用
+**Q：可以用自己的前端代替 Console 吗？**
+A：可以。Console 调用的是与你自己代码相同的 `/api/v1/*` 接口。使用
 `@objectstack/client` SDK 或任意 HTTP 客户端即可。
 
 **Q：ObjectOS 支持 GraphQL 吗？**
@@ -68,7 +68,7 @@ A：在数据层上重命名是破坏性变更（看起来像"删旧列、加新
 列）。
 
 **Q：能从 CSV / Excel / Salesforce 导入数据吗？**
-A：CSV：可以，通过 `os data create` 循环或 Studio 批量上传。
+A：CSV：可以，通过 `os data create` 循环或 Console 批量上传。
 Salesforce：目前最好的路径是导出 CSV 再导入。原生连接器在路线图中。
 
 **Q：升级 ObjectOS 会丢数据吗？**
@@ -85,7 +85,7 @@ A：声明一条共享规则（声明式，类似 Salesforce），或在对象�
 
 **Q：能让某些字段对特定用户不可见吗？**
 A：可以 —— 权限集中提供字段级安全。可按字段、按权限集设置为隐藏
-或只读。在 REST、ObjectQL 与 Studio 中统一生效。见
+或只读。在 REST、ObjectQL 与 Console 中统一生效。见
 [权限集](/docs/configure/permissions/permission-sets)。
 
 **Q：如何对接 Okta / Entra / Keycloak？**
@@ -116,7 +116,7 @@ A：可以 —— 插件遵循简洁的 DI + 生命周期模式
 （`init → start → destroy`）。在 GitHub 上的 `@objectstack/plugin-*`
 包是参考样例。
 
-**Q：能定制 Studio 的外观吗？**
+**Q：能定制 Console 的外观吗？**
 A：品牌化（Logo、强调色、默认主题）在 **Console → System Settings**
 中调整。深度 UI 定制意味着 fork `@objectstack/client-react` 或基于
 REST API 构建自己的前端。

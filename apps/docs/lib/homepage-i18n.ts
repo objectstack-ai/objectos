@@ -277,7 +277,7 @@ export const en: HomepageTranslations = {
     termsHref: '/terms',
   },
   agentPreview: {
-    windowTitle: 'Studio · Support Copilot',
+    windowTitle: 'Console · Support Copilot',
     userLabel: 'You',
     agentLabel: 'Agent',
     user1Line1: 'Which urgent tickets have been open more than 24h,',
@@ -419,7 +419,7 @@ export const cn: HomepageTranslations = {
     termsHref: '/terms',
   },
   agentPreview: {
-    windowTitle: 'Studio · 客服副驾',
+    windowTitle: 'Console · 客服副驾',
     userLabel: '你',
     agentLabel: 'Agent',
     user1Line1: '哪些紧急工单已经超过 24 小时没关,',

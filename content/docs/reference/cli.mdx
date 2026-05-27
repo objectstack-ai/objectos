@@ -20,7 +20,7 @@ os --help
 Auto-detects 4 escalating modes:
 
 1. **Empty boot** — no artifact, no config in cwd → boots a bare
-   kernel with Studio + marketplace.
+   kernel with Console + marketplace.
 2. **Project boot** — `objectstack.config.ts` in cwd → auto-compiles
    to `./dist/objectstack.json` and boots from it.
 3. **Artifact boot** — `dist/objectstack.json` reachable → boots from
@@ -37,7 +37,7 @@ os start --database postgres://user:pass@host:5432/mydb
 os start --database libsql://my-db.turso.io --database-auth-token $TURSO
 os start --auth-secret "$(openssl rand -hex 32)"
 os start --home /var/lib/objectos      # persistent home dir
-os start --no-ui                       # API only (no Studio/Account/Console)
+os start --no-ui                       # API only (no Console/Account)
 ```
 
 HOME directory default:
@@ -65,9 +65,9 @@ os dev                         # port 3002 by default
 os dev -p 4002
 ```
 
-### `os studio` — Studio with dev server
+### `os studio` — Console with dev server
 
-Same as `os dev` but with Studio explicitly enabled.
+Same as `os dev` but with Console explicitly enabled.
 
 ## Project commands
 
@@ -192,7 +192,7 @@ os test                       # run Quality Protocol scenarios against a running
 | `-d, --database` | Database URL |
 | `--home` | Persistent state directory |
 | `-v, --verbose` | Verbose output |
-| `--no-ui` | Disable Studio / Account / Console portals |
+| `--no-ui` | Disable Console / Account portals |
 
 Run any command with `--help` for the full flag list:
 

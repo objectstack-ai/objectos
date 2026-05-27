@@ -15,7 +15,7 @@ The mental model is two thin layers:
    against a sandboxed tool API; sometimes hand-edited, always
    version-controlled and audited.
 2. **A single Node.js runtime** that interprets that metadata into a
-   working application — REST API, Studio UI, permissions, jobs, AI
+   working application — REST API, Console UI, permissions, jobs, AI
    tools — all in one process, talking to your database.
 
 No code generation step, no deploy pipeline between "user described
@@ -30,7 +30,7 @@ One Node.js process per ObjectOS instance. That's it.
 ┌─────────────────────────────────────────────────────┐
 │                  ObjectOS process                   │
 │  ┌───────────────────────────────────────────────┐  │
-│  │   HTTP dispatcher  (/ · /api · /_studio …)    │  │
+│  │   HTTP dispatcher  (/ · /api · /_console …)    │  │
 │  ├───────────────────────────────────────────────┤  │
 │  │   Per-project ObjectKernel (LRU cached)       │  │
 │  │   ├─ Auth (Better Auth)                       │  │

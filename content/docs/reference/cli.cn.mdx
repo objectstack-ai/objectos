@@ -18,7 +18,7 @@ os --help
 
 自动检测 4 种递进模式：
 
-1. **空启动** —— 当前目录无 artifact、无 config → 启动一个带 Studio + marketplace 的裸内核。
+1. **空启动** —— 当前目录无 artifact、无 config → 启动一个带 Console + marketplace 的裸内核。
 2. **项目启动** —— 当前目录有 `objectstack.config.ts` → 自动编译到 `./dist/objectstack.json` 并从中启动。
 3. **Artifact 启动** —— 可访问 `dist/objectstack.json` → 直接从中启动。
 4. **显式覆盖** —— `--artifact`、`--database`、`--port` 优先。
@@ -33,7 +33,7 @@ os start --database postgres://user:pass@host:5432/mydb
 os start --database libsql://my-db.turso.io --database-auth-token $TURSO
 os start --auth-secret "$(openssl rand -hex 32)"
 os start --home /var/lib/objectos      # 持久化 home 目录
-os start --no-ui                       # 仅 API（无 Studio/Account/Console）
+os start --no-ui                       # 仅 API（无 Console/Account）
 ```
 
 HOME 目录默认值：
@@ -58,9 +58,9 @@ os dev                         # 默认端口 3002
 os dev -p 4002
 ```
 
-### `os studio` —— 带开发服务器的 Studio
+### `os studio` —— 带开发服务器的 Console
 
-与 `os dev` 相同,但显式启用 Studio。
+与 `os dev` 相同,但显式启用 Console。
 
 ## 项目命令
 
@@ -180,7 +180,7 @@ os test                       # 针对运行中的服务器执行 Quality Protoc
 | `-d, --database` | 数据库 URL |
 | `--home` | 持久化状态目录 |
 | `-v, --verbose` | 详细输出 |
-| `--no-ui` | 禁用 Studio / Account / Console 门户 |
+| `--no-ui` | 禁用 Console / Account 门户 |
 
 任意命令带 `--help` 查看完整 flag 列表：
 

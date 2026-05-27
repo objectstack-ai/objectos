@@ -5,7 +5,7 @@ description: 留在你网络内的内部工具运行时。一条命令启动，�
 
 # ObjectOS
 
-**ObjectOS 是一个自托管运行时，用于构建内部工具、管理后台和后办公应用，且不必交出你的数据。** 向 Studio 内置的 AI Builder 描述你要的东西 —— 或者 fork 一个模板 —— 你就能得到 REST API、生成的管理 UI、认证、RBAC、审计日志、文件存储、后台任务、Webhook 和 AI 集成。所有这些都运行在你的网络中，使用你的数据库。
+**ObjectOS 是一个自托管运行时，用于构建内部工具、管理后台和后办公应用，且不必交出你的数据。** 向 Console 内置的 AI Builder 描述你要的东西 —— 或者 fork 一个模板 —— 你就能得到 REST API、生成的管理 UI、认证、RBAC、审计日志、文件存储、后台任务、Webhook 和 AI 集成。所有这些都运行在你的网络中，使用你的数据库。
 
 如果 Retool、Supabase 和 Salesforce 生了一个孩子并让它运行在你的防火墙内 —— 由 AI 替你构建应用 —— 那大概就是它的样子。
 
@@ -16,12 +16,12 @@ npm i -g @objectstack/cli
 os start
 ```
 
-打开 **http://localhost:3000**，你就拥有了一个可工作的 ObjectOS，包含 Studio、Account、Console、审计日志和一个 SQLite 数据库 —— 零配置、零脚手架。
+打开 **http://localhost:3000**，你就拥有了一个可工作的 ObjectOS，包含 Console、Account、审计日志和一个 SQLite 数据库 —— 零配置、零脚手架。
 
 然后你可以：
 
 - **与 AI Builder 对话** —— *"我需要追踪支持工单，包含优先级和负责人"* —— 看着元数据被生成。参见 [Build → AI Builder](/docs/build/ai-builder)。
-- 从 Studio 内置市场**安装模板**（Todo、Contracts、Helpdesk……），一键就能拥有一个真实可用的应用。
+- 从 Console 内置市场**安装模板**（Todo、Contracts、Helpdesk……），一键就能拥有一个真实可用的应用。
 - 如果你想要 TypeScript 源码归你控制，可以 **fork 一个 [模板](/docs/build/templates)**。
 
 ## 为什么选 ObjectOS 而不是 ……
@@ -38,9 +38,8 @@ os start
 | 入口 | 是什么 |
 |---|---|
 | **自动 REST API** | 你声明的每个对象都自动获得 `/api/v1/data/<object>`，支持过滤/排序/分页 |
-| **Studio** (`/_studio/`) | 生成的管理 UI，用于浏览、编辑、管理记录 |
+| **Console** (`/_console/`) | 生成的管理 UI:浏览/编辑记录,管理用户/角色/权限集,查看审计日志、会话、API Key、设置 |
 | **Account** (`/_account/`) | 登录、注册、密码重置、OAuth、OIDC/SSO、Passkey、2FA |
-| **Console** (`/_console/`) | 用户、角色、权限集、审计日志、会话、API Key、设置 |
 | **23 个插件** | RBAC + 行级安全、审计、文件存储、队列、任务、邮件、AI、Webhook —— 声明式、按需启用 |
 
 ## 你保留控制的部分

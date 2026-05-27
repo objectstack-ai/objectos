@@ -12,7 +12,7 @@ description: 从零到一个运行中的 ObjectOS —— 安装一个 CLI，运�
 | 第一次试用 ObjectOS，或在生产环境运行它 | [路径 A —— `os start`](#path-a--os-start-operator-first-time-evaluator) |
 | 用代码构建或定制应用 | [路径 B —— `os init`](#path-b--os-init-developer) |
 
-两者都会得到一个运行中的服务器，包含 Studio + Account + Console。区别在于是否生成源码文件。
+两者都会得到一个运行中的服务器，包含 Console + Account。区别在于是否生成源码文件。
 
 ## 先决条件
 
@@ -38,13 +38,13 @@ os start
 ◆ ObjectStack
 ────────────────────────────────────────
 🏠 Home: ~/.objectstack
-📦 Artifact: none (empty kernel — install apps via Studio marketplace)
+📦 Artifact: none (empty kernel — install apps via Console marketplace)
 🗄️ Database: file:~/.objectstack/data/objectstack.db
 
   ✓ Server is ready
 
   ➜  API:       http://localhost:3000/
-  ➜  Studio:    http://localhost:3000/_studio/
+  ➜  Console:    http://localhost:3000/_console/
   ➜  Account:   http://localhost:3000/_account/
   ➜  Console:   http://localhost:3000/_console/
 
@@ -58,7 +58,7 @@ os start
 | URL | 是什么 |
 |---|---|
 | http://localhost:3000/_account/register | 创建你的第一个账号 |
-| http://localhost:3000/_studio/ | 管理 UI —— 以及**应用市场** |
+| http://localhost:3000/_console/ | 管理 UI —— 以及**应用市场** |
 | http://localhost:3000/_console/ | 用户、角色、审计日志、设置 |
 | http://localhost:3000/health | 存活探针 |
 
@@ -66,17 +66,17 @@ os start
 
 ### 用对话构建 —— AI Builder
 
-登录后，打开 Studio 中的 AI 助手（右上角闪光图标），描述你要的东西：
+登录后，打开 Console 中的 AI 助手（右上角闪光图标），描述你要的东西：
 
 > *"我需要追踪客户支持工单。每张工单都有主题、描述、优先级（低/中/高/紧急）、状态和负责人。再加一个按状态分组的看板视图。"*
 
-AI 提出一份计划，你批准，元数据就立刻生效 —— REST 端点、Studio 视图、审计日志、权限闸门。无需编辑文件，无需重启。完整词汇请见 [Build → AI Builder](/docs/build/ai-builder)。
+AI 提出一份计划，你批准，元数据就立刻生效 —— REST 端点、Console 视图、审计日志、权限闸门。无需编辑文件，无需重启。完整词汇请见 [Build → AI Builder](/docs/build/ai-builder)。
 
 > **在 IDE 中手写代码？** 运行 `npx skills add objectstack-ai/framework`，让 Claude Code / Cursor / Copilot / Codex 学会根据真实的 Zod schema 编写 ObjectOS 元数据。参见 [Build → IDE Skills](/docs/build/ai-skills)。
 
 ### 从市场安装应用
 
-打开 **http://localhost:3000/_studio/**，登录，选一个应用：
+打开 **http://localhost:3000/_console/**，登录，选一个应用：
 
 | 应用 | 你能得到什么 |
 |---|---|
@@ -126,7 +126,7 @@ pnpm dev
   ✓ Server is ready
 
   ➜  API:       http://localhost:3002/
-  ➜  Studio:    http://localhost:3002/_studio/
+  ➜  Console:    http://localhost:3002/_console/
   ➜  Account:   http://localhost:3002/_account/
   ➜  Console:   http://localhost:3002/_console/
 ```
@@ -156,7 +156,7 @@ export const Task = ObjectSchema.create({
 保存。dev 服务器重新编译，你立刻就有了：
 
 - **`/api/v1/data/task`** —— 支持过滤/排序/分页的完整 CRUD
-- **Studio 中的 "Task" 视图** —— 列表、表单、详情，全部生成
+- **Console 中的 "Task" 视图** —— 列表、表单、详情，全部生成
 - **Console 中的权限行** —— 按角色授予读/写
 - **审计日志条目** —— 每次创建/更新/删除都被记录
 
@@ -196,7 +196,7 @@ pnpm dev    # http://localhost:4002
 
 无论哪条路径，都自动启用这 23 个插件：
 
-> Auth、Security（RBAC + RLS + FLS）、Audit、REST API、Studio UI、Account UI、Console UI、AI Service、Queue、Jobs、Cache、Settings、Email、Storage、Marketplace、Metadata、ObjectQL，外加 SQL 驱动。
+> Auth、Security（RBAC + RLS + FLS）、Audit、REST API、Console UI、Account UI、AI Service、Queue、Jobs、Cache、Settings、Email、Storage、Marketplace、Metadata、ObjectQL，外加 SQL 驱动。
 
 你无需 import 或接线任何一个 —— 当某处声明需要时它们就会激活。
 
