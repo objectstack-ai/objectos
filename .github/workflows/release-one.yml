@@ -32,6 +32,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: release-one
@@ -134,7 +135,20 @@ jobs:
           fi
           git tag -a "$TAG" -m "ObjectOS One v$VERSION"
           git push origin "$TAG"
-          echo "Pushed $TAG — the 'one' workflow will now build and draft the release."
+          echo "Pushed $TAG."
+
+      - name: Trigger one.yml build for the new tag
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        # A tag pushed by GITHUB_TOKEN does NOT trigger other workflows
+        # (GitHub's loop-prevention rule). Dispatch one.yml explicitly so
+        # the platform builds and draft release actually run.
+        run: |
+          set -euo pipefail
+          gh workflow run one.yml --ref "$TAG" -f release=true
+          echo "Dispatched one.yml for $TAG."
           echo "Watch it at: https://github.com/${GITHUB_REPOSITORY}/actions/workflows/one.yml"
 
       - name: Dry-run summary

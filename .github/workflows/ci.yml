@@ -17,6 +17,9 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm type-check
-      - run: pnpm build
-      - run: pnpm test
+      # Exclude @objectos/one (Tauri desktop app): it requires native GTK/WebKit
+      # system libraries and is built separately by .github/workflows/one.yml
+      # on platform-specific runners.
+      - run: pnpm turbo run type-check --continue --filter=!@objectos/one
+      - run: pnpm turbo run build --filter=!@objectos/one
+      - run: pnpm turbo run test --filter=!@objectos/one
