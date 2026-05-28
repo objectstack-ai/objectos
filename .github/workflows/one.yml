@@ -280,6 +280,7 @@ jobs:
             artifacts/**/*-setup.exe
             artifacts/**/*.msi
             artifacts/**/*.deb
+            artifacts/**/*.AppImage
             artifacts/**/*.app.tar.gz
             artifacts/**/*.nsis.zip
             artifacts/**/*.sig
