@@ -137,7 +137,38 @@ pub fn build_app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     )?;
 
     let reload_item = MenuItem::with_id(app, "reload", "Reload Page", true, Some("CmdOrCtrl+R"))?;
-    let view_submenu = Submenu::with_items(app, "View", true, &[&reload_item])?;
+    let fullscreen_item = PredefinedMenuItem::fullscreen(app, None)?;
+    let view_submenu =
+        Submenu::with_items(app, "View", true, &[&reload_item, &fullscreen_item])?;
+
+    // Standard Edit submenu — without this, ⌘C/⌘V/⌘X/⌘Z/⌘A stop working.
+    let edit_submenu = Submenu::with_items(
+        app,
+        "Edit",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, None)?,
+            &PredefinedMenuItem::redo(app, None)?,
+            &sep()?,
+            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::select_all(app, None)?,
+        ],
+    )?;
+
+    // Standard Window submenu — minimize / zoom / front.
+    let window_submenu = Submenu::with_items(
+        app,
+        "Window",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, None)?,
+            &PredefinedMenuItem::maximize(app, None)?,
+            &sep()?,
+            &PredefinedMenuItem::close_window(app, None)?,
+        ],
+    )?;
 
     let restart_item = MenuItem::with_id(app, "restart", "Restart Runtime", true, None::<&str>)?;
     let data_item = MenuItem::with_id(app, "data", "Open Data Folder", true, None::<&str>)?;
@@ -149,5 +180,14 @@ pub fn build_app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &[&restart_item, &data_item, &logs_item],
     )?;
 
-    Menu::with_items(app, &[&app_submenu, &view_submenu, &runtime_submenu])
+    Menu::with_items(
+        app,
+        &[
+            &app_submenu,
+            &edit_submenu,
+            &view_submenu,
+            &window_submenu,
+            &runtime_submenu,
+        ],
+    )
 }
