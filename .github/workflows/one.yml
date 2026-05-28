@@ -249,6 +249,7 @@ jobs:
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*-setup.exe
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis.zip
             apps/objectos-one/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.sig
