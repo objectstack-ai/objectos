@@ -11,18 +11,7 @@
   },
   "app": {
     "withGlobalTauri": true,
-    "windows": [
-      {
-        "title": "ObjectOS",
-        "width": 1280,
-        "height": 820,
-        "minWidth": 960,
-        "minHeight": 600,
-        "resizable": true,
-        "center": true,
-        "url": "index.html"
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }
@@ -35,7 +24,8 @@
       "app",
       "msi",
       "nsis",
-      "deb"
+      "deb",
+      "appimage"
     ],
     "icon": [
       "icons/32x32.png",

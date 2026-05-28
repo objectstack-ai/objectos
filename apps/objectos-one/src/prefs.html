@@ -194,6 +194,13 @@
         <button data-key="OBJECTOS_HOME" data-val="">OBJECTOS_HOME</button>
         <button data-key="LOG_LEVEL" data-val="debug">LOG_LEVEL</button>
       </div>
+
+      <div class="presets" style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line)">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="autostart" />
+          <span>Launch ObjectOS at login</span>
+        </label>
+      </div>
     </main>
     <footer>
       <span class="path" id="path"></span>
@@ -307,6 +314,21 @@
       };
 
       load().catch((e) => toast("Load failed: " + e, "err"));
+
+      const autostartEl = document.getElementById("autostart");
+      invoke("autostart_get")
+        .then((on) => (autostartEl.checked = !!on))
+        .catch(() => {});
+      autostartEl.addEventListener("change", async () => {
+        try {
+          const on = await invoke("autostart_set", { enabled: autostartEl.checked });
+          autostartEl.checked = !!on;
+          toast(on ? "Will launch at login" : "Login launch disabled", "ok");
+        } catch (e) {
+          toast("Autostart failed: " + e, "err");
+          autostartEl.checked = !autostartEl.checked;
+        }
+      });
     </script>
   </body>
 </html>

@@ -222,6 +222,24 @@ jobs:
           fi
           pnpm --filter @objectos/one tauri build --target ${{ matrix.target }}
 
+      - name: Rename macOS updater bundle (avoid name clash)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.target-arch }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          # Tauri names the macOS updater archive `ObjectOS.app.tar.gz` for
+          # both arm64 and x64 builds. Renaming includes the target so the
+          # GH release keeps both, and build-update-manifest.mjs can pick
+          # the correct one per platform key.
+          DIR="apps/objectos-one/src-tauri/target/$TARGET/release/bundle/macos"
+          if [ -f "$DIR/ObjectOS.app.tar.gz" ]; then
+            mv "$DIR/ObjectOS.app.tar.gz"     "$DIR/ObjectOS-$TARGET.app.tar.gz"
+            mv "$DIR/ObjectOS.app.tar.gz.sig" "$DIR/ObjectOS-$TARGET.app.tar.gz.sig"
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

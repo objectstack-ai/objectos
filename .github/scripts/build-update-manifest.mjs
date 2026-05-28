@@ -56,13 +56,9 @@ function platformEntry(bundle) {
   };
 }
 
-// Prefer updater archive; fall back to installer with sig alongside.
-const macArm =
-  pick((f) => /aarch64.*\.app\.tar\.gz$/.test(f)) ??
-  pick((f) => /arm64.*\.app\.tar\.gz$/.test(f));
-const macX64 =
-  pick((f) => /x86_64.*\.app\.tar\.gz$/.test(f)) ??
-  pick((f) => /x64.*\.app\.tar\.gz$/.test(f));
+// macOS: aarch64 only matches arm64; do NOT fall back to x64. Vice versa.
+const macArm = pick((f) => /aarch64.*\.app\.tar\.gz$/.test(f) || /arm64.*\.app\.tar\.gz$/.test(f));
+const macX64 = pick((f) => /x86_64.*\.app\.tar\.gz$/.test(f) || /x64.*\.app\.tar\.gz$/.test(f));
 const winX64 =
   pick((f) => /\.nsis\.zip$/.test(f)) ??
   pick((f) => /-setup\.exe$/.test(f) && !!pick((g) => g === `${f}.sig`));

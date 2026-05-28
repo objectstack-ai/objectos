@@ -86,6 +86,14 @@
         </div>
         <div id="upd-status" class="update-status"></div>
       </div>
+      <div id="fatal" class="update" hidden style="border-color:rgba(255,110,110,0.4);background:linear-gradient(135deg,rgba(255,110,110,0.14),rgba(255,110,110,0.04))">
+        <div class="update-title" id="fatal-title">Runtime failed to start</div>
+        <div class="update-body" id="fatal-body"></div>
+        <div class="update-actions">
+          <button id="fatal-logs" class="btn ghost">Reveal logs</button>
+          <button id="fatal-retry" class="btn primary">Retry</button>
+        </div>
+      </div>
       <div id="log" class="log"></div>
     </div>
     <script>
@@ -134,6 +142,20 @@
         });
         updLater.addEventListener('click', () => {
           updateBox.hidden = true;
+        });
+
+        const fatalBox = document.getElementById('fatal');
+        const fatalBody = document.getElementById('fatal-body');
+        event.listen('objectos://sidecar-fatal', (e) => {
+          fatalBody.textContent = String(e.payload || 'Unknown error');
+          fatalBox.hidden = false;
+        });
+        document.getElementById('fatal-logs').addEventListener('click', () => {
+          core.invoke('reveal_logs').catch((err) => append('reveal_logs failed: ' + err));
+        });
+        document.getElementById('fatal-retry').addEventListener('click', () => {
+          fatalBox.hidden = true;
+          core.invoke('restart_runtime').catch((err) => append('restart failed: ' + err));
         });
       } else {
         append('(Tauri bridge unavailable — running in plain browser)');
