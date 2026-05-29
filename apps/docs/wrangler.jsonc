@@ -15,6 +15,7 @@
     "enabled": true
   },
   "routes": [
-    { "pattern": "www.objectos.app", "custom_domain": true }
+    { "pattern": "www.objectos.app", "custom_domain": true },
+    { "pattern": "www.objectos.ai", "custom_domain": true }
   ]
 }
