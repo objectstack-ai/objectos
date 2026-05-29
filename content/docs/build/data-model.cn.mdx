@@ -1,0 +1,250 @@
+---
+title: 数据模型
+description: 对象、字段、关系、校验、索引 —— 描述给 AI，或者用 TypeScript 写。
+---
+
+# 数据模型
+
+数据模型是你应用的唯一事实来源。一旦对象存在,ObjectOS 就免费给你 REST API、Console 视图、RBAC 检查点、审计日志条目和 AI 工具暴露。
+
+**多数客户从不手写 Schema。**他们在 [AI Builder](/docs/build/ai-builder) 里描述他们想要的,平台就会创建对象、字段、索引与翻译。本页描述底层结构 —— 让你理解 AI 生成的内容，并在需要时直接编辑。
+
+## 编写路径
+
+| 路径 | 形态 |
+|---|---|
+| **AI Builder**(主推) | *"创建一个 `support_ticket` 对象，含 subject、description、priority、status、assignee。"* |
+| **Console 点选构建** | Console → Objects → New Object → 表单 |
+| **TypeScript(`*.object.ts`)** | 下面展示的 TS —— 通常在某个 fork 的[模板](/docs/build/templates)里 |
+
+三种方式产生同一份 Schema。Schema 是规范的;其他一切都从它派生。
+
+## 对象的解剖
+
+```ts
+// src/objects/task.ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Task = ObjectSchema.create({
+  name: 'todo_task',
+  label: 'Task',
+  pluralLabel: 'Tasks',
+  icon: 'check-square',
+  description: 'A single unit of work.',
+
+  fields: {
+    subject:     Field.text({ label: 'Subject', required: true, maxLength: 200 }),
+    description: Field.markdown({ label: 'Description' }),
+    status:      Field.select({
+      label: 'Status',
+      options: [
+        { label: 'To Do',       value: 'todo', default: true },
+        { label: 'In Progress', value: 'in_progress' },
+        { label: 'Done',        value: 'done' },
+      ],
+    }),
+    due:         Field.date({ label: 'Due' }),
+    assignee:    Field.lookup({ label: 'Assignee', reference: 'sys_user' }),
+  },
+
+  enable: {
+    trackHistory: true,    // 在审计日志里记录字段变更
+    apiEnabled: true,      // 暴露 REST 端点(默认 true)
+    feeds: true,           // chatter / 评论 / @提及
+  },
+});
+```
+
+在你的 stack 中注册它：
+
+```ts
+// objectstack.config.ts
+import { defineStack } from '@objectstack/spec';
+import * as objects from './src/objects';
+
+export default defineStack({
+  manifest: { id: 'my.app', namespace: 'myapp', version: '0.1.0', type: 'app', name: 'My App' },
+  objects: Object.values(objects),
+});
+```
+
+需要的就这些。`os dev` 重编译之后,`/api/v1/data/todo_task`、Console 的 Task 视图和 Console 的权限行就都出现了。
+
+## 字段类型
+
+ObjectStack 自带约 25 种字段类型。最常用的：
+
+### 标量
+
+| 类型 | 存什么 | Helper |
+|---|---|---|
+| `text` | 短字符串 | `Field.text({ maxLength, required })` |
+| `textarea` | 长字符串 | `Field.textarea(...)` |
+| `markdown` | Markdown 富文本 | `Field.markdown(...)` |
+| `number` | 整数 | `Field.number({ min, max })` |
+| `decimal` | 精确小数(金额等) | `Field.decimal({ precision, scale })` |
+| `boolean` | True/false | `Field.boolean({ defaultValue })` |
+| `date` | 日历日期 | `Field.date(...)` |
+| `datetime` | 时间戳 | `Field.datetime(...)` |
+| `email` | 经校验的邮箱 | `Field.email(...)` |
+| `url` | 经校验的 URL | `Field.url(...)` |
+| `phone` | 经校验的电话 | `Field.phone(...)` |
+| `json` | 任意 JSON | `Field.json(...)` |
+
+### 选项
+
+| 类型 | 用于 |
+|---|---|
+| `select` | 单选(枚举) |
+| `multiselect` | 多选 |
+
+### 关系
+
+| 类型 | 基数 | Helper |
+|---|---|---|
+| `lookup` | 一对多(外键) | `Field.lookup({ reference: 'sys_user' })` |
+| `masterDetail` | 一对多并级联删除 | `Field.masterDetail({ reference: 'order' })` |
+
+### 文件与媒体
+
+| 类型 | 存什么 |
+|---|---|
+| `attachment` | 通过存储服务保存的一个文件 |
+| `image` | 带预览的图片附件 |
+
+### 计算 / 派生
+
+| 类型 | 行为 |
+|---|---|
+| `formula` | 读时按 CEL 表达式计算 |
+| `rollup` | 关联记录的聚合(sum/count/avg) |
+| `autoNumber` | 序列号(`INV-{000001}`) |
+| `created`、`lastModified` | 系统维护的时间戳 |
+| `createdBy`、`lastModifiedBy` | 系统维护的用户引用 |
+
+## required / unique / 默认值
+
+每个标量字段通用的修饰符：
+
+```ts
+Field.text({
+  label: 'Code',
+  required: true,
+  unique: true,          // 数据库层强制唯一约束
+  defaultValue: '',
+  helpText: 'Internal short code',
+})
+```
+
+## 校验
+
+内联：
+
+```ts
+Field.number({ label: 'Quantity', min: 1, max: 9999 })
+Field.text({ label: 'SKU', pattern: '^[A-Z]{3}-[0-9]{4}$' })
+```
+
+对象级规则(跨字段)：
+
+```ts
+ObjectSchema.create({
+  name: 'order',
+  fields: { /* ... */ },
+  validations: [
+    {
+      name: 'discount_lt_total',
+      message: 'Discount cannot exceed total',
+      condition: 'discount < total',
+    },
+  ],
+});
+```
+
+校验对每次写入都执行 —— REST、Console、ObjectQL —— 没有"后门"。
+
+## 索引与性能
+
+```ts
+ObjectSchema.create({
+  name: 'order',
+  fields: { /* ... */ },
+  indexes: [
+    { fields: ['status', 'created_at'] },
+    { fields: ['account', 'created_at'], unique: false },
+  ],
+});
+```
+
+驱动在 Schema 同步时创建真实的数据库索引。
+
+## 字段分组
+
+针对长表单,在 Console 里把字段分组：
+
+```ts
+ObjectSchema.create({
+  name: 'task',
+  fieldGroups: [
+    { key: 'core',     label: 'Task',     icon: 'check-square' },
+    { key: 'planning', label: 'Planning', icon: 'calendar' },
+    { key: 'meta',     label: 'Metadata', icon: 'info', defaultExpanded: false },
+  ],
+  fields: {
+    subject: Field.text({ label: 'Subject', group: 'core' }),
+    due:     Field.date({ label: 'Due',     group: 'planning' }),
+  },
+});
+```
+
+## 生命周期与所有权
+
+```ts
+ObjectSchema.create({
+  name: 'task',
+  ownership: 'own',          // 'own' | 'shared' | 'system'
+  enable: {
+    apiEnabled: true,         // 生成 REST 端点
+    trackHistory: true,       // 字段变更审计日志
+    feeds: true,              // sys_comment / sys_activity / @提及
+    softDelete: true,         // 软删除而非硬删除
+  },
+});
+```
+
+## 系统对象(每个项目免费自带)
+
+这些你不必声明 —— 它们一直都在：
+
+| 对象 | 是什么 |
+|---|---|
+| `sys_user` | 用户账户 |
+| `sys_org` | 组织 / 租户 |
+| `sys_member` | 组织成员关系 |
+| `sys_role`、`sys_permission_set` | RBAC 原语 |
+| `sys_audit_log` | 审计轨迹(加载审计能力时) |
+| `sys_file`、`sys_attachment` | 文件元数据(加载存储能力时) |
+| `sys_comment`、`sys_activity` | Feed / chatter(加载 feed 能力时) |
+| `sys_session`、`sys_api_key` | 认证产物 |
+| `sys_webhook`、`sys_webhook_delivery` | Webhook 订阅(启用时) |
+
+在 `lookup` 字段中按名称引用它们 —— 如 `Field.lookup({ reference: 'sys_user' })`。
+
+## 多态平台特性
+
+当你启用 `feeds: true` 与 `trackHistory: true`,你的对象就自动加入：
+
+- `sys_comment`(thread_id = `<object>:<id>`)
+- `sys_attachment`(parent_object = `<object>`,parent_id = `<id>`)
+- `sys_activity`(时间线)
+- `sys_audit_log`(字段级 diff)
+
+你不必为每个对象单独接线 —— 它们在平台上是多态的。
+
+## 下一步
+
+- [Permissions](/docs/configure/permissions) —— 给对象访问开闸
+- [Flows / Automation](/docs/build/flows) —— 对记录变更做出反应
+- [API Access](/docs/configure/api-access) —— 调用生成的 REST
+- [`os explain`](/docs/reference/cli) —— 打印渲染后的 Schema
+- [`@objectstack/spec` 源码](https://github.com/objectstack-ai/framework/tree/main/packages/spec) —— Schema 即契约;此处的一切都从它派生

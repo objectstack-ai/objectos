@@ -10,7 +10,7 @@
  * Supports: en (English), cn (Chinese / 中文)
  */
 
-import { SPEC_VERSION } from './version';
+import { SPEC_VERSION, OBJECTOS_VERSION } from './version';
 
 export interface HomepageTranslations {
   // Hero Section
@@ -36,6 +36,12 @@ export interface HomepageTranslations {
     quickStart: {
       label: string;
       commands: string[];
+    };
+    trustStrip: {
+      license: string;
+      selfHosted: string;
+      version: string;
+      runtime: string;
     };
   };
 
@@ -200,6 +206,12 @@ export const en: HomepageTranslations = {
         'os start',
       ],
     },
+    trustStrip: {
+      license: 'MIT licensed',
+      selfHosted: 'Self-hosted',
+      version: OBJECTOS_VERSION,
+      runtime: 'Docker · Kubernetes · Air-gapped',
+    },
   },
   features: {
     selfHosted: {
@@ -348,6 +360,12 @@ export const cn: HomepageTranslations = {
         'npm i -g @objectstack/cli',
         'os start',
       ],
+    },
+    trustStrip: {
+      license: 'MIT 开源',
+      selfHosted: '私有部署',
+      version: OBJECTOS_VERSION,
+      runtime: 'Docker · Kubernetes · 离线',
     },
   },
   features: {

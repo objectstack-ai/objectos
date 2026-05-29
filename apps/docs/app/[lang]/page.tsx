@@ -125,6 +125,7 @@ export default async function HomePage({
             subtitle={t.hero.subtitle}
             cta={t.hero.cta}
             quickStart={t.hero.quickStart}
+            trustStrip={t.hero.trustStrip}
           />
           <CodePreview t={t.agentPreview} />
         </section>

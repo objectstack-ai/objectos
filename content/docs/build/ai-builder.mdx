@@ -1,0 +1,183 @@
+---
+title: AI Builder
+description: The in-Console chat that turns plain-language requirements into running metadata.
+---
+
+# AI Builder
+
+The AI Builder is the **primary way customers extend ObjectOS**. Open
+Console, talk to the assistant in plain language, and it builds the
+metadata for you — packages, objects, fields, actions, flows. Every
+change is queued in a Human-in-the-Loop (HITL) approval list before it
+goes live.
+
+## Try it in 30 seconds
+
+```
+You: I need to track customer support tickets.
+     Each ticket has a subject, description, priority (low/medium/high/urgent),
+     status (new/open/pending/resolved/closed), and assignee.
+
+AI:  I'll create that for you. Here's the plan:
+     • Create package `com.you.support` (v0.1.0)
+     • Create object `support_ticket` with 5 fields
+     • Add a kanban view grouped by status
+     • Add 3 permission sets: agent, manager, viewer
+
+     Approve? [Yes] [Modify] [Cancel]
+
+You: [Yes]
+
+AI:  ✓ Package created
+     ✓ Object created with 5 fields and 12 indexes
+     ✓ Kanban view registered
+     ✓ Permission sets created
+     Done. Try it: /support_ticket
+```
+
+You now have a working ticketing app — REST endpoints, Console views,
+audit log entries, permission checkpoints, the works. No file was
+edited; no restart happened.
+
+## What the AI can do
+
+The assistant has access to **11 built-in metadata tools**, all
+namespaced and validated against `@objectstack/spec`:
+
+| Category | Tool | What it does |
+|---|---|---|
+| **Packages** | `create_package` | New container with manifest + version |
+| | `list_packages` | Browse existing packages |
+| | `get_package` / `get_active_package` | Inspect contents |
+| | `set_active_package` | Pick the working package for the conversation |
+| **Objects** | `create_object` | New object with initial fields |
+| | `list_objects` | Browse objects in active package |
+| | `describe_object` | Print schema, fields, relationships |
+| **Fields** | `add_field` | Add a typed field (25 types supported) |
+| | `modify_field` | Change label, picklist options, validation |
+| | `delete_field` | Remove a field (with safety check) |
+| **Data** | `query_data` | Read records via ObjectQL |
+| **Actions / Knowledge** | `*_action`, `search_knowledge` | Invoke actions, RAG over docs |
+
+Plus action tools materialized from every declared `*.action.ts` —
+named `action_<name>` — so once an action exists in the package,
+the AI can call it like any built-in tool.
+
+See the full tool catalog at runtime: `GET /api/v1/ai/tools`.
+
+## Human-in-the-Loop approval
+
+Tool calls that **mutate metadata** route through a pending-action
+queue. Approving operators see the proposed change diff before
+clicking *Approve*.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET  /api/v1/ai/pending-actions` | List queued actions (filter by status) |
+| `GET  /api/v1/ai/pending-actions/:id` | Diff for a single proposed action |
+| `POST /api/v1/ai/pending-actions/:id/approve` | Apply the change |
+| `POST /api/v1/ai/pending-actions/:id/reject` | Discard with reason |
+
+Required permissions:
+
+| Action | Permission |
+|---|---|
+| Read queue | `ai:read` |
+| Approve / reject | `ai:approve` |
+
+Default: only members of **Setup Administrator** have `ai:approve`.
+You can decompose finer in [Permission Sets](/docs/configure/permissions/permission-sets) — e.g.
+"product owners can approve in `com.acme.crm`, nobody else."
+
+The queue is auditable: every approve/reject lands in
+`sys_audit_log` with the originating conversation id.
+
+## Conversations and context
+
+Each chat is a `sys_ai_conversation` record. The platform tracks:
+
+- **Active package** — set by `set_active_package`. New objects /
+  fields land here.
+- **Skills** — the slice of tools available for the current context
+  (e.g. inside `support_ticket` detail page, the AI may have
+  `support_ticket`-scoped skills enabled).
+- **Knowledge** — RAG topics + indexes attached to the conversation.
+
+```text
+POST /api/v1/ai/assistant/chat
+{
+  "messages": [{ "role": "user", "content": "Add a tags field to support_ticket" }],
+  "context":  { "objectName": "support_ticket", "recordId": "tkt_123" }
+}
+```
+
+The platform resolves the default Agent for the active application,
+filters the skill set by context, and lets the LLM pick which tool to
+call. You don't pre-wire agents into specific UIs — the agent attaches
+itself based on metadata.
+
+## What you can ask for
+
+Verified patterns, with one-liner prompts:
+
+| Goal | Prompt |
+|---|---|
+| New object | *"Create a `product` object with name, sku, price, category."* |
+| Add field | *"Add a `discount` decimal field to `order`, max 50."* |
+| Picklist change | *"On `task.status`, add 'blocked' between 'open' and 'done'."* |
+| Index | *"Index `order` by status + created_at for the dashboard."* |
+| Relationship | *"Make `order_line` master-detail to `order`."* |
+| Validation | *"On `invoice`, the discount can't exceed the subtotal."* |
+| Flow | *"When a high-priority ticket sits in 'new' for 30 minutes, notify the manager."* |
+| Action | *"Create an action `approve_invoice` that sets status to approved."* |
+| Permission set | *"Create `agent` permission set with read/create/edit on support_ticket and read on customer."* |
+| Translation | *"Translate the support_ticket labels and picklists to Spanish."* |
+
+If the AI can't do it, it says so — and points you at the manual path
+(usually a 30-line `*.ts` file or a Console form).
+
+## Live preview
+
+After each approved change, Console re-renders the affected views in
+place. No reload needed. The kernel cache invalidates the touched
+package; subsequent requests use the new metadata.
+
+## Roll back
+
+Pending-action records keep the **before state**. If a change goes
+wrong, reject any in-flight items and ask the AI:
+
+```
+You: Roll back the last 3 changes to support_ticket.
+AI:  Found 3 mutations from conversation conv_abc (3 minutes ago).
+     Restoring 'support_ticket' to its state at 13:42:11.
+     Approve? [Yes]
+```
+
+For larger rollbacks, use [`os diff`](/docs/reference/cli) against
+your last known-good artifact and apply the reverse diff.
+
+## Limitations (today)
+
+- **The assistant is read-only on customer data by default.** It can
+  query records but cannot insert/update/delete unless given the
+  `ai:write_data` permission. Most customers leave this off.
+- **Cross-package mutations require explicit confirmation.** Asking
+  the AI to modify a system package (`sys_*`) returns a rejection
+  message — the platform refuses on principle.
+- **Long-running multi-step plans** (e.g. "build a full HR app from
+  scratch") work but are best done as a series of smaller
+  conversations, each landing one or two objects.
+
+## Going beyond build-time AI
+
+The same AI plumbing powers **runtime agents** for your end users —
+support assistants, sales co-pilots, internal Q&A bots — built on
+the same Agent → Skill → Tool architecture. See [Agents](/docs/build/agents).
+
+## Where to go next
+
+- [Agents](/docs/build/agents) — end-user assistants on top of your data
+- [Data Model](/docs/build/data-model) — what the AI is actually generating
+- [Actions](/docs/build/actions) — the unit the AI exposes as runtime tools
+- [AI Service](/docs/configure/ai) — provider config (OpenAI / Anthropic / Doubao / …)

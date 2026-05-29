@@ -1,0 +1,192 @@
+---
+title: Actions
+description: Named operations the platform exposes as REST endpoints, Console buttons, flow steps, and AI tools — from one declaration.
+---
+
+# Actions
+
+An **Action** is a named operation on an object. Declare it once and
+it appears as:
+
+- a **REST endpoint** at `/api/v1/data/<object>/actions/<action>`
+- a **button** in Console's record detail
+- a **flow step** (`type: 'action'`) for automation
+- an **AI tool** (`action_<name>`) for Agents and the AI Builder
+
+You don't repeat yourself across four surfaces. One declaration; four
+ways to call it.
+
+## Declare an action
+
+```ts
+// src/actions/approve_invoice.action.ts
+import { defineAction, Field } from '@objectstack/spec';
+
+export const approveInvoice = defineAction({
+  name: 'approve_invoice',
+  label: 'Approve Invoice',
+  object: 'invoice',
+  description: 'Mark the invoice approved and stamp the approver.',
+  icon: 'check',
+
+  inputs: {
+    note: Field.textarea({ label: 'Approval note' }),
+  },
+
+  // who can invoke this
+  permissions: {
+    requires: ['allowEdit'],          // object-level
+    condition: 'record.status == "pending"',
+  },
+
+  // what it does — declarative, no JS required
+  steps: [
+    {
+      type: 'update',
+      record: '{!record.id}',
+      fields: {
+        status:       'approved',
+        approved_by:  '{!user.id}',
+        approved_at:  '{!now()}',
+        approval_note: '{!inputs.note}',
+      },
+    },
+  ],
+});
+```
+
+That's the whole file. After `os dev` recompiles:
+
+- `POST /api/v1/data/invoice/actions/approve_invoice` works
+- The Invoice record page in Console shows an **Approve Invoice** button
+- A flow can include `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }`
+- The AI assistant can call `action_approve_invoice` if its skills allow
+
+## Three flavors
+
+| Flavor | What runs | Use for |
+|---|---|---|
+| **Declarative** (`steps:`) | DSL — update/create/delete/query/action/condition/foreach | Most cases — auditable + AI-callable |
+| **Script** (`script:`) | TypeScript function, executes server-side | Cross-system logic, complex transforms |
+| **External** (`webhook:`) | HTTP POST to your endpoint | Delegating to your own service |
+
+```ts
+// script flavor
+defineAction({
+  name: 'archive_old_orders',
+  object: 'order',
+  script: async ({ ctx, record, inputs }) => {
+    await ctx.data.update('order', record.id, { archived_at: new Date() });
+    return { ok: true };
+  },
+});
+```
+
+Whichever flavor, the action is the same first-class citizen on every
+surface.
+
+## Calling an action
+
+### REST
+
+```bash
+curl -X POST https://app.example.com/api/v1/data/invoice/actions/approve_invoice \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"recordId": "inv_123", "inputs": {"note": "LGTM"}}'
+```
+
+Returns the updated record (for declarative actions) or your handler's
+return value (for script actions).
+
+### Console
+
+By default, Console shows actions as buttons on the record detail page,
+filtered by the action's `permissions.condition`. Override placement
+in your view config:
+
+```ts
+defineView({
+  name: 'invoice_detail',
+  object: 'invoice',
+  actions: ['approve_invoice', 'reject_invoice', 'send_to_customer'],
+});
+```
+
+### From a flow
+
+```ts
+{
+  type: 'action',
+  action: 'approve_invoice',
+  inputs: { note: 'Auto-approved by SLA flow' },
+  record: '{!trigger.record.id}',
+}
+```
+
+### From an AI Agent
+
+If `approve_invoice` is in any skill the agent has, the LLM can call
+it. Inputs come from the conversation; permissions are enforced as if
+the user invoked it directly.
+
+> *"Approve invoice INV-2042 with note 'verified by phone.'"*
+
+## Permissions
+
+Every action runs as the calling user — never as a service account.
+The platform checks:
+
+1. **Object permission** — the `requires:` flags (`allowEdit`,
+   `allowCreate`, …) on the user's permission set.
+2. **Action gate** — the action's `permissions.condition` (a CEL
+   expression evaluated against the record, the user, and inputs).
+3. **Field permissions** — for any field the action writes, the user
+   must have write access.
+
+Failed checks return `403 Forbidden` with a structured error explaining
+which check failed.
+
+## Built-in actions
+
+Every object gets these for free:
+
+| Action | What it does |
+|---|---|
+| `create` | Insert a record |
+| `update` | Update a record |
+| `delete` | Delete (or soft-delete) a record |
+| `restore` | Undo a soft-delete |
+| `clone` | Deep-copy a record |
+| `share` | Direct share with a user / role |
+
+Don't redeclare these — extend behavior via [hooks](/docs/build/data-model#field-types).
+
+## Auditing
+
+Every action invocation lands in `sys_audit_log` with:
+
+- the originating user
+- the action name + inputs (with secret fields redacted)
+- the record id (if any)
+- success / failure + error
+- timing
+- the originating surface (`rest` / `studio` / `flow` / `ai`)
+
+This is your first stop for *"who pushed the button?"* questions.
+
+## Generating actions with the AI Builder
+
+> *"Create an action `escalate_ticket` on `support_ticket` that sets
+> priority to urgent and assigns it to the on-call engineer."*
+
+The AI calls `create_action` (a metadata tool) and queues the change
+for approval. After approval, the action is callable from REST,
+Console, flows, and — recursively — the AI itself.
+
+## Where to go next
+
+- [Flows](/docs/build/flows) — compose multiple actions into business logic
+- [Agents](/docs/build/agents) — expose actions as AI tools
+- [API Access](/docs/configure/api-access) — call actions from external systems
+- [Permissions](/docs/configure/permissions) — gate who can call what

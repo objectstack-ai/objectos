@@ -1,0 +1,144 @@
+---
+title: Packages
+description: ObjectOS 的组织单元 —— 带版本、可安装、可分享。
+---
+
+# Packages
+
+你在 ObjectOS 里构建的一切都活在一个 **package** 里：一个带版本、自包含的元数据包。Package 是 AI Builder 工作的单元、是 Marketplace 分发的单元、也是 ObjectOS 跟踪更新的单元。
+
+## Package 里有什么
+
+```text
+com.acme.crm@1.2.0
+├── manifest          id、version、namespace、dependencies
+├── objects/          *.object.ts、*.state.ts、*.hook.ts
+├── views/            *.view.ts、*.page.ts、*.form.ts
+├── actions/          *.action.ts
+├── flows/            *.flow.ts、*.approval.ts
+├── agents/           *.agent.ts、*.skill.ts
+├── permissions/      *.profile.ts
+├── sharing/          *.sharing.ts
+├── translations/     en.ts、zh-CN.ts、...
+├── apps/             *.app.ts  (navigation)
+└── data/             defineDataset(...) 种子数据
+```
+
+每个元数据产物(对象、Action、Flow……)都精确属于一个 package。Package id 用**反向 DNS**(`com.acme.crm`、`org.mycompany.helpdesk`),命名空间前缀(`crm_`、`hd_`)防止安装在同一租户里的多个 package 之间表名/对象名冲突。
+
+## 创建 package
+
+### 通过 AI Builder
+
+> *"为我们的内部 CRM 起一个新 package，命名空间 `crm`。"*
+
+AI 会调用 `create_package` 与 `set_active_package`。从那以后,你描述的每个对象 / 字段 / Action 都落在 `crm` 里。
+
+### 通过 CLI
+
+```bash
+os init my-crm -t app --install
+cd my-crm
+# manifest 在 ./objectstack.manifest.json
+pnpm dev
+```
+
+### 通过 Console
+
+**Console → Packages → New Package** —— 名称、id、版本、命名空间。
+
+## 当前 package
+
+一次会话、一次 CLI 会话、一个 Console 管理视图各自携带一个**当前 package** —— 新元数据的默认容器。切换方式：
+
+| 表面 | 怎么切 |
+|---|---|
+| AI Builder | *"切到 `com.acme.helpdesk`。"*(工具 `set_active_package`) |
+| CLI | `os package use com.acme.helpdesk` |
+| Console | 顶栏 package 切换器 |
+| REST | `X-Package-Id: com.acme.helpdesk` 请求头 |
+
+## 版本管理
+
+Package 遵循 **semver**。规则与 runtime 相同 —— 见 [Changelog & Versioning](/docs/resources/changelog)。
+
+升一个版本号在发布之前什么都不会改变。Runtime 按租户、按 package 跟踪 `installed_version`,当目录中有更新版本时,Marketplace 会展示 *"Update available"* 标记。
+
+## 依赖
+
+Package 可以依赖其他 package：
+
+```json
+{
+  "id": "com.acme.helpdesk",
+  "version": "0.3.0",
+  "dependencies": {
+    "com.acme.crm": "^1.0.0",
+    "sys.feeds":   "*"
+  }
+}
+```
+
+Runtime 在安装时解析依赖。如果 `com.acme.crm` 没装,helpdesk 的安装会以清晰错误失败。
+
+系统 package(`sys.*`)永远存在 —— feeds、attachments、audit、identity 等等。
+
+## 发布
+
+```bash
+os compile                     # → dist/objectstack.json
+os package publish             # → 配置好的注册表
+```
+
+发布到 `OS_PACKAGE_REGISTRY` 指向的注册表(默认是 ObjectStack 公共目录)。私有 / 气隙场景,自己跑一个注册表,把这个环境变量指过去。见 [Marketplace](/docs/build/marketplace)。
+
+## 安装
+
+| 路径 | 方式 |
+|---|---|
+| Console | Marketplace 标签 → 选 package → Install |
+| CLI | `os package install com.acme.helpdesk@^0.3.0` |
+| REST | `POST /api/v1/marketplace/install` |
+| 气隙 | 把 `dist/objectstack.json` 丢进本地目录 |
+
+安装会把 package 的元数据合并进运行中的 kernel,把对象注册到 ObjectQL,并在首次安装时灌入初始数据。无需重启。
+
+## 卸载
+
+卸载会把 package 标记为已移除,并反注册其对象。默认数据是**保留**的(可重装继续用)。传 `--drop-data` 删掉表。
+
+## 跨 package 约定
+
+为了避免多个 package 共存时碰撞：
+
+| 产物 | 约定 |
+|---|---|
+| 对象名 | 一律加前缀：`crm_account`、`hd_ticket` |
+| Action 名 | 加前缀：`crm_assign_owner`、`hd_close_ticket` |
+| Flow 名 | 加前缀：`hd_overdue_alert` |
+| 翻译键 | 按命名空间作域：`crm.account.label` |
+| 种子 `externalId` | `<prefix>:<key>`,如 `crm:demo-account-1` |
+| 系统名 | 保留：`sys_*`(自定义 package 中绝不可用) |
+
+CLI 和 AI Builder 在创建时都会强制执行这些约定。
+
+## 系统 packages
+
+Runtime 自带少量始终存在的 package,提供多态服务：
+
+| Package | 提供 |
+|---|---|
+| `sys.identity` | `sys_user`、`sys_org`、`sys_member`、session、API key |
+| `sys.feeds` | `sys_comment`、`sys_activity`、`sys_attachment` |
+| `sys.audit` | `sys_audit_log` |
+| `sys.files` | `sys_file` |
+| `sys.ai` | `sys_ai_conversation`、`sys_ai_pending_action` |
+| `sys.settings` | `sys_setting` |
+
+你通过对象上的 `enable: { feeds: true, trackHistory: true, … }` 启用 —— 见 [Data Model](/docs/build/data-model)。
+
+## 下一步
+
+- [Marketplace](/docs/build/marketplace) —— 把 package 分发到其他租户
+- [Data Model](/docs/build/data-model) —— package 里面装什么
+- [`os package` 命令](/docs/reference/cli) —— 完整 CLI 参考

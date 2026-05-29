@@ -1,0 +1,125 @@
+---
+title: Marketplace
+description: Install ready-made apps into a running ObjectOS without writing code.
+---
+
+# Marketplace
+
+The ObjectOS marketplace lets you install pre-built apps into a running
+runtime — no build step, no restart, no source checkout. It's the
+fastest way to put real software in front of users on day one.
+
+## How it works
+
+Every ObjectOS runtime ships with the `MarketplaceProxy` and
+`MarketplaceInstallLocal` plugins enabled by default. When you open
+Console (`/_console/`), the marketplace tab queries the configured app
+catalog and shows installable apps.
+
+```text
+You ─→ Console ─→ Marketplace tab ─→ pick app ─→ Install
+                                                  ↓
+                                       Artifact merged into kernel
+                                                  ↓
+                                       Console re-renders with new
+                                       objects / views / permissions
+                                                  ↓
+                                       Done — no restart
+```
+
+## Catalogs
+
+| Catalog | Source | When to use |
+|---|---|---|
+| **Default** | Pre-bundled with the runtime image | First-time eval, demos, offline |
+| **ObjectStack public catalog** | Public app registry | Latest community + first-party apps |
+| **Private catalog** | Your own published artifacts | Internal apps you don't want public |
+| **Local** | Files mounted into the runtime | Air-gapped, custom builds |
+
+The catalog source is configured via the marketplace plugin or env
+vars; see [Runtime Configuration](/docs/configure/runtime).
+
+## What's in the default catalog
+
+These apps are ready to install with one click in Console:
+
+| App | What it gives you |
+|---|---|
+| **Todo** | Universal task and project tracker |
+| **Contracts** | Contract lifecycle (CLM) with AI clause extraction |
+| **Procurement** | Vendors, purchase orders, 3-way match |
+| **Compliance** | SOC 2 / ISO 27001 controls + evidence collection |
+| **Helpdesk** | AI-first customer support ticketing |
+| **Content** | Editorial calendar + channel ROI |
+| **HR** | Directory, org chart, time-off |
+| **Project** | Project / task / milestone tracking |
+
+Source is at
+[github.com/objectstack-ai/templates](https://github.com/objectstack-ai/templates) —
+clone any of them as a starting point for a custom app.
+
+## Install flow
+
+1. **Open Console** — http://localhost:3000/_console/
+2. **Sign in** — if no account exists yet, register one at `/_account/register`
+3. **Navigate to the marketplace tab**
+4. **Pick an app, click Install**
+5. **Reload Console** — the new app's objects, views, and apps appear
+
+Behind the scenes, the marketplace fetches the app's compiled artifact,
+merges it into the running kernel, and registers its objects with
+ObjectQL. Seed data (if the app defines it) is inserted on first
+install.
+
+## Uninstall
+
+From Console → Marketplace → installed app → Uninstall. The app's
+objects are removed from the kernel and its tables are marked for
+cleanup (data is retained by default; you choose whether to drop
+tables).
+
+## Publishing your own app
+
+Anything you build with `os init` can become a marketplace app.
+
+```bash
+os init my-app -t app --install
+cd my-app
+# ... write objects, views, etc. ...
+os compile                                    # → dist/objectstack.json
+os package publish                            # publish to a catalog
+```
+
+To publish to the public catalog, you'll need a registry account
+(`os login`). To publish to a private catalog, point `OS_PACKAGE_REGISTRY`
+at your own.
+
+## Versioning
+
+Every published app is immutable. Updates produce a new version. The
+runtime tracks installed version + available updates per app. Users see
+an "Update available" badge in Console when a new version is published
+to a catalog they're tracking.
+
+## Permissions
+
+Installing apps requires the `manage_marketplace` system permission —
+by default only members of the **Setup Administrator** permission set
+have it. Regular users see the marketplace as read-only.
+
+## Air-gapped marketplaces
+
+For deployments without internet egress, run a local catalog server
+inside your network and point ObjectOS at it. See
+[Air-gapped](/docs/deploy/air-gapped) for the topology.
+
+## What the marketplace is not
+
+- **Not a code distribution channel.** Published apps are compiled
+  artifacts — they describe data + UI + flows declaratively. They
+  don't ship arbitrary JavaScript.
+- **Not a sandbox.** An installed app has the same access to your
+  database as anything else in the kernel — review the artifact before
+  installing apps from untrusted sources.
+- **Not a payment platform** (yet). Apps in the public catalog are
+  free Apache-2.0. Commercial / paid distribution is on the roadmap.

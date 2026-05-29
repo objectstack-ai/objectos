@@ -1,0 +1,179 @@
+---
+title: Agents
+description: End-user AI assistants — Agent → Skill → Tool — wired from your data and actions.
+---
+
+# Agents
+
+Agents are the AI assistants your **end users** chat with — a help
+desk co-pilot, a sales BDR, an internal HR Q&A bot. They sit on top of
+the data and actions you've already defined; you don't write new code,
+you compose existing primitives into a persona.
+
+Three-tier architecture, aligned with Salesforce Agentforce, Microsoft
+Copilot Console, and ServiceNow Now Assist:
+
+```text
+Agent  ──→  Skill  ──→  Tool
+(persona)   (capability)  (callable function)
+```
+
+| Tier | What it is | Example |
+|---|---|---|
+| **Tool** | One callable function (action, query, knowledge search, MCP method) | `create_ticket`, `get_order_status`, `search_kb` |
+| **Skill** | A named bundle of related tools with shared LLM instructions | `ticket_management` = create + update + close + escalate |
+| **Agent** | A persona with a role, system prompt, attached skills, and knowledge | `tier1_support` = empathetic, verifies identity, has `ticket_management` + `kb_search` |
+
+## Define an Agent (one file)
+
+```ts
+// src/agents/tier1_support.agent.ts
+import { defineAgent } from '@objectstack/spec/ai';
+
+export const tier1Support = defineAgent({
+  name: 'tier1_support',
+  label: 'First Line Support',
+  role: 'Help Desk Assistant',
+  instructions: `
+    You are a friendly first-line support agent.
+    Always verify the user's identity before discussing account specifics.
+    Escalate to tier 2 if the issue involves billing or security.
+  `,
+  skills: ['ticket_management', 'knowledge_search'],
+  knowledge: {
+    topics:  ['faq', 'policies'],
+    indexes: ['support_docs'],
+  },
+  model: 'smart',           // resolved against the AI service's model map
+  memory: { strategy: 'rolling', maxMessages: 30 },
+});
+```
+
+Or in Console: **Console → Agents → New Agent**.
+
+Or — and this is the point — say to the AI Builder:
+
+> *"Create a tier-1 support agent that handles ticket management and
+> searches the FAQ. It should verify identity before discussing
+> account details."*
+
+## Define a Skill
+
+```ts
+// src/skills/ticket_management.skill.ts
+import { defineSkill } from '@objectstack/spec/ai';
+
+export const ticketManagement = defineSkill({
+  name: 'ticket_management',
+  label: 'Ticket Management',
+  instructions: `
+    Always confirm the ticket subject and priority before creating one.
+    Use 'urgent' priority sparingly — only for outages or security incidents.
+  `,
+  tools: [
+    'create_ticket',
+    'update_ticket',
+    'close_ticket',
+    'escalate_ticket',
+    'action_*',         // wildcard: pick up any future actions on the active object
+  ],
+});
+```
+
+Skills are **the right unit for reuse**. One skill works across many
+agents.
+
+## Tools come from your declared metadata
+
+Every `*.action.ts` you declare automatically materializes as an
+`action_<name>` tool — no separate wiring. So if you've already
+defined `escalate_ticket` as an Action on the `support_ticket` object,
+both the AI Builder and your Agents can call it. Permissions still
+apply: the agent calls the action **as the user**, so the user's
+permission set decides whether it succeeds.
+
+You can also expose:
+
+| Tool type | Source |
+|---|---|
+| **Action** | Any `*.action.ts` in any installed package |
+| **Flow** | Any manual flow (`type: 'manual'`) |
+| **Query** | Saved ObjectQL queries (`*.query.ts`) |
+| **Knowledge search** | Any knowledge index attached to the agent |
+| **MCP method** | Anything exposed by an attached MCP server |
+| **Built-in metadata tools** | `create_object`, `add_field`, … — but only to admin agents |
+
+## Ambient assistant pattern
+
+If you want **one chat box for the whole app** (Claude Code /
+Agentforce style) instead of forcing the user to pick an agent, use
+the assistant endpoints:
+
+```text
+GET  /api/v1/ai/assistant         resolve the default agent for the current context
+GET  /api/v1/ai/assistant/skills  list skills active for the current context
+POST /api/v1/ai/assistant/chat    send a message — the LLM picks the tool
+```
+
+Console's built-in AI panel uses these. The runtime resolves:
+
+1. The **default agent** for the active app (declared on the App
+   metadata), or the first agent the user has access to.
+2. The **active skills** — filtered by user permission set, current
+   object/record context, and the agent's `skills:` list.
+3. The **knowledge** attached to the agent.
+
+You don't have to wire which agent is shown where. Declare an app,
+mark one of its agents as default, and it appears.
+
+## Permissions
+
+| Capability | Permission |
+|---|---|
+| Chat with an agent | `ai:chat` (and access to the agent's skills' tools) |
+| Approve metadata changes | `ai:approve` |
+| Define / edit agents and skills | `ai:author` (typically Setup Administrator) |
+| Read AI conversations (audit) | `ai:read` |
+
+Conversations are scoped to the user — one user can't see another's
+chat history unless they have a delegated grant.
+
+## Memory and conversation state
+
+| Strategy | What it does |
+|---|---|
+| `rolling` (default) | Keep last N messages in the prompt |
+| `summary` | Summarize older turns into a system note |
+| `none` | Stateless — every turn starts fresh |
+| `custom` | Provide your own memory plugin |
+
+Conversation rows live in `sys_ai_conversation`. Tool-call results
+and pending actions cross-reference back to the originating
+conversation for audit.
+
+## Observability
+
+Every agent run emits:
+
+- `audit:ai:chat` events (per turn)
+- `audit:ai:tool` events (per tool call, with inputs + outputs)
+- `audit:ai:pending_action` events (when a mutation queues)
+- token-count metrics (per model, per provider) into the audit log
+  for chargeback
+
+You can wire these into your usual observability stack — see
+[Observability](/docs/operate/observability).
+
+## Multi-tenant note
+
+Agents are per-Environment. Tenant A's `tier1_support` agent never
+sees tenant B's data, conversations, or knowledge — even if you ship
+the same agent definition in a marketplace package.
+
+## Where to go next
+
+- [AI Builder](/docs/build/ai-builder) — the build-time assistant
+- [IDE Skills](/docs/build/ai-skills) — `npx skills add objectstack-ai/framework` so your IDE agent authors metadata correctly
+- [Actions](/docs/build/actions) — declare the tools your agents will use
+- [AI Service](/docs/configure/ai) — provider, embedder, MCP setup
+- [`@objectstack/spec/ai`](https://github.com/objectstack-ai/framework/tree/main/packages/spec/src/ai) — full schemas

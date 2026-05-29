@@ -1,0 +1,168 @@
+---
+title: Packages
+description: The unit of organization in ObjectOS — versioned, installable, shareable.
+---
+
+# Packages
+
+Everything you build in ObjectOS lives in a **package**: a versioned,
+self-contained bundle of metadata. Packages are the unit the AI
+Builder works on, the unit the marketplace ships, and the unit
+ObjectOS tracks updates against.
+
+## What's in a package
+
+```text
+com.acme.crm@1.2.0
+├── manifest          id, version, namespace, dependencies
+├── objects/          *.object.ts, *.state.ts, *.hook.ts
+├── views/            *.view.ts, *.page.ts, *.form.ts
+├── actions/          *.action.ts
+├── flows/            *.flow.ts, *.approval.ts
+├── agents/           *.agent.ts, *.skill.ts
+├── permissions/      *.profile.ts
+├── sharing/          *.sharing.ts
+├── translations/     en.ts, zh-CN.ts, ...
+├── apps/             *.app.ts  (navigation)
+└── data/             defineDataset(...) seed
+```
+
+Every metadata artifact (object, action, flow, …) belongs to exactly
+one package. The package id is **reverse-DNS** (`com.acme.crm`,
+`org.mycompany.helpdesk`) and the namespace prefix (`crm_`, `hd_`)
+keeps table / object names from colliding across packages installed
+in the same tenant.
+
+## Creating a package
+
+### From the AI Builder
+
+> *"Start a new package for our internal CRM, namespace `crm`."*
+
+The AI calls `create_package` and `set_active_package`. From then on,
+every object / field / action you describe lands in `crm`.
+
+### From the CLI
+
+```bash
+os init my-crm -t app --install
+cd my-crm
+# manifest is at ./objectstack.manifest.json
+pnpm dev
+```
+
+### From Console
+
+**Console → Packages → New Package** — name, id, version, namespace.
+
+## Active package
+
+A conversation, a CLI session, and a Console admin view each carry an
+**active package** — the default container for new metadata. Switch
+with:
+
+| Surface | How |
+|---|---|
+| AI Builder | *"Switch to `com.acme.helpdesk`."* (tool `set_active_package`) |
+| CLI | `os package use com.acme.helpdesk` |
+| Console | Top-bar package switcher |
+| REST | `X-Package-Id: com.acme.helpdesk` header |
+
+## Versioning
+
+Packages are **semver**. Same rules as the runtime — see
+[Changelog & Versioning](/docs/resources/changelog).
+
+Bumping a version doesn't change anything until you publish. The
+runtime tracks `installed_version` per tenant per package, and the
+marketplace shows an *"Update available"* badge when the catalog has
+a newer version.
+
+## Dependencies
+
+Packages can depend on other packages:
+
+```json
+{
+  "id": "com.acme.helpdesk",
+  "version": "0.3.0",
+  "dependencies": {
+    "com.acme.crm": "^1.0.0",
+    "sys.feeds":   "*"
+  }
+}
+```
+
+The runtime resolves dependencies on install. If `com.acme.crm`
+isn't installed, the helpdesk install fails with a clear error.
+
+System packages (`sys.*`) are always present — feeds, attachments,
+audit, identity, etc.
+
+## Publishing
+
+```bash
+os compile                     # → dist/objectstack.json
+os package publish             # → configured registry
+```
+
+Publishes to the registry at `OS_PACKAGE_REGISTRY` (default: the
+ObjectStack public catalog). For private / air-gapped, run your own
+registry and point that env var at it. See [Marketplace](/docs/build/marketplace).
+
+## Installing
+
+| Path | How |
+|---|---|
+| Console | Marketplace tab → pick package → Install |
+| CLI | `os package install com.acme.helpdesk@^0.3.0` |
+| REST | `POST /api/v1/marketplace/install` |
+| Air-gapped | Drop `dist/objectstack.json` in the local catalog dir |
+
+Install merges the package's metadata into the live kernel, registers
+its objects with ObjectQL, and seeds initial data on first install.
+No restart.
+
+## Uninstalling
+
+Uninstalling marks the package as removed and unregisters its
+objects. By default, data is **kept** (you can re-install and resume).
+Pass `--drop-data` to drop the tables.
+
+## Cross-package conventions
+
+To prevent collisions when many packages coexist:
+
+| Artifact | Convention |
+|---|---|
+| Object names | Always prefixed: `crm_account`, `hd_ticket` |
+| Action names | Prefixed: `crm_assign_owner`, `hd_close_ticket` |
+| Flow names | Prefixed: `hd_overdue_alert` |
+| Translation keys | Scoped under the namespace: `crm.account.label` |
+| Seed `externalId` | `<prefix>:<key>`, e.g. `crm:demo-account-1` |
+| System names | Reserved: `sys_*` (never use in custom packages) |
+
+The CLI and the AI Builder both enforce this on creation.
+
+## System packages
+
+The runtime ships a small set of always-present packages that provide
+polymorphic services:
+
+| Package | Provides |
+|---|---|
+| `sys.identity` | `sys_user`, `sys_org`, `sys_member`, sessions, API keys |
+| `sys.feeds` | `sys_comment`, `sys_activity`, `sys_attachment` |
+| `sys.audit` | `sys_audit_log` |
+| `sys.files` | `sys_file` |
+| `sys.ai` | `sys_ai_conversation`, `sys_ai_pending_action` |
+| `sys.settings` | `sys_setting` |
+
+You enable them via `enable: { feeds: true, trackHistory: true, … }`
+on your objects — see [Data Model](/docs/build/data-model).
+
+## Where to go next
+
+- [Marketplace](/docs/build/marketplace) — distribute packages to other tenants
+- [Data Model](/docs/build/data-model) — what goes inside a package
+- [`os package` commands](/docs/reference/cli) — full CLI reference

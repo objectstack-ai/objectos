@@ -1,0 +1,5 @@
+{
+  "title": "构建",
+  "defaultOpen": false,
+  "pages": ["index", "ai-builder", "ai-skills", "packages", "data-model", "views", "actions", "flows", "agents", "templates", "marketplace"]
+}

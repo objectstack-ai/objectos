@@ -1,0 +1,176 @@
+---
+title: Actions
+description: 平台以 REST 端点、Console 按钮、流程步骤和 AI 工具的形式暴露的命名操作 —— 一处声明即可。
+---
+
+# Actions
+
+**Action** 是对象上的一个命名操作。声明一次,它就会作为：
+
+- 一个 **REST 端点** `/api/v1/data/<object>/actions/<action>`
+- Console 记录详情页上的一个 **按钮**
+- 一个 **流程步骤**（`type: 'action'`）用于自动化
+- 一个 **AI 工具**（`action_<name>`）供 Agent 和 AI Builder 调用
+
+你不必在四种表面之间重复自己。一处声明;四种调用方式。
+
+## 声明一个 Action
+
+```ts
+// src/actions/approve_invoice.action.ts
+import { defineAction, Field } from '@objectstack/spec';
+
+export const approveInvoice = defineAction({
+  name: 'approve_invoice',
+  label: 'Approve Invoice',
+  object: 'invoice',
+  description: 'Mark the invoice approved and stamp the approver.',
+  icon: 'check',
+
+  inputs: {
+    note: Field.textarea({ label: 'Approval note' }),
+  },
+
+  // 谁能调用
+  permissions: {
+    requires: ['allowEdit'],          // 对象级
+    condition: 'record.status == "pending"',
+  },
+
+  // 它做什么 —— 声明式，不需要 JS
+  steps: [
+    {
+      type: 'update',
+      record: '{!record.id}',
+      fields: {
+        status:       'approved',
+        approved_by:  '{!user.id}',
+        approved_at:  '{!now()}',
+        approval_note: '{!inputs.note}',
+      },
+    },
+  ],
+});
+```
+
+整个文件就这些。`os dev` 重编译之后：
+
+- `POST /api/v1/data/invoice/actions/approve_invoice` 可用
+- Console 里 Invoice 记录页出现一个 **Approve Invoice** 按钮
+- 流程可以包含 `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }`
+- 若 Skill 允许，AI 助手可以调用 `action_approve_invoice`
+
+## 三种风味
+
+| 风味 | 跑什么 | 用于 |
+|---|---|---|
+| **声明式**（`steps:`） | DSL —— update/create/delete/query/action/condition/foreach | 多数场景 —— 可审计 + AI 可调 |
+| **脚本**（`script:`） | TypeScript 函数,服务端执行 | 跨系统逻辑、复杂变换 |
+| **外部**（`webhook:`） | HTTP POST 到你的端点 | 委托给你自己的服务 |
+
+```ts
+// 脚本风味
+defineAction({
+  name: 'archive_old_orders',
+  object: 'order',
+  script: async ({ ctx, record, inputs }) => {
+    await ctx.data.update('order', record.id, { archived_at: new Date() });
+    return { ok: true };
+  },
+});
+```
+
+不论哪种风味，Action 在所有表面都是同样的一等公民。
+
+## 调用一个 Action
+
+### REST
+
+```bash
+curl -X POST https://app.example.com/api/v1/data/invoice/actions/approve_invoice \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"recordId": "inv_123", "inputs": {"note": "LGTM"}}'
+```
+
+返回更新后的记录（声明式 Action）或你的处理函数的返回值（脚本 Action）。
+
+### Console
+
+默认情况下，Console 把 Action 显示为记录详情页上的按钮，按 Action 的 `permissions.condition` 过滤。在视图配置中覆盖位置：
+
+```ts
+defineView({
+  name: 'invoice_detail',
+  object: 'invoice',
+  actions: ['approve_invoice', 'reject_invoice', 'send_to_customer'],
+});
+```
+
+### 从流程
+
+```ts
+{
+  type: 'action',
+  action: 'approve_invoice',
+  inputs: { note: 'Auto-approved by SLA flow' },
+  record: '{!trigger.record.id}',
+}
+```
+
+### 从 AI Agent
+
+如果 `approve_invoice` 在 Agent 的某个 Skill 里,LLM 就能调它。输入来自对话;权限照样按用户本人直接调用来执行。
+
+> *"批准发票 INV-2042，备注 'verified by phone.'"*
+
+## 权限
+
+每个 Action 以发起调用的用户身份运行 —— 永远不是服务账号。平台检查：
+
+1. **对象权限** —— 用户权限集上的 `requires:` 标志（`allowEdit`、`allowCreate`…）。
+2. **Action 闸门** —— Action 的 `permissions.condition`（针对记录、用户、输入求值的 CEL 表达式）。
+3. **字段权限** —— Action 写入的任何字段，用户必须有写权限。
+
+校验失败返回 `403 Forbidden` 及结构化错误，说明哪个检查失败。
+
+## 内置 Action
+
+每个对象天生就有：
+
+| Action | 作用 |
+|---|---|
+| `create` | 插入一条记录 |
+| `update` | 更新一条记录 |
+| `delete` | 删除（或软删除）一条记录 |
+| `restore` | 恢复软删除 |
+| `clone` | 深拷贝一条记录 |
+| `share` | 直接与用户/角色分享 |
+
+不要重复声明这些 —— 通过 [Hook](/docs/build/data-model#field-types) 扩展行为。
+
+## 审计
+
+每次 Action 调用都落到 `sys_audit_log`，含：
+
+- 发起用户
+- Action 名称 + 输入（敏感字段脱敏）
+- 记录 id（如有）
+- 成功 / 失败 + 错误
+- 时序
+- 发起表面（`rest` / `studio` / `flow` / `ai`）
+
+这是"谁按了按钮?"这类问题的首要查询入口。
+
+## 用 AI Builder 生成 Action
+
+> *"在 `support_ticket` 上创建一个 `escalate_ticket` Action，把优先级设为紧急，并指派给值班工程师。"*
+
+AI 会调 `create_action`（元数据工具）并把变更入审批队列。批准后，该 Action 可从 REST、Console、流程，以及——递归地——AI 自己调用。
+
+## 下一步
+
+- [Flows](/docs/build/flows) —— 把多个 Action 组合为业务逻辑
+- [Agents](/docs/build/agents) —— 把 Action 作为 AI 工具暴露
+- [API Access](/docs/configure/api-access) —— 从外部系统调用 Action
+- [Permissions](/docs/configure/permissions) —— 控制谁能调用什么

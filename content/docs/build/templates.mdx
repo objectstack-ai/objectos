@@ -1,0 +1,106 @@
+---
+title: Templates
+description: Forkable starter packages — `todo`, `contracts`, `procurement`, `helpdesk`, and more.
+---
+
+# Templates
+
+Templates are **forkable starter packages**. Each one is a real,
+shaped app that you can install from the marketplace in one click, or
+clone with the CLI to get a TypeScript codebase to extend.
+
+Templates exist for two reasons:
+
+1. **Show, don't tell** — a working multi-object app reads faster than
+   docs.
+2. **Give engineering teams a starting point** — when you want code
+   under source control, not just AI-generated metadata in your DB.
+
+## What ships in the default catalog
+
+| Template | Domain | Forkable starter for… |
+|---|---|---|
+| **`todo`** | Tasks & projects | Any "things to do, grouped somehow" tool |
+| **`contracts`** | CLM with AI clause extraction | Approvals + document AI |
+| **`procurement`** | Vendors, POs, 3-way match | Approval chains + receiving |
+| **`compliance`** | SOC 2 / ISO 27001 controls | Evidence collection workflows |
+| **`helpdesk`** | AI-first customer support | Tickets + SLAs + AI co-pilot |
+| **`content`** | Editorial calendar + channel ROI | Lifecycle + metrics |
+| **`hr`** | Directory, org chart, time-off | People-centric apps |
+| **`project`** | Project / task / milestone tracking | PM tools |
+
+Source: [github.com/objectstack-ai/templates](https://github.com/objectstack-ai/templates).
+Apache-2.0. Fork without asking.
+
+## Install in 30 seconds (zero code)
+
+In Console:
+
+1. Open **Marketplace** → search for the template.
+2. Click **Install**.
+3. Refresh — the new app shows up in your nav.
+
+Done. Records, views, flows, permissions — all live.
+
+## Fork as a codebase (for engineers)
+
+```bash
+pnpm dlx @objectstack/cli create my-app --template todo
+cd my-app
+pnpm install
+pnpm dev          # http://localhost:4002
+```
+
+The clone is a self-contained pnpm package — `*.object.ts`,
+`*.view.ts`, `*.flow.ts` files you can edit, lint, test, commit. When
+you're happy:
+
+```bash
+pnpm build
+os package publish   # → your marketplace
+```
+
+Customers installing your fork get **your** brand and **your**
+modifications.
+
+## Template charter (the social contract)
+
+Every template ships a `CHARTER.md` declaring its scope and hard
+limits — typically: ≤ 6 business objects, ≤ 2,500 LOC under `src/`,
+one app, one default locale. The charter exists so templates stay
+**templates**, not half-finished products. If a fork grows past these
+limits, ship it as a new template, don't bloat an existing one.
+
+See the upstream [TEMPLATE_GUIDE.md](https://github.com/objectstack-ai/templates/blob/main/TEMPLATE_GUIDE.md)
+for the file-suffix protocol (`*.object.ts`, `*.state.ts`, `*.hook.ts`, …),
+the authoring sequence (objects → state → hooks → views → flows → …),
+and the polymorphic platform services (`sys_comment`, `sys_attachment`,
+`sys_audit_log`) that you should reuse instead of reinventing.
+
+## Pick a starting point
+
+| If you're building… | Fork this | Why |
+|---|---|---|
+| Any internal tool that tracks "stuff" | `todo` | Smallest, cleanest demonstration of all primitives |
+| Anything with approval chains | `procurement` or `contracts` | Real approval processes wired up |
+| Anything customer-facing with AI | `helpdesk` | Agent + ticket co-pilot pattern |
+| A regulated-industry workflow | `compliance` | Audit + evidence + control mapping |
+| A people / org-chart app | `hr` | Directory + reporting structure |
+
+## AI Builder + templates together
+
+You can fork a template and **still** use the AI Builder on top of it.
+Install `helpdesk`, then say:
+
+> *"Add a `csat_score` integer field to `hd_ticket`, range 1–5, ask
+> for it on close."*
+
+The AI extends the installed package in-place. Push the change up to
+the source repo with `os package export`.
+
+## Where to go next
+
+- [AI Builder](/docs/build/ai-builder) — extend any template by chat
+- [Packages](/docs/build/packages) — what a template actually is
+- [Marketplace](/docs/build/marketplace) — distribute your fork
+- [Quickstart](/docs/quickstart) — full end-to-end of the developer path

@@ -1,0 +1,155 @@
+---
+title: Agents
+description: 终端用户的 AI 助手 —— Agent → Skill → Tool —— 直接由你的数据和 Action 接线而成。
+---
+
+# Agents
+
+Agent 是你的**终端用户**对话的 AI 助手 —— 工单台副驾、销售 BDR、内部 HR 问答机器人。它们坐在你已经定义好的数据和 Action 之上;你不必再写新代码，只需把已有原语组合成一个角色人设。
+
+三层架构,对齐 Salesforce Agentforce、Microsoft Copilot Console 与 ServiceNow Now Assist：
+
+```text
+Agent  ──→  Skill  ──→  Tool
+(persona)   (capability)  (callable function)
+```
+
+| 层级 | 是什么 | 例子 |
+|---|---|---|
+| **Tool** | 单个可调用函数(action、查询、知识搜索、MCP 方法) | `create_ticket`、`get_order_status`、`search_kb` |
+| **Skill** | 一组相关工具的命名集合,共享 LLM 指令 | `ticket_management` = create + update + close + escalate |
+| **Agent** | 带角色、系统提示、所附 Skill 和知识的人设 | `tier1_support` = 有同理心、会核验身份、拥有 `ticket_management` + `kb_search` |
+
+## 定义一个 Agent(一个文件)
+
+```ts
+// src/agents/tier1_support.agent.ts
+import { defineAgent } from '@objectstack/spec/ai';
+
+export const tier1Support = defineAgent({
+  name: 'tier1_support',
+  label: 'First Line Support',
+  role: 'Help Desk Assistant',
+  instructions: `
+    You are a friendly first-line support agent.
+    Always verify the user's identity before discussing account specifics.
+    Escalate to tier 2 if the issue involves billing or security.
+  `,
+  skills: ['ticket_management', 'knowledge_search'],
+  knowledge: {
+    topics:  ['faq', 'policies'],
+    indexes: ['support_docs'],
+  },
+  model: 'smart',           // 在 AI 服务的模型映射中解析
+  memory: { strategy: 'rolling', maxMessages: 30 },
+});
+```
+
+或者在 Console 中：**Console → Agents → New Agent**。
+
+又或者 —— 这才是重点 —— 对 AI Builder 说：
+
+> *"创建一个一线支持 Agent，处理工单管理并搜索 FAQ。讨论账户细节前应核验身份。"*
+
+## 定义一个 Skill
+
+```ts
+// src/skills/ticket_management.skill.ts
+import { defineSkill } from '@objectstack/spec/ai';
+
+export const ticketManagement = defineSkill({
+  name: 'ticket_management',
+  label: 'Ticket Management',
+  instructions: `
+    Always confirm the ticket subject and priority before creating one.
+    Use 'urgent' priority sparingly — only for outages or security incidents.
+  `,
+  tools: [
+    'create_ticket',
+    'update_ticket',
+    'close_ticket',
+    'escalate_ticket',
+    'action_*',         // 通配符：获取当前对象上未来任何 Action
+  ],
+});
+```
+
+Skill 是**最适合复用的单元**。一个 Skill 可服务多个 Agent。
+
+## Tool 来自你声明的元数据
+
+你声明的每个 `*.action.ts` 都会自动物化为一个 `action_<name>` 工具 —— 无需另外接线。所以如果你已经在 `support_ticket` 对象上定义了 `escalate_ticket` Action，AI Builder 和你的 Agent 都能调用它。权限仍然生效：Agent **以用户身份**调用该 Action，能否成功由用户的权限集决定。
+
+你还可以暴露：
+
+| 工具类型 | 来源 |
+|---|---|
+| **Action** | 已安装任何包中的任何 `*.action.ts` |
+| **Flow** | 任何手动流程(`type: 'manual'`) |
+| **Query** | 保存的 ObjectQL 查询(`*.query.ts`) |
+| **Knowledge search** | 附加到 Agent 的任意知识索引 |
+| **MCP 方法** | 接入的 MCP 服务器所暴露的任何方法 |
+| **内置元数据工具** | `create_object`、`add_field`…—— 仅对管理员 Agent 开放 |
+
+## 环境助手模式
+
+如果你想要**整个应用一个聊天框**(Claude Code / Agentforce 风格)，而不是强迫用户挑选 Agent，使用 assistant 端点：
+
+```text
+GET  /api/v1/ai/assistant         为当前上下文解析默认 Agent
+GET  /api/v1/ai/assistant/skills  列出当前上下文激活的 Skill
+POST /api/v1/ai/assistant/chat    发消息 —— 由 LLM 挑工具
+```
+
+Console 内置的 AI 面板用的就是这些。运行时会解析：
+
+1. 当前 App 的**默认 Agent**(声明在 App 元数据上)，否则是用户能访问的第一个 Agent。
+2. **激活的 Skill** —— 按用户权限集、当前对象/记录上下文、Agent 的 `skills:` 列表过滤。
+3. 附加到该 Agent 的**知识**。
+
+你不必接线"哪里展示哪个 Agent"。声明一个 App，把其中一个 Agent 标为默认，它就会出现。
+
+## 权限
+
+| 能力 | 权限 |
+|---|---|
+| 与 Agent 对话 | `ai:chat`(并对该 Agent 的 Skill 所含工具有权限) |
+| 审批元数据变更 | `ai:approve` |
+| 定义 / 编辑 Agent 和 Skill | `ai:author`(通常是 Setup Administrator) |
+| 读取 AI 对话(审计) | `ai:read` |
+
+对话以用户为粒度作用域 —— 用户之间互相看不见对话记录，除非有委托授权。
+
+## 记忆与会话状态
+
+| 策略 | 作用 |
+|---|---|
+| `rolling`(默认) | 在提示中保留最近 N 条消息 |
+| `summary` | 把更早的轮次摘要为一条系统注释 |
+| `none` | 无状态 —— 每轮都从零开始 |
+| `custom` | 提供你自己的记忆插件 |
+
+会话记录存于 `sys_ai_conversation`。工具调用结果与待执行的 Action 都反向引用其原始会话以便审计。
+
+## 可观测性
+
+每次 Agent 运行都会发出：
+
+- `audit:ai:chat` 事件(每轮一条)
+- `audit:ai:tool` 事件(每次工具调用，含输入 + 输出)
+- `audit:ai:pending_action` 事件(变更入队时)
+- token 计数指标(按模型、按供应商)进入审计日志，用于成本分摊
+
+你可以把这些接入你常用的可观测性栈 —— 见 [Observability](/docs/operate/observability)。
+
+## 多租户说明
+
+Agent 是 Environment 级的。租户 A 的 `tier1_support` Agent 永远看不到租户 B 的数据、对话或知识 —— 即便你在应用市场包里发的是同一份 Agent 定义。
+
+## 下一步
+
+- [AI Builder](/docs/build/ai-builder) —— 构建期助手
+- [IDE Skills](/docs/build/ai-skills) —— `npx skills add objectstack-ai/framework`，让你的 IDE Agent 正确编写元数据
+- [Actions](/docs/build/actions) —— 声明你的 Agent 将使用的工具
+- [AI Service](/docs/configure/ai) —— 供应商、嵌入器、MCP 配置
+- [`@objectstack/spec/ai`](https://github.com/objectstack-ai/framework/tree/main/packages/spec/src/ai) —— 完整 Schema

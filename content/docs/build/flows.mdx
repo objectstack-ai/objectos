@@ -1,0 +1,237 @@
+---
+title: Flows & Automation
+description: Declarative business logic — described to AI or written in TypeScript, the runtime executes the same artifact either way.
+---
+
+# Flows & Automation
+
+Flows are how you express business logic without writing a server.
+Every flow is declarative metadata that the runtime executes — same
+as objects and views. That means flows show up in `os diff`, the
+audit log, Console's flow builder, and the [AI Builder](/docs/build/ai-builder)
+all at once.
+
+Most customers create flows by asking the AI:
+
+> *"When a high-priority ticket sits in 'new' for 30 minutes, notify
+> the manager on Slack."*
+
+The AI generates the flow below. This page describes the shape so you
+can read and edit it.
+
+Enable the capability in your stack:
+
+```ts
+export default defineStack({
+  // ...
+  requires: ['automation'],
+});
+```
+
+## Three flow types
+
+| Type | Triggered by | Use for |
+|---|---|---|
+| **Autolaunched** | A record change (insert/update/delete) | "Send welcome email when user registers" |
+| **Scheduled** | Cron expression or interval | "Mark stale tasks every night at 2am" |
+| **Manual** | User clicks a button in Console, or an API call | "Approve invoice" actions |
+
+## Autolaunched: react to a record change
+
+```ts
+// src/flows/welcome_email.ts
+import { defineFlow } from '@objectstack/spec';
+
+export const welcomeEmail = defineFlow({
+  name: 'welcome_email',
+  type: 'autolaunched',
+  trigger: {
+    object: 'sys_user',
+    when: 'after_insert',
+  },
+  steps: [
+    {
+      type: 'action',
+      action: 'send_email',
+      inputs: {
+        to:      '{!trigger.record.email}',
+        subject: 'Welcome to {!org.name}',
+        body:    'Hi {!trigger.record.name}, welcome aboard.',
+      },
+    },
+  ],
+});
+```
+
+Variable interpolation: `{!trigger.record.<field>}`, `{!org.<field>}`,
+`{!user.<field>}`, `{!step.<step-name>.output}`. Use CEL expressions in
+`condition:` blocks.
+
+Trigger timing:
+
+| `when` | Fires |
+|---|---|
+| `before_insert` | Inside the write transaction, before INSERT |
+| `after_insert` | After commit |
+| `before_update` | Inside the write transaction, before UPDATE |
+| `after_update` | After commit |
+| `before_delete` | Inside the write transaction, before DELETE |
+| `after_delete` | After commit |
+
+`before_*` flows can mutate the record being written (compute fields,
+normalize data). `after_*` flows run async and can call slow external
+services.
+
+## Scheduled: run on a clock
+
+```ts
+export const nightlyCleanup = defineFlow({
+  name: 'nightly_cleanup',
+  type: 'scheduled',
+  schedule: { cron: '0 2 * * *', timezone: 'America/New_York' },
+  steps: [
+    {
+      type: 'query',
+      query: { object: 'task', filter: 'status:open AND due_lt:now()' },
+      output: 'stale',
+    },
+    {
+      type: 'foreach',
+      items: '{!step.stale}',
+      do: [
+        { type: 'update', record: '{!item.id}', fields: { status: 'overdue' } },
+      ],
+    },
+  ],
+});
+```
+
+Backed by the `@objectstack/service-job` capability — see
+[Runtime Capabilities](/docs/reference/runtime-capabilities).
+
+## Manual: actions and approvals
+
+```ts
+export const approveInvoice = defineFlow({
+  name: 'approve_invoice',
+  type: 'manual',
+  inputs: {
+    invoice_id: { type: 'lookup', reference: 'invoice', required: true },
+    note:       { type: 'textarea' },
+  },
+  steps: [
+    {
+      type: 'update',
+      record: '{!inputs.invoice_id}',
+      fields: { status: 'approved', approved_by: '{!user.id}' },
+    },
+  ],
+});
+```
+
+Surface it in Console as a button on the Invoice view, or call it via
+REST:
+
+```bash
+curl -X POST https://app.example.com/api/v1/data/invoice/actions/approve_invoice \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"inputs": {"invoice_id": "inv_123", "note": "OK"}}'
+```
+
+## Step types
+
+| Step | Purpose |
+|---|---|
+| `query` | Read records via ObjectQL |
+| `create` / `update` / `delete` | Write to objects |
+| `action` | Invoke a built-in or plugin-registered action (email, webhook, AI call, …) |
+| `condition` | Branch on a CEL expression |
+| `foreach` | Iterate over a collection |
+| `parallel` | Run sub-steps concurrently |
+| `wait` | Pause for duration / until timestamp / until condition |
+| `subflow` | Call another flow |
+| `approval` | Block until a user approves (requires `@objectstack/plugin-approvals`) |
+
+## Conditions and branches
+
+```ts
+{
+  type: 'condition',
+  when: 'trigger.record.amount > 10000',
+  then: [
+    { type: 'action', action: 'send_slack', inputs: { /* ... */ } },
+  ],
+  else: [
+    { type: 'update', record: '{!trigger.record.id}', fields: { status: 'auto_approved' } },
+  ],
+}
+```
+
+## Error handling
+
+Each step accepts:
+
+```ts
+{
+  type: 'action',
+  action: 'send_email',
+  inputs: { /* ... */ },
+  retry: { attempts: 3, backoffMs: 1000, multiplier: 2 },
+  onError: 'continue' | 'fail' | 'rollback',
+}
+```
+
+For autolaunched `before_*` flows, `onError: 'fail'` (default) aborts
+the originating write transaction. For `after_*` flows, the originating
+write is already committed; failed flow runs land in the job retry
+queue.
+
+## Formulas and expressions (CEL)
+
+Conditions, dynamic field values, and filter expressions all accept
+**CEL** (Common Expression Language) — Google's language for safe
+expression evaluation:
+
+```ts
+'amount > 10000 && account.tier == "enterprise"'
+'duration(now() - created_at) > duration("30d")'
+'has(record.notes) && record.notes != ""'
+```
+
+CEL is sandboxed (no side effects, no I/O), evaluated server-side, and
+auditable in the flow builder.
+
+## Visual builder
+
+Console ships a visual flow builder that round-trips with the
+declarative metadata — non-engineers can edit a flow, and it serializes
+back to the same shape as the TypeScript you'd hand-author.
+
+## Testing flows
+
+```bash
+os test --scenario "welcome email fires on signup"
+```
+
+## Limits & best practices
+
+- **Keep before-hooks small.** They block the write transaction.
+- **Use `wait` instead of long-running steps.** A flow that sleeps
+  blocks a worker; a `wait until` returns the worker to the pool.
+- **Use `parallel` for independent steps.** Sequential execution is
+  the default.
+- **Idempotency matters.** Retries can run the same step twice;
+  external side effects should dedupe (use the flow run id as the key).
+- **Audit-sensitive actions.** Flows that change permissions or
+  delete records should themselves log to `sys_audit_log`.
+
+## Where to go next
+
+- [Webhooks](/docs/configure/webhooks) — outbound notifications, often
+  triggered from flows
+- [Email](/docs/configure/email) — the `send_email` action's transport
+- [AI Service](/docs/configure/ai) — `ai_call` action for LLM steps
+- [API Access](/docs/configure/api-access) — invoke manual flows from
+  external systems
+- [@objectstack/service-automation](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-automation)
+  — source for the execution engine

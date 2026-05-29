@@ -1,0 +1,239 @@
+---
+title: Views
+description: List, Form, Kanban, Calendar, Gantt and more — how every object surface in Console is declared.
+---
+
+# Views
+
+A **view** is how a user sees and edits records in Console. Views are
+declarative metadata — same lifecycle as objects: declare them once,
+ship them with your package, render anywhere.
+
+Two kinds:
+
+- **List views** — visualise many records (grid, kanban, calendar, …)
+- **Form views** — view / edit a single record (simple, tabbed,
+  wizard, …)
+
+Schema source:
+[`packages/spec/src/ui/view.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/ui/view.zod.ts).
+
+## The shortest possible declaration
+
+Every object automatically gets a default grid list + simple form even
+if you declare no views. Add `view` to override or extend:
+
+```ts
+import { defineObject, F, P } from '@objectstack/spec'
+
+export default defineObject({
+  name: 'support_ticket',
+  fields: [ /* ... */ ],
+
+  view: {
+    list: { type: 'grid', columns: ['subject', 'status', 'priority', 'assignee'] },
+    form: { sections: [ { label: 'Details', fields: ['subject','description','priority','status','assignee'] } ] }
+  }
+})
+```
+
+For multi-view objects (e.g. a Kanban *and* a calendar over the same
+data) use the named variants:
+
+```ts
+view: {
+  listViews: {
+    by_status:  { type: 'kanban',   kanban:   { groupByField: 'status' }, columns: ['subject','priority'] },
+    schedule:   { type: 'calendar', calendar: { startDateField: 'due_at', titleField: 'subject' } },
+    by_owner:   { type: 'grid', columns: ['subject','status','priority'], filterableFields: ['assignee'] }
+  },
+  formViews: {
+    quick:    { type: 'modal',  sections: [ /* ... */ ] },
+    full:     { type: 'tabbed', sections: [ /* ... */ ] }
+  }
+}
+```
+
+## List view types
+
+| `type` | Renders | Required config |
+|:--|:--|:--|
+| `grid` | Data table (default) | `columns` |
+| `kanban` | Board with columns | `kanban: { groupByField }` |
+| `gallery` | Card deck | `gallery: { imageField, titleField }` |
+| `calendar` | Month / week / day | `calendar: { startDateField, titleField }` |
+| `timeline` | Chronological feed | `timeline: { dateField, titleField }` |
+| `gantt` | Project timeline + dependencies | `gantt: { startDateField, endDateField, titleField }` |
+| `map` | Geospatial pins | `map: { locationField }` |
+| `chart` | Embedded chart | `chart: { chartType, xAxisField, yAxisFields }` |
+
+### Common list options
+
+```ts
+{
+  type: 'grid',
+  columns: ['subject','status','priority','assignee','created_at'],
+
+  filter: [ { field: 'archived', operator: '$eq', value: false } ],
+  sort:   [ { field: 'created_at', order: 'desc' } ],
+  pagination: { pageSize: 25, mode: 'cursor' },         // 'cursor' | 'offset'
+  expand: ['assignee'],
+  searchableFields:   ['subject','description'],
+  filterableFields:   ['status','priority','assignee'],
+
+  navigation: { mode: 'drawer' },                       // 'page' | 'drawer' | 'modal' | 'split' | 'popover' | 'new_window' | 'none'
+  selection:  { type: 'multiple' },                     // 'none' | 'single' | 'multiple'
+
+  rowActions:  ['close_ticket','assign_to_me'],
+  bulkActions: ['bulk_close','bulk_export'],
+
+  conditionalFormatting: [
+    { condition: P`record.priority == 'urgent'`, style: { background: '#fef2f2', fontWeight: 600 } }
+  ],
+
+  exportOptions: ['csv','xlsx'],
+  emptyState:   { title: 'No tickets yet', message: 'Create one to get started', icon: 'inbox' }
+}
+```
+
+`filter` and `sort` compile to [ObjectQL](/docs/reference/objectql);
+`rowActions` and `bulkActions` reference [actions](./actions) by name.
+
+### Kanban
+
+```ts
+{
+  type: 'kanban',
+  columns: ['subject','priority','assignee'],
+  kanban: {
+    groupByField: 'status',                  // discrete field — usually a select
+    summarizeField: 'amount',                // optional total per column
+    columns: [                               // explicit order + colour
+      { value: 'new',      label: 'New',      color: '#3b82f6' },
+      { value: 'open',     label: 'Open',     color: '#f59e0b' },
+      { value: 'resolved', label: 'Resolved', color: '#10b981' }
+    ]
+  }
+}
+```
+
+Drag-drop between columns issues an `UPDATE` setting the grouped
+field — same permission rules as a manual edit.
+
+### Calendar
+
+```ts
+{
+  type: 'calendar',
+  calendar: {
+    startDateField: 'start_at',
+    endDateField:   'end_at',                // optional — single-point if omitted
+    titleField:     'subject',
+    colorField:     'priority'               // optional — colours events by value
+  }
+}
+```
+
+### Gantt
+
+```ts
+{
+  type: 'gantt',
+  gantt: {
+    startDateField:    'start_at',
+    endDateField:      'due_at',
+    titleField:        'name',
+    progressField:     'percent_complete',   // optional, drives the progress bar
+    dependenciesField: 'depends_on'          // optional — multiselect lookup to same object
+  }
+}
+```
+
+### Chart (inline)
+
+```ts
+{
+  type: 'chart',
+  chart: {
+    chartType: 'bar',                        // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    xAxisField:  'created_at',
+    yAxisFields: ['amount'],
+    aggregation: 'sum',
+    groupByField: 'status'
+  }
+}
+```
+
+For full reports use the [Reports](/docs/build/reports) surface — chart
+views are for inline dashboards on an object.
+
+## Form view types
+
+| `type` | Layout |
+|:--|:--|
+| `simple` | Single column or sections (default) |
+| `tabbed` | Tabbed sections |
+| `wizard` | Step-by-step flow |
+| `split` | Master-detail two-pane |
+| `drawer` | Side panel form |
+| `modal` | Dialog form |
+
+```ts
+{
+  type: 'tabbed',
+  sections: [
+    { label: 'Overview', fields: ['subject','status','priority','assignee'] },
+    { label: 'Customer', fields: ['customer','contact','email','phone'] },
+    { label: 'Resolution', fields: ['resolution_notes','resolved_at'] }
+  ],
+  submitBehavior: { kind: 'next-record' }   // 'thank-you' | 'redirect' | 'continue' | 'next-record'
+}
+```
+
+### Public forms
+
+Forms can be made anonymous-accessible:
+
+```ts
+{
+  type: 'simple',
+  sections: [ { fields: ['name','email','message'] } ],
+  sharing: {
+    type: 'collaborative',
+    publicSlug: 'contact-us',
+    allowAnonymous: true
+  },
+  submitBehavior: { kind: 'thank-you' }
+}
+```
+
+This automatically exposes `GET /api/v1/forms/contact-us` and
+`POST /api/v1/forms/contact-us/submit` — the only two REST routes that
+don't require authentication. See [REST API → Public forms](/docs/reference/rest-api#public-forms).
+
+## Visibility, ARIA, theming
+
+Every view supports:
+
+- `visibleIf: P\`...\`` — hide the view based on user / record / env
+- `aria: { label, description, ... }` — ARIA attributes for screen readers
+- `appearance: { showDescription, allowedVisualizations: [...] }` — restrict which list types end users can flip to
+
+## Build by chat
+
+You usually don't write view metadata by hand. Tell the AI Builder:
+
+> *"Add a kanban view of the support_ticket object grouped by status,
+> with cards showing subject and priority. Colour the columns red /
+> amber / green by status."*
+
+It calls the metadata tools, queues the diff, and once you approve the
+view shows up in Console. See [AI Builder](./ai-builder).
+
+## See also
+
+- [Data model](./data-model) — the objects views read from
+- [Actions](./actions) — what `rowActions` / `bulkActions` reference
+- [ObjectQL](/docs/reference/objectql) — what `filter` / `sort` compile to
+- [CEL](/docs/reference/cel) — `conditionalFormatting`, `visibleIf`
+- [`@objectstack/spec/ui/view.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/ui/view.zod.ts) — schema
