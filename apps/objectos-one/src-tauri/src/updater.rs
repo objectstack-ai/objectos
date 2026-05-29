@@ -70,20 +70,20 @@ pub async fn check_for_update(app: &AppHandle, verbose: bool) {
                 "INFO",
                 &format!("update available: {} → {}", info.current, info.version),
             );
-            // Splash WebView (if still loaded) listens for this and shows
-            // an in-app card. Safe to emit on both paths.
-            let _ = app.emit("objectos://update-available", &info);
-
             if verbose {
-                // User-initiated: prompt with a confirm dialog and start
-                // the install flow if they accept.
+                // User-initiated: the native confirm dialog below is the
+                // single, authoritative prompt. Do NOT emit the in-app card
+                // event here — if the splash WebView is still loaded it would
+                // surface a second prompt alongside the dialog.
                 prompt_install(app, &info).await;
             } else {
-                // Background: OS notification is best-effort. If the user
-                // hasn't granted notification permission the splash event
-                // above is the only signal — that's acceptable since the
-                // single background check fires 30s after launch while the
-                // splash is still up.
+                // Background: surface the update silently via the in-app card
+                // (the splash WebView listens for this) plus a best-effort OS
+                // notification. If the user hasn't granted notification
+                // permission the splash event is the only signal — acceptable
+                // since the single background check fires 30s after launch
+                // while the splash is still up.
+                let _ = app.emit("objectos://update-available", &info);
                 notify(
                     app,
                     &format!("ObjectOS {} available", info.version),
