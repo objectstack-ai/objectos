@@ -166,23 +166,23 @@ export interface HomepageTranslations {
  */
 export const en: HomepageTranslations = {
   badge: {
-    status: 'AI-Native Business OS',
+    status: 'AI-Native Business Platform',
     version: SPEC_VERSION,
   },
   hero: {
     title: {
-      line1: 'The Business OS',
-      line2: 'for the AI-Native Era.',
+      line1: 'The Business Platform',
+      line2: 'AI Can Actually Use.',
     },
     subtitle: {
-      line1: 'Define business objects, permissions, workflows, APIs, UI metadata, and Agent tools — once — as structured Zod metadata.',
-      line2: 'ObjectStack is the metadata-driven business backend that lets AI Agents safely understand, operate, and audit your systems. Agent-ready, permission-built-in, versioned, audit-friendly.',
+      line1: 'ObjectOS is the AI-native runtime for your business systems — CRM, contracts, tickets, approvals, anything modeled on the ObjectStack metadata protocol.',
+      line2: 'Put your business objects on ObjectOS and AI agents can safely query, analyze, and act on that data — under your permissions, on your servers, with every step audited.',
     },
     cta: {
-      primary: 'Quickstart',
-      primaryHref: '/docs/quickstart',
-      secondary: 'Deployment Guide',
-      secondaryHref: '/docs/deploy',
+      primary: 'See How It Works',
+      primaryHref: '/docs/architecture',
+      secondary: 'Quickstart',
+      secondaryHref: '/docs/quickstart',
     },
     quickStart: {
       label: 'Terminal',
@@ -194,51 +194,51 @@ export const en: HomepageTranslations = {
   },
   features: {
     selfHosted: {
-      title: 'Self-Hosted Runtime',
-      description: 'ObjectOS runs in your environment, on your servers, against your database. The control plane is optional; the runtime never depends on a public service to keep your application alive.',
+      title: 'Every Object Is an AI Tool',
+      description: 'Define a business object once in ObjectStack metadata, and ObjectOS automatically exposes it to AI agents as a governed, callable tool — no glue code, no separate integration layer to maintain.',
     },
     deployAnywhere: {
-      title: 'Docker, Kubernetes, Bare Metal',
-      description: 'Single-container Docker for evaluation, Kubernetes for production HA, or a long-running process on your own hardware. Same artifact, same behavior in every environment.',
+      title: 'AI Acts as the Signed-In User',
+      description: "When an agent queries or updates data, it runs with the caller's identity. Whatever that person is allowed to see or do, the agent can — nothing more. The boundary is enforced in the runtime, not in the prompt.",
     },
     airGapped: {
-      title: 'Air-Gapped Ready',
-      description: 'Ship a release bundle into a network with no internet egress. ObjectOS reads its application artifact from a local file and never reaches out to a hosted service.',
+      title: 'Every Action Audited',
+      description: "Every read, every write, every escalation — by a human or an agent — is recorded with who, what, when, and why. Compliance gets one log to look at, not two.",
     },
     identity: {
-      title: 'Identity & SSO',
-      description: 'Local email/password, OAuth, OIDC, SAML, or your corporate SSO. Plug in the identity provider you already operate; ObjectOS enforces the session.',
+      title: 'Plugs Into Your Identity',
+      description: 'OAuth, OIDC, SAML, corporate SSO, or local accounts. AI sessions inherit the same identity, the same MFA, the same offboarding — there is no separate "AI account" to govern.',
     },
     permissions: {
-      title: 'Permissions & Field Security',
-      description: 'Role-based access, record-level rules, and field-level redaction enforced at the runtime — not at the UI. Every read and write goes through the same policy engine.',
+      title: 'Permissions Enforced at the Runtime',
+      description: 'Role-based access, record-level rules, and field-level redaction run inside ObjectOS — so the same policy applies whether a request comes from the UI, an API client, or an AI agent.',
     },
     observability: {
-      title: 'Audit, Backup, Observability',
-      description: 'Every state change is auditable. Backups run against your own storage. Logs and metrics export to the observability stack you already use — no extra SaaS required.',
+      title: 'Your Data, Your Network',
+      description: 'ObjectOS runs in your environment — private cloud, on-prem, or fully air-gapped. Business data and AI prompts stay inside your perimeter. No third party in the loop.',
     },
   },
   personas: {
-    heading: 'Who Is ObjectOS For?',
+    heading: 'Built for the Three People Who Have to Say Yes',
     itOps: {
       title: 'IT & Platform Operators',
-      description: 'Deploy ObjectStack applications the same way you run the rest of your stack. Docker images, Helm charts, environment variables, and standard secrets management.',
+      description: 'Ships as a Docker image and a Helm chart. Plugs into the database, identity, and observability stack you already operate. One artifact runs the same from a laptop to an air-gapped data center.',
       action: 'Deployment Guide',
     },
     security: {
       title: 'Security & Compliance',
-      description: 'Keep regulated data inside your perimeter. Enforce SSO, RBAC, field-level security, and full audit. Ship to air-gapped environments without compromise.',
+      description: 'AI agents can never see or do more than the user behind them. SSO, RBAC, field-level redaction, and full audit are enforced at the runtime — and apply identically to human and AI traffic.',
       action: 'Permissions Model',
     },
     business: {
       title: 'Business Owners',
-      description: 'Run the applications your teams need — CRM, contracts, procurement, helpdesk — without handing customer data to a third party.',
+      description: 'Give your teams an AI that actually knows your CRM, your contracts, your tickets — because it talks to the system of record, not a copy. Customer data never leaves your company.',
       action: 'Architecture Overview',
     },
   },
   deployModes: {
-    heading: 'Three Ways to Run It',
-    subheading: 'Same artifact, same behavior. Pick the shape that matches your infrastructure.',
+    heading: 'Runs Where Your Data Already Lives',
+    subheading: 'Same artifact, same behavior. Pick the shape that matches your infrastructure — ObjectOS, and the AI access that comes with it, stays inside your network.',
     docker: {
       title: 'Docker',
       tagline: 'Single host, single command',
@@ -256,14 +256,14 @@ export const en: HomepageTranslations = {
     airGapped: {
       title: 'Air-Gapped',
       tagline: 'No internet egress',
-      description: 'Ship a release bundle into a network with no public connectivity. ObjectOS reads its artifact from disk and never calls home.',
+      description: 'Ship a release bundle into a network with no public connectivity. ObjectOS reads its artifact from disk and never calls home — including the AI integration surface.',
       href: '/docs/deploy/air-gapped',
       cta: 'Air-gapped guide',
     },
   },
   bottomCta: {
-    heading: 'Run it where your data already lives.',
-    subheading: 'A single artifact, the same behavior everywhere — from a laptop to an air-gapped data center.',
+    heading: 'Give AI a business system it can actually use.',
+    subheading: 'Define your objects once with ObjectStack. Run them on ObjectOS. Let AI work — under your rules, inside your network.',
     primary: 'Quickstart',
     primaryHref: '/docs/quickstart',
     secondary: 'Architecture',
@@ -308,23 +308,23 @@ export const en: HomepageTranslations = {
  */
 export const cn: HomepageTranslations = {
   badge: {
-    status: 'AI-Native Business OS',
+    status: 'AI 原生业务平台',
     version: SPEC_VERSION,
   },
   hero: {
     title: {
-      line1: 'AI 原生时代的',
-      line2: '业务操作系统。',
+      line1: '让 AI 真正能用上',
+      line2: '你的业务系统。',
     },
     subtitle: {
-      line1: '把业务对象、权限、工作流、API、UI 元数据与 Agent 工具，一次性定义为结构化的 Zod 元数据。',
-      line2: 'ObjectStack 是一套元数据驱动的业务后端，让 AI Agent 能够安全地理解、操作并审计你的业务系统。Agent 就绪、权限内建、版本化、可审计。',
+      line1: 'ObjectOS 是你企业自有的 AI 原生业务运行平台 —— 用 ObjectStack 元数据协议描述的 CRM、合同、工单、审批等业务对象,都跑在它之上。',
+      line2: '把业务对象托管到 ObjectOS,AI Agent 就能在你的权限和审计规则下,直接查询数据、分析趋势、执行操作 —— 数据不出企业,每一步都有迹可查。',
     },
     cta: {
-      primary: '快速开始',
-      primaryHref: '/docs/quickstart',
-      secondary: '部署指南',
-      secondaryHref: '/docs/deploy',
+      primary: '看它是怎么工作的',
+      primaryHref: '/docs/architecture',
+      secondary: '快速开始',
+      secondaryHref: '/docs/quickstart',
     },
     quickStart: {
       label: '终端',
@@ -336,51 +336,51 @@ export const cn: HomepageTranslations = {
   },
   features: {
     selfHosted: {
-      title: '自托管运行时',
-      description: 'ObjectOS 运行在你的环境、你的服务器、你的数据库上。控制台是可选的 —— 运行时永远不依赖任何外部服务来保持应用在线。',
+      title: '每个业务对象,自动就是 AI 工具',
+      description: '在 ObjectStack 里把业务对象定义一次,ObjectOS 就会自动把它暴露成 AI Agent 可调用的工具 —— 不需要再写胶水代码,也不需要单独维护一层 AI 集成。',
     },
     deployAnywhere: {
-      title: 'Docker、Kubernetes、裸金属',
-      description: '试用用单容器 Docker，生产用 Kubernetes 高可用，也可以直接跑在你自己的硬件上。同一个发布包,在任何环境表现一致。',
+      title: 'AI 以"用户本人"的身份执行',
+      description: 'Agent 查询或更新数据时,使用的是调用者的身份。那个人能看的、能做的,AI 就能;多一点都不行。这条边界由运行时强制,而不是靠提示词。',
     },
     airGapped: {
-      title: '离线环境就绪',
-      description: '可以把发布包送进完全无公网出口的网络。ObjectOS 从本地文件读取应用工件,不向任何托管服务发起调用。',
+      title: '每一次操作都被审计',
+      description: '每一次读、每一次写、每一次升级 —— 不论来自人还是 Agent —— 都会留下"谁、在什么时候、做了什么、为什么"。合规只需要看一份日志。',
     },
     identity: {
-      title: '身份与单点登录',
-      description: '本地账号、OAuth、OIDC、SAML 或企业既有的 SSO。对接你已经在运行的身份提供方,会话由 ObjectOS 统一管控。',
+      title: '对接你现有的身份系统',
+      description: 'OAuth、OIDC、SAML、企业 SSO 或本地账号都可。AI 会话沿用同一套身份、同一套 MFA、同一套离职流程 —— 没有需要单独治理的"AI 账号"。',
     },
     permissions: {
-      title: '权限与字段安全',
-      description: '基于角色的访问、行级规则、字段级脱敏,都在运行时执行 —— 而不是只挡在 UI 层。每一次读写都走同一套策略引擎。',
+      title: '权限在运行时强制,而非 UI',
+      description: '基于角色的访问、行级规则、字段级脱敏全部在 ObjectOS 运行时执行 —— 不论请求来自 UI、API 客户端还是 AI Agent,都用同一套策略。',
     },
     observability: {
-      title: '审计、备份、可观测',
-      description: '每一次状态变更可审计。备份写入你自己的存储。日志和指标导出到你正在用的可观测栈 —— 不需要再多一套 SaaS。',
+      title: '你的数据,你的网络',
+      description: 'ObjectOS 跑在你的环境里 —— 私有云、本地机房、甚至完全离线的内网。业务数据和 AI 提示词都留在企业边界内,链路上没有第三方。',
     },
   },
   personas: {
-    heading: 'ObjectOS 面向谁?',
+    heading: '为最终需要点头的三类人设计',
     itOps: {
       title: 'IT 与平台运维',
-      description: '用你管理其他系统的方式管理 ObjectStack 应用。Docker 镜像、Helm Chart、环境变量、标准密钥管理 —— 都是熟悉的工具。',
+      description: '以 Docker 镜像和 Helm Chart 交付。对接你现在就在用的数据库、身份和可观测栈。同一份发布包,从笔记本到完全离线的数据中心表现一致。',
       action: '部署指南',
     },
     security: {
       title: '安全与合规',
-      description: '让受监管的数据留在企业边界内。强制 SSO、RBAC、字段级安全、完整审计。可以部署到完全离线的内网,无需妥协。',
-    action: '权限模型',
+      description: 'AI Agent 永远只能看到、做到背后那个用户能做的事。SSO、RBAC、字段级脱敏、完整审计在运行时强制 —— 人和 AI 的流量走同一套规则。',
+      action: '权限模型',
     },
     business: {
       title: '业务负责人',
-      description: '把团队需要的应用 —— CRM、合同、采购、客服 —— 运行起来,而无需把客户数据交给第三方。',
+      description: '给团队一个真正懂你 CRM、合同、工单的 AI —— 因为它直连业务系统本身,不是一份导出的拷贝。客户数据从不出公司。',
       action: '架构总览',
     },
   },
   deployModes: {
-    heading: '三种部署形态',
-    subheading: '同一个发布包,同一种行为。挑一种贴合你基础设施的方式即可。',
+    heading: '跑在你数据已经在的地方',
+    subheading: '同一份发布包,同一种行为。挑一种贴合你基础设施的形态 —— ObjectOS 和它带来的 AI 访问能力,都留在你的网络内。',
     docker: {
       title: 'Docker',
       tagline: '单机单条命令',
@@ -398,14 +398,14 @@ export const cn: HomepageTranslations = {
     airGapped: {
       title: '完全离线',
       tagline: '无公网出口',
-      description: '把发布包送进完全离线的网络。ObjectOS 从本地文件读取工件,不向任何外部服务发起调用。',
+      description: '把发布包送进完全离线的网络。ObjectOS 从本地文件读取工件,不向任何外部服务发起调用 —— AI 集成层同样如此。',
       href: '/docs/deploy/air-gapped',
       cta: '离线部署指南',
     },
   },
   bottomCta: {
-    heading: '让应用跑在你数据已经在的地方。',
-    subheading: '一份发布包,在笔记本和完全离线的数据中心里表现一致。',
+    heading: '给 AI 一个它真正能用的业务系统。',
+    subheading: '用 ObjectStack 定义一次业务对象,跑在 ObjectOS 上,让 AI 在你的规则下、你的网络内开始工作。',
     primary: '快速开始',
     primaryHref: '/docs/quickstart',
     secondary: '架构总览',

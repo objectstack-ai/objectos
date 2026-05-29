@@ -1,48 +1,55 @@
 # ObjectOS
 
-> **Your data. Your network. Your rules.**
+> **The business platform AI can actually use — running in your own environment.**
 >
-> ObjectOS is the customer-hosted runtime for [ObjectStack](https://github.com/objectstack-ai/framework)
-> applications — built to run inside your own infrastructure: private cloud,
-> customer data centers, or fully air-gapped networks.
+> ObjectOS is the AI-native runtime for [ObjectStack](https://github.com/objectstack-ai/framework)
+> applications. Put your business systems — CRM, contracts, tickets,
+> approvals, anything modeled in ObjectStack metadata — on ObjectOS, and
+> AI agents can safely query, analyze, and act on that data under your
+> permissions, on your servers, with every step audited.
 
-ObjectOS is the **distribution** of the ObjectStack protocol. The framework
-develops the kernel, drivers, and `@objectstack/*` packages on npm. This
-repository packages a protocol version into something a customer can
-`docker run`, sign an SLA on, and deploy into a network with no internet
-egress.
+**ObjectStack** is a metadata protocol for describing business
+applications — objects, permissions, workflows, APIs, UI, and AI tools —
+in one structured definition.
+**ObjectOS** is where those applications run, and where AI plugs in.
 
 ```
-ObjectStack framework  ≈  Linux kernel source tree
-ObjectOS               ≈  the distribution you actually deploy
+ObjectStack   →   how a business application is described
+ObjectOS      →   where it runs, and where AI plugs in
 ```
 
 ## Why ObjectOS
 
-For teams that cannot — or will not — hand customer data to a third party:
+The promise of "AI inside the enterprise" usually breaks on two things:
+AI can't actually use the business system, and security can't say yes
+to letting it try. ObjectOS removes both blockers:
 
-- **Self-hosted runtime.** Runs in your environment, on your servers,
-  against your database. The control plane is optional; the runtime never
-  depends on a public service to keep the application alive.
-- **Deploy anywhere.** Single-container Docker for evaluation, Kubernetes
-  for production HA, or a long-running process on bare metal. Same
-  artifact, same behavior in every environment.
-- **Air-gapped ready.** Ship a release bundle into a network with no
-  public connectivity. ObjectOS reads its application artifact from a
-  local file and never calls home.
-- **Identity you already operate.** Local accounts, OAuth, OIDC, SAML, or
-  your corporate SSO — ObjectOS enforces the session.
-- **Permissions at the runtime.** Role-based access, record-level rules,
-  and field-level redaction are enforced by the runtime itself — not by
-  the UI.
-- **Audit, backup, observability on your terms.** Every state change is
-  auditable. Backups write to your storage. Logs and metrics export to
-  the observability stack you already use.
+- **Every object is an AI tool, automatically.** Define a business
+  object once in ObjectStack metadata; ObjectOS exposes it to AI agents
+  as a governed, callable tool — no glue code, no separate integration
+  layer to maintain.
+- **AI acts as the signed-in user.** Whatever that person is allowed to
+  see or do, the agent can — nothing more. The boundary is enforced in
+  the runtime, not in the prompt.
+- **One audit log for humans and agents.** Every read, write, and
+  escalation — by a person or an AI — is recorded with who, what, when,
+  and why. Compliance gets one log to look at, not two.
+- **Permissions enforced at the runtime.** Role-based access,
+  record-level rules, and field-level redaction run inside ObjectOS, so
+  the same policy applies whether the call comes from the UI, an API
+  client, or an agent.
+- **Your data, your network.** Runs in your environment — private cloud,
+  on-prem, or fully air-gapped. Business data and AI prompts stay
+  inside your perimeter; no third party in the loop.
+- **Plugs into the identity you already operate.** OAuth, OIDC, SAML,
+  corporate SSO, or local accounts. AI sessions inherit the same
+  identity, MFA, and offboarding — no separate "AI account" to govern.
 
 ## Positioning
 
 | | ObjectStack framework | **ObjectOS** | Enterprise plugins |
 |---|---|---|---|
+| Role | The protocol — *how* an application is described | The runtime — *where* it runs and where AI plugs in | Add-ons for regulated / large-scale deployments |
 | Repo | `objectstack-ai/framework` | `objectstack-ai/objectos` | `objectstack-ai/objectos-enterprise` (private) |
 | What it ships | Protocol, kernel, `@objectstack/*` packages, Console, control plane | Runtime distribution + Docker/Helm + ops docs | SSO/SAML, SCIM, audit export, HA scheduler, … |
 | Who consumes it | Framework contributors, plugin authors | **End customers** (self-host / private cloud) | Enterprise customers |
