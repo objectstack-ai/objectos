@@ -87,6 +87,16 @@ function getPreferredLanguage(request: NextRequest): string {
  * - Stores language preference as a cookie
  */
 export default function middleware(request: NextRequest) {
+  // Canonical domain redirect: www.objectos.app -> www.objectos.ai (permanent).
+  const host = request.headers.get('host');
+  if (host === 'www.objectos.app') {
+    const target = new URL(request.url);
+    target.protocol = 'https:';
+    target.host = 'www.objectos.ai';
+    target.port = '';
+    return NextResponse.redirect(target, 308);
+  }
+
   const { pathname } = request.nextUrl;
 
   // Check if the pathname already has a locale
