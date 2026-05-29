@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Apple, Monitor, ArrowRight } from 'lucide-react';
 import type { OsKey } from '@/lib/download-i18n';
-import { MANUAL_DOWNLOADS } from '@/lib/download-i18n';
+import { recommendedDownload } from '@/lib/download-i18n';
 import { cn } from '@/lib/utils';
 
 interface OsDetectHeroProps {
@@ -45,12 +45,7 @@ function detectArch(os: OsKey): 'arm64' | 'x64' {
 }
 
 function downloadFor(os: OsKey, arch: 'arm64' | 'x64') {
-  const wanted = os === 'macos' ? 'macOS' : os === 'linux' ? 'Linux' : 'Windows';
-  return (
-    MANUAL_DOWNLOADS.find((d) => d.os === wanted && d.arch === arch) ??
-    MANUAL_DOWNLOADS.find((d) => d.os === wanted) ??
-    null
-  );
+  return recommendedDownload(os, arch);
 }
 
 export function OsDetectHero({

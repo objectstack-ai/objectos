@@ -2,7 +2,6 @@ import Link from 'next/link';
 import {
   Container,
   Boxes,
-  ServerCog,
   Terminal,
   Globe,
   Code2,
@@ -10,6 +9,7 @@ import {
   Bot,
   ShieldCheck,
   ArrowRight,
+  GitBranch,
 } from 'lucide-react';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import { baseOptions } from '@/lib/layout.shared';
@@ -21,7 +21,7 @@ import {
 } from '@/lib/download-i18n';
 import { PlatformCard } from '@/components/download/platform-card';
 import { CommandTabsClient } from '@/components/download/command-tabs-client';
-import { DownloadTable } from '@/components/download/download-table';
+import { DesktopDownloadTable } from '@/components/download/download-table';
 import { ClientCard } from '@/components/download/client-card';
 import { OsDetectHero } from '@/components/download/os-detect';
 
@@ -34,10 +34,9 @@ export default async function DownloadPage({
   const t = getDownloadTranslations(lang);
 
   const cliTabs = [
-    { key: 'macos', label: t.cli.tabs.macos, commands: CLI_INSTALLS.macos },
-    { key: 'linux', label: t.cli.tabs.linux, commands: CLI_INSTALLS.linux },
-    { key: 'windows', label: t.cli.tabs.windows, commands: CLI_INSTALLS.windows },
     { key: 'npm', label: t.cli.tabs.npm, commands: CLI_INSTALLS.npm },
+    { key: 'pnpm', label: t.cli.tabs.pnpm, commands: CLI_INSTALLS.pnpm },
+    { key: 'yarn', label: t.cli.tabs.yarn, commands: CLI_INSTALLS.yarn },
   ];
 
   return (
@@ -103,14 +102,14 @@ export default async function DownloadPage({
               copiedLabel={t.copy.copied}
             />
             <PlatformCard
-              icon={<ServerCog className="h-6 w-6" />}
-              title={t.server.binary.title}
-              tagline={t.server.binary.tagline}
-              description={t.server.binary.description}
-              command={SERVER_COMMANDS.binary}
+              icon={<GitBranch className="h-6 w-6" />}
+              title={t.server.source.title}
+              tagline={t.server.source.tagline}
+              description={t.server.source.description}
+              command={SERVER_COMMANDS.source}
               commandLabel="shell"
-              cta={t.server.binary.cta}
-              href={t.server.binary.href}
+              cta={t.server.source.cta}
+              href={t.server.source.href}
               copyLabel={t.copy.copy}
               copiedLabel={t.copy.copied}
             />
@@ -132,21 +131,16 @@ export default async function DownloadPage({
             copyLabel={t.copy.copy}
             copiedLabel={t.copy.copied}
           />
+          <p className="mt-3 text-xs text-foreground/50 text-center">{t.cli.requires}</p>
+        </section>
 
-          <div className="mt-10">
-            <DownloadTable
-              heading={t.cli.manual.heading}
-              cols={{
-                arch: t.cli.manual.arch,
-                file: t.cli.manual.file,
-                size: t.cli.manual.size,
-                sha: t.cli.manual.sha,
-              }}
-              shaHref={t.verify.checksumsHref}
-              shaLabel={t.verify.checksumsCta}
-            />
-            <p className="mt-3 text-xs text-foreground/50 text-center">{t.cli.verifyHint}</p>
-          </div>
+        {/* Desktop installers */}
+        <section className="w-full px-4 pb-20 max-w-5xl">
+          <DesktopDownloadTable
+            heading={t.desktop.heading}
+            subheading={t.desktop.subheading}
+            cols={t.desktop.cols}
+          />
         </section>
 
         {/* Clients / SDKs */}
@@ -220,10 +214,10 @@ export default async function DownloadPage({
               <p className="text-sm text-foreground/70 leading-relaxed mb-4">{t.verify.body}</p>
               <div className="flex flex-wrap gap-2">
                 <Link
-                  href={t.verify.checksumsHref}
+                  href={t.verify.releaseHref}
                   className="inline-flex h-9 items-center rounded-md border border-border bg-card/60 px-3 text-xs font-medium hover:bg-accent transition-colors"
                 >
-                  {t.verify.checksumsCta} ↗
+                  {t.verify.releaseCta} ↗
                 </Link>
                 <Link
                   href={t.verify.signingHref}
