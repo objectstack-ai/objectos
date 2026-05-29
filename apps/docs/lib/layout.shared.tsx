@@ -24,7 +24,13 @@ export function baseOptions(): BaseLayoutProps {
       ),
       transparentMode: 'top',
     },
-    links: [],
+    links: [
+      {
+        text: 'Download',
+        url: '/download',
+        active: 'nested-url',
+      },
+    ],
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
   };
 }
