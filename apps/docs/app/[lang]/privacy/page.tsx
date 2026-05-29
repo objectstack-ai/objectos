@@ -60,7 +60,7 @@ export default async function PrivacyPage({
   const t = content[lang === 'cn' ? 'cn' : 'en'];
 
   return (
-    <HomeLayout {...baseOptions()} i18n>
+    <HomeLayout {...baseOptions(lang)} i18n>
       <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-24">
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">{t.title}</h1>
         <p className="text-sm text-foreground/60 mb-12">{t.updated}</p>

@@ -69,6 +69,7 @@ export interface HomepageTranslations {
 
   // Deploy Modes Section
   deployModes: {
+    eyebrow: string;
     heading: string;
     subheading: string;
     docker: {
@@ -92,6 +93,13 @@ export interface HomepageTranslations {
       href: string;
       cta: string;
     };
+  };
+
+  // Capabilities Section
+  capabilities: {
+    eyebrow: string;
+    heading: string;
+    subheading: string;
   };
 
   // Bottom CTA
@@ -142,6 +150,7 @@ export interface HomepageTranslations {
 
   // Personas Section
   personas: {
+    eyebrow: string;
     heading: string;
     itOps: {
       title: string;
@@ -218,7 +227,13 @@ export const en: HomepageTranslations = {
       description: 'ObjectOS runs in your environment — private cloud, on-prem, or fully air-gapped. Business data and AI prompts stay inside your perimeter. No third party in the loop.',
     },
   },
+  capabilities: {
+    eyebrow: '02 — How it’s safe',
+    heading: 'AI Access, Without Giving Up Control',
+    subheading: 'Every safeguard your platform already has — identity, permissions, audit, network boundary — applies the moment an agent touches your data. Nothing new to govern.',
+  },
   personas: {
+    eyebrow: '03 — Who it’s for',
     heading: 'Built for the Three People Who Have to Say Yes',
     itOps: {
       title: 'IT & Platform Operators',
@@ -237,6 +252,7 @@ export const en: HomepageTranslations = {
     },
   },
   deployModes: {
+    eyebrow: '01 — Deploy',
     heading: 'Runs Where Your Data Already Lives',
     subheading: 'Same artifact, same behavior. Pick the shape that matches your infrastructure — ObjectOS, and the AI access that comes with it, stays inside your network.',
     docker: {
@@ -360,7 +376,13 @@ export const cn: HomepageTranslations = {
       description: 'ObjectOS 跑在你的环境里 —— 私有云、本地机房、甚至完全离线的内网。业务数据和 AI 提示词都留在企业边界内,链路上没有第三方。',
     },
   },
+  capabilities: {
+    eyebrow: '02 — 安全之上',
+    heading: '让 AI 接得进来,但放不出去',
+    subheading: '你平台上已有的身份、权限、审计、网络边界 —— 在 Agent 一接触数据的那一刻就全部生效。没有需要额外治理的新东西。',
+  },
   personas: {
+    eyebrow: '03 — 适用人群',
     heading: '为最终需要点头的三类人设计',
     itOps: {
       title: 'IT 与平台运维',
@@ -379,6 +401,7 @@ export const cn: HomepageTranslations = {
     },
   },
   deployModes: {
+    eyebrow: '01 — 部署',
     heading: '跑在你数据已经在的地方',
     subheading: '同一份发布包,同一种行为。挑一种贴合你基础设施的形态 —— ObjectOS 和它带来的 AI 访问能力,都留在你的网络内。',
     docker: {

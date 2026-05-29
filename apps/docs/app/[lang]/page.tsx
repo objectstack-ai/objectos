@@ -111,7 +111,7 @@ export default async function HomePage({
   ];
 
   return (
-    <HomeLayout {...baseOptions()} i18n>
+    <HomeLayout {...baseOptions(lang)} i18n>
       <main className="relative flex min-h-screen flex-col items-center text-center bg-background text-foreground selection:bg-primary/20 overflow-hidden">
 
         {/* Grid Pattern Background */}
@@ -132,6 +132,9 @@ export default async function HomePage({
         {/* Deploy Modes */}
         <section className="w-full px-4 py-24 max-w-6xl">
           <div className="mb-12 text-center">
+            <div className="text-xs font-mono uppercase tracking-[0.18em] text-primary/70 mb-3">
+              {t.deployModes.eyebrow}
+            </div>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               {t.deployModes.heading}
             </h2>
@@ -156,6 +159,17 @@ export default async function HomePage({
 
         {/* Capabilities */}
         <section className="w-full px-4 py-24 max-w-6xl">
+          <div className="mb-12 text-center">
+            <div className="text-xs font-mono uppercase tracking-[0.18em] text-primary/70 mb-3">
+              {t.capabilities.eyebrow}
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              {t.capabilities.heading}
+            </h2>
+            <p className="text-foreground/70 max-w-2xl mx-auto">
+              {t.capabilities.subheading}
+            </p>
+          </div>
           <div className="grid grid-cols-1 gap-6 text-left sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
               <FeatureCard
@@ -171,9 +185,14 @@ export default async function HomePage({
 
         {/* Personas */}
         <section className="w-full px-4 py-24 max-w-5xl">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-12 text-center bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            {t.personas.heading}
-          </h2>
+          <div className="mb-12 text-center">
+            <div className="text-xs font-mono uppercase tracking-[0.18em] text-primary/70 mb-3">
+              {t.personas.eyebrow}
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              {t.personas.heading}
+            </h2>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {personas.map((persona) => (
               <PersonaCard

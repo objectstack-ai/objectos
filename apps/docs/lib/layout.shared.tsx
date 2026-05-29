@@ -7,7 +7,21 @@ export const gitConfig = {
   branch: 'main',
 };
 
-export function baseOptions(): BaseLayoutProps {
+const NAV_LABELS: Record<string, { docs: string; download: string; changelog: string }> = {
+  en: { docs: 'Docs', download: 'Download', changelog: 'Changelog' },
+  cn: { docs: '文档', download: '下载', changelog: '更新日志' },
+};
+
+const RELEASES_URL = 'https://github.com/objectstack-ai/objectos/releases';
+
+function localePrefix(lang: string): string {
+  return lang === 'en' ? '' : `/${lang}`;
+}
+
+export function baseOptions(lang: string = 'en'): BaseLayoutProps {
+  const labels = NAV_LABELS[lang] ?? NAV_LABELS.en;
+  const prefix = localePrefix(lang);
+
   return {
     nav: {
       title: (
@@ -26,9 +40,19 @@ export function baseOptions(): BaseLayoutProps {
     },
     links: [
       {
-        text: 'Download',
-        url: '/download',
+        text: labels.docs,
+        url: `${prefix}/docs`,
         active: 'nested-url',
+      },
+      {
+        text: labels.download,
+        url: `${prefix}/download`,
+        active: 'nested-url',
+      },
+      {
+        text: labels.changelog,
+        url: RELEASES_URL,
+        external: true,
       },
     ],
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,

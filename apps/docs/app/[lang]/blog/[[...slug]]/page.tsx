@@ -23,14 +23,14 @@ export default async function BlogPage({
 }: {
   params: Promise<{ lang: string; slug?: string[] }>;
 }) {
-  const { slug } = await params;
+  const { slug, lang } = await params;
   
   // If no slug, show blog index
   if (!slug || slug.length === 0) {
     const posts = blog.getPages();
 
     return (
-      <HomeLayout {...baseOptions()}>
+      <HomeLayout {...baseOptions(lang)}>
         <main className="container max-w-5xl mx-auto px-4 py-16">
           <div className="mb-12">
             <h1 className="text-4xl font-bold mb-4">Blog</h1>
@@ -112,7 +112,7 @@ export default async function BlogPage({
   const MDX = page.data.body;
 
   return (
-    <HomeLayout {...baseOptions()}>
+    <HomeLayout {...baseOptions(lang)}>
       <main className="container max-w-4xl mx-auto px-4 py-16">
         <Link 
           href="/blog"
