@@ -47,14 +47,19 @@ to letting it try. ObjectOS removes both blockers:
 
 ## Positioning
 
-| | ObjectStack framework | **ObjectOS** | Enterprise plugins |
+| | ObjectStack framework | **ObjectOS** | Plugins |
 |---|---|---|---|
-| Role | The protocol — *how* an application is described | The runtime — *where* it runs and where AI plugs in | Add-ons for regulated / large-scale deployments |
-| Repo | `objectstack-ai/framework` | `objectstack-ai/objectos` | `objectstack-ai/objectos-enterprise` (private) |
-| What it ships | Protocol, kernel, `@objectstack/*` packages, Console, control plane | Runtime distribution + Docker/Helm + ops docs | SSO/SAML, SCIM, audit export, HA scheduler, … |
-| Who consumes it | Framework contributors, plugin authors | **End customers** (self-host / private cloud) | Enterprise customers |
-| License | Apache-2.0 | **Apache-2.0** | Commercial |
-| Release cadence | Frequent (per `changeset`) | Distribution semver (e.g. `2026.05 LTS`) | Tracks ObjectOS |
+| Role | The protocol — *how* an application is described | The runtime — *where* it runs and where AI plugs in | Anyone-can-write extensions on top of the runtime |
+| Repo | `objectstack-ai/framework` | `objectstack-ai/objectos` | Any repo publishing `@objectos/plugin-*` (or your own scope) |
+| What it ships | Protocol, kernel, `@objectstack/*` packages, Console, control plane | Runtime distribution + Docker/Helm + ops docs | Drivers, identity providers, audit exporters, custom UI, AI tools, integrations — your call |
+| Who builds it | Framework contributors | Distribution maintainers | **Anyone** — community, vendors, your own team |
+| License | Apache-2.0 | **Apache-2.0** | Author's choice (Apache-2.0, MIT, commercial, internal-only) |
+| Release cadence | Frequent (per `changeset`) | Distribution semver (e.g. `2026.05 LTS`) | Independent — plugins version themselves |
+
+Plugins are first-class: ObjectOS exposes the same extension points the
+core uses. See [`packages/`](packages/) for reference plugins, and the
+[plugin authoring guide](content/docs/extend/plugins.mdx) to publish
+your own.
 
 ## Boot modes
 
@@ -101,7 +106,7 @@ objectos/
 ├── apps/
 │   ├── objectos/            # Runtime entry — single objectstack.config.ts
 │   └── docs/                # Product / operations site (Fumadocs + Next.js)
-├── packages/                # Enterprise plugins (@objectos/plugin-*)
+├── packages/                # Plugins (@objectos/plugin-*) — anyone can write one
 ├── content/docs/            # MDX content powering apps/docs
 ├── docker/                  # Dockerfile + docker-compose
 ├── helm/                    # Helm chart (planned)
