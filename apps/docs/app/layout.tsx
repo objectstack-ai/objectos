@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   },
   description: 'Customer-hosted runtime for ObjectStack applications. Private, compliant, yours.',
   icons: {
-    icon: 'https://objectstack.ai/logo.png',
+    icon: '/logo.svg',
   },
 };
 

@@ -27,7 +27,7 @@ export function baseOptions(lang: string = 'en'): BaseLayoutProps {
       title: (
         <div className="flex items-center gap-2 font-bold">
           <Image
-            src="https://objectstack.ai/logo.svg"
+            src="/logo.svg"
             alt=""
             aria-hidden="true"
             width={30}
