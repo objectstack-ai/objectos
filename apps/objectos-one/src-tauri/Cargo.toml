@@ -1,6 +1,6 @@
 [package]
 name = "objectos-one"
-version = "7.2.0"
+version = "7.2.1"
 description = "ObjectOS One shell"
 edition = "2021"
 rust-version = "1.77"
