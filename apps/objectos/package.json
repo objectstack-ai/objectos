@@ -13,15 +13,14 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@objectstack/account": "^7.1.0",
-    "@objectstack/cli": "^7.1.0",
-    "@objectstack/core": "^7.1.0",
-    "@objectstack/driver-memory": "^7.1.0",
-    "@objectstack/driver-sql": "^7.1.0",
-    "@objectstack/metadata": "^7.1.0",
-    "@objectstack/objectql": "^7.1.0",
-    "@objectstack/runtime": "^7.1.0",
-    "@objectstack/spec": "^7.1.0"
+    "@objectstack/cli": "^7.2.0",
+    "@objectstack/core": "^7.2.0",
+    "@objectstack/driver-memory": "^7.2.0",
+    "@objectstack/driver-sql": "^7.2.0",
+    "@objectstack/metadata": "^7.2.0",
+    "@objectstack/objectql": "^7.2.0",
+    "@objectstack/runtime": "^7.2.0",
+    "@objectstack/spec": "^7.2.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
