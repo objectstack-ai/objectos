@@ -8,12 +8,14 @@ description: ObjectOS 运行时环境变量参考。
 使用环境变量进行部署级配置和密钥管理。
 使用系统设置进行租户/用户可编辑的应用配置。
 
+> **命名。** 自下一版本起,所有 ObjectStack 自有变量统一使用 `OS_` 前缀。1.0 之前的无前缀名称（`PORT`、`AUTH_SECRET`、`OS_MULTI_TENANT` 等）仍可使用,但会触发一次性弃用警告。新部署请优先使用规范的 `OS_*` 名称,参见[旧别名](#legacy-aliases)。
+
 ## 核心
 
 | 变量 | 是否必需 | 说明 |
 |---|---:|---|
-| `PORT` | 否 | 容器内的 HTTP 端口。Docker Compose 中默认 `3000`。 |
-| `OS_AUTH_SECRET` | 启用 auth 时必需 | 用于派生各项目 auth 密钥的基础密钥。 |
+| `OS_PORT` | 否 | 运行时监听的 HTTP 端口。默认 `3000`。旧别名:`PORT`。 |
+| `OS_AUTH_SECRET` | 启用 auth 时必需 | 用于派生各项目 auth 密钥的基础密钥。旧别名:`AUTH_SECRET`。 |
 
 ## Artifact 与项目解析
 
@@ -27,7 +29,7 @@ description: ObjectOS 运行时环境变量参考。
 | `OS_WATCH_ARTIFACT` | 否 | 设为 `1` 时在本地 artifact 变更时重载。仅用于开发。 |
 | `OS_CLOUD_URL` | Cloud 模式 | 用于主机名解析和 artifact 拉取的控制平面基础 URL。设为 `off` 或 `local` 退出云端联动行为。 |
 | `OS_CLOUD_API_KEY` | 可选 | 用于私有控制平面 Artifact API 访问的 Bearer token。 |
-| `OS_MULTI_TENANT` | 否 | 设为 `false` 以禁用多租户路由（默认 `true`）。 |
+| `OS_MULTI_ORG_ENABLED` | 否 | 设为 `true` 以启用多租户路由/组织切换（默认 `false`）。旧别名:`OS_MULTI_TENANT`。 |
 | `OS_RUNTIME_PORT` | 仅开发 | 当在 `http://localhost:<port>` 开发时,用于构建平台 SSO 回调 URL 的本地端口。 |
 
 ## 缓存
@@ -43,7 +45,7 @@ description: ObjectOS 运行时环境变量参考。
 
 | 变量 | 说明 |
 |---|---|
-| `AUTH_SECRET` | 框架包使用的回退 auth 密钥名。ObjectOS 优先使用 `OS_AUTH_SECRET`。 |
+| `AUTH_SECRET` | `OS_AUTH_SECRET` 的旧别名。本版本仍可使用;请优先使用 `OS_AUTH_SECRET`。 |
 | `OS_TRUSTED_ORIGINS` | 逗号分隔的额外可信来源。 |
 | `OS_ROOT_DOMAIN` | 平台 SSO 部署中信任项目子域的根域。 |
 | `OS_PLATFORM_SSO` | 设为 `false` 以禁用平台 SSO 装配。 |
@@ -63,3 +65,14 @@ description: ObjectOS 运行时环境变量参考。
 | `OS_SKIP_SCHEMA_SYNC` | 设为 `1` 时在启动时跳过 ObjectQL DDL 同步。schema 由外部管理时使用。 |
 
 对 ObjectOS 客户部署,优先使用显式控制平面运行时配置或 artifact 数据源配置,而非依赖容器本地默认值。
+
+## 旧别名 [#legacy-aliases]
+
+以下 1.0 之前的名称在本版本仍可使用,但会触发一次性弃用警告,并将在未来的主版本中移除。请优先使用规范名称。
+
+| 规范名称 | 旧别名 |
+|---|---|
+| `OS_PORT` | `PORT` |
+| `OS_AUTH_SECRET` | `AUTH_SECRET` |
+| `OS_MULTI_ORG_ENABLED` | `OS_MULTI_TENANT` |
+| `OS_ENVIRONMENT_ID` | `OS_PROJECT_ID` |

@@ -8,12 +8,17 @@ description: ObjectOS runtime environment variable reference.
 Use environment variables for deployment-level configuration and secrets.
 Use system settings for tenant/user-editable application configuration.
 
+> **Naming.** As of the next release, all ObjectStack-owned variables use the
+> `OS_` prefix. Pre-1.0 unprefixed names (`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`,
+> …) still work but emit a one-shot deprecation warning. Prefer the canonical
+> `OS_*` names in new deployments; see [Legacy aliases](#legacy-aliases).
+
 ## Core
 
 | Variable | Required | Description |
 |---|---:|---|
-| `PORT` | No | HTTP port inside the container. Defaults to `3000` in Docker Compose. |
-| `OS_AUTH_SECRET` | Yes for auth | Base secret used to derive per-project auth secrets. |
+| `OS_PORT` | No | HTTP port the runtime listens on. Defaults to `3000`. Legacy alias: `PORT`. |
+| `OS_AUTH_SECRET` | Yes for auth | Base secret used to derive per-project auth secrets. Legacy alias: `AUTH_SECRET`. |
 
 ## Artifact and project resolution
 
@@ -27,7 +32,7 @@ Use system settings for tenant/user-editable application configuration.
 | `OS_WATCH_ARTIFACT` | No | Set to `1` to reload the local artifact when it changes. Use only in development. |
 | `OS_CLOUD_URL` | Cloud mode | Control-plane base URL for hostname resolution and artifact fetch. Set to `off` or `local` to opt out of cloud-connected behaviour. |
 | `OS_CLOUD_API_KEY` | Optional | Bearer token for private control-plane Artifact API access. |
-| `OS_MULTI_TENANT` | No | Set to `false` to disable multi-tenant routing (default `true`). |
+| `OS_MULTI_ORG_ENABLED` | No | Set to `true` to enable multi-tenant routing / organization switching (default `false`). Legacy alias: `OS_MULTI_TENANT`. |
 | `OS_RUNTIME_PORT` | Dev only | Localhost port used to build platform-SSO callback URLs when developing on `http://localhost:<port>`. |
 
 ## Cache
@@ -43,7 +48,7 @@ Use system settings for tenant/user-editable application configuration.
 
 | Variable | Description |
 |---|---|
-| `AUTH_SECRET` | Fallback auth secret name used by framework packages. Prefer `OS_AUTH_SECRET` for ObjectOS. |
+| `AUTH_SECRET` | Legacy alias for `OS_AUTH_SECRET`. Still honoured this release; prefer `OS_AUTH_SECRET`. |
 | `OS_TRUSTED_ORIGINS` | Comma-separated additional trusted origins. |
 | `OS_ROOT_DOMAIN` | Root domain used to trust project subdomains in platform SSO deployments. |
 | `OS_PLATFORM_SSO` | Set to `false` to disable platform SSO wiring. |
@@ -68,3 +73,15 @@ artifact. As a last resort the framework also honours:
 For ObjectOS customer deployments, prefer explicit control-plane runtime
 configuration or artifact datasource configuration over relying on
 container-local defaults.
+
+## Legacy aliases
+
+These pre-1.0 names still work this release but emit a one-shot deprecation
+warning. They will be removed in a future major. Prefer the canonical name.
+
+| Canonical | Legacy |
+|---|---|
+| `OS_PORT` | `PORT` |
+| `OS_AUTH_SECRET` | `AUTH_SECRET` |
+| `OS_MULTI_ORG_ENABLED` | `OS_MULTI_TENANT` |
+| `OS_ENVIRONMENT_ID` | `OS_PROJECT_ID` |
