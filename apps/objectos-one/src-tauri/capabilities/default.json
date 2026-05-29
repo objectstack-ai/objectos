@@ -16,6 +16,7 @@
     "opener:allow-open-url",
     "updater:default",
     "notification:default",
+    "dialog:default",
     "autostart:allow-enable",
     "autostart:allow-disable",
     "autostart:allow-is-enabled"

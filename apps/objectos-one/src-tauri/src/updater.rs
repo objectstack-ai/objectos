@@ -1,13 +1,16 @@
 //! Tauri updater integration.
 //!
 //! Two paths into this module:
-//!   * Background `schedule_update_check` — runs 30s after launch.
-//!   * Menu / tray "Check for updates…" — `check_now` command.
-//!
-//! All UI affordances go through events on the AppHandle so they can fan
-//! out to: the splash WebView, an injected listener in the main WebView
-//! (once it's navigated to the running runtime), and a native system
-//! notification.
+//!   * Background `schedule_update_check` — runs 30s after launch. Stays
+//!     silent on the no-news path; on the update-available path it emits
+//!     an event the splash WebView listens for and falls back to an OS
+//!     notification when the splash is already gone.
+//!   * Menu / tray "Check for updates…" — `check_now` command. Always
+//!     surfaces *some* visible feedback (info / confirm / error dialog)
+//!     because the user explicitly asked for a result. We use the native
+//!     dialog plugin instead of OS notifications: dialogs always render
+//!     regardless of macOS notification permissions and regardless of
+//!     which WebView is currently loaded in the main window.
 
 use std::{
     sync::atomic::{AtomicBool, Ordering},
@@ -16,6 +19,7 @@ use std::{
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -41,15 +45,15 @@ pub fn schedule_update_check(app: AppHandle) {
 /// Run an update check.
 ///
 /// `verbose=true` means the user explicitly clicked "Check for updates…",
-/// so we also surface "already up to date" / "check failed" via a system
-/// notification. The background check stays silent on the no-news path.
+/// so we always show a native dialog with the outcome. The background check
+/// (verbose=false) stays silent on the no-news path.
 pub async fn check_for_update(app: &AppHandle, verbose: bool) {
     let updater = match app.updater() {
         Ok(u) => u,
         Err(e) => {
             log_line("WARN", &format!("updater unavailable: {e}"));
             if verbose {
-                notify(app, "Update check failed", &e.to_string());
+                show_error(app, &e.to_string());
             }
             return;
         }
@@ -66,24 +70,44 @@ pub async fn check_for_update(app: &AppHandle, verbose: bool) {
                 "INFO",
                 &format!("update available: {} → {}", info.current, info.version),
             );
+            // Splash WebView (if still loaded) listens for this and shows
+            // an in-app card. Safe to emit on both paths.
             let _ = app.emit("objectos://update-available", &info);
-            // Always notify on this path — the splash listener may be gone.
-            notify(
-                app,
-                &format!("ObjectOS {} available", info.version),
-                "Open the app and choose Install & Restart, or use the menu.",
-            );
+
+            if verbose {
+                // User-initiated: prompt with a confirm dialog and start
+                // the install flow if they accept.
+                prompt_install(app, &info).await;
+            } else {
+                // Background: OS notification is best-effort. If the user
+                // hasn't granted notification permission the splash event
+                // above is the only signal — that's acceptable since the
+                // single background check fires 30s after launch while the
+                // splash is still up.
+                notify(
+                    app,
+                    &format!("ObjectOS {} available", info.version),
+                    "Open the app and choose Install & Restart, or use the menu.",
+                );
+            }
         }
         Ok(None) => {
             log_line("INFO", "up to date");
             if verbose {
-                notify(app, "ObjectOS is up to date", "You're on the latest version.");
+                show_info(
+                    app,
+                    "You're up to date",
+                    &format!(
+                        "ObjectOS {} is the latest version.",
+                        app.package_info().version
+                    ),
+                );
             }
         }
         Err(e) => {
             log_line("WARN", &format!("update check failed: {e}"));
             if verbose {
-                notify(app, "Update check failed", &e.to_string());
+                show_error(app, &e.to_string());
             }
         }
     }
@@ -98,6 +122,63 @@ fn notify(app: &AppHandle, title: &str, body: &str) {
         .show();
 }
 
+fn show_info(app: &AppHandle, title: &str, body: &str) {
+    app.dialog()
+        .message(body)
+        .title(title)
+        .kind(MessageDialogKind::Info)
+        .buttons(MessageDialogButtons::Ok)
+        .show(|_| {});
+}
+
+fn show_error(app: &AppHandle, body: &str) {
+    app.dialog()
+        .message(format!("Update check failed:\n\n{body}"))
+        .title("Update check failed")
+        .kind(MessageDialogKind::Error)
+        .buttons(MessageDialogButtons::Ok)
+        .show(|_| {});
+}
+
+/// Confirm-to-install dialog. Triggered from the verbose path so the user
+/// always sees *something* after clicking the menu item.
+async fn prompt_install(app: &AppHandle, info: &UpdateInfo) {
+    let body = match &info.notes {
+        Some(notes) if !notes.is_empty() => format!(
+            "A new version of ObjectOS is available.\n\n\
+             Current: {}\nNew:     {}\n\n{}",
+            info.current,
+            info.version,
+            notes.chars().take(400).collect::<String>(),
+        ),
+        _ => format!(
+            "A new version of ObjectOS is available.\n\n\
+             Current: {}\nNew:     {}",
+            info.current, info.version,
+        ),
+    };
+
+    let handle = app.clone();
+    app.dialog()
+        .message(body)
+        .title(format!("ObjectOS {} available", info.version))
+        .kind(MessageDialogKind::Info)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Install & Restart".into(),
+            "Later".into(),
+        ))
+        .show(move |confirmed| {
+            if confirmed {
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = run_install(&handle).await {
+                        log_line("WARN", &format!("install failed: {e}"));
+                        show_error(&handle, &e);
+                    }
+                });
+            }
+        });
+}
+
 #[tauri::command]
 pub async fn check_now(app: AppHandle) {
     check_for_update(&app, true).await;
@@ -105,6 +186,12 @@ pub async fn check_now(app: AppHandle) {
 
 #[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
+    run_install(&app).await
+}
+
+/// Shared install path used by both the IPC command (called from the
+/// splash UI) and the verbose-check confirm dialog.
+async fn run_install(app: &AppHandle) -> Result<(), String> {
     let updater = app.updater().map_err(|e| e.to_string())?;
     let update = updater
         .check()
@@ -118,6 +205,6 @@ pub async fn install_update(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     // Make sure the sidecar is gone before the relaunch swaps the binary.
     sidecar::SHUTTING_DOWN.store(true, Ordering::SeqCst);
-    sidecar::kill_current(&app);
+    sidecar::kill_current(app);
     app.restart();
 }
