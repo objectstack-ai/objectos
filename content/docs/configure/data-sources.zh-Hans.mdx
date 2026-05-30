@@ -1,0 +1,213 @@
+---
+title: 数据源
+description: 把 ObjectOS 接入你现有的业务数据库,路由对象,并让 AI 原生地查询这些数据。
+---
+
+# 数据源
+
+**数据源(datasource)** 是一个指向外部数据存储的具名连接。通过声明数据源,
+你可以把 ObjectOS 指向企业本就在运行的数据库 —— 生产环境的 PostgreSQL、
+做报表的 MySQL 只读副本、MongoDB 集群 —— 然后把对象绑定到它们之上。对象一旦
+绑定,平台里的其它一切(REST/GraphQL API、权限、流程、仪表盘,以及 **AI Agent**)
+都会统一地作用于这些数据,而不关心数据物理上存在哪里。
+
+这是 ObjectOS 最实用的落地路径之一:你不必迁移遗留系统,而是连上它、把你关心
+的表建模成对象,再在**保持数据原地不动**的前提下,为它叠加 AI 原生能力 ——
+对话、分析、自动化。
+
+## 数据源是什么
+
+每个数据源都是由 `DatasourceSchema` 校验的普通对象。核心字段:
+
+| 字段 | 用途 |
+|---|---|
+| `name` | 对象引用的唯一标识(`^[a-z_][a-z0-9_]*$`) |
+| `label` | 可读的展示名 |
+| `driver` | 处理连接的驱动(`postgres`、`mysql`、`sqlite`、`mongodb`、`memory`,或插件贡献的驱动) |
+| `config` | 驱动相关的连接设置(host、database、凭据……) |
+| `pool` | 连接池大小(`min`、`max`、超时) |
+| `readReplicas` | 可选的只读副本配置 |
+| `capabilities` | 覆盖驱动声明的可下推能力 |
+| `healthCheck` | 存活探测的间隔/超时 |
+| `active` | 连接是否启用 |
+
+已发布的驱动:
+
+| 驱动包 | `driver` | 后端 |
+|---|---|---|
+| `@objectstack/driver-sql` | `postgres`、`mysql`、`sqlite` | PostgreSQL、MySQL、SQLite(经 knex) |
+| `@objectstack/driver-mongodb` | `mongodb` | MongoDB |
+| `@objectstack/driver-memory` | `memory` | 进程内(测试、演示) |
+| `@objectstack/driver-sqlite-wasm` | `sqlite`(WASM) | WebContainer / 浏览器中的 SQLite |
+
+## 声明数据源
+
+数据源声明在 stack 上,并由 `defineStack` 汇编。把每个连接定义成一个带类型的
+`Datasource` 对象,再列入 `datasources`:
+
+```ts
+// src/datasources/business.datasource.ts
+import type { Datasource } from '@objectstack/spec';
+
+// 连接一个【已有的】生产数据库。凭据来自环境变量 —— 切勿把密钥写死在源码里。
+export const BusinessDb: Datasource = {
+  name: 'business_primary',
+  label: 'Business System (Postgres)',
+  driver: 'postgres',
+  config: {
+    connection: {
+      host: process.env.BIZ_DB_HOST,
+      port: Number(process.env.BIZ_DB_PORT ?? 5432),
+      user: process.env.BIZ_DB_USER,
+      password: process.env.BIZ_DB_PASSWORD,
+      database: process.env.BIZ_DB_NAME,
+    },
+  },
+  pool: { min: 1, max: 10 },
+  active: true,
+};
+```
+
+```ts
+// objectstack.config.ts
+import { defineStack } from '@objectstack/spec';
+import * as objects from './src/objects/index.js';
+import { BusinessDb } from './src/datasources/business.datasource.js';
+
+export default defineStack({
+  manifest: { id: 'app.example.crm-extend', namespace: 'biz', version: '1.0.0' },
+  datasources: [BusinessDb],
+  objects: Object.values(objects),
+});
+```
+
+> **不存在** `defineDatasource()` 这样的辅助函数。数据源就是你放进 `datasources`
+> 数组里的一个 `Datasource` 对象 —— 与框架仓库里 `examples/app-crm` stack 的做法
+> 完全一致。
+
+## 把对象绑定到数据源
+
+每个对象都有 `datasource` 字段,默认是 `'default'`(主数据库)。把它设为你已连接
+的某个系统,即可路由特定对象:
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Customer = ObjectSchema.create({
+  name: 'biz_customer',
+  label: 'Customer',
+  datasource: 'business_primary', // ← 读写都走业务库
+  fields: {
+    name:  Field.text({ label: 'Name', required: true }),
+    email: Field.text({ label: 'Email' }),
+    tier:  Field.select({ label: 'Tier', options: [/* … */] }),
+  },
+});
+```
+
+### 用 `datasourceMapping` 做集中路由
+
+逐个绑定对象适合少量场景。要路由整个命名空间或包,就在 stack 上声明一次路由规则。
+规则按顺序(或按 `priority`)求值,首个命中者生效:
+
+```ts
+export default defineStack({
+  datasources: [BusinessDb, AnalyticsReplica],
+  datasourceMapping: [
+    { namespace: 'biz',            datasource: 'business_primary' },
+    { objectPattern: 'report_*',   datasource: 'analytics_replica' },
+    { package: 'com.example.logs', datasource: 'business_primary' },
+    { default: true,               datasource: 'default' },
+  ],
+});
+```
+
+规则可按 `namespace`、`package`、`objectPattern`(glob)或 `default` 匹配,并指定
+目标 `datasource`。这样数据驻留的决策集中在一处,而不是散落在各个对象文件里。
+
+## 从既有表生成对象
+
+你不必为每张表手写对象。如今把遗留 schema 引入 ObjectOS 最快的方式,是**用编码
+Agent(Claude Code)扫描业务表并生成源码级的对象定义** —— 每张表一个
+`*.object.ts` 文件,形态正是框架所期望的。
+
+[`hotcrm`](https://github.com/objectstack-ai/hotcrm) 参考应用就是这种形态的范例:
+每张表是一个 `src/objects/<name>.object.ts` 文件,用 `ObjectSchema.create({ … })`
+加 `Field.*` 定义,全部由 `defineStack` 汇编。典型流程:
+
+1. **连接**业务数据库为数据源(见上)。
+2. **让 Claude Code 对准 schema。** 让它内省已连接的数据库 —— 表名、列、类型、
+   外键 —— 为每张表生成一个 `ObjectSchema.create` 文件,把 SQL 列映射到 `Field.*`
+   类型、把外键映射到 `Field.lookup(...)`。给每个对象设好 `datasource`(或交给
+   `datasourceMapping`)。
+3. **审阅与打磨**生成的对象 —— 补上 label、字段分组、校验与权限。产物就是你拥有
+   并提交的普通源码,和 `hotcrm/src/objects/*.object.ts` 一样。
+4. **运行。** 这些对象此刻便通过绑定的数据源读写你既有的表。
+
+因为生成的对象是普通源码,你拥有完全的控制权:保留合适的、丢弃不想暴露的列,并在
+一个平台从不需要拥有的数据库之上叠加 ObjectOS 的能力(历史追踪、活动、共享规则)。
+
+## 能力感知的查询下推
+
+每个数据源都会声明 `DatasourceCapabilities` —— 是否支持过滤、排序、分页、聚合、
+连接、全文检索、事务等。ObjectQL 据此决定哪些**下推**到数据库、哪些在内存中求值:
+
+| 能力 | 支持时的效果 |
+|---|---|
+| `queryFilters` | `WHERE` 子句在数据库执行 |
+| `querySorting` / `queryPagination` | `ORDER BY` / `LIMIT` 在服务端执行 |
+| `queryAggregations` | `GROUP BY` / 聚合在服务端执行 |
+| `joins` | 关联对象的连接在服务端执行 |
+| `fullTextSearch` | 检索命中原生索引 |
+| `readOnly` | 该连接拒绝写入 |
+
+一个能力完备的 SQL 数据源几乎能把所有操作下推;能力受限或只读的数据源得到相同的
+查询结果,只是引擎要多做一些工作。当你比驱动更清楚时,可通过 `capabilities` 字段
+按数据源覆盖其声明的能力集。
+
+## 在已连接数据上用 AI
+
+一旦表被建模为对象,**AI 层就免费可用**。ObjectOS 的 Agent 与工具 ——
+`list_objects`、`describe_object`、`query_records`、`aggregate_data` 以及
+data-chat agent —— 都经由 ObjectQL,后者会把每个对象路由到它绑定的数据源。这意味着:
+
+- 用户可以用**自然语言提问**那些存放在遗留业务系统里的数据,答案是针对真实记录
+  计算出来的。
+- 工具调用与查询遵守**调用者本人的权限** —— AI 永远看不到超出登录用户被允许范围
+  的内容。
+- 不论对象由主数据库还是外部业务系统支撑,同一批 Agent、流程、仪表盘都照常工作。
+
+参见 [AI 服务](/docs/configure/ai) 与 [AI Agent](/docs/build/agents) 了解如何接好
+对话与 Agent 层,以及 [运行时](/docs/configure/runtime) 了解支撑 `default` 数据源
+的主数据库配置。
+
+## 安全须知
+
+- **切勿把凭据写死。** 像上面那样从环境变量(或密钥管理器)读取 host/user/password。
+- **对不打算写入的系统使用只读连接** —— 设置数据源的 `readOnly` 能力(或使用只读
+  的数据库账号),让误写无法触及生产。
+- **用权限收口。** 对象级与字段级权限对已连接数据的约束,与原生对象完全一致。
+
+## 路线图:产品内置的外部数据源联邦
+
+上面的流程 —— 连接数据库、建模对象、用编码 Agent 生成 —— 借助已发布的能力今天就
+能用。更完善的**一键式联邦**体验正在
+[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+下积极设计中(状态:*Proposed*)。计划中、**尚未发布**的内容:
+
+- `schemaMode`(`managed` / `external` / `validate-only`),让 ObjectOS 能绑定到它
+  **并不拥有**的表,而不去尝试迁移它们。
+- 对象上的 `external` 绑定子记录,把对象字段映射到既有列。
+- `os datasource introspect` / `validate` CLI,一步导入 schema 并脚手架出对象。
+- 面向外部所属 schema 的启动期与写入期**安全闸门**,以及覆盖整个流程的 Studio 向导。
+
+在它们落地之前,请优先采用已记录的路径:声明数据源、绑定对象(生成的或手写的),
+并先在非生产副本上验证。
+
+## 下一步去哪
+
+- [运行时](/docs/configure/runtime) —— `default` 背后的主数据库
+- [AI 服务](/docs/configure/ai) —— 对话、嵌入、RAG、MCP
+- [AI Agent](/docs/build/agents) —— 作用于你对象之上的声明式 Agent
+- [对象](/docs/build/objects) —— `ObjectSchema.create` 的编写界面
+- [`examples/app-crm` 数据源](https://github.com/objectstack-ai/framework/tree/main/examples/app-crm/src/datasources) —— 一个真实的数据源 + 路由示例

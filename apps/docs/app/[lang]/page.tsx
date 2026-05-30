@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Server, Container, ShieldOff, KeyRound, Lock, LineChart, Wrench, ShieldCheck, Briefcase, Ship, Boxes, WifiOff, ArrowRight } from 'lucide-react';
+import { Server, Container, ShieldOff, KeyRound, Lock, LineChart, Wrench, ShieldCheck, Briefcase, Ship, Boxes, WifiOff, ArrowRight, Database } from 'lucide-react';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import { baseOptions } from '@/lib/layout.shared';
 import { getHomepageTranslations } from '@/lib/homepage-i18n';
@@ -36,6 +36,13 @@ export default async function HomePage({
   ];
 
   const features = [
+    {
+      key: 'connectSystems',
+      icon: Database,
+      href: '/docs/configure/data-sources',
+      title: t.features.connectSystems.title,
+      description: t.features.connectSystems.description,
+    },
     {
       key: 'selfHosted',
       icon: Server,

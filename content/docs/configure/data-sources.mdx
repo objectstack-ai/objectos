@@ -1,0 +1,248 @@
+---
+title: Data Sources
+description: Connect ObjectOS to your existing business databases, route objects to them, and let AI query the data — natively.
+---
+
+# Data Sources
+
+A **datasource** is a named connection to an external data store. By
+declaring datasources, you point ObjectOS at the databases your business
+already runs on — a production PostgreSQL, a reporting MySQL replica, a
+MongoDB cluster — and then bind objects to them. Once an object is bound,
+everything else in the platform (the REST/GraphQL API, permissions,
+flows, dashboards, and **AI agents**) works against that data uniformly,
+without caring where the rows physically live.
+
+This is one of ObjectOS's most practical adoption paths: instead of
+migrating a legacy system, you connect to it, model the tables you care
+about as objects, and **extend it with AI-native capabilities** — chat,
+analysis, automation — on top of data that stays exactly where it is.
+
+## What a datasource is
+
+Each datasource is a plain object validated by `DatasourceSchema`. The
+core fields:
+
+| Field | Purpose |
+|---|---|
+| `name` | Unique identifier (`^[a-z_][a-z0-9_]*$`) objects reference |
+| `label` | Human-readable display name |
+| `driver` | Which driver handles the connection (`postgres`, `mysql`, `sqlite`, `mongodb`, `memory`, or a plugin-contributed driver) |
+| `config` | Driver-specific connection settings (host, database, credentials, …) |
+| `pool` | Connection-pool sizing (`min`, `max`, timeouts) |
+| `readReplicas` | Optional read-only replica configs |
+| `capabilities` | Override what the driver advertises it can push down |
+| `healthCheck` | Liveness probe interval/timeout |
+| `active` | Whether the connection is enabled |
+
+The shipped drivers are:
+
+| Driver package | `driver` | Backends |
+|---|---|---|
+| `@objectstack/driver-sql` | `postgres`, `mysql`, `sqlite` | PostgreSQL, MySQL, SQLite (via knex) |
+| `@objectstack/driver-mongodb` | `mongodb` | MongoDB |
+| `@objectstack/driver-memory` | `memory` | In-process (tests, demos) |
+| `@objectstack/driver-sqlite-wasm` | `sqlite` (WASM) | SQLite in WebContainers / browser |
+
+## Declaring datasources
+
+Datasources are declared on the stack and assembled with `defineStack`.
+Define each connection as a typed `Datasource` object, then list them
+under `datasources`:
+
+```ts
+// src/datasources/business.datasource.ts
+import type { Datasource } from '@objectstack/spec';
+
+// Connect to an EXISTING production database. Credentials come from the
+// environment — never inline secrets in source.
+export const BusinessDb: Datasource = {
+  name: 'business_primary',
+  label: 'Business System (Postgres)',
+  driver: 'postgres',
+  config: {
+    connection: {
+      host: process.env.BIZ_DB_HOST,
+      port: Number(process.env.BIZ_DB_PORT ?? 5432),
+      user: process.env.BIZ_DB_USER,
+      password: process.env.BIZ_DB_PASSWORD,
+      database: process.env.BIZ_DB_NAME,
+    },
+  },
+  pool: { min: 1, max: 10 },
+  active: true,
+};
+```
+
+```ts
+// objectstack.config.ts
+import { defineStack } from '@objectstack/spec';
+import * as objects from './src/objects/index.js';
+import { BusinessDb } from './src/datasources/business.datasource.js';
+
+export default defineStack({
+  manifest: { id: 'app.example.crm-extend', namespace: 'biz', version: '1.0.0' },
+  datasources: [BusinessDb],
+  objects: Object.values(objects),
+});
+```
+
+> There is **no** `defineDatasource()` helper. A datasource is just a
+> `Datasource` object you place in the `datasources` array — exactly like
+> the `examples/app-crm` stack does in the framework repo.
+
+## Binding objects to a datasource
+
+Every object has a `datasource` field. It defaults to `'default'` (the
+primary database). Set it to route a specific object at one of your
+connected systems:
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Customer = ObjectSchema.create({
+  name: 'biz_customer',
+  label: 'Customer',
+  datasource: 'business_primary', // ← reads/writes go to the business DB
+  fields: {
+    name:  Field.text({ label: 'Name', required: true }),
+    email: Field.text({ label: 'Email' }),
+    tier:  Field.select({ label: 'Tier', options: [/* … */] }),
+  },
+});
+```
+
+### Centralized routing with `datasourceMapping`
+
+Binding objects one by one is fine for a handful. For whole namespaces or
+packages, declare routing rules once on the stack. Rules are evaluated in
+order (or by `priority`); first match wins:
+
+```ts
+export default defineStack({
+  datasources: [BusinessDb, AnalyticsReplica],
+  datasourceMapping: [
+    { namespace: 'biz',            datasource: 'business_primary' },
+    { objectPattern: 'report_*',   datasource: 'analytics_replica' },
+    { package: 'com.example.logs', datasource: 'business_primary' },
+    { default: true,               datasource: 'default' },
+  ],
+});
+```
+
+A rule matches by `namespace`, `package`, `objectPattern` (glob), or
+`default`, and names the target `datasource`. This keeps data-residency
+decisions in one place instead of scattered across object files.
+
+## Generating objects from existing tables
+
+You don't have to hand-write an object for every table. The fastest way
+to bring a legacy schema into ObjectOS today is to **use a coding agent
+(Claude Code) to scan the business tables and generate source-level
+object definitions** — one `*.object.ts` file per table, in exactly the
+shape the framework expects.
+
+The [`hotcrm`](https://github.com/objectstack-ai/hotcrm) reference app is
+the canonical example of that shape: each table is a
+`src/objects/<name>.object.ts` file using `ObjectSchema.create({ … })`
+with `Field.*` definitions, all assembled by `defineStack`. A typical
+flow:
+
+1. **Connect** the business database as a datasource (above).
+2. **Point Claude Code at the schema.** Ask it to introspect the
+   connected database — table names, columns, types, foreign keys — and
+   generate one `ObjectSchema.create` file per table, mapping SQL columns
+   to `Field.*` types and foreign keys to `Field.lookup(...)`. Set each
+   object's `datasource` to your connection (or rely on
+   `datasourceMapping`).
+3. **Review & refine** the generated objects — add labels, field groups,
+   validations, and permissions. The output is ordinary source you own
+   and commit, just like `hotcrm/src/objects/*.object.ts`.
+4. **Run.** The objects now read and write your existing tables through
+   the bound datasource.
+
+Because the generated objects are plain source, you get full control:
+keep what fits, drop columns you don't want to expose, and layer
+ObjectOS features (history tracking, activities, sharing rules) on top of
+a database the platform never had to own.
+
+## Capability-aware query pushdown
+
+Each datasource advertises `DatasourceCapabilities` — whether it can
+handle filters, sorting, pagination, aggregations, joins, full-text
+search, transactions, and more. ObjectQL uses this to decide what to
+**push down** to the database versus what to evaluate in memory:
+
+| Capability | Effect when supported |
+|---|---|
+| `queryFilters` | `WHERE` clauses run in the database |
+| `querySorting` / `queryPagination` | `ORDER BY` / `LIMIT` run server-side |
+| `queryAggregations` | `GROUP BY` / aggregates run server-side |
+| `joins` | Related-object joins run server-side |
+| `fullTextSearch` | Search hits a native index |
+| `readOnly` | The connection rejects writes |
+
+A capable SQL datasource pushes nearly everything down; a limited or
+read-only source gets the same query results, just with more work done in
+the engine. You can override the advertised set per datasource via the
+`capabilities` field when you know better than the driver default.
+
+## AI over connected data
+
+Once tables are modeled as objects, **the AI layer works on them for
+free**. ObjectOS's agents and tools — `list_objects`, `describe_object`,
+`query_records`, `aggregate_data`, and the data-chat agent — all go
+through ObjectQL, which routes each object to its bound datasource. That
+means:
+
+- A user can **ask questions in natural language** about data that lives
+  in the legacy business system, and the answer is computed against the
+  real rows.
+- Tool calls and queries respect the **calling user's permissions** —
+  AI never sees more than the signed-in user is allowed to.
+- The same agents, flows, and dashboards work whether an object is backed
+  by the primary database or an external business system.
+
+See [AI Service](/docs/configure/ai) and
+[AI Agents](/docs/build/agents) for how to wire up the chat and agent
+layers, and [Runtime](/docs/configure/runtime) for the primary-database
+configuration that backs the `default` datasource.
+
+## Security notes
+
+- **Never inline credentials.** Pull host/user/password from environment
+  variables (or a secrets manager) as shown above.
+- **Use read-only connections** for systems you don't intend to write to
+  — set the source `readOnly` capability (or a read-only DB user) so a
+  stray write can't reach production.
+- **Scope with permissions.** Object- and field-level permissions apply
+  to connected data exactly as they do to native objects.
+
+## Roadmap: in-product External Datasource Federation
+
+The flow above — connect a database, model objects, generate them with a
+coding agent — works today with shipped building blocks. A richer,
+**turn-key federation** experience is in active design under
+[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+(status: *Proposed*). Planned, **not yet shipped**:
+
+- A `schemaMode` (`managed` / `external` / `validate-only`) so ObjectOS
+  can bind to tables it does **not** own without trying to migrate them.
+- An `external` binding sub-record on objects mapping object fields to
+  existing columns.
+- An `os datasource introspect` / `validate` CLI to import a schema and
+  scaffold objects in one step.
+- Boot-time and write-time **safety gates** for externally-owned schemas,
+  plus a Studio wizard for the whole flow.
+
+Until those land, prefer the documented path: declare the datasource,
+bind objects (generated or hand-written), and verify against a
+non-production copy first.
+
+## Where to go next
+
+- [Runtime](/docs/configure/runtime) — the primary database behind `default`
+- [AI Service](/docs/configure/ai) — chat, embeddings, RAG, MCP
+- [AI Agents](/docs/build/agents) — declarative agents over your objects
+- [Objects](/docs/build/objects) — the `ObjectSchema.create` authoring surface
+- [`examples/app-crm` datasources](https://github.com/objectstack-ai/framework/tree/main/examples/app-crm/src/datasources) — a real datasource + routing example

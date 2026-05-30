@@ -7,14 +7,14 @@ export const gitConfig = {
   branch: 'main',
 };
 
-const NAV_LABELS: Record<string, { docs: string; download: string; changelog: string }> = {
-  en: { docs: 'Docs', download: 'Download', changelog: 'Changelog' },
-  'zh-Hans': { docs: '文档', download: '下载', changelog: '更新日志' },
-  ja: { docs: 'ドキュメント', download: 'ダウンロード', changelog: '変更履歴' },
-  de: { docs: 'Dokumentation', download: 'Download', changelog: 'Änderungen' },
-  es: { docs: 'Documentación', download: 'Descargar', changelog: 'Cambios' },
-  fr: { docs: 'Documentation', download: 'Télécharger', changelog: 'Journal' },
-  ko: { docs: '문서', download: '다운로드', changelog: '변경 내역' },
+const NAV_LABELS: Record<string, { docs: string; blog: string; download: string; changelog: string }> = {
+  en: { docs: 'Docs', blog: 'Blog', download: 'Download', changelog: 'Changelog' },
+  'zh-Hans': { docs: '文档', blog: '博客', download: '下载', changelog: '更新日志' },
+  ja: { docs: 'ドキュメント', blog: 'ブログ', download: 'ダウンロード', changelog: '変更履歴' },
+  de: { docs: 'Dokumentation', blog: 'Blog', download: 'Download', changelog: 'Änderungen' },
+  es: { docs: 'Documentación', blog: 'Blog', download: 'Descargar', changelog: 'Cambios' },
+  fr: { docs: 'Documentation', blog: 'Blog', download: 'Télécharger', changelog: 'Journal' },
+  ko: { docs: '문서', blog: '블로그', download: '다운로드', changelog: '변경 내역' },
 };
 
 const RELEASES_URL = 'https://github.com/objectstack-ai/objectos/releases';
@@ -47,6 +47,11 @@ export function baseOptions(lang: string = 'en'): BaseLayoutProps {
       {
         text: labels.docs,
         url: `${prefix}/docs`,
+        active: 'nested-url',
+      },
+      {
+        text: labels.blog,
+        url: `${prefix}/blog`,
         active: 'nested-url',
       },
       {

@@ -12,6 +12,7 @@ export const source = loader({
 
 export const blog = loader({
   baseUrl: '/blog',
+  i18n,
   source: blogCollection.toFumadocsSource(),
 });
 

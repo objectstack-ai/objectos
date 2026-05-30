@@ -1,0 +1,106 @@
+---
+title: Extiende sistemas existentes
+description: Conecta ObjectOS a los sistemas de negocio que ya operas, y luego añade consulta, análisis y automatización nativos de IA — sin una migración.
+---
+
+# Extiende sistemas existentes
+
+La mayoría de los equipos que evalúan ObjectOS ya tienen un sistema de
+registro — un CRM, un ERP, una herramienta de tickets, un back office
+hecho en casa sobre una base de datos SQL o MongoDB de producción. La
+pregunta rara vez es "¿deberíamos tirarlo y reconstruirlo?". Es "¿podemos
+hacer que lo que ya tenemos sea **nativo de IA**, sin una migración
+arriesgada?"
+
+Ese es exactamente el camino que describe esta página: **conecta ObjectOS
+a tu base de datos existente, modela como objetos las tablas que te
+importan, y deja que los agentes de IA consulten, analicen y actúen sobre
+esos datos** — bajo tus permisos, en tu infraestructura, con el sistema
+original intacto.
+
+## La forma de la jugada
+
+No reemplazas tu sistema de negocio. Pones ObjectOS *al lado* de él y lo
+apuntas a la misma base de datos:
+
+1. **Conecta** la base de datos existente como un [datasource](/docs/configure/data-sources).
+   Las credenciales provienen de tu entorno; la conexión puede ser de
+   solo lectura si solo quieres analizar.
+2. **Modela** las tablas como objetos — a mano, o dejando que un agente
+   de codificación escanee el esquema y genere por ti archivos de objetos
+   a nivel de código fuente.
+3. **Vincula** cada objeto al datasource (por objeto, o con una regla de
+   enrutamiento para todo un namespace).
+4. **Usa IA** — en el momento en que una tabla es un objeto, cada agente,
+   herramienta, flujo y panel funciona sobre ella, enrutado
+   automáticamente a la base de datos correcta.
+
+Nada de la aplicación heredada cambia. Las filas permanecen donde están.
+ObjectOS se convierte en la superficie nativa de IA y consciente de
+permisos por encima.
+
+## Por qué esto funciona sin una reescritura
+
+| Preocupación | Cómo lo maneja ObjectOS |
+|---|---|
+| "No podemos mover los datos" | Los datos nunca se mueven. ObjectOS se conecta a tu base de datos en su lugar. |
+| "No podemos arriesgar escrituras en producción" | Vincula los objetos a un datasource de **solo lectura** (o a un usuario de BD de solo lectura). Analiza con seguridad primero; habilita las escrituras deliberadamente. |
+| "Modelar cada tabla son semanas de trabajo" | Un agente de codificación escanea el esquema y genera un archivo de objeto por tabla — tú revisas y refinas, no escribes a mano. |
+| "No se puede confiar a la IA nuestros datos" | Los agentes se ejecutan como el **usuario que ha iniciado sesión** y obedecen los permisos a nivel de objeto, de registro y de campo. Nunca ven más que la persona detrás de ellos. |
+| "Nuestros datos no pueden salir de nuestra red" | ObjectOS se ejecuta en tu entorno. Los datos de negocio y los prompts permanecen dentro de tu perímetro. |
+
+## Generar objetos con un agente de codificación
+
+La forma más rápida de incorporar un esquema existente es usar un agente
+de codificación (como Claude Code) para **escanear las tablas de negocio
+y generar definiciones de objetos a nivel de código fuente** — un archivo
+`*.object.ts` por tabla.
+
+La app de referencia [`hotcrm`](https://github.com/objectstack-ai/hotcrm)
+muestra la forma exacta que debería tomar esa salida: cada tabla se
+convierte en un `src/objects/<name>.object.ts` usando
+`ObjectSchema.create({ … })` con definiciones tipadas de `Field.*` y
+`Field.lookup(...)` para las claves foráneas, ensamblado por
+`defineStack`. El agente introspecciona tu base de datos conectada, mapea
+las columnas a tipos de campo, y escribe objetos de los que eres dueño y
+que confirmas. Conservas lo que encaja, descartas las columnas que no
+quieres exponer, y añades etiquetas, validaciones y permisos por encima.
+
+Consulta [Data Sources](/docs/configure/data-sources) para la guía de
+autoría completa, paso a paso.
+
+## Lo que obtienes el primer día
+
+Una vez que las tablas están modeladas como objetos vinculados a tu base
+de datos existente:
+
+- **Análisis en lenguaje natural.** Los usuarios hacen preguntas sobre los
+  registros reales — "¿qué tratos se escaparon este trimestre y quién los
+  gestiona?" — y la respuesta se calcula sobre datos en vivo a través de
+  ObjectQL.
+- **Automatización gobernada.** Los flujos y las acciones pueden leer y
+  (donde esté permitido) escribir los mismos datos, con cada paso
+  auditado.
+- **Una API y una Console generadas.** Los endpoints REST/GraphQL y las
+  pantallas de administración provienen de los mismos metadatos — sin una
+  capa de integración adicional.
+- **Un único modelo de permisos.** El límite que se aplica a los humanos
+  se aplica de forma idéntica al tráfico de IA.
+
+## Hacia dónde se dirige esto
+
+El flujo anterior funciona hoy con bloques de construcción ya
+disponibles. Una experiencia de **federación llave en mano** más rica —
+importación de esquemas en un solo paso, vinculación de esquemas de
+propiedad externa, y barreras de seguridad integradas — está en diseño
+activo bajo [ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+(estado: *Propuesto*). Hasta que llegue, el camino documentado —
+conectar, modelar, vincular, consultar — es la forma soportada de
+extender un sistema existente.
+
+## Empieza aquí
+
+- [Data Sources](/docs/configure/data-sources) — conecta una base de datos, vincula objetos, enruta consultas
+- [AI Agents](/docs/build/agents) — agentes declarativos sobre tus objetos
+- [Permissions](/docs/configure/permissions) — el modelo que la IA hereda
+- [Quickstart](/docs/quickstart) — levanta un runtime en minutos

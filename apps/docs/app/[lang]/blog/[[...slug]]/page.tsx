@@ -18,6 +18,21 @@ interface BlogPostData {
 
 const components = getMDXComponents() as any;
 
+// Locale-aware UI strings for the blog chrome. Post bodies are translated
+// via per-locale MDX files; these are the surrounding labels.
+const BLOG_UI: Record<
+  string,
+  { title: string; subtitle: string; by: string; back: string; empty: string; dateLocale: string }
+> = {
+  en: { title: 'Blog', subtitle: 'Insights, updates, and best practices from the ObjectStack team.', by: 'By', back: 'Back to Blog', empty: 'No blog posts yet. Check back soon!', dateLocale: 'en-US' },
+  'zh-Hans': { title: '博客', subtitle: '来自 ObjectStack 团队的洞见、更新与最佳实践。', by: '作者', back: '返回博客', empty: '还没有博客文章,敬请期待!', dateLocale: 'zh-CN' },
+  ja: { title: 'ブログ', subtitle: 'ObjectStack チームによる知見、アップデート、ベストプラクティス。', by: '著者', back: 'ブログに戻る', empty: 'まだ記事がありません。近日公開予定です!', dateLocale: 'ja-JP' },
+  de: { title: 'Blog', subtitle: 'Einblicke, Neuigkeiten und Best Practices vom ObjectStack-Team.', by: 'Von', back: 'Zurück zum Blog', empty: 'Noch keine Beiträge. Schau bald wieder vorbei!', dateLocale: 'de-DE' },
+  es: { title: 'Blog', subtitle: 'Ideas, novedades y buenas prácticas del equipo de ObjectStack.', by: 'Por', back: 'Volver al blog', empty: 'Aún no hay publicaciones. ¡Vuelve pronto!', dateLocale: 'es-ES' },
+  fr: { title: 'Blog', subtitle: 'Analyses, actualités et bonnes pratiques de l’équipe ObjectStack.', by: 'Par', back: 'Retour au blog', empty: 'Pas encore d’articles. Revenez bientôt !', dateLocale: 'fr-FR' },
+  ko: { title: '블로그', subtitle: 'ObjectStack 팀의 인사이트, 업데이트, 모범 사례.', by: '작성자', back: '블로그로 돌아가기', empty: '아직 게시글이 없습니다. 곧 다시 확인해 주세요!', dateLocale: 'ko-KR' },
+};
+
 export default async function BlogPage({
   params,
 }: {
@@ -25,17 +40,19 @@ export default async function BlogPage({
 }) {
   const { slug, lang } = await params;
   
+  const ui = BLOG_UI[lang] ?? BLOG_UI.en;
+
   // If no slug, show blog index
   if (!slug || slug.length === 0) {
-    const posts = blog.getPages();
+    const posts = blog.getPages(lang);
 
     return (
       <HomeLayout {...baseOptions(lang)}>
         <main className="container max-w-5xl mx-auto px-4 py-16">
           <div className="mb-12">
-            <h1 className="text-4xl font-bold mb-4">Blog</h1>
+            <h1 className="text-4xl font-bold mb-4">{ui.title}</h1>
             <p className="text-lg text-fd-foreground/80">
-              Insights, updates, and best practices from the ObjectStack team.
+              {ui.subtitle}
             </p>
           </div>
 
@@ -62,7 +79,7 @@ export default async function BlogPage({
                   <div className="flex items-center gap-4 text-sm text-fd-foreground/70">
                     {postData.date && (
                       <time dateTime={postData.date}>
-                        {new Date(postData.date).toLocaleDateString('en-US', {
+                        {new Date(postData.date).toLocaleDateString(ui.dateLocale, {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -70,7 +87,7 @@ export default async function BlogPage({
                       </time>
                     )}
                     {postData.author && (
-                      <span>By {postData.author}</span>
+                      <span>{ui.by} {postData.author}</span>
                     )}
                   </div>
 
@@ -93,7 +110,7 @@ export default async function BlogPage({
 
           {posts.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-fd-foreground/70">No blog posts yet. Check back soon!</p>
+              <p className="text-fd-foreground/70">{ui.empty}</p>
             </div>
           )}
         </main>
@@ -102,8 +119,8 @@ export default async function BlogPage({
   }
 
   // Show individual blog post
-  const page = blog.getPage(slug);
-  
+  const page = blog.getPage(slug, lang);
+
   if (!page) {
     notFound();
   }
@@ -114,12 +131,12 @@ export default async function BlogPage({
   return (
     <HomeLayout {...baseOptions(lang)}>
       <main className="container max-w-4xl mx-auto px-4 py-16">
-        <Link 
-          href="/blog"
+        <Link
+          href={lang === 'en' ? '/blog' : `/${lang}/blog`}
           className="inline-flex items-center gap-2 text-sm text-fd-foreground/70 hover:text-fd-foreground mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Blog
+          {ui.back}
         </Link>
 
         <article className="prose prose-neutral dark:prose-invert max-w-none">
@@ -135,7 +152,7 @@ export default async function BlogPage({
             <div className="flex items-center gap-4 text-sm text-fd-foreground/70">
               {pageData.date && (
                 <time dateTime={pageData.date}>
-                  {new Date(pageData.date).toLocaleDateString('en-US', {
+                  {new Date(pageData.date).toLocaleDateString(ui.dateLocale, {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -143,7 +160,7 @@ export default async function BlogPage({
                 </time>
               )}
               {pageData.author && (
-                <span>By {pageData.author}</span>
+                <span>{ui.by} {pageData.author}</span>
               )}
             </div>
 
@@ -168,19 +185,17 @@ export default async function BlogPage({
   );
 }
 
-export async function generateStaticParams() {
-  return blog.getPages().map((page) => ({
-    slug: page.slugs,
-  }));
+export function generateStaticParams() {
+  return blog.generateParams();
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug?: string[] }>;
+  params: Promise<{ lang: string; slug?: string[] }>;
 }) {
-  const { slug } = await params;
-  
+  const { slug, lang } = await params;
+
   // If no slug, return default metadata for blog index
   if (!slug || slug.length === 0) {
     return {
@@ -188,8 +203,8 @@ export async function generateMetadata({
       description: 'Insights, updates, and best practices from the ObjectStack team.',
     };
   }
-  
-  const page = blog.getPage(slug);
+
+  const page = blog.getPage(slug, lang);
 
   if (!page) {
     notFound();

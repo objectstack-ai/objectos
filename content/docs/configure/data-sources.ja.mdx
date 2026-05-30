@@ -1,0 +1,178 @@
+---
+title: データソース
+description: ObjectOS を既存のビジネスデータベースに接続し、オブジェクトをそこへルーティングして、AI にそのデータをネイティブにクエリさせます。
+---
+
+# データソース
+
+**データソース**とは、外部データストアへの名前付き接続です。データソースを宣言することで、ObjectOS をビジネスがすでに稼働しているデータベース — 本番の PostgreSQL、レポート用の MySQL レプリカ、MongoDB クラスター — に向け、そこへオブジェクトをバインドします。オブジェクトが一度バインドされると、プラットフォームの他のすべて（REST/GraphQL API、権限、フロー、ダッシュボード、そして **AI エージェント**）が、行が物理的にどこにあるかを気にすることなく、そのデータに対して一様に動作します。
+
+これは ObjectOS の最も実践的な導入経路の 1 つです。レガシーシステムを移行する代わりに、それに接続し、関心のあるテーブルをオブジェクトとしてモデル化し、まさにあるべき場所にとどまるデータの上に **AI ネイティブな機能** — チャット、分析、自動化 — を**拡張**します。
+
+## データソースとは
+
+各データソースは `DatasourceSchema` によって検証されるプレーンなオブジェクトです。コアとなるフィールド:
+
+| フィールド | 目的 |
+|---|---|
+| `name` | オブジェクトが参照する一意の識別子（`^[a-z_][a-z0-9_]*$`） |
+| `label` | 人間が読める表示名 |
+| `driver` | 接続を処理するドライバー（`postgres`、`mysql`、`sqlite`、`mongodb`、`memory`、またはプラグインが提供するドライバー） |
+| `config` | ドライバー固有の接続設定（ホスト、データベース、認証情報、…） |
+| `pool` | コネクションプールのサイジング（`min`、`max`、タイムアウト） |
+| `readReplicas` | 任意の読み取り専用レプリカ設定 |
+| `capabilities` | ドライバーがプッシュダウン可能と公表する内容を上書き |
+| `healthCheck` | 死活監視プローブの間隔／タイムアウト |
+| `active` | 接続を有効にするかどうか |
+
+同梱されているドライバーは以下のとおりです:
+
+| ドライバーパッケージ | `driver` | バックエンド |
+|---|---|---|
+| `@objectstack/driver-sql` | `postgres`、`mysql`、`sqlite` | PostgreSQL、MySQL、SQLite（knex 経由） |
+| `@objectstack/driver-mongodb` | `mongodb` | MongoDB |
+| `@objectstack/driver-memory` | `memory` | インプロセス（テスト、デモ） |
+| `@objectstack/driver-sqlite-wasm` | `sqlite`（WASM） | WebContainers / ブラウザ上の SQLite |
+
+## データソースの宣言
+
+データソースはスタック上で宣言され、`defineStack` で組み立てられます。各接続を型付きの `Datasource` オブジェクトとして定義し、それらを `datasources` の下に列挙します:
+
+```ts
+// src/datasources/business.datasource.ts
+import type { Datasource } from '@objectstack/spec';
+
+// 既存の本番データベースに接続します。認証情報は環境から取得します —
+// ソースにシークレットをインラインで書かないでください。
+export const BusinessDb: Datasource = {
+  name: 'business_primary',
+  label: 'Business System (Postgres)',
+  driver: 'postgres',
+  config: {
+    connection: {
+      host: process.env.BIZ_DB_HOST,
+      port: Number(process.env.BIZ_DB_PORT ?? 5432),
+      user: process.env.BIZ_DB_USER,
+      password: process.env.BIZ_DB_PASSWORD,
+      database: process.env.BIZ_DB_NAME,
+    },
+  },
+  pool: { min: 1, max: 10 },
+  active: true,
+};
+```
+
+```ts
+// objectstack.config.ts
+import { defineStack } from '@objectstack/spec';
+import * as objects from './src/objects/index.js';
+import { BusinessDb } from './src/datasources/business.datasource.js';
+
+export default defineStack({
+  manifest: { id: 'app.example.crm-extend', namespace: 'biz', version: '1.0.0' },
+  datasources: [BusinessDb],
+  objects: Object.values(objects),
+});
+```
+
+> `defineDatasource()` ヘルパーは**存在しません**。データソースとは、`datasources` 配列に配置する単なる `Datasource` オブジェクトです — フレームワークリポジトリの `examples/app-crm` スタックがまさにそうしているとおりです。
+
+## オブジェクトをデータソースにバインドする
+
+すべてのオブジェクトは `datasource` フィールドを持ちます。デフォルトは `'default'`（プライマリデータベース）です。特定のオブジェクトを接続済みシステムの 1 つにルーティングするには、これを設定します:
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Customer = ObjectSchema.create({
+  name: 'biz_customer',
+  label: 'Customer',
+  datasource: 'business_primary', // ← 読み書きはビジネス DB へ行く
+  fields: {
+    name:  Field.text({ label: 'Name', required: true }),
+    email: Field.text({ label: 'Email' }),
+    tier:  Field.select({ label: 'Tier', options: [/* … */] }),
+  },
+});
+```
+
+### `datasourceMapping` による集中ルーティング
+
+オブジェクトを 1 つずつバインドするのは少数なら問題ありません。名前空間やパッケージ全体については、ルーティングルールをスタック上で一度だけ宣言します。ルールは順番（または `priority`）に評価され、最初にマッチしたものが優先されます:
+
+```ts
+export default defineStack({
+  datasources: [BusinessDb, AnalyticsReplica],
+  datasourceMapping: [
+    { namespace: 'biz',            datasource: 'business_primary' },
+    { objectPattern: 'report_*',   datasource: 'analytics_replica' },
+    { package: 'com.example.logs', datasource: 'business_primary' },
+    { default: true,               datasource: 'default' },
+  ],
+});
+```
+
+ルールは `namespace`、`package`、`objectPattern`（glob）、または `default` でマッチし、ターゲットの `datasource` を指定します。これにより、データレジデンシーの判断がオブジェクトファイル全体に散らばるのではなく、1 か所にまとまります。
+
+## 既存テーブルからのオブジェクト生成
+
+すべてのテーブルについて手作業でオブジェクトを書く必要はありません。今日レガシースキーマを ObjectOS に取り込む最速の方法は、**コーディングエージェント（Claude Code）を使ってビジネステーブルをスキャンし、ソースレベルのオブジェクト定義を生成する**ことです — テーブルごとに 1 つの `*.object.ts` ファイルを、フレームワークが期待するまさにその形で。
+
+[`hotcrm`](https://github.com/objectstack-ai/hotcrm) リファレンスアプリは、その形の標準的な例です。各テーブルは `Field.*` 定義を持つ `ObjectSchema.create({ … })` を使った `src/objects/<name>.object.ts` ファイルであり、すべてが `defineStack` によって組み立てられます。典型的なフロー:
+
+1. ビジネスデータベースをデータソースとして**接続**します（上記）。
+2. **Claude Code をスキーマに向けます。** 接続されたデータベース — テーブル名、カラム、型、外部キー — をイントロスペクトし、テーブルごとに 1 つの `ObjectSchema.create` ファイルを生成し、SQL カラムを `Field.*` 型へ、外部キーを `Field.lookup(...)` へマッピングするよう依頼します。各オブジェクトの `datasource` を接続先に設定するか、`datasourceMapping` に頼ります。
+3. 生成されたオブジェクトを**レビューして精緻化**します — ラベル、フィールドグループ、バリデーション、権限を追加します。出力は、`hotcrm/src/objects/*.object.ts` とまったく同じように、あなたが所有しコミットする通常のソースです。
+4. **実行します。** オブジェクトは、バインドされたデータソースを通じて、既存のテーブルを読み書きするようになります。
+
+生成されたオブジェクトはプレーンなソースなので、完全な制御が得られます。フィットするものは残し、公開したくないカラムは捨て、プラットフォームが一度も所有する必要のなかったデータベースの上に ObjectOS の機能（履歴追跡、アクティビティ、共有ルール）を重ねられます。
+
+## ケーパビリティを考慮したクエリプッシュダウン
+
+各データソースは `DatasourceCapabilities` を公表します — フィルター、ソート、ページネーション、集計、結合、全文検索、トランザクションなどを処理できるかどうかです。ObjectQL はこれを使って、何をデータベースに**プッシュダウン**し、何をメモリ内で評価するかを決定します:
+
+| ケーパビリティ | サポート時の効果 |
+|---|---|
+| `queryFilters` | `WHERE` 句がデータベースで実行される |
+| `querySorting` / `queryPagination` | `ORDER BY` / `LIMIT` がサーバー側で実行される |
+| `queryAggregations` | `GROUP BY` / 集計がサーバー側で実行される |
+| `joins` | 関連オブジェクトの結合がサーバー側で実行される |
+| `fullTextSearch` | 検索がネイティブインデックスにヒットする |
+| `readOnly` | 接続が書き込みを拒否する |
+
+高機能な SQL データソースはほぼすべてをプッシュダウンします。制限のある、または読み取り専用のソースでも同じクエリ結果が得られますが、エンジン内でより多くの処理が行われるだけです。ドライバーのデフォルトより自分の方が把握している場合は、`capabilities` フィールドを使ってデータソースごとに公表されるセットを上書きできます。
+
+## 接続データに対する AI
+
+テーブルがオブジェクトとしてモデル化されると、**AI レイヤーはそれらに対して無償で動作します**。ObjectOS のエージェントとツール — `list_objects`、`describe_object`、`query_records`、`aggregate_data`、そしてデータチャットエージェント — はすべて ObjectQL を経由し、各オブジェクトをバインドされたデータソースへルーティングします。これは次のことを意味します:
+
+- ユーザーはレガシービジネスシステムにあるデータについて**自然言語で質問**でき、その答えは実際の行に対して計算されます。
+- ツール呼び出しとクエリは**呼び出しユーザーの権限**を尊重します — AI はサインインしているユーザーに許可された以上のものを決して見ません。
+- 同じエージェント、フロー、ダッシュボードは、オブジェクトがプライマリデータベースに支えられていても外部ビジネスシステムに支えられていても動作します。
+
+チャットとエージェントのレイヤーを接続する方法については [AI サービス](/docs/configure/ai) と [AI Agents](/docs/build/agents) を、`default` データソースを支えるプライマリデータベースの設定については [Runtime](/docs/configure/runtime) を参照してください。
+
+## セキュリティに関する注意
+
+- **認証情報をインラインで書かないでください。** 上記のように、ホスト／ユーザー／パスワードを環境変数（またはシークレットマネージャー）から取得してください。
+- 書き込むつもりのないシステムには**読み取り専用接続を使用してください** — ソースの `readOnly` ケーパビリティ（または読み取り専用 DB ユーザー）を設定して、誤った書き込みが本番に到達できないようにします。
+- **権限でスコープを限定してください。** オブジェクトレベルおよびフィールドレベルの権限は、ネイティブオブジェクトとまったく同じように接続データにも適用されます。
+
+## ロードマップ: 製品内の外部データソースフェデレーション
+
+上記のフロー — データベースを接続し、オブジェクトをモデル化し、コーディングエージェントで生成する — は、同梱のビルディングブロックで今日機能します。よりリッチな**ターンキー型フェデレーション**体験が [ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)（ステータス: *Proposed*）の下で活発に設計中です。計画されている、**まだ出荷されていない**もの:
+
+- ObjectOS が、所有して**いない**テーブルを移行しようとせずにバインドできるようにする `schemaMode`（`managed` / `external` / `validate-only`）。
+- オブジェクトのフィールドを既存のカラムにマッピングする、オブジェクト上の `external` バインディングサブレコード。
+- スキーマをインポートして 1 ステップでオブジェクトをスキャフォールドする `os datasource introspect` / `validate` CLI。
+- 外部所有のスキーマに対する起動時および書き込み時の**安全ゲート**、加えてフロー全体のための Studio ウィザード。
+
+それらが実現するまでは、ドキュメント化された経路を優先してください。データソースを宣言し、オブジェクト（生成またはハンドライト）をバインドし、まず非本番のコピーに対して検証します。
+
+## 次に読むべきもの
+
+- [Runtime](/docs/configure/runtime) — `default` の背後にあるプライマリデータベース
+- [AI サービス](/docs/configure/ai) — チャット、埋め込み、RAG、MCP
+- [AI Agents](/docs/build/agents) — オブジェクトに対する宣言的なエージェント
+- [Objects](/docs/build/objects) — `ObjectSchema.create` の作成サーフェス
+- [`examples/app-crm` datasources](https://github.com/objectstack-ai/framework/tree/main/examples/app-crm/src/datasources) — 実際のデータソース + ルーティングの例

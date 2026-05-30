@@ -1,0 +1,124 @@
+---
+title: "Mach dein bestehendes Geschäftssystem KI-nativ — ohne Migration"
+description: "Verbinde ObjectOS mit der Datenbank, die du bereits betreibst, modelliere die Tabellen als Objekte und lass KI echte Daten abfragen und bearbeiten — unter deinen Berechtigungen, auf deinen Servern."
+author: ObjectStack Team
+date: 2026-05-30
+tags:
+  - Data Sources
+  - AI-Native
+  - Architecture
+---
+
+Die meisten „Bring KI in dein Geschäft"-Versprechen setzen stillschweigend
+einen Neuaufbau voraus: die Daten in eine neue Plattform heben, die
+Workflows neu implementieren, das Team neu schulen. Genau das will niemand.
+Das System of Record — das CRM, das ERP, das Ticketing-Tool, das
+selbstgebaute Back Office — funktioniert bereits, und genau dort liegen die
+Daten schon.
+
+ObjectOS vertritt die gegenteilige Haltung. **Du migrierst nicht. Du verbindest.**
+
+## Die Idee in einem Satz
+
+Richte ObjectOS auf deine bestehende Datenbank, beschreibe die Tabellen, die
+dich interessieren, als Objekte, und jeder KI-Agent, jeder Flow und jedes
+Dashboard arbeitet sofort mit diesen Daten — automatisch an das richtige
+System geroutet, geregelt durch dieselben Berechtigungen, die deine Nutzer
+bereits haben.
+
+Die ursprüngliche Anwendung ändert sich nicht. Die Zeilen wandern nicht.
+ObjectOS wird zur KI-nativen, berechtigungsbewussten Oberfläche über dem,
+was du bereits betreibst.
+
+## Wie es heute funktioniert
+
+Es gibt vier Schritte, und keiner davon lautet „bau deine App neu":
+
+1. **Verbinde die Datenbank als Datasource.** Eine Datasource ist eine
+   benannte Verbindung — Postgres, MySQL, MongoDB, SQLite. Die
+   Zugangsdaten stammen aus der Umgebung, und die Verbindung kann
+   schreibgeschützt sein, wenn du zunächst nur analysieren möchtest.
+
+   ```ts
+   import type { Datasource } from '@objectstack/spec';
+
+   export const BusinessDb: Datasource = {
+     name: 'business_primary',
+     label: 'Business System (Postgres)',
+     driver: 'postgres',
+     config: {
+       connection: {
+         host: process.env.BIZ_DB_HOST,
+         user: process.env.BIZ_DB_USER,
+         password: process.env.BIZ_DB_PASSWORD,
+         database: process.env.BIZ_DB_NAME,
+       },
+     },
+     active: true,
+   };
+   ```
+
+2. **Modelliere die Tabellen als Objekte** — und du musst sie nicht von
+   Hand eintippen. Richte einen Coding-Agenten wie Claude Code auf das
+   verbundene Schema und bitte ihn, pro Tabelle eine Objektdatei auf
+   Quellebene zu generieren. Unsere
+   [`hotcrm`](https://github.com/objectstack-ai/hotcrm)-Referenz-App
+   zeigt die genaue Form dieser Ausgabe: ein `ObjectSchema.create({ … })`
+   mit typisierten `Field.*`-Definitionen und `Field.lookup(...)` für
+   Fremdschlüssel. Du prüfst und verfeinerst; das Ergebnis gehört dir.
+
+3. **Binde Objekte an die Datasource** — pro Objekt oder mit einer
+   Routing-Regel für einen ganzen Namespace:
+
+   ```ts
+   datasourceMapping: [
+     { namespace: 'biz', datasource: 'business_primary' },
+     { default: true,    datasource: 'default' },
+   ]
+   ```
+
+4. **Lass die KI arbeiten.** Sobald eine Tabelle ein Objekt ist, arbeitet
+   die KI-Schicht kostenlos damit. Agenten fragen über ObjectQL ab, das
+   jedes Objekt zu seiner Datenbank routet — und jede Abfrage läuft als der
+   **angemeldete Nutzer** und befolgt Berechtigungen auf Objekt-, Datensatz-
+   und Feldebene.
+
+## Warum das sicher ist
+
+Der Einwand gegen „KI auf unseren Geschäftsdaten" lautet immer Governance,
+und genau dort leistet die Runtime die Arbeit:
+
+- **KI handelt als der Nutzer, nie über ihm.** Ein Agent sieht genau das,
+  was die Person dahinter sehen darf — durchgesetzt in der Runtime, nicht
+  im Prompt.
+- **Standardmäßig schreibgeschützt, wenn du es möchtest.** Binde Objekte an
+  eine schreibgeschützte Verbindung oder einen schreibgeschützten DB-Nutzer.
+  Analysiere die Produktion sicher; aktiviere Schreibzugriffe bewusst.
+- **Alles auditiert.** Jeder Lese-, Schreib- und Eskalationsvorgang — ob
+  Mensch oder Agent — wird mit Wer, Was, Wann und Warum aufgezeichnet.
+- **Deine Daten bleiben in deinem Netzwerk.** ObjectOS läuft in deiner
+  Umgebung. Geschäftsdaten und Prompts verlassen deinen Perimeter nie.
+
+## Was ausgeliefert ist vs. was kommt
+
+Der oben beschriebene Ablauf funktioniert **heute** mit ausgelieferten
+Bausteinen: Datasources, Routing pro Objekt, capability-bewusster
+ObjectQL-Pushdown und die KI-Agenten-Schicht. Die Objektgenerierung erfolgt
+mit einem Coding-Agenten gegen dein verbundenes Schema — auf dieselbe Weise,
+wie die `hotcrm`-Objekte erstellt wurden.
+
+Eine reichhaltigere, **schlüsselfertige Föderation** — einstufiger
+Schema-Import, Bindung an extern verwaltete Schemata und eingebaute
+Schreibsicherheits-Gates — befindet sich in aktiver Konzeption unter
+[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+(Status: *Proposed*). Wir schreiben mehr dazu, sobald es verfügbar ist. Bis
+dahin ist der dokumentierte Weg der unterstützte.
+
+## Probier es aus
+
+- [Data Sources](/docs/configure/data-sources) — der vollständige Authoring-Leitfaden
+- [Bestehende Systeme erweitern](/docs/extend-existing-systems) — das Szenario, von Anfang bis Ende
+- [KI-Agenten](/docs/build/agents) — deklarative Agenten über deinen Objekten
+
+Wenn du bereits eine Geschäftsdatenbank hast, bist du fast am Ziel. Verbinde
+sie, modelliere ein paar Tabellen und stell deinen Daten eine Frage.

@@ -1,0 +1,93 @@
+---
+title: Extend Existing Systems
+description: Connect ObjectOS to the business systems you already run, then add AI-native query, analysis, and automation — without a migration.
+---
+
+# Extend Existing Systems
+
+Most teams evaluating ObjectOS already have a system of record — a CRM, an
+ERP, a ticketing tool, a homegrown back office sitting on a production
+SQL or MongoDB database. The question is rarely "should we throw it away
+and rebuild?" It's "can we make the thing we already have **AI-native**,
+without a risky migration?"
+
+That's exactly the path this page describes: **connect ObjectOS to your
+existing database, model the tables you care about as objects, and let AI
+agents query, analyze, and act on that data** — under your permissions,
+on your infrastructure, with the original system untouched.
+
+## The shape of the move
+
+You don't replace your business system. You put ObjectOS *next to* it and
+point it at the same database:
+
+1. **Connect** the existing database as a [datasource](/docs/configure/data-sources).
+   Credentials come from your environment; the connection can be
+   read-only if you only want to analyze.
+2. **Model** the tables as objects — by hand, or by letting a coding
+   agent scan the schema and generate source-level object files for you.
+3. **Bind** each object to the datasource (per object, or with a routing
+   rule for a whole namespace).
+4. **Use AI** — the moment a table is an object, every agent, tool, flow,
+   and dashboard works on it, routed automatically to the right database.
+
+Nothing about the legacy application changes. The rows stay where they
+are. ObjectOS becomes the AI-native, permission-aware surface on top.
+
+## Why this works without a rewrite
+
+| Concern | How ObjectOS handles it |
+|---|---|
+| "We can't move the data" | The data never moves. ObjectOS connects to your database in place. |
+| "We can't risk writes to production" | Bind objects to a **read-only** datasource (or a read-only DB user). Analyze safely first; enable writes deliberately. |
+| "Modeling every table is weeks of work" | A coding agent scans the schema and generates one object file per table — you review and refine, you don't hand-type. |
+| "AI can't be trusted with our data" | Agents run as the **signed-in user** and obey object-, record-, and field-level permissions. They never see more than the person behind them. |
+| "Our data can't leave our network" | ObjectOS runs in your environment. Business data and prompts stay inside your perimeter. |
+
+## Generating objects with a coding agent
+
+The fastest way to bring an existing schema in is to use a coding agent
+(such as Claude Code) to **scan the business tables and generate
+source-level object definitions** — one `*.object.ts` file per table.
+
+The [`hotcrm`](https://github.com/objectstack-ai/hotcrm) reference app
+shows the exact shape that output should take: each table becomes a
+`src/objects/<name>.object.ts` using `ObjectSchema.create({ … })` with
+typed `Field.*` definitions and `Field.lookup(...)` for foreign keys,
+assembled by `defineStack`. The agent introspects your connected
+database, maps columns to field types, and writes objects you own and
+commit. You keep what fits, drop columns you don't want exposed, and add
+labels, validations, and permissions on top.
+
+See [Data Sources](/docs/configure/data-sources) for the full,
+step-by-step authoring guide.
+
+## What you get on day one
+
+Once the tables are modeled as objects bound to your existing database:
+
+- **Natural-language analysis.** Users ask questions about the real
+  records — "which deals slipped this quarter and who owns them?" — and
+  the answer is computed against live data through ObjectQL.
+- **Governed automation.** Flows and actions can read and (where allowed)
+  write the same data, with every step audited.
+- **A generated API and Console.** REST/GraphQL endpoints and admin
+  screens come from the same metadata — no extra integration layer.
+- **One permission model.** The boundary that applies to humans applies
+  identically to AI traffic.
+
+## Where this is headed
+
+The flow above works today with shipped building blocks. A richer,
+**turn-key federation** experience — one-step schema import, externally
+owned schema binding, and built-in safety gates — is in active design
+under [ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+(status: *Proposed*). Until it lands, the documented path — connect,
+model, bind, query — is the supported way to extend an existing system.
+
+## Start here
+
+- [Data Sources](/docs/configure/data-sources) — connect a database, bind objects, route queries
+- [AI Agents](/docs/build/agents) — declarative agents over your objects
+- [Permissions](/docs/configure/permissions) — the model AI inherits
+- [Quickstart](/docs/quickstart) — stand up a runtime in minutes
