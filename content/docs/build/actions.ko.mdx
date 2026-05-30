@@ -1,0 +1,201 @@
+---
+title: 액션(Actions)
+description: 플랫폼이 REST 엔드포인트, Console 버튼, 플로우 단계, AI 도구로 노출하는 명명된 작업 — 단 하나의 선언으로 제공됩니다.
+---
+
+# 액션(Actions)
+
+**액션(Action)**은 객체에 대한 명명된 작업입니다. 한 번만 선언하면
+다음과 같이 나타납니다:
+
+- `/api/v1/actions/<object>/<action>` 위치의 **REST 엔드포인트**
+- Console 레코드 상세 화면의 **버튼**
+- 자동화를 위한 **플로우 단계**(`type: 'action'`)
+- Agents와 AI Builder를 위한 **AI 도구**(`action_<name>`)
+
+네 가지 표면에 걸쳐 같은 작업을 반복하지 않습니다. 하나의 선언으로 네 가지
+호출 방법을 제공합니다.
+
+## 액션 선언하기
+
+```ts
+// src/actions/approve_invoice.action.ts
+import { Action } from '@objectstack/spec';
+
+export const approveInvoice = Action.create({
+  name: 'approve_invoice',          // lowercase snake_case (machine id)
+  label: 'Approve Invoice',
+  objectName: 'invoice',            // attaches to the invoice object
+  icon: 'check',
+  variant: 'primary',
+  locations: ['record_header'],     // where the button shows
+  confirmText: 'Approve this invoice?',
+  successMessage: 'Invoice approved',
+  refreshAfter: true,
+
+  // collect input before running
+  params: [
+    { name: 'note', label: 'Approval note', type: 'textarea' },
+  ],
+
+  // only show the button when the record is still pending
+  visible: 'record.status == "pending"',
+
+  // what it does — a sandboxed script body
+  type: 'script',
+  body: {
+    language: 'js',
+    source: `
+      await ctx.data.update('invoice', input.id, {
+        status: 'approved',
+        approved_by: ctx.user.id,
+        approved_at: now(),
+        approval_note: input.note,
+      });
+    `,
+  },
+});
+```
+
+`os dev`가 재컴파일한 후:
+
+- `POST /api/v1/actions/invoice/approve_invoice`가 동작합니다
+- Console의 Invoice 레코드 페이지에 **Approve Invoice** 버튼이 표시됩니다
+- 플로우에 `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }`를 포함할 수 있습니다
+- 스킬이 허용하는 경우 AI 어시스턴트가 `action_approve_invoice`를 호출할 수 있습니다
+
+## 액션 유형
+
+`type` 필드가 액션이 수행할 작업을 결정합니다:
+
+| `type` | 실행되는 것 | 사용 목적 |
+|---|---|---|
+| `script` | `body` — L1 formula 표현식 또는 샌드박스화된 L2 JavaScript | 대부분의 경우 — 서버 측 로직, 감사 가능 + AI 호출 가능 |
+| `api` | `target` 엔드포인트로의 HTTP 호출(`method`, `bodyExtra`) | 데이터 API 또는 플랫폼 엔드포인트 재사용 |
+| `flow` | `target`에 명명된 플로우를 실행 | 다단계 비즈니스 프로세스 |
+| `url` | `target` URL로 이동 | 딥 링크, 리디렉션 방식의 액션 |
+| `modal` | `target`에 명명된 페이지/모달을 열기 | 사용자 정의 대화 상자 |
+| `form` | `target`에 명명된 FormView를 열기 | 가이드 방식의 데이터 입력 |
+
+```ts
+// api type — reuse a data-API endpoint
+Action.create({
+  name: 'archive_order',
+  objectName: 'order',
+  label: 'Archive',
+  locations: ['list_item'],
+  type: 'api',
+  method: 'PATCH',
+  target: '/api/v1/data/order/{id}',
+  bodyExtra: { archived: true },
+});
+```
+
+`script`이 아닌 유형은 `target`이 필요합니다. 어떤 유형이든 액션은 모든
+표면에서 동일한 일급 시민입니다.
+
+## 액션 호출하기
+
+### REST
+
+```bash
+# the record id can go in the body, or in the path
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice/inv_123 \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"note": "LGTM"}'
+```
+
+파라미터는 요청 본문에 평면 형태로 전송됩니다. 레코드 id는 후행 경로 세그먼트
+(`.../approve_invoice/:recordId`)로 제공하거나 본문에 포함할 수 있습니다. 응답은
+스크립트 본문의 반환 값(또는 `api` 유형 액션의 경우 호출 결과)입니다.
+
+### Console
+
+기본적으로 Console은 액션의 `visible` 조건으로 필터링하여 레코드 상세 페이지에
+버튼으로 액션을 표시합니다. 뷰 설정에서 배치를 재정의할 수 있습니다:
+
+```ts
+defineView({
+  name: 'invoice_detail',
+  object: 'invoice',
+  actions: ['approve_invoice', 'reject_invoice', 'send_to_customer'],
+});
+```
+
+### 플로우에서
+
+```ts
+{
+  type: 'action',
+  action: 'approve_invoice',
+  inputs: { note: 'Auto-approved by SLA flow' },
+  record: '{!trigger.record.id}',
+}
+```
+
+### AI Agent에서
+
+`approve_invoice`가 에이전트가 보유한 스킬에 포함되어 있으면 LLM이 이를
+호출할 수 있습니다. 입력은 대화에서 가져오며, 권한은 사용자가 직접 호출한
+것처럼 적용됩니다.
+
+> *"인보이스 INV-2042를 '전화로 확인됨'이라는 메모와 함께 승인해줘."*
+
+## 권한
+
+액션은 호출하는 사용자의 권한으로 실행됩니다. 플랫폼은 다음을 확인합니다:
+
+1. **객체 권한** — 사용자의 [권한 세트](/docs/configure/permissions/permission-sets)가
+   액션에 필요한 객체 수준 접근 권한(예: 업데이트)을 부여해야 합니다.
+2. **필드 권한** — 액션이 쓰는 모든 필드에 대해 사용자가 쓰기 접근 권한(FLS)을
+   가지고 있어야 합니다.
+3. **UI 게이팅** — `visible` 및 `disabled` 조건(CEL, `record`, `os.user`,
+   파라미터에 대해 평가됨)이 Console에서 버튼이 렌더링될지 또는 회색 처리될지를
+   제어합니다.
+
+권한 확인에 실패하면 `PERMISSION_DENIED` 오류와 함께 `403`을 반환합니다.
+
+## 내장 액션
+
+모든 객체는 다음을 기본으로 제공받습니다:
+
+| 액션 | 수행하는 작업 |
+|---|---|
+| `create` | 레코드 삽입 |
+| `update` | 레코드 업데이트 |
+| `delete` | 레코드 삭제(또는 소프트 삭제) |
+| `restore` | 소프트 삭제 취소 |
+| `clone` | 레코드 깊은 복사 |
+| `share` | 사용자 / 역할과 직접 공유 |
+
+이러한 액션은 다시 선언하지 마세요 — 객체의 [라이프사이클 및 기능 플래그](/docs/build/data-model)를 따릅니다.
+
+## 감사(Auditing)
+
+플랫폼 이벤트는 다음 필드를 포함하는 불변 기록인 `sys_audit_log`에 기록됩니다:
+
+- `user_id` — 작업을 시작한 사용자
+- `action` — 액션 이름
+- `object_name` 및 `record_id` — 변경된 대상
+- `old_value` / `new_value` — 변경 내용
+- `ip_address` / `user_agent` — 요청 출처
+- `created_at` — 발생 시점
+
+이는 *"누가 버튼을 눌렀는가?"*라는 질문에 가장 먼저 확인할 곳입니다.
+
+## AI Builder로 액션 생성하기
+
+> *"`support_ticket`에 우선순위를 긴급으로 설정하고 온콜 엔지니어에게
+> 할당하는 액션 `escalate_ticket`을 만들어줘."*
+
+[AI Builder](/docs/build/ai-builder)는 액션 메타데이터를 생성하고 변경 사항을
+승인 대기열에 넣습니다. 승인 후에는 REST, Console, 플로우, 그리고 — 재귀적으로 —
+AI 자체에서 액션을 호출할 수 있습니다.
+
+## 다음으로 갈 곳
+
+- [플로우](/docs/build/flows) — 여러 액션을 비즈니스 로직으로 구성하기
+- [Agents](/docs/build/agents) — 액션을 AI 도구로 노출하기
+- [API 접근](/docs/configure/api-access) — 외부 시스템에서 액션 호출하기
+- [권한](/docs/configure/permissions) — 누가 무엇을 호출할 수 있는지 제어하기

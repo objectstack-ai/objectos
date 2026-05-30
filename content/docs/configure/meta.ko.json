@@ -1,0 +1,16 @@
+{
+  "title": "설정",
+  "defaultOpen": false,
+  "pages": [
+    "runtime",
+    "data-sources",
+    "authentication",
+    "permissions",
+    "storage",
+    "ai",
+    "system-settings",
+    "api-access",
+    "webhooks",
+    "email"
+  ]
+}

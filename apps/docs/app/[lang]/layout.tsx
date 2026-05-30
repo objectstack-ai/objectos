@@ -10,6 +10,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   de: 'Deutsch',
   es: 'Español',
   fr: 'Français',
+  ko: '한국어',
 };
 
 export default async function LanguageLayout({

@@ -1,0 +1,102 @@
+---
+title: API 액세스
+description: 통합을 위한 생성된 REST API, 인증 및 API 키.
+---
+
+# API 액세스
+
+아티팩트에 선언된 모든 오브젝트는 생성된 REST API를 통해 노출됩니다.
+동일한 엔드포인트가 UI, 통합, 고객 ETL 스크립트를 모두 구동하므로
+별도로 유지 관리해야 할 "통합 API"가 없습니다.
+
+## 기본 URL
+
+```text
+https://<project-domain>/api/v1
+```
+
+주요 엔드포인트:
+
+| 경로 | 용도 |
+|---|---|
+| `/api/v1/data/<object>` | 각 오브젝트에 대해 생성된 CRUD (예: `/api/v1/data/account`) |
+| `/api/v1/data/<object>/{id}` | 단일 레코드 읽기/업데이트/삭제 |
+| `/api/v1/actions/<object>/<action>` | 선언적 액션 호출 (POST) |
+| `/api/v1/auth/*` | 인증 (로그인, 세션, OAuth, OIDC) |
+| `/api/v1/meta/*` | 활성화된 경우 메타데이터 API (오브젝트, 필드, 뷰) |
+| `/api/v1/health` | 활성/준비 상태 프로브 (인증 없음) |
+
+접두사는 기본적으로 `/api/v1`(API `basePath`인 `/api`에 `version`인 `v1`을
+더한 값)이며 ObjectOS 스택에서 구성할 수 있습니다.
+
+## 인증 옵션
+
+호출자는 세 가지 방식으로 인증할 수 있습니다.
+
+| 방식 | 적합한 용도 | 방법 |
+|---|---|---|
+| 세션 쿠키 | 브라우저/UI 트래픽 | `/api/v1/auth/*`를 통해 로그인하며, 쿠키는 프로젝트 호스트명으로 범위가 지정됩니다 |
+| Bearer 액세스 토큰 | 모바일, SPA, 단기 서버 작업 | `/api/v1/auth/sign-in/email`에서 자격 증명을 교환하고 `Authorization: Bearer <token>`을 전달합니다 |
+| API 키 | 서버 간 통신, ETL, 장기 통합 | `sys_api_key`를 생성하고 bearer 토큰으로 전달합니다 |
+
+세 가지 방식 모두 동일한 `AuthPlugin`을 거쳐 `sys_user` 컨텍스트로
+확인되며, `SecurityPlugin`이 이를 권한 및 레코드 액세스에 대해 평가합니다.
+
+## API 키
+
+API 키는 일급 `sys_api_key` 레코드입니다. 키 값 자체는 해시되어
+저장되며 `prefix`와 메타데이터만 쿼리할 수 있으므로, 유출된 키를
+데이터베이스에서 재구성할 수 없습니다.
+
+키를 발급하려면:
+
+1. 관리자 권한으로 **Console → API Keys**에 로그인합니다.
+2. 소유 사용자를 선택합니다(API 호출은 해당 사용자의 권한 및 레코드
+   액세스를 상속합니다).
+3. 선택적으로 만료일을 설정합니다.
+4. 표시된 비밀 키를 **한 번** 복사합니다 — 다시 표시되지 않습니다.
+
+키를 bearer 토큰으로 사용합니다:
+
+```bash
+curl https://app.example.com/api/v1/data/account \
+  -H "Authorization: Bearer os_pk_live_…"
+```
+
+키를 취소하려면 해당 `sys_api_key` 레코드에서 `revoke_api_key` 액션을
+실행합니다(Console UI에서도 사용 가능). 취소는 다음 요청에서 즉시
+적용됩니다.
+
+## 페이지네이션, 필터링 및 정렬
+
+생성된 목록 엔드포인트는 표준 ObjectStack 쿼리 매개변수를 허용합니다.
+
+| 매개변수 | 의미 |
+|---|---|
+| `?limit=` | 페이지 크기 (서버 측 상한 적용) |
+| `?offset=` 또는 `?cursor=` | 페이지네이션 |
+| `?filter=` | ObjectQL 필터 구문을 사용한 서버 측 필터링 |
+| `?sort=` | 정렬 표현식 (예: `-created_at`) |
+| `?fields=` | 희소 필드 선택 |
+
+전체 필터 문법은 프레임워크 문서를 참조하십시오 — 런타임 문법이
+소스 오브 트루스입니다.
+
+## 속도 제한
+
+프레임워크의 `RateLimiter` 프리미티브(또는 인그레스 / API 게이트웨이)를
+사용하여 IP별 및 ID별 제한을 적용하십시오. 권장 시작 버킷은
+[Production readiness](/docs/operate/production)에 문서화되어 있습니다.
+
+## CORS
+
+호출자가 다른 출처의 브라우저에서 실행되는 경우, 인그레스 또는
+런타임의 미들웨어를 통해 CORS를 구성하십시오. 와일드카드 출처를
+자격 증명이 포함된 요청과 **결합하지 마십시오**.
+
+## OpenAPI / 디스커버리
+
+이미지에 해당 기능이 포함된 경우, 런타임은 생성된 REST API에 대한
+OpenAPI 문서를 제공할 수 있습니다. 오브젝트 이름과 생성된 라우트는
+배포된 아티팩트를 따르므로, 고객 통합은 URL을 직접 작성하는 대신
+배포별 OpenAPI 문서에서 클라이언트를 생성해야 합니다.

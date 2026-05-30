@@ -1,0 +1,107 @@
+---
+title: Bestehende Systeme erweitern
+description: Verbinde ObjectOS mit den Geschäftssystemen, die du bereits betreibst, und ergänze KI-native Abfrage, Analyse und Automatisierung — ohne Migration.
+---
+
+# Bestehende Systeme erweitern
+
+Die meisten Teams, die ObjectOS evaluieren, haben bereits ein System of
+Record — ein CRM, ein ERP, ein Ticketing-Tool, ein selbstgebautes Back
+Office, das auf einer produktiven SQL- oder MongoDB-Datenbank läuft. Die
+Frage lautet selten „Sollten wir es wegwerfen und neu bauen?". Sie
+lautet „Können wir das, was wir bereits haben, **KI-nativ** machen,
+ohne eine riskante Migration?"
+
+Genau diesen Weg beschreibt diese Seite: **Verbinde ObjectOS mit deiner
+bestehenden Datenbank, modelliere die Tabellen, die dir wichtig sind,
+als Objekte und lass KI-Agenten diese Daten abfragen, analysieren und
+darauf handeln** — unter deinen Berechtigungen, auf deiner
+Infrastruktur, ohne dass das Originalsystem angetastet wird.
+
+## Die Form des Schritts
+
+Du ersetzt dein Geschäftssystem nicht. Du stellst ObjectOS *daneben* und
+richtest es auf dieselbe Datenbank:
+
+1. **Verbinde** die bestehende Datenbank als [Datasource](/docs/configure/data-sources).
+   Die Anmeldedaten kommen aus deiner Umgebung; die Verbindung kann
+   read-only sein, wenn du nur analysieren möchtest.
+2. **Modelliere** die Tabellen als Objekte — von Hand oder indem du einen
+   Coding-Agenten das Schema scannen und quellbasierte Objektdateien für
+   dich generieren lässt.
+3. **Binde** jedes Objekt an die Datasource (pro Objekt oder mit einer
+   Routing-Regel für einen ganzen Namespace).
+4. **Nutze KI** — sobald eine Tabelle ein Objekt ist, arbeitet jeder
+   Agent, jedes Tool, jeder Flow und jedes Dashboard damit, automatisch
+   an die richtige Datenbank geroutet.
+
+An der Legacy-Anwendung ändert sich nichts. Die Datensätze bleiben, wo
+sie sind. ObjectOS wird die KI-native, berechtigungsbewusste
+Oberfläche obendrauf.
+
+## Warum das ohne Neuschreiben funktioniert
+
+| Bedenken | Wie ObjectOS damit umgeht |
+|---|---|
+| „Wir können die Daten nicht verschieben" | Die Daten werden nie verschoben. ObjectOS verbindet sich mit deiner Datenbank an Ort und Stelle. |
+| „Wir können keine Schreibzugriffe auf die Produktion riskieren" | Binde Objekte an eine **read-only**-Datasource (oder einen read-only DB-Benutzer). Analysiere zuerst sicher; aktiviere Schreibzugriffe gezielt. |
+| „Jede Tabelle zu modellieren ist wochenlange Arbeit" | Ein Coding-Agent scannt das Schema und generiert eine Objektdatei pro Tabelle — du prüfst und verfeinerst, du tippst nichts von Hand. |
+| „Man kann KI nicht mit unseren Daten vertrauen" | Agenten laufen als der **angemeldete Benutzer** und gehorchen den Berechtigungen auf Objekt-, Datensatz- und Feldebene. Sie sehen nie mehr als die Person hinter ihnen. |
+| „Unsere Daten dürfen unser Netzwerk nicht verlassen" | ObjectOS läuft in deiner Umgebung. Geschäftsdaten und Prompts bleiben innerhalb deines Perimeters. |
+
+## Objekte mit einem Coding-Agenten generieren
+
+Der schnellste Weg, ein bestehendes Schema einzubinden, ist die
+Verwendung eines Coding-Agenten (wie Claude Code), um die
+**Geschäftstabellen zu scannen und quellbasierte Objektdefinitionen zu
+generieren** — eine `*.object.ts`-Datei pro Tabelle.
+
+Die Referenz-App [`hotcrm`](https://github.com/objectstack-ai/hotcrm)
+zeigt die genaue Form, die diese Ausgabe annehmen sollte: Jede Tabelle
+wird zu einer `src/objects/<name>.object.ts` mit
+`ObjectSchema.create({ … })` mit typisierten `Field.*`-Definitionen und
+`Field.lookup(...)` für Fremdschlüssel, zusammengesetzt durch
+`defineStack`. Der Agent introspiziert deine verbundene Datenbank,
+mappt Spalten auf Feldtypen und schreibt Objekte, die dir gehören und
+die du commitest. Du behältst, was passt, lässt Spalten weg, die du
+nicht freigeben willst, und ergänzt obendrauf Labels, Validierungen und
+Berechtigungen.
+
+Siehe [Data Sources](/docs/configure/data-sources) für den
+vollständigen, schrittweisen Authoring-Leitfaden.
+
+## Was du am ersten Tag bekommst
+
+Sobald die Tabellen als Objekte modelliert und an deine bestehende
+Datenbank gebunden sind:
+
+- **Natürlichsprachliche Analyse.** Nutzer stellen Fragen zu den echten
+  Datensätzen — „welche Deals sind dieses Quartal abgerutscht und wem
+  gehören sie?" — und die Antwort wird über ObjectQL gegen Live-Daten
+  berechnet.
+- **Gesteuerte Automatisierung.** Flows und Aktionen können dieselben
+  Daten lesen und (wo erlaubt) schreiben, wobei jeder Schritt auditiert
+  wird.
+- **Eine generierte API und Console.** REST-/GraphQL-Endpunkte und
+  Admin-Bildschirme stammen aus denselben Metadaten — keine zusätzliche
+  Integrationsschicht.
+- **Ein einziges Berechtigungsmodell.** Die Grenze, die für Menschen
+  gilt, gilt identisch für KI-Traffic.
+
+## Wohin das führt
+
+Der obige Ablauf funktioniert heute mit ausgelieferten Bausteinen. Ein
+reichhaltigeres, **schlüsselfertiges Federations**-Erlebnis —
+einstufiger Schema-Import, Bindung extern verwalteter Schemas und
+eingebaute Sicherheits-Gates — ist in aktiver Konzeption unter
+[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+(Status: *Proposed*). Bis es soweit ist, ist der dokumentierte Weg —
+verbinden, modellieren, binden, abfragen — die unterstützte Art, ein
+bestehendes System zu erweitern.
+
+## Hier starten
+
+- [Data Sources](/docs/configure/data-sources) — eine Datenbank verbinden, Objekte binden, Abfragen routen
+- [AI Agents](/docs/build/agents) — deklarative Agenten über deinen Objekten
+- [Permissions](/docs/configure/permissions) — das Modell, das KI erbt
+- [Quickstart](/docs/quickstart) — eine Runtime in Minuten aufsetzen

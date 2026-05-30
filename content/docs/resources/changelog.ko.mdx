@@ -1,0 +1,98 @@
+---
+title: 변경 로그 및 버전 관리
+description: ObjectOS의 버전 관리 방식, 릴리스 간 변경 사항, 그리고 지원 범위.
+---
+
+# 변경 로그 및 버전 관리
+
+## 버전 관리 정책
+
+ObjectOS는 **[유의적 버전(Semantic Versioning)](https://semver.org/)**을 따릅니다: `MAJOR.MINOR.PATCH`.
+
+| 버전 증가 | 의미 | 해야 할 일 |
+|---|---|---|
+| **패치** (`4.0.1 → 4.0.2`) | 버그 수정, 동작 변경 없음 | 그대로 업데이트, 앱 변경 불필요 |
+| **마이너** (`4.0 → 4.1`) | 새 기능, 하위 호환 | 그대로 업데이트, 필요 시 새 기능 도입 |
+| **메이저** (`4 → 5`) | 릴리스 노트에 문서화된 호환성 깨짐 변경 | 업그레이드 전에 마이그레이션 가이드를 읽으세요 |
+
+모든 `@objectstack/*` 패키지는 동기화된 버전 번호로 함께 릴리스됩니다 —
+개별적으로가 아니라 매트릭스로 테스트됩니다.
+
+## 호환성 매트릭스
+
+| 구성 요소 | 호환성 규칙 |
+|---|---|
+| ObjectOS 이미지 ↔ 컴파일된 아티팩트 | 동일한 마이너 버전. 4.0.x 이미지는 4.0.x 아티팩트를 실행하며, 4.1 아티팩트는 4.0 이미지에서 사용할 수 없는 기능을 사용할 수 있습니다. |
+| ObjectOS ↔ CLI | 동일한 마이너 버전 권장. `npm i -g`로 설치한 CLI는 자체 버전에 고정된 스캐폴드를 작성합니다. |
+| ObjectOS ↔ 데이터베이스 드라이버 | 드라이버는 이미지 빌드에 고정됨; Postgres ≥ 13 / MongoDB ≥ 5 / Turso(현재 버전) 확인. |
+| Node.js | **20 LTS 이상**. 새 배포에는 22 LTS 권장. |
+
+## 지원 기간
+
+| 브랜치 | 상태 | 종료 시점 |
+|---|---|---|
+| **4.x** (현재) | 활발한 개발; 새 기능 및 수정 | 5.0 출시 후 최소 12개월 |
+| **3.x** | 보안 수정만 | 5.0 릴리스 시 EOL |
+| **≤ 2.x** | 지원 종료 | 이미 EOL |
+
+중대한 보안 수정은 현재 및 이전 메이저 버전에 백포트됩니다. 그 외 모든 것은
+`main`에 반영됩니다.
+
+## 릴리스 노트
+
+릴리스된 ObjectOS 버전과 해당 CHANGELOG 항목은 다음에서 게시됩니다:
+
+- **npm**: [`@objectstack/runtime`](https://www.npmjs.com/package/@objectstack/runtime)
+- **GitHub**: [github.com/objectstack-ai/objectos/releases](https://github.com/objectstack-ai/objectos/releases)
+- **소스 CHANGELOG**: [`CHANGELOG.md`](https://github.com/objectstack-ai/framework/blob/main/CHANGELOG.md)
+- **상세 릴리스 노트**: [`RELEASE_NOTES.md`](https://github.com/objectstack-ai/framework/blob/main/RELEASE_NOTES.md)
+
+알림을 받으려면 GitHub에서 릴리스를 구독하세요.
+
+## 주요 변경 사항
+
+### 4.0.x — 현재 릴리스 트레인
+
+- **42개 패키지**가 `@objectstack/*` 아래 npm에 게시되었습니다.
+- Console에 완전한 Configuration 설정 페이지(AI, Storage,
+  Knowledge)가 추가되었습니다.
+- Embedder 서비스: 10개 공급자(`openai`, `azure`, 阿里通义,
+  智谱, 硅基流动, 火山, MiniMax, Ollama, custom).
+- 실시간 설정 → 런타임 브리지 — Console에서 공급자를 변경하면 재시작 없이
+  프로세스 내에서 교체됩니다.
+
+### 5.0 (예정) — `project` → `environment` 이름 변경
+
+이전에 *Project*라고 불리던 런타임 개념이 전반에 걸쳐 *Environment*로
+이름이 변경됩니다. 영향 범위:
+
+- CLI 플래그: `--environment` / `-e`
+- HTTP 경로: `/api/v1/environments/:environmentId/...`
+- 헤더: `X-Environment-Id`
+- 환경 변수: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID`는 4.x에서 별칭으로 유지되며 5.0에서 제거됨)
+- DB 컬럼: `environment_id`
+- JSON 스키마: `EnvironmentArtifact`
+
+별칭이나 사용 중단 호환 레이어는 없습니다. 신중하게 업그레이드를 계획하세요 —
+릴리스 시 5.0 마이그레이션 가이드를 참고하세요.
+
+## 업그레이드
+
+실제 작업 단계는 [업그레이드 및 롤백](/docs/operate/upgrade)을 참고하세요.
+사전 점검:
+
+1. 현재 버전과 대상 버전 사이의 모든 마이너에 대한 CHANGELOG 항목을
+   읽으세요.
+2. `os diff <old-artifact> <new-artifact>`를 실행하여 호환성을 깨는 스키마
+   변경을 드러내세요.
+3. 대상 버전에 대해 `os doctor`를 실행하세요.
+4. 전체 플릿에 적용하기 전에 카나리 인스턴스 하나를 먼저 띄우세요.
+5. 이미지 태그와 아티팩트 버전 모두에 대한 롤백 계획을 마련하세요(둘은
+   독립적으로 롤백됩니다).
+
+## 회귀 보고
+
+패치 또는 마이너 버전이 이전에 정상 작동하던 것을 망가뜨린 경우,
+업그레이드 전/후 버전과 함께
+[github.com/objectstack-ai/objectos/issues](https://github.com/objectstack-ai/objectos/issues)에
+버그를 등록하세요. 회귀는 가장 높은 우선순위의 버그로 처리합니다.

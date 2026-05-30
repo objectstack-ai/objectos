@@ -1,0 +1,121 @@
+---
+title: "Haz que tu sistema de negocio existente sea AI-Native — sin una migración"
+description: "Conecta ObjectOS a la base de datos que ya ejecutas, modela las tablas como objetos, y deja que la IA consulte y actúe sobre datos reales — bajo tus permisos, en tus servidores."
+author: ObjectStack Team
+date: 2026-05-30
+tags:
+  - Data Sources
+  - AI-Native
+  - Architecture
+---
+
+La mayoría de las propuestas de "añade IA a tu negocio" asumen en silencio una
+reconstrucción: levantar los datos a una nueva plataforma, reimplementar los
+flujos de trabajo, reentrenar al equipo. Esa es la parte que nadie quiere. El
+sistema de registro — el CRM, el ERP, la herramienta de tickets, el back office
+hecho en casa — ya funciona, y ya es donde viven los datos.
+
+ObjectOS adopta la postura opuesta. **No migras. Conectas.**
+
+## La idea en una sola frase
+
+Apunta ObjectOS a tu base de datos existente, describe las tablas que te
+importan como objetos, y cada agente de IA, flujo y dashboard funciona de
+inmediato sobre esos datos — enrutados automáticamente al sistema correcto,
+gobernados por los mismos permisos que tus usuarios ya tienen.
+
+La aplicación original no cambia. Las filas no se mueven. ObjectOS se convierte
+en la superficie AI-native y consciente de los permisos sobre lo que ya
+ejecutas.
+
+## Cómo funciona hoy
+
+Hay cuatro pasos, y ninguno de ellos es "reconstruye tu app":
+
+1. **Conecta la base de datos como un datasource.** Un datasource es una
+   conexión con nombre — Postgres, MySQL, MongoDB, SQLite. Las credenciales
+   provienen del entorno, y la conexión puede ser de solo lectura si solo
+   quieres analizar primero.
+
+   ```ts
+   import type { Datasource } from '@objectstack/spec';
+
+   export const BusinessDb: Datasource = {
+     name: 'business_primary',
+     label: 'Business System (Postgres)',
+     driver: 'postgres',
+     config: {
+       connection: {
+         host: process.env.BIZ_DB_HOST,
+         user: process.env.BIZ_DB_USER,
+         password: process.env.BIZ_DB_PASSWORD,
+         database: process.env.BIZ_DB_NAME,
+       },
+     },
+     active: true,
+   };
+   ```
+
+2. **Modela las tablas como objetos** — y no tienes que escribirlas a mano.
+   Apunta un agente de programación como Claude Code al esquema conectado y
+   pídele que genere un archivo de objeto a nivel de fuente por tabla. Nuestra
+   app de referencia [`hotcrm`](https://github.com/objectstack-ai/hotcrm)
+   muestra la forma exacta que adopta esa salida: un `ObjectSchema.create({ … })`
+   con definiciones tipadas de `Field.*` y `Field.lookup(...)` para las claves
+   foráneas. Tú revisas y refinas; tú eres dueño del resultado.
+
+3. **Vincula los objetos al datasource** — por objeto, o con una regla de
+   enrutamiento para todo un namespace:
+
+   ```ts
+   datasourceMapping: [
+     { namespace: 'biz', datasource: 'business_primary' },
+     { default: true,    datasource: 'default' },
+   ]
+   ```
+
+4. **Deja que la IA trabaje.** En el momento en que una tabla es un objeto, la
+   capa de IA trabaja sobre ella de forma gratuita. Los agentes consultan a
+   través de ObjectQL, que enruta cada objeto a su base de datos — y cada
+   consulta se ejecuta como el **usuario autenticado**, obedeciendo los permisos
+   a nivel de objeto, de registro y de campo.
+
+## Por qué esto es seguro
+
+La objeción a "IA sobre los datos de nuestro negocio" siempre es la gobernanza,
+y ahí es exactamente donde el runtime hace el trabajo:
+
+- **La IA actúa como el usuario, nunca por encima de él.** Un agente ve
+  exactamente lo que la persona detrás de él tiene permitido ver — aplicado en
+  el runtime, no en el prompt.
+- **Solo lectura por defecto si así lo quieres.** Vincula los objetos a una
+  conexión o usuario de BD de solo lectura. Analiza producción de forma segura;
+  habilita las escrituras deliberadamente.
+- **Todo auditado.** Cada lectura, escritura y escalación — humana o de agente —
+  se registra con quién, qué, cuándo y por qué.
+- **Tus datos permanecen en tu red.** ObjectOS se ejecuta en tu entorno. Los
+  datos de negocio y los prompts nunca salen de tu perímetro.
+
+## Lo que ya está disponible vs. lo que viene
+
+El flujo anterior funciona **hoy** con bloques de construcción ya disponibles:
+datasources, enrutamiento por objeto, pushdown de ObjectQL consciente de
+capacidades y la capa de agentes de IA. La generación de objetos se hace con un
+agente de programación contra tu esquema conectado — de la misma forma en que se
+crearon los objetos de `hotcrm`.
+
+Una experiencia de **federación llave en mano** más completa — importación de
+esquema en un solo paso, vinculación a esquemas de propiedad externa y
+compuertas de seguridad de escritura integradas — está en diseño activo bajo
+[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+(estado: *Propuesto*). Escribiremos más a medida que se materialice. Hasta
+entonces, el camino documentado es el camino soportado.
+
+## Pruébalo
+
+- [Data Sources](/docs/configure/data-sources) — la guía completa de creación
+- [Extend Existing Systems](/docs/extend-existing-systems) — el escenario, de principio a fin
+- [AI Agents](/docs/build/agents) — agentes declarativos sobre tus objetos
+
+Si ya tienes una base de datos de negocio, estás a buena parte del camino.
+Conéctala, modela unas cuantas tablas y hazle una pregunta a tus datos.

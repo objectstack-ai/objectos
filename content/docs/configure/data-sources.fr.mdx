@@ -1,0 +1,271 @@
+---
+title: Sources de données
+description: Connectez ObjectOS à vos bases de données métier existantes, routez-y les objets, et laissez l'IA interroger les données — nativement.
+---
+
+# Sources de données
+
+Une **datasource** est une connexion nommée vers un magasin de données
+externe. En déclarant des datasources, vous pointez ObjectOS vers les
+bases de données sur lesquelles votre activité repose déjà — un
+PostgreSQL de production, un réplica MySQL de reporting, un cluster
+MongoDB — puis vous y liez des objets. Une fois qu'un objet est lié,
+tout le reste de la plateforme (l'API REST/GraphQL, les permissions,
+les flux, les tableaux de bord et les **agents IA**) fonctionne sur ces
+données de manière uniforme, sans se soucier de l'endroit où les lignes
+résident physiquement.
+
+C'est l'un des chemins d'adoption les plus concrets d'ObjectOS : au lieu
+de migrer un système hérité, vous vous y connectez, vous modélisez les
+tables qui vous intéressent en tant qu'objets, et vous **l'enrichissez de
+capacités natives IA** — chat, analyse, automatisation — par-dessus des
+données qui restent exactement là où elles sont.
+
+## Ce qu'est une datasource
+
+Chaque datasource est un simple objet validé par `DatasourceSchema`. Les
+champs principaux :
+
+| Champ | Rôle |
+|---|---|
+| `name` | Identifiant unique (`^[a-z_][a-z0-9_]*$`) référencé par les objets |
+| `label` | Nom d'affichage lisible par un humain |
+| `driver` | Quel driver gère la connexion (`postgres`, `mysql`, `sqlite`, `mongodb`, `memory`, ou un driver fourni par un plugin) |
+| `config` | Paramètres de connexion spécifiques au driver (hôte, base de données, identifiants, …) |
+| `pool` | Dimensionnement du pool de connexions (`min`, `max`, délais d'expiration) |
+| `readReplicas` | Configurations de réplicas en lecture seule (optionnel) |
+| `capabilities` | Surcharge ce que le driver annonce pouvoir pousser vers la base |
+| `healthCheck` | Intervalle/délai d'expiration de la sonde de vivacité |
+| `active` | Si la connexion est activée |
+
+Les drivers livrés sont :
+
+| Package de driver | `driver` | Backends |
+|---|---|---|
+| `@objectstack/driver-sql` | `postgres`, `mysql`, `sqlite` | PostgreSQL, MySQL, SQLite (via knex) |
+| `@objectstack/driver-mongodb` | `mongodb` | MongoDB |
+| `@objectstack/driver-memory` | `memory` | In-process (tests, démos) |
+| `@objectstack/driver-sqlite-wasm` | `sqlite` (WASM) | SQLite dans WebContainers / navigateur |
+
+## Déclarer des datasources
+
+Les datasources sont déclarées sur le stack et assemblées avec
+`defineStack`. Définissez chaque connexion comme un objet `Datasource`
+typé, puis listez-les sous `datasources` :
+
+```ts
+// src/datasources/business.datasource.ts
+import type { Datasource } from '@objectstack/spec';
+
+// Se connecter à une base de données de production EXISTANTE. Les
+// identifiants proviennent de l'environnement — ne jamais inscrire de
+// secrets en dur dans le code source.
+export const BusinessDb: Datasource = {
+  name: 'business_primary',
+  label: 'Business System (Postgres)',
+  driver: 'postgres',
+  config: {
+    connection: {
+      host: process.env.BIZ_DB_HOST,
+      port: Number(process.env.BIZ_DB_PORT ?? 5432),
+      user: process.env.BIZ_DB_USER,
+      password: process.env.BIZ_DB_PASSWORD,
+      database: process.env.BIZ_DB_NAME,
+    },
+  },
+  pool: { min: 1, max: 10 },
+  active: true,
+};
+```
+
+```ts
+// objectstack.config.ts
+import { defineStack } from '@objectstack/spec';
+import * as objects from './src/objects/index.js';
+import { BusinessDb } from './src/datasources/business.datasource.js';
+
+export default defineStack({
+  manifest: { id: 'app.example.crm-extend', namespace: 'biz', version: '1.0.0' },
+  datasources: [BusinessDb],
+  objects: Object.values(objects),
+});
+```
+
+> Il n'y a **aucun** helper `defineDatasource()`. Une datasource est
+> simplement un objet `Datasource` que vous placez dans le tableau
+> `datasources` — exactement comme le fait le stack `examples/app-crm`
+> dans le dépôt du framework.
+
+## Lier des objets à une datasource
+
+Chaque objet possède un champ `datasource`. Sa valeur par défaut est
+`'default'` (la base de données primaire). Définissez-le pour router un
+objet spécifique vers l'un de vos systèmes connectés :
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Customer = ObjectSchema.create({
+  name: 'biz_customer',
+  label: 'Customer',
+  datasource: 'business_primary', // ← lectures/écritures vers la base métier
+  fields: {
+    name:  Field.text({ label: 'Name', required: true }),
+    email: Field.text({ label: 'Email' }),
+    tier:  Field.select({ label: 'Tier', options: [/* … */] }),
+  },
+});
+```
+
+### Routage centralisé avec `datasourceMapping`
+
+Lier les objets un par un convient pour une poignée d'entre eux. Pour des
+espaces de noms ou des packages entiers, déclarez les règles de routage
+une seule fois sur le stack. Les règles sont évaluées dans l'ordre (ou par
+`priority`) ; la première correspondance l'emporte :
+
+```ts
+export default defineStack({
+  datasources: [BusinessDb, AnalyticsReplica],
+  datasourceMapping: [
+    { namespace: 'biz',            datasource: 'business_primary' },
+    { objectPattern: 'report_*',   datasource: 'analytics_replica' },
+    { package: 'com.example.logs', datasource: 'business_primary' },
+    { default: true,               datasource: 'default' },
+  ],
+});
+```
+
+Une règle correspond par `namespace`, `package`, `objectPattern` (glob)
+ou `default`, et nomme la `datasource` cible. Cela maintient les décisions
+de résidence des données en un seul endroit au lieu de les disperser dans
+les fichiers d'objets.
+
+## Générer des objets à partir de tables existantes
+
+Vous n'avez pas à écrire à la main un objet pour chaque table. La manière
+la plus rapide aujourd'hui d'intégrer un schéma hérité dans ObjectOS est
+d'**utiliser un agent de codage (Claude Code) pour scanner les tables
+métier et générer des définitions d'objets au niveau du code source** —
+un fichier `*.object.ts` par table, exactement dans la forme attendue par
+le framework.
+
+L'application de référence [`hotcrm`](https://github.com/objectstack-ai/hotcrm)
+est l'exemple canonique de cette forme : chaque table est un fichier
+`src/objects/<name>.object.ts` utilisant `ObjectSchema.create({ … })`
+avec des définitions `Field.*`, le tout assemblé par `defineStack`. Un
+flux typique :
+
+1. **Connectez** la base de données métier en tant que datasource
+   (ci-dessus).
+2. **Pointez Claude Code vers le schéma.** Demandez-lui d'introspecter la
+   base de données connectée — noms de tables, colonnes, types, clés
+   étrangères — et de générer un fichier `ObjectSchema.create` par table,
+   en mappant les colonnes SQL vers des types `Field.*` et les clés
+   étrangères vers `Field.lookup(...)`. Définissez la `datasource` de
+   chaque objet sur votre connexion (ou reposez-vous sur
+   `datasourceMapping`).
+3. **Révisez et affinez** les objets générés — ajoutez des libellés, des
+   groupes de champs, des validations et des permissions. La sortie est du
+   code source ordinaire que vous possédez et committez, tout comme
+   `hotcrm/src/objects/*.object.ts`.
+4. **Exécutez.** Les objets lisent et écrivent désormais dans vos tables
+   existantes via la datasource liée.
+
+Comme les objets générés sont du simple code source, vous gardez un
+contrôle total : conservez ce qui convient, supprimez les colonnes que
+vous ne souhaitez pas exposer, et superposez les fonctionnalités ObjectOS
+(suivi de l'historique, activités, règles de partage) par-dessus une base
+de données que la plateforme n'a jamais eu à posséder.
+
+## Pushdown des requêtes selon les capacités
+
+Chaque datasource annonce ses `DatasourceCapabilities` — si elle peut
+gérer les filtres, le tri, la pagination, les agrégations, les jointures,
+la recherche plein texte, les transactions, et plus encore. ObjectQL
+utilise cela pour décider ce qu'il **pousse** vers la base de données par
+rapport à ce qu'il évalue en mémoire :
+
+| Capacité | Effet lorsqu'elle est prise en charge |
+|---|---|
+| `queryFilters` | Les clauses `WHERE` s'exécutent dans la base de données |
+| `querySorting` / `queryPagination` | `ORDER BY` / `LIMIT` s'exécutent côté serveur |
+| `queryAggregations` | `GROUP BY` / agrégats s'exécutent côté serveur |
+| `joins` | Les jointures entre objets liés s'exécutent côté serveur |
+| `fullTextSearch` | La recherche utilise un index natif |
+| `readOnly` | La connexion rejette les écritures |
+
+Une datasource SQL capable pousse presque tout vers la base ; une source
+limitée ou en lecture seule obtient les mêmes résultats de requête, avec
+simplement davantage de travail effectué dans le moteur. Vous pouvez
+surcharger l'ensemble annoncé par datasource via le champ `capabilities`
+lorsque vous en savez plus que la valeur par défaut du driver.
+
+## L'IA sur des données connectées
+
+Une fois les tables modélisées en tant qu'objets, **la couche IA
+fonctionne dessus gratuitement**. Les agents et outils d'ObjectOS —
+`list_objects`, `describe_object`, `query_records`, `aggregate_data` et
+l'agent de chat sur les données — passent tous par ObjectQL, qui route
+chaque objet vers sa datasource liée. Cela signifie que :
+
+- Un utilisateur peut **poser des questions en langage naturel** sur des
+  données qui résident dans le système métier hérité, et la réponse est
+  calculée sur les vraies lignes.
+- Les appels d'outils et les requêtes respectent les **permissions de
+  l'utilisateur appelant** — l'IA ne voit jamais plus que ce que
+  l'utilisateur connecté est autorisé à voir.
+- Les mêmes agents, flux et tableaux de bord fonctionnent qu'un objet soit
+  adossé à la base de données primaire ou à un système métier externe.
+
+Consultez [Service IA](/docs/configure/ai) et
+[AI Agents](/docs/build/agents) pour savoir comment câbler les couches de
+chat et d'agents, et [Runtime](/docs/configure/runtime) pour la
+configuration de la base de données primaire qui sous-tend la datasource
+`default`.
+
+## Notes de sécurité
+
+- **N'inscrivez jamais d'identifiants en dur.** Récupérez
+  l'hôte/l'utilisateur/le mot de passe depuis des variables
+  d'environnement (ou un gestionnaire de secrets) comme montré ci-dessus.
+- **Utilisez des connexions en lecture seule** pour les systèmes dans
+  lesquels vous n'avez pas l'intention d'écrire — définissez la capacité
+  `readOnly` de la source (ou un utilisateur de base de données en lecture
+  seule) afin qu'une écriture accidentelle ne puisse pas atteindre la
+  production.
+- **Limitez la portée avec les permissions.** Les permissions au niveau
+  des objets et des champs s'appliquent aux données connectées exactement
+  comme aux objets natifs.
+
+## Feuille de route : fédération de sources de données externes intégrée au produit
+
+Le flux ci-dessus — connecter une base de données, modéliser des objets,
+les générer avec un agent de codage — fonctionne dès aujourd'hui avec les
+briques livrées. Une expérience de **fédération clé en main** plus riche
+est en cours de conception active sous
+[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+(statut : *Proposed*). Prévu, **pas encore livré** :
+
+- Un `schemaMode` (`managed` / `external` / `validate-only`) afin
+  qu'ObjectOS puisse se lier à des tables qu'il ne **possède pas** sans
+  essayer de les migrer.
+- Un sous-enregistrement de liaison `external` sur les objets, mappant les
+  champs d'objet vers des colonnes existantes.
+- Une CLI `os datasource introspect` / `validate` pour importer un schéma
+  et générer le squelette des objets en une seule étape.
+- Des **garde-fous de sécurité** au démarrage et à l'écriture pour les
+  schémas appartenant à des systèmes externes, plus un assistant Studio
+  pour l'ensemble du flux.
+
+En attendant que ceux-ci arrivent, préférez le chemin documenté :
+déclarez la datasource, liez les objets (générés ou écrits à la main), et
+vérifiez d'abord sur une copie hors production.
+
+## Pour aller plus loin
+
+- [Runtime](/docs/configure/runtime) — la base de données primaire derrière `default`
+- [Service IA](/docs/configure/ai) — chat, embeddings, RAG, MCP
+- [AI Agents](/docs/build/agents) — agents déclaratifs sur vos objets
+- [Objects](/docs/build/objects) — la surface d'écriture `ObjectSchema.create`
+- [Sources de données de `examples/app-crm`](https://github.com/objectstack-ai/framework/tree/main/examples/app-crm/src/datasources) — un exemple réel de datasource + routage

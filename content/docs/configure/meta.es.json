@@ -3,6 +3,7 @@
   "defaultOpen": false,
   "pages": [
     "runtime",
+    "data-sources",
     "authentication",
     "permissions",
     "storage",

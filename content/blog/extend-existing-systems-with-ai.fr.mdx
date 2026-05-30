@@ -1,0 +1,130 @@
+---
+title: "Rendez votre système métier existant AI-native — sans migration"
+description: "Connectez ObjectOS à la base de données que vous exploitez déjà, modélisez les tables comme des objets, et laissez l'IA interroger et agir sur des données réelles — sous vos permissions, sur vos serveurs."
+author: ObjectStack Team
+date: 2026-05-30
+tags:
+  - Data Sources
+  - AI-Native
+  - Architecture
+---
+
+La plupart des argumentaires « ajoutez de l'IA à votre activité »
+présupposent discrètement une reconstruction : transférer les données
+vers une nouvelle plateforme, réimplémenter les workflows, reformer
+l'équipe. C'est précisément la partie dont personne ne veut. Le système
+de référence — le CRM, l'ERP, l'outil de ticketing, le back-office maison
+— fonctionne déjà, et c'est déjà là que vivent les données.
+
+ObjectOS adopte la position inverse. **Vous ne migrez pas. Vous
+connectez.**
+
+## L'idée en une phrase
+
+Pointez ObjectOS vers votre base de données existante, décrivez comme des
+objets les tables qui vous intéressent, et chaque agent IA, flux et
+tableau de bord fonctionne immédiatement sur ces données — routé
+automatiquement vers le bon système, gouverné par les mêmes permissions
+que vos utilisateurs possèdent déjà.
+
+L'application d'origine ne change pas. Les lignes ne bougent pas.
+ObjectOS devient la surface AI-native et sensible aux permissions
+au-dessus de ce que vous exploitez déjà.
+
+## Comment cela fonctionne aujourd'hui
+
+Il y a quatre étapes, et aucune d'elles n'est « reconstruire votre
+application » :
+
+1. **Connectez la base de données comme datasource.** Une datasource est
+   une connexion nommée — Postgres, MySQL, MongoDB, SQLite. Les
+   identifiants proviennent de l'environnement, et la connexion peut être
+   en lecture seule si vous voulez d'abord vous contenter d'analyser.
+
+   ```ts
+   import type { Datasource } from '@objectstack/spec';
+
+   export const BusinessDb: Datasource = {
+     name: 'business_primary',
+     label: 'Business System (Postgres)',
+     driver: 'postgres',
+     config: {
+       connection: {
+         host: process.env.BIZ_DB_HOST,
+         user: process.env.BIZ_DB_USER,
+         password: process.env.BIZ_DB_PASSWORD,
+         database: process.env.BIZ_DB_NAME,
+       },
+     },
+     active: true,
+   };
+   ```
+
+2. **Modélisez les tables comme des objets** — et vous n'avez pas à les
+   saisir à la main. Pointez un agent de codage comme Claude Code vers le
+   schéma connecté et demandez-lui de générer un fichier objet au niveau
+   source par table. Notre application de référence
+   [`hotcrm`](https://github.com/objectstack-ai/hotcrm) montre la forme
+   exacte que prend cette sortie : un `ObjectSchema.create({ … })` avec
+   des définitions `Field.*` typées et `Field.lookup(...)` pour les clés
+   étrangères. Vous révisez et affinez ; le résultat vous appartient.
+
+3. **Liez les objets à la datasource** — par objet, ou avec une règle de
+   routage pour tout un namespace :
+
+   ```ts
+   datasourceMapping: [
+     { namespace: 'biz', datasource: 'business_primary' },
+     { default: true,    datasource: 'default' },
+   ]
+   ```
+
+4. **Laissez l'IA travailler.** Dès qu'une table est un objet, la couche
+   IA travaille dessus gratuitement. Les agents interrogent via ObjectQL,
+   qui route chaque objet vers sa base de données — et chaque requête
+   s'exécute en tant qu'**utilisateur connecté**, en respectant les
+   permissions au niveau objet, enregistrement et champ.
+
+## Pourquoi c'est sûr
+
+L'objection à « de l'IA sur nos données métier » est toujours la
+gouvernance, et c'est exactement là que le runtime fait le travail :
+
+- **L'IA agit en tant qu'utilisateur, jamais au-dessus de lui.** Un agent
+  voit précisément ce que la personne derrière lui est autorisée à voir —
+  appliqué dans le runtime, pas dans le prompt.
+- **Lecture seule par défaut si vous le souhaitez.** Liez les objets à
+  une connexion ou un utilisateur de base de données en lecture seule.
+  Analysez la production en toute sécurité ; activez les écritures
+  délibérément.
+- **Tout est audité.** Chaque lecture, écriture et escalade — humaine ou
+  agent — est enregistrée avec qui, quoi, quand et pourquoi.
+- **Vos données restent dans votre réseau.** ObjectOS s'exécute dans
+  votre environnement. Les données métier et les prompts ne quittent
+  jamais votre périmètre.
+
+## Ce qui est livré vs. ce qui arrive
+
+Le flux ci-dessus fonctionne **aujourd'hui** avec des briques déjà
+livrées : datasources, routage par objet, pushdown ObjectQL sensible aux
+capacités, et la couche d'agents IA. La génération des objets se fait avec
+un agent de codage sur votre schéma connecté — de la même manière que les
+objets `hotcrm` ont été rédigés.
+
+Une expérience de **fédération clé en main** plus riche — import de schéma
+en une étape, liaison à des schémas détenus en externe et garde-fous
+d'écriture intégrés — est en cours de conception sous
+[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+(statut : *Proposé*). Nous en écrirons davantage à mesure que cela se
+concrétisera. D'ici là, le chemin documenté est celui qui est pris en
+charge.
+
+## Essayez-le
+
+- [Data Sources](/docs/configure/data-sources) — le guide de rédaction complet
+- [Étendre les systèmes existants](/docs/extend-existing-systems) — le scénario, de bout en bout
+- [Agents IA](/docs/build/agents) — des agents déclaratifs sur vos objets
+
+Si vous disposez déjà d'une base de données métier, vous êtes presque
+arrivé. Connectez-la, modélisez quelques tables, et posez une question à
+vos données.

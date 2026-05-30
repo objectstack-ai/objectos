@@ -1,0 +1,186 @@
+---
+title: Agents
+description: 엔드 유저용 AI 어시스턴트 — Agent → Skill → Tool — 데이터와 액션으로 연결됩니다.
+---
+
+# Agents
+
+Agent는 **엔드 유저**가 대화하는 AI 어시스턴트입니다 — 헬프데스크
+부조종사, 영업 BDR, 사내 HR Q&A 봇 등이 그 예입니다. 이들은 여러분이
+이미 정의해 둔 데이터와 액션 위에서 동작합니다. 새 코드를 작성하는 것이
+아니라, 기존 기본 요소들을 하나의 페르소나로 조합하는 것입니다.
+
+Salesforce Agentforce, Microsoft Copilot Studio, ServiceNow Now Assist와
+같은 3계층 아키텍처입니다:
+
+```text
+Agent  ──→  Skill  ──→  Tool
+(persona)   (capability)  (callable function)
+```
+
+| 계층 | 무엇인지 | 예시 |
+|---|---|---|
+| **Tool** | 호출 가능한 단일 함수 (액션, 쿼리, 지식 검색, MCP 메서드) | `create_ticket`, `get_order_status`, `search_kb` |
+| **Skill** | 공유 LLM 지침을 가진, 관련 도구들의 명명된 묶음 | `ticket_management` = create + update + close + escalate |
+| **Agent** | 역할, 시스템 프롬프트, 연결된 스킬, 지식을 가진 페르소나 | `tier1_support` = 공감적이고, 신원을 확인하며, `ticket_management` + `kb_search`를 보유 |
+
+## Agent 정의하기 (파일 하나)
+
+```ts
+// src/agents/tier1_support.agent.ts
+import { defineAgent } from '@objectstack/spec/ai';
+
+export const tier1Support = defineAgent({
+  name: 'tier1_support',
+  label: 'First Line Support',
+  role: 'Help Desk Assistant',
+  instructions: `
+    You are a friendly first-line support agent.
+    Always verify the user's identity before discussing account specifics.
+    Escalate to tier 2 if the issue involves billing or security.
+  `,
+  skills: ['ticket_management', 'knowledge_search'],
+  knowledge: {
+    topics:  ['faq', 'policies'],
+    indexes: ['support_docs'],
+  },
+  model: { provider: 'openai', model: 'gpt-4o', temperature: 0.3 },
+  memory: { shortTerm: { maxMessages: 30 } },
+});
+```
+
+또는 Console에서: **Console → Agents → New Agent**.
+
+또는 — 그리고 이것이 핵심입니다 — AI Builder에게 이렇게 말하세요:
+
+> *"티켓 관리를 처리하고 FAQ를 검색하는 1차 지원 에이전트를 만들어 줘.
+> 계정 세부 정보를 논의하기 전에 신원을 확인해야 해."*
+
+## Skill 정의하기
+
+```ts
+// src/skills/ticket_management.skill.ts
+import { defineSkill } from '@objectstack/spec/ai';
+
+export const ticketManagement = defineSkill({
+  name: 'ticket_management',
+  label: 'Ticket Management',
+  instructions: `
+    Always confirm the ticket subject and priority before creating one.
+    Use 'urgent' priority sparingly — only for outages or security incidents.
+  `,
+  tools: [
+    'create_ticket',
+    'update_ticket',
+    'close_ticket',
+    'escalate_ticket',
+    'action_*',         // wildcard: pick up any future actions on the active object
+  ],
+});
+```
+
+Skill은 **재사용에 적합한 단위**입니다. 하나의 스킬이 여러 에이전트에
+걸쳐 동작합니다.
+
+## Tool은 선언한 메타데이터에서 나옵니다
+
+여러분이 선언하는 모든 `*.action.ts`는 별도의 연결 작업 없이 자동으로
+`action_<name>` 도구로 구체화됩니다. 따라서 `support_ticket` 객체에
+`escalate_ticket`을 Action으로 이미 정의해 두었다면, AI Builder와
+여러분의 Agent 모두가 이를 호출할 수 있습니다. 권한은 여전히
+적용됩니다: 에이전트는 **사용자 자격으로** 액션을 호출하므로, 사용자의
+권한 집합이 성공 여부를 결정합니다.
+
+다음도 노출할 수 있습니다:
+
+| 도구 유형 | 출처 |
+|---|---|
+| **Action** | 설치된 모든 패키지의 모든 `*.action.ts` |
+| **Flow** | 모든 수동 플로우 (`type: 'manual'`) |
+| **Query** | 저장된 ObjectQL 쿼리 (`*.query.ts`) |
+| **Knowledge search** | 에이전트에 연결된 모든 지식 인덱스 |
+| **MCP method** | 연결된 MCP 서버가 노출하는 모든 것 |
+| **Built-in metadata tools** | `create_object`, `add_field`, … — 단, 관리자 에이전트에만 한정 |
+
+## 앰비언트 어시스턴트 패턴
+
+사용자가 에이전트를 직접 고르게 강제하는 대신 **앱 전체에 하나의 채팅
+박스**(Claude Code / Agentforce 스타일)를 두고 싶다면, App 메타데이터에
+`defaultAgent`를 선언하고 앱 컨텍스트와 함께 앰비언트 채팅 엔드포인트를
+호출하세요:
+
+```text
+POST /api/v1/ai/chat   { context: { appName: 'crm' }, ... }
+```
+
+`context.appName`이 `defaultAgent`를 선언한 앱으로 해석되면, 런타임이
+해당 에이전트를 자동으로 선택합니다 — 사용자는 목록에서 고를 필요가
+없습니다. Console의 내장 AI 패널이 이 방식을 사용합니다. 런타임은 다음을
+해석합니다:
+
+1. 활성 앱의 **기본 에이전트**(앱의 `defaultAgent`), 또는 사용자가 접근할
+   수 있는 첫 번째 에이전트.
+2. **활성 스킬** — Skill Registry에서 로드된 에이전트의 `skills:` 목록으로,
+   사용자 권한 집합과 현재 객체/레코드 컨텍스트로 필터링됩니다.
+3. 에이전트에 연결된 **지식**.
+
+어떤 에이전트를 어디에 표시할지 일일이 연결할 필요가 없습니다. 앱을
+선언하고 그 `defaultAgent`를 설정하면 나타납니다.
+
+## 권한
+
+| 기능 | 권한 |
+|---|---|
+| 에이전트와 대화 | `ai:chat` (그리고 에이전트의 스킬 도구에 대한 접근) |
+| 메타데이터 변경 승인 | `ai:approve` |
+| 에이전트 및 스킬 정의/편집 | `ai:author` (일반적으로 Setup Administrator) |
+| AI 대화 읽기 (감사) | `ai:read` |
+
+대화는 사용자 단위로 범위가 한정됩니다 — 위임 권한이 부여되지 않는 한
+한 사용자는 다른 사용자의 채팅 기록을 볼 수 없습니다.
+
+## 메모리와 대화 상태
+
+에이전트의 `memory` 블록에는 두 개의 계층이 있습니다:
+
+| 필드 | 역할 |
+|---|---|
+| `shortTerm.maxMessages` | 작업 메모리에 유지되는 최근 메시지 (기본값 `50`) |
+| `shortTerm.maxTokens` | 단기 컨텍스트 윈도우를 위한 선택적 토큰 예산 |
+| `longTerm.enabled` | 세션 간 메모리 유지 (기본값 `false`) |
+| `longTerm.store` | 유지되는 메모리의 백엔드: `vector` (기본값), `database`, 또는 `redis` |
+| `reflectionInterval` | N회 상호작용마다 반영하여 동작을 정교화 |
+
+라이브 컨텍스트 윈도우의 가지치기는 대화의 토큰 예산 전략에 의해
+좌우됩니다 — `sliding_window` (기본값), `fifo`, `importance`, `semantic`,
+또는 `summary`.
+
+대화 행은 `ai_conversations`에 저장됩니다. 도구 호출 결과와 대기 중인
+액션은 감사를 위해 출발점이 된 대화를 상호 참조합니다.
+
+## 관찰 가능성
+
+모든 에이전트 실행은 다음을 발생시킵니다:
+
+- `audit:ai:chat` 이벤트 (턴당)
+- `audit:ai:tool` 이벤트 (도구 호출당, 입력 + 출력 포함)
+- `audit:ai:pending_action` 이벤트 (변경이 큐에 들어갈 때)
+- 토큰 카운트 지표 (모델별, 프로바이더별)를 청구 분담을 위해 감사 로그에
+  기록
+
+이것들을 평소 사용하는 관찰 가능성 스택에 연결할 수 있습니다 —
+[Observability](/docs/operate/observability)를 참조하세요.
+
+## 멀티테넌트 참고 사항
+
+Agent는 환경(Environment)별로 존재합니다. 동일한 에이전트 정의를
+marketplace 패키지로 배포하더라도, 테넌트 A의 `tier1_support` 에이전트는
+테넌트 B의 데이터, 대화, 지식을 결코 보지 못합니다.
+
+## 다음으로 갈 곳
+
+- [AI Builder](/docs/build/ai-builder) — 빌드 타임 어시스턴트
+- [IDE Skills](/docs/build/ai-skills) — `npx skills add objectstack-ai/framework` 로 IDE 에이전트가 메타데이터를 올바르게 작성하도록 합니다
+- [Actions](/docs/build/actions) — 에이전트가 사용할 도구를 선언합니다
+- [AI Service](/docs/configure/ai) — 프로바이더, 임베더, MCP 설정
+- [`@objectstack/spec/ai`](https://github.com/objectstack-ai/framework/tree/main/packages/spec/src/ai) — 전체 스키마

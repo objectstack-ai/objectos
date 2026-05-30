@@ -1,0 +1,106 @@
+---
+title: 让你现有的业务系统原生支持 AI —— 无需迁移
+description: 把 ObjectOS 连到你已经在运行的数据库，将数据表建模为对象，让 AI 查询并操作真实数据 —— 在你的权限之下，在你的服务器之上。
+author: ObjectStack Team
+date: 2026-05-30
+tags:
+  - Data Sources
+  - AI-Native
+  - Architecture
+---
+
+大多数"给你的业务加上 AI"的说辞，都悄悄假设了一次重建：把数据搬到一个新平台，
+重新实现工作流，重新培训团队。而这正是没人想做的部分。那套记录系统 ——
+CRM、ERP、工单工具、自研的后办公系统 —— 已经在运转，数据也已经在那里。
+
+ObjectOS 采取相反的立场。**你不迁移。你连接。**
+
+## 一句话讲清这个想法
+
+把 ObjectOS 指向你现有的数据库，将你关心的数据表描述为对象，于是每一个 AI
+Agent、流程和仪表盘都立刻在这些数据上工作 —— 自动路由到正确的系统，并受你的
+用户已经拥有的同一套权限治理。
+
+原有的应用不会改变。数据行不会移动。ObjectOS 成为你已运行系统之上那层原生支持
+AI、感知权限的界面。
+
+## 它今天如何运作
+
+一共四步，而且没有一步是"重建你的应用"：
+
+1. **将数据库连接为数据源（datasource）。** 数据源是一个具名连接 ——
+   Postgres、MySQL、MongoDB、SQLite。凭据来自环境变量，如果你想先做分析，
+   这个连接也可以是只读的。
+
+   ```ts
+   import type { Datasource } from '@objectstack/spec';
+
+   export const BusinessDb: Datasource = {
+     name: 'business_primary',
+     label: 'Business System (Postgres)',
+     driver: 'postgres',
+     config: {
+       connection: {
+         host: process.env.BIZ_DB_HOST,
+         user: process.env.BIZ_DB_USER,
+         password: process.env.BIZ_DB_PASSWORD,
+         database: process.env.BIZ_DB_NAME,
+       },
+     },
+     active: true,
+   };
+   ```
+
+2. **将数据表建模为对象** —— 而且你不必手工敲出它们。把像 Claude Code 这样的
+   编码 Agent 指向已连接的 schema，让它为每张表生成一个源级别的对象文件。我们的
+   [`hotcrm`](https://github.com/objectstack-ai/hotcrm) 参考应用展示了输出的确切
+   形态：一个 `ObjectSchema.create({ … })`，带有类型化的 `Field.*` 定义，外键则用
+   `Field.lookup(...)`。你来审阅和打磨；结果归你所有。
+
+3. **将对象绑定到数据源** —— 可以逐个对象绑定，也可以用一条路由规则绑定整个
+   命名空间：
+
+   ```ts
+   datasourceMapping: [
+     { namespace: 'biz', datasource: 'business_primary' },
+     { default: true,    datasource: 'default' },
+   ]
+   ```
+
+4. **让 AI 开始工作。** 一旦一张表成为对象，AI 层就能免费地在它上面工作。Agent
+   通过 ObjectQL 查询，由它将每个对象路由到对应的数据库 —— 而且每一次查询都以
+   **已登录用户**的身份运行，遵守对象级、记录级和字段级的权限。
+
+## 为什么这是安全的
+
+对"在我们的业务数据上跑 AI"的质疑总是关于治理，而这恰恰是运行时发挥作用的地方：
+
+- **AI 以用户身份行动，绝不凌驾其上。** Agent 看到的，恰好是它背后那个人被允许
+  看到的内容 —— 由运行时强制，而非由提示词约束。
+- **如果你愿意，默认只读。** 把对象绑定到一个只读连接或只读数据库用户。安全地
+  分析生产数据；再有意识地开启写入。
+- **一切皆有审计。** 每一次读取、写入和提权 —— 无论来自人还是 Agent ——
+  都记录下何人、何事、何时、何因。
+- **你的数据留在你的网络里。** ObjectOS 跑在你的环境中。业务数据和提示词从不
+  离开你的边界。
+
+## 已经交付的 vs. 即将到来的
+
+上面这套流程**今天**就能用，凭借的是已交付的构建块：数据源、按对象路由、
+感知能力的 ObjectQL 下推（pushdown），以及 AI Agent 层。对象的生成由一个编码
+Agent 针对你已连接的 schema 完成 —— 与 `hotcrm` 的对象被编写出来的方式相同。
+
+一套更丰富的**开箱即用联邦（turn-key federation）**体验 —— 一步式 schema 导入、
+绑定到外部拥有的 schema、内建的写入安全闸门 —— 正在
+[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+下积极设计（状态：*Proposed*）。随着它落地，我们会写更多内容。在那之前，
+有文档记载的路径才是受支持的路径。
+
+## 试一试
+
+- [数据源](/docs/configure/data-sources) —— 完整的编写指南
+- [扩展现有系统](/docs/extend-existing-systems) —— 端到端的场景
+- [AI Agent](/docs/build/agents) —— 在你的对象之上声明式地构建 Agent
+
+如果你已经有一个业务数据库，那你已经走完了大半路程。连上它，建模几张表，
+然后向你的数据提个问题。

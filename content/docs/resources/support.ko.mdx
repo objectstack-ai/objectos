@@ -1,0 +1,78 @@
+---
+title: 지원
+description: 도움을 받을 수 있는 곳, 버그 신고 방법, 응답 기대치.
+---
+
+# 지원
+
+## 상황별 안내
+
+| 다음과 같은 경우 … | 이동할 곳 |
+|---|---|
+| "어떻게 하나요" 질문이 있는 경우 | [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions) — 커뮤니티 + 메인테이너 |
+| 버그를 발견한 경우 | [GitHub Issues](https://github.com/objectstack-ai/objectos/issues) — 버전, 재현 방법, 예상 동작 대 실제 동작을 포함해 주세요 |
+| 보안 취약점을 발견한 경우 | **security@objectstack.ai** — 공개 이슈를 **열지** 마세요 |
+| 상용 지원 / SLA가 필요한 경우 | **sales@objectstack.ai** |
+| 사용자 + 메인테이너와 대화하고 싶은 경우 | [Discord](https://discord.gg/objectstack) (커뮤니티 운영) |
+| 릴리스를 팔로우하고 싶은 경우 | [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos) → Releases를 Watch |
+| 유료로 기능 구현을 원하는 경우 | Discussion을 열고 → `funding` 태그를 추가 |
+
+## 좋은 버그 리포트 작성하기
+
+30초 버전:
+
+```text
+ObjectOS version:           4.0.4 (or sha-abc123)
+Node version:               22.4.0
+Install method:             docker / npm -g / source
+Database:                   postgres 16 / sqlite / turso / mongo
+Repro steps:                1. ...  2. ...  3. ...
+Expected:                   ...
+Actual:                     ...
+Logs:                       (sanitized, last 30 lines)
+```
+
+구성 관련 문제의 경우 `os doctor`의 출력을 첨부하세요. 이 명령은
+잘못된 구성의 80%를 자체적으로 진단합니다.
+
+## 응답 기대치
+
+| 채널 | 최선의 노력 기준 응답 시간 |
+|---|---|
+| 보안 이메일 | 영업일 기준 1일 |
+| GitHub Issues — 버그, 재현 방법 포함 | 분류까지 영업일 기준 3일, 다음 릴리스 주기에 수정 |
+| GitHub Issues — 기능 요청 | 분류까지 영업일 기준 7일 |
+| GitHub Discussions | 커뮤니티 주도; 메인테이너가 정기적으로 참여 |
+| 상용 지원 | 지원 계약에 따름 |
+
+이는 최선의 노력 기준이며 SLA가 아닙니다. 상용 지원 계약에는
+공식 SLA가 포함됩니다.
+
+## 상용 지원 및 서비스
+
+ObjectStack 팀에서 제공:
+
+- 응답 시간 SLA가 포함된 **상용 지원**.
+- **매니지드 호스팅** — 저희가 운영해 드립니다.
+- **아키텍처 검토** — 배포 전 점검.
+- 사양에 맞춰 제작된 **맞춤형 플러그인 / 기능**.
+- **OEM 재배포** — ObjectOS를 제품에 임베드.
+
+**sales@objectstack.ai**로 문의하세요.
+
+## 기여하기
+
+ObjectOS는 Apache-2.0이며 기여를 받습니다:
+
+- [CONTRIBUTING.md](https://github.com/objectstack-ai/framework/blob/main/CONTRIBUTING.md)
+- [Code of Conduct](https://github.com/objectstack-ai/framework/blob/main/CODE_OF_CONDUCT.md)
+- 초안 PR을 일찍 여세요 — 중복 작업이 발생하는 것보다 스케치를
+  검토하는 편이 낫습니다.
+
+## 상태 및 장애
+
+호스팅 서비스(ObjectStack Cloud, 패키지 레지스트리):
+[status.objectstack.ai](https://status.objectstack.ai).
+
+자체 호스팅된 ObjectOS 배포의 경우 상태는 사용자의 책임입니다 —
+평소 사용하는 모니터링에 연결하세요(자세한 내용은 [Observability](/docs/operate/observability) 참조).

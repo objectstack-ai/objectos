@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "why",
+    "extend-existing-systems",
     "quickstart",
     "architecture",
     "deploy",

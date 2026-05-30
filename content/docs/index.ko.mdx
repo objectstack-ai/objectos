@@ -1,0 +1,94 @@
+---
+title: ObjectOS
+description: 네트워크 안에 머무는 내부 도구용 런타임. 한 번의 명령으로 시작하며, 데이터베이스도, 인증도, 데이터도 모두 당신의 것 — 결코 우리의 것이 아닙니다.
+---
+
+# ObjectOS
+
+**ObjectOS는 데이터를 포기하지 않고 내부 도구, 관리자 패널, 백오피스 앱을
+구축할 수 있는 셀프 호스팅 런타임입니다.** Console 내장 AI Builder에
+필요한 것을 설명하거나 템플릿을 포크하면, REST API, 자동 생성된 관리자
+UI, 인증, RBAC, 감사 로그, 파일 저장소, 백그라운드 작업, 웹훅, AI 통합을
+얻을 수 있습니다. 이 모든 것이 당신의 네트워크에서, 당신의 데이터베이스
+위에서 실행됩니다.
+
+이는 Retool, Supabase, Salesforce가 자녀를 낳아 그 자녀가 당신의 방화벽
+안에서 실행되는 것과 같습니다 — 게다가 앱을 대신 만들어 주는 AI까지
+딸려 있습니다.
+
+## 60초 만에 실행하기
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+**http://localhost:3000** 을 열면 Console와 Account, 감사 로그, 그리고
+SQLite 데이터베이스를 갖춘 작동하는 ObjectOS가 준비됩니다 — 구성도,
+스캐폴딩도 전혀 필요 없습니다.
+
+그런 다음 다음 중 하나를 하면 됩니다.
+
+- **AI Builder와 대화하세요** — *"우선순위와 담당자가 있는 지원
+  티켓을 추적해야 합니다"* — 그러면 메타데이터가 생성되는 것을 지켜볼
+  수 있습니다. [Build → AI Builder](/docs/build/ai-builder)를 참고하세요.
+- Console 내장 marketplace에서 **템플릿을 설치하세요**(Todo,
+  Contracts, Helpdesk 등). 한 번의 클릭으로 실제 앱을 갖출 수 있습니다.
+- TypeScript 소스를 직접 관리하고 싶다면
+  **[템플릿](/docs/build/templates)을 포크하세요**.
+
+## 왜 다른 것이 아니라 ObjectOS인가 …
+
+| 현재 사용 중인 것 | 불편한 점 | ObjectOS가 제공하는 것 |
+|---|---|---|
+| **Retool / Appsmith** | UI 빌더는 훌륭하지만 데이터가 그들의 클라우드에 있고 가격이 사용자 수에 따라 늘어납니다 | 데이터가 네트워크를 절대 벗어나지 않습니다. Apache-2.0이며 좌석당 과금이 없습니다 |
+| **Supabase / Firebase** | 백엔드 서비스(BaaS)는 빠르지만 벤더에 종속되며 설계상 멀티테넌트 SaaS입니다 | 동일한 개발자 경험(자동 API, 인증, 저장소)을 제공하지만 런타임과 데이터베이스를 당신이 소유합니다 |
+| **Salesforce / NetSuite** | 강력한 플랫폼이지만 커스터마이징이 고통스럽고 좌석당 비용이 눈물이 날 정도입니다 | 동일한 메타데이터 기반 모델(객체, 필드, 역할, 공유 규칙)을 셀프 호스팅으로 제공하며 좌석당 과금이 없습니다 |
+| **직접 구축(Next + Prisma + NextAuth)** | 매번 RBAC, 감사, 파일 업로드, 설정, 웹훅, 작업을 다시 만들어야 합니다 | 실제 비즈니스 로직만 출시하면 됩니다. 플랫폼 기반 작업은 이미 마련되어 있습니다 |
+
+## 기본으로 제공되는 것
+
+| 영역 | 무엇인가 |
+|---|---|
+| **자동 REST API** | 선언하는 모든 객체에 필터/정렬/페이지네이션이 가능한 `/api/v1/data/<object>`가 생깁니다 |
+| **Console** (`/_console/`) | 자동 생성된 관리자 UI: 레코드 조회 및 편집, 사용자/역할/권한 집합 관리, 감사 로그·세션·API 키·설정 보기 |
+| **Account** (`/_account/`) | 로그인, 회원가입, 비밀번호 재설정, OAuth, OIDC/SSO, 패스키, 2FA |
+| **20개 이상의 플러그인** | RBAC + 행 수준 보안, 감사, 파일 저장소, 큐, 작업, 이메일, AI, 웹훅 — 선언적이며 필요에 따라 사용 |
+
+## 당신이 계속 통제하는 것
+
+| 자산 | 어디에 있는가 |
+|---|---|
+| 비즈니스 데이터 | **당신의** 데이터베이스(Postgres, SQLite, MySQL, MongoDB) |
+| 사용자 신원 및 세션 | **당신의** 데이터베이스 |
+| 감사 로그 | **당신의** 데이터베이스 |
+| 파일 | **당신의** 저장소(로컬 디스크, S3, 또는 R2/MinIO 같은 S3 호환 저장소) |
+| 비밀 값 | **당신의** 시크릿 매니저 |
+| 런타임 자체 | **당신의** 서버, 컨테이너, 또는 노트북 |
+
+ObjectOS는 절대 외부로 연결을 시도하지 않습니다. 텔레메트리도, 라이선스
+서버도 없습니다. 에어갭(air-gapped) 네트워크는 일급 배포 대상입니다 —
+[Air-gapped](/docs/deploy/air-gapped)를 참고하세요.
+
+## 다음으로 갈 곳
+
+| 하고 싶은 것 … | 읽을 문서 |
+|---|---|
+| 실제로 작동하는 모습 보기 | [Quickstart](/docs/quickstart) |
+| 내부에 무엇이 있는지 이해하기 | [Architecture](/docs/architecture) |
+| Docker로 실행하기 | [Docker](/docs/deploy/docker) |
+| Kubernetes에 배포하기 | [Kubernetes](/docs/deploy/kubernetes) |
+| Postgres / 당신의 DB에 연결하기 | [Runtime Configuration](/docs/configure/runtime) |
+| SSO 설정하기 | [Authentication](/docs/configure/authentication) |
+| 누가 무엇을 볼지 잠그기 | [Permissions](/docs/configure/permissions) |
+| 다른 서비스에서 호출하기 | [API Access](/docs/configure/api-access) |
+| 다른 시스템으로 이벤트 보내기 | [Webhooks](/docs/configure/webhooks) |
+| 프로덕션으로 가기 | [Production Readiness](/docs/operate/production) |
+
+## 라이선스 및 가격
+
+ObjectOS 런타임은 **Apache-2.0**입니다 — 가장 널리 쓰이는 관대한 OSS
+라이선스입니다. 상업용 제품에 사용하고, 임베드하고, 재배포하고, 수정
+사항을 비공개로 유지할 수 있습니다. 좌석당 요금도, 라이선스 서버도, "연
+$50K부터 시작" 같은 것도 없습니다. 선택적 상업 지원 및 관리형 호스팅은
+별도로 제공됩니다 — [License](/docs/resources/license)를 참고하세요.

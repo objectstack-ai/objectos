@@ -1,0 +1,260 @@
+---
+title: 데이터 모델
+description: 객체, 필드, 관계, 유효성 검사, 인덱스 — AI에게 설명하거나 TypeScript로 작성합니다.
+---
+
+# 데이터 모델
+
+데이터 모델은 앱의 단일 진실 공급원(single source of truth)입니다. 객체가
+한번 존재하게 되면, ObjectOS는 REST API, Console 뷰, RBAC
+체크포인트, 감사 로그 항목, 그리고 AI 도구 노출을 — 무료로 제공합니다.
+
+**대부분의 고객은 스키마를 직접 손으로 작성하지 않습니다.** 그들은 필요한
+것을 [AI Builder](/docs/build/ai-builder)에서 설명하고, 플랫폼이
+객체, 필드, 인덱스, 번역을 생성합니다. 이
+페이지에서는 그 기저의 형태를 설명합니다 — 그래서 AI가 무엇을
+생성하는지 이해하고, 원할 때 직접 편집할 수 있습니다.
+
+## 작성 경로
+
+| 경로 | 형태 |
+|---|---|
+| **AI Builder** (기본) | *"subject, description, priority, status, assignee를 가진 `support_ticket` 객체를 생성해줘."* |
+| **Console 클릭 빌드** | Console → Objects → New Object → 폼 |
+| **TypeScript (`*.object.ts`)** | 아래에 표시된 TS — 일반적으로 포크된 [템플릿](/docs/build/templates) 내부 |
+
+세 가지 모두 동일한 스키마를 생성합니다. 스키마가 표준(canonical)이며, 그 밖의
+모든 것은 파생됩니다.
+
+## 객체의 구조
+
+```ts
+// src/objects/task.ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Task = ObjectSchema.create({
+  name: 'todo_task',
+  label: 'Task',
+  pluralLabel: 'Tasks',
+  icon: 'check-square',
+  description: 'A single unit of work.',
+
+  fields: {
+    subject:     Field.text({ label: 'Subject', required: true, maxLength: 200 }),
+    description: Field.markdown({ label: 'Description' }),
+    status:      Field.select({
+      label: 'Status',
+      options: [
+        { label: 'To Do',       value: 'todo', default: true },
+        { label: 'In Progress', value: 'in_progress' },
+        { label: 'Done',        value: 'done' },
+      ],
+    }),
+    due:         Field.date({ label: 'Due' }),
+    assignee:    Field.lookup('sys_user', { label: 'Assignee' }),
+  },
+
+  enable: {
+    trackHistory: true,    // record field changes in audit log
+    apiEnabled: true,      // expose REST endpoints (default true)
+    feeds: true,           // chatter / comments / @mentions
+  },
+});
+```
+
+스택에 등록합니다:
+
+```ts
+// objectstack.config.ts
+import { defineStack } from '@objectstack/spec';
+import * as objects from './src/objects';
+
+export default defineStack({
+  manifest: { id: 'my.app', namespace: 'myapp', version: '0.1.0', type: 'app', name: 'My App' },
+  objects: Object.values(objects),
+});
+```
+
+필요한 것은 그게 전부입니다. `os dev`가 재컴파일하면, `/api/v1/data/todo_task`,
+Console Task 뷰, 그리고 Console 권한 행이 모두 나타납니다.
+
+## 필드 타입
+
+ObjectStack은 약 25가지 필드 타입을 제공합니다. 가장 많이 사용되는 것들:
+
+### 스칼라
+
+| 타입 | 저장하는 것 | 헬퍼 |
+|---|---|---|
+| `text` | 짧은 문자열 | `Field.text({ maxLength, required })` |
+| `textarea` | 긴 문자열 | `Field.textarea(...)` |
+| `markdown` | 마크다운이 포함된 리치 텍스트 | `Field.markdown(...)` |
+| `number` | 정수 | `Field.number({ min, max })` |
+| `decimal` | 정확한 소수 (금액 등) | `Field.decimal({ precision, scale })` |
+| `boolean` | 참/거짓 | `Field.boolean({ defaultValue })` |
+| `date` | 달력 날짜 | `Field.date(...)` |
+| `datetime` | 타임스탬프 | `Field.datetime(...)` |
+| `email` | 유효성 검증된 이메일 | `Field.email(...)` |
+| `url` | 유효성 검증된 URL | `Field.url(...)` |
+| `phone` | 유효성 검증된 전화번호 | `Field.phone(...)` |
+| `json` | 임의의 JSON | `Field.json(...)` |
+
+### 선택
+
+| 타입 | 용도 |
+|---|---|
+| `select` | 단일 선택 (열거형) |
+| `multiselect` | 다중 선택 |
+
+### 관계
+
+| 타입 | 카디널리티 | 헬퍼 |
+|---|---|---|
+| `lookup` | 일대다 (FK) | `Field.lookup({ reference: 'sys_user' })` |
+| `masterDetail` | 연쇄 삭제가 있는 일대다 | `Field.masterDetail({ reference: 'order' })` |
+
+### 파일 및 미디어
+
+| 타입 | 저장하는 것 |
+|---|---|
+| `attachment` | 스토리지 서비스를 통한 단일 파일 |
+| `image` | 미리보기가 있는 이미지 첨부 |
+
+### 계산 / 파생
+
+| 타입 | 동작 |
+|---|---|
+| `formula` | CEL 표현식으로부터 읽기 시점에 계산됨 |
+| `rollup` | 연관 레코드의 집계 (합계/개수/평균) |
+| `autoNumber` | 시퀀스 (`INV-{000001}`) |
+| `created`, `lastModified` | 시스템이 관리하는 타임스탬프 |
+| `createdBy`, `lastModifiedBy` | 시스템이 관리하는 사용자 참조 |
+
+## 필수 / 고유 / 기본값
+
+모든 스칼라 필드에서 사용되는 공통 수정자:
+
+```ts
+Field.text({
+  label: 'Code',
+  required: true,
+  unique: true,          // unique constraint enforced at DB level
+  defaultValue: '',
+  helpText: 'Internal short code',
+})
+```
+
+## 유효성 검사
+
+인라인:
+
+```ts
+Field.number({ label: 'Quantity', min: 1, max: 9999 })
+Field.text({ label: 'SKU', pattern: '^[A-Z]{3}-[0-9]{4}$' })
+```
+
+객체 수준 규칙 (필드 간):
+
+```ts
+ObjectSchema.create({
+  name: 'order',
+  fields: { /* ... */ },
+  validations: [
+    {
+      name: 'discount_lt_total',
+      message: 'Discount cannot exceed total',
+      condition: 'discount < total',
+    },
+  ],
+});
+```
+
+유효성 검사는 모든 쓰기 작업 — REST, Console, ObjectQL — 에서 실행되므로,
+"뒷문(back door)"은 존재하지 않습니다.
+
+## 인덱스 및 성능
+
+```ts
+ObjectSchema.create({
+  name: 'order',
+  fields: { /* ... */ },
+  indexes: [
+    { fields: ['status', 'created_at'] },
+    { fields: ['account', 'created_at'], unique: false },
+  ],
+});
+```
+
+드라이버는 스키마 동기화 시 실제 DB 인덱스를 생성합니다.
+
+## 필드 그룹
+
+긴 폼의 경우, Console에서 필드를 그룹화합니다:
+
+```ts
+ObjectSchema.create({
+  name: 'task',
+  fieldGroups: [
+    { key: 'core',     label: 'Task',     icon: 'check-square' },
+    { key: 'planning', label: 'Planning', icon: 'calendar' },
+    { key: 'meta',     label: 'Metadata', icon: 'info', defaultExpanded: false },
+  ],
+  fields: {
+    subject: Field.text({ label: 'Subject', group: 'core' }),
+    due:     Field.date({ label: 'Due',     group: 'planning' }),
+  },
+});
+```
+
+## 라이프사이클 및 소유권
+
+```ts
+ObjectSchema.create({
+  name: 'task',
+  ownership: 'own',          // 'own' | 'shared' | 'system'
+  enable: {
+    apiEnabled: true,         // generated REST endpoints
+    trackHistory: true,       // audit log of field changes
+    feeds: true,              // sys_comment / sys_activity / @mentions
+    softDelete: true,         // tombstone instead of hard delete
+  },
+});
+```
+
+## 시스템 객체 (모든 프로젝트에 무료 제공)
+
+이것들은 선언할 필요가 없습니다 — 항상 존재합니다:
+
+| 객체 | 내용 |
+|---|---|
+| `sys_user` | 사용자 계정 |
+| `sys_org` | 조직 / 테넌트 |
+| `sys_member` | 조직 멤버십 |
+| `sys_role`, `sys_permission_set` | RBAC 기본 요소 |
+| `sys_audit_log` | 감사 추적 (감사 기능이 로드되었을 때) |
+| `sys_file`, `sys_attachment` | 파일 메타데이터 (스토리지가 로드되었을 때) |
+| `sys_comment`, `sys_activity` | 피드 / chatter (피드가 로드되었을 때) |
+| `sys_session`, `sys_api_key` | 인증 아티팩트 |
+| `sys_webhook`, `sys_webhook_delivery` | 웹훅 구독 (활성화되었을 때) |
+
+`lookup` 필드에서 이름으로 참조합니다 — 예: `Field.lookup({ reference: 'sys_user' })`.
+
+## 다형성 플랫폼 기능
+
+`feeds: true`와 `trackHistory: true`를 활성화하면, 객체가
+자동으로 다음에 참여합니다:
+
+- `sys_comment` (thread_id = `<object>:<id>`)
+- `sys_attachment` (parent_object = `<object>`, parent_id = `<id>`)
+- `sys_activity` (타임라인)
+- `sys_audit_log` (필드 수준 차이)
+
+이것들을 객체별로 연결할 필요가 없습니다 — 플랫폼에서 다형성으로 처리됩니다.
+
+## 다음 단계
+
+- [권한](/docs/configure/permissions) — 객체에 대한 접근을 통제합니다
+- [플로우 / 자동화](/docs/build/flows) — 레코드 변경에 반응합니다
+- [API 접근](/docs/configure/api-access) — 생성된 REST를 호출합니다
+- [`os explain`](/docs/reference/cli) — 렌더링된 스키마를 출력합니다
+- [`@objectstack/spec` 소스](https://github.com/objectstack-ai/framework/tree/main/packages/spec) — 스키마가 계약이며, 여기의 모든 것은 그로부터 파생됩니다

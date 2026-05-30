@@ -1,0 +1,126 @@
+---
+title: 런타임 구성
+description: 아티팩트 로딩, 프로젝트 해석, 데이터베이스, 캐시, 런타임 시크릿을 구성합니다.
+---
+
+# 런타임 구성
+
+ObjectOS 런타임 구성은 세 가지 질문에 답합니다.
+
+1. 이 요청은 어떤 프로젝트를 처리해야 하는가?
+2. 컴파일된 아티팩트는 어디에 있는가?
+3. 프로젝트는 어떤 데이터베이스와 런타임 서비스를 사용해야 하는가?
+
+## 부팅 모드
+
+| 모드 | 사용 시점 | 주요 구성 |
+|---|---|---|
+| Standalone | 구성 없이 `os start` — 빠른 데모, 빈 커널, 약 23개의 플러그인, `~/.objectstack/data/standalone.db`의 로컬 SQLite | _없음_ (기본값) |
+| File-backed | 단일 프로젝트, 데모, 고객 오프라인 번들, 망분리 배포 | `OS_ARTIFACT_FILE` |
+| Cloud-connected | 호스팅 또는 프라이빗 컨트롤 플레인이 프로젝트 아티팩트를 게시 | `OS_CLOUD_URL`, `OS_PROJECT_ID` 또는 호스트명 해석 |
+
+### Standalone 모드
+
+구성이나 아티팩트 없이 `os start`를 실행할 때의 기본값입니다.
+ObjectOS는 플랫폼 플러그인(`auth`, `security`, `audit`, `storage`,
+`webhooks`, `mcp-server`, `marketplace-proxy`,
+`marketplace-install-local`, …)이 로드된 빈 커널을 부팅하고,
+`~/.objectstack/data/standalone.db`의 로컬 SQLite를 열며, Console과
+Account UI를 제공합니다.
+
+Console의 marketplace 탭에서 앱을 설치하여 커널을 객체, 뷰, 플로우로
+채우세요 — 재빌드나 재시작이 필요 없습니다. 데모, 평가, 그리고 "이게 무엇을
+하는지 보여줘" 식의 탐색에 가장 적합합니다.
+
+`os start`는 자동으로 단계를 격상합니다.
+
+| 감지된 것 | 동작 |
+|---|---|
+| 없음 | Standalone 모드 (위 참조) |
+| cwd의 `objectstack.config.ts` | Project 모드 — 자동 컴파일, `HOME=<cwd>/.objectstack` |
+| cwd의 컴파일된 아티팩트 | Artifact 모드 — 해당 아티팩트 로드 |
+| 명시적 `--artifact <path>` 또는 `OS_CLOUD_URL` | File-backed / cloud-connected 모드 |
+
+## File-backed 모드
+
+설정:
+
+```bash
+OS_ARTIFACT_FILE=/artifacts/objectstack.json
+```
+
+ObjectOS는 로컬 Artifact API 클라이언트를 사용합니다. 모든 호스트명은 동일한
+프로젝트로 해석됩니다. 런타임 구성은 아티팩트에 존재하면 그곳에서 읽으며,
+없으면 평가용 로컬 런타임 기본값으로 폴백합니다.
+
+`OS_ARTIFACT_FILE`은 ObjectOS 앱 래퍼 규칙입니다. 기반 런타임은
+`OS_ARTIFACT_PATH`도 직접 허용합니다(`@objectstack/cli`의 `dev` 및 `start`
+명령과 프레임워크의 standalone 스택에서 사용). 둘 중 하나만 설정하세요 —
+둘 다 설정하지 마세요.
+
+선택 사항:
+
+```bash
+OS_ENVIRONMENT_ID=env_prod      # or the legacy alias OS_PROJECT_ID
+OS_WATCH_ARTIFACT=1
+```
+
+watch 모드는 개발이나 스모크 테스트에만 사용하세요.
+
+## Cloud-connected 모드
+
+설정:
+
+```bash
+OS_CLOUD_URL=https://cloud.example.com
+OS_CLOUD_API_KEY=replace-with-deployment-token
+```
+
+ObjectOS는 컨트롤 플레인에 다음을 요청합니다.
+
+- 호스트명을 프로젝트/환경으로 해석;
+- 현재 아티팩트를 가져오기;
+- 해당 프로젝트의 런타임 데이터베이스 구성을 수신.
+
+ObjectOS는 컨트롤 플레인 데이터베이스에 직접 연결해서는 안 됩니다.
+
+## 인증 시크릿
+
+강력한 베이스 시크릿을 설정하세요:
+
+```bash
+OS_AUTH_SECRET=replace-with-a-strong-random-secret
+```
+
+ObjectOS는 이 값으로부터 프로젝트별 인증 시크릿을 파생합니다. 이를 통해
+세션 서명을 프로젝트별로 격리하면서도 결정론적 재시작을 허용합니다. 이 값을
+교체하면 기존 세션이 무효화됩니다.
+
+## 커널 및 아티팩트 캐시
+
+ObjectOS는 모든 요청마다 커널을 재빌드하지 않도록 해석된 환경과 프로젝트
+커널을 캐시합니다.
+
+| 변수 | 기본값 | 용도 |
+|---|---:|---|
+| `OS_KERNEL_CACHE_SIZE` | `32` | 캐시되는 프로젝트 커널의 최대 개수 |
+| `OS_KERNEL_TTL_MS` | `900000` | 캐시된 커널의 유휴 TTL |
+| `OS_ENV_CACHE_TTL_MS` | `300000` | 호스트명/환경 해석 캐시 |
+| `OS_ARTIFACT_CACHE_TTL_MS` | `300000` | 아티팩트 응답 캐시 |
+
+TTL을 낮추면 변경 사항이 더 빠르게 반영됩니다. TTL을 높이면 컨트롤 플레인
+트래픽과 콜드 스타트가 줄어듭니다.
+
+## 데이터베이스 구성
+
+cloud-connected 모드에서는 컨트롤 플레인이 아티팩트 응답과 함께 프로젝트별
+런타임 데이터베이스 구성을 반환합니다.
+
+file-backed 모드에서는 ObjectOS가 아티팩트의 데이터소스 선언으로부터
+데이터베이스 설정을 파생할 수 있습니다. 지원되는 프레임워크 드라이버에는
+SQLite, PostgreSQL, MySQL, MongoDB, 그리고 메모리 기반 평가 드라이버가
+포함됩니다.
+
+프로덕션에서는 고객이 관리하는 데이터베이스를 사용하세요. 배포가 명시적으로
+단일 노드 평가인 경우가 아니라면 비즈니스 데이터를 컨테이너 로컬 스토리지에
+의존하지 마세요.

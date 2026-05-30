@@ -10,10 +10,11 @@ import { defineI18n } from 'fumadocs-core/i18n';
  * - de:      German (Deutsch)
  * - es:      Spanish (Español)
  * - fr:      French (Français)
+ * - ko:      Korean (한국어)
  */
 export const i18n = defineI18n({
   defaultLanguage: 'en',
-  languages: ['en', 'zh-Hans', 'ja', 'de', 'es', 'fr'],
+  languages: ['en', 'zh-Hans', 'ja', 'de', 'es', 'fr', 'ko'],
   // Hide locale prefix for default language (e.g., /docs instead of /en/docs)
   hideLocale: 'default-locale',
 });
