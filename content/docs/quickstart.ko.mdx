@@ -1,0 +1,232 @@
+---
+title: 빠른 시작
+description: 처음부터 실행 중인 ObjectOS까지 — CLI 하나를 설치하고 명령 하나를 실행하면 앱이 완성됩니다.
+---
+
+# 빠른 시작
+
+무엇을 하려는지에 따라 시작하는 방법이 두 가지 있습니다.
+
+| 당신은 … | 여기서 시작하세요 |
+|---|---|
+| ObjectOS를 처음 사용해 보거나 프로덕션에서 실행하는 경우 | [경로 A — `os start`](#path-a--os-start-operator-first-time-evaluator) |
+| 코드로 앱을 빌드하거나 커스터마이징하는 경우 | [경로 B — `os init`](#path-b--os-init-developer) |
+
+두 경로 모두 Console + Account가 포함된 실행 중인 서버를 생성합니다.
+차이점은 소스 파일을 스캐폴딩하는지 여부입니다.
+
+## 사전 요구 사항
+
+- **Node.js 20 이상** — `node --version`
+- 터미널
+
+이것이 전부입니다. Docker 불필요. 데이터베이스 불필요. 계정 가입 불필요.
+
+---
+
+## 경로 A — `os start` (운영자 / 처음 평가하는 사용자)
+
+CLI를 전역으로 설치한 다음 실행합니다:
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+다음과 같은 화면이 표시됩니다:
+
+```text
+◆ ObjectStack
+────────────────────────────────────────
+🏠 Home: ~/.objectstack
+📦 Artifact: none (empty kernel — install apps via Console marketplace)
+🗄️ Database: file:~/.objectstack/data/objectstack.db
+
+  ✓ Server is ready
+
+  ➜  API:       http://localhost:3000/
+  ➜  Console:    http://localhost:3000/_console/
+  ➜  Account:   http://localhost:3000/_account/
+  ➜  Console:   http://localhost:3000/_console/
+
+  Plugins: 23 loaded
+```
+
+이것이 전부입니다. ObjectOS가 실행되고 있습니다.
+
+### 실행 중인 항목
+
+| URL | 무엇인지 |
+|---|---|
+| http://localhost:3000/_account/register | 첫 번째 계정 생성 |
+| http://localhost:3000/_console/ | 관리자 UI — 그리고 **앱 marketplace** |
+| http://localhost:3000/_console/ | 사용자, 역할, 감사 로그, 설정 |
+| http://localhost:3000/health | 활성 상태 프로브 |
+
+런타임은 **빈 커널**로 부팅되며 — 오브젝트도 앱도 없습니다 —
+marketplace를 노출하여 몇 초 만에 완성된 앱을 설치할 수 있게 합니다.
+
+### 채팅으로 빌드 — AI Builder
+
+로그인한 후, Console에서 AI 어시스턴트(오른쪽 상단의
+반짝이 아이콘)를 열고 필요한 것을 설명하세요:
+
+> *"고객 지원 티켓을 추적해야 합니다. 각 티켓에는 제목,
+> 설명, 우선순위(낮음/중간/높음/긴급), 상태, 담당자가
+> 있습니다. 상태별로 그룹화된 칸반 뷰를 추가하세요."*
+
+AI가 계획을 제안하고, 당신이 승인하면, 메타데이터가 바로 적용됩니다 —
+REST 엔드포인트, Console 뷰, 감사 로그 항목, 권한 게이트까지.
+파일 편집도, 재시작도 필요 없습니다. 전체 어휘는 [Build → AI Builder](/docs/build/ai-builder)를
+참고하세요.
+
+> **IDE에서 직접 코딩하시나요?** `npx skills add objectstack-ai/framework`를
+> 실행하여 Claude Code / Cursor / Copilot / Codex가 실제 Zod 스키마에 맞춰
+> ObjectOS 메타데이터를 작성하는 방법을 익히도록 하세요.
+> [Build → IDE Skills](/docs/build/ai-skills)를 참고하세요.
+
+### marketplace에서 앱 설치
+
+**http://localhost:3000/_console/**를 열고, 로그인한 후, 앱을 선택하세요:
+
+| 앱 | 제공하는 기능 |
+|---|---|
+| Todo | 범용 작업 및 프로젝트 추적기 |
+| Contracts | AI 추출이 포함된 계약 라이프사이클 |
+| Procurement | 공급업체, 발주서, 3자 매칭 |
+| Compliance | SOC 2 / ISO 27001 통제 항목 + 증빙 |
+| Helpdesk | AI 우선 고객 지원 |
+| Content | 편집 캘린더 + 채널 ROI |
+| HR | 디렉터리, 조직도, 휴가 |
+
+설치 → 새로고침 → 오브젝트, 뷰, 권한, 시드 데이터와 함께
+바로 사용할 수 있습니다. 재시작이 필요 없습니다.
+
+### 자주 쓰는 플래그
+
+```bash
+os start --port 3200                       # different port
+os start --database postgres://...         # external database
+os start --auth-secret "$(openssl rand -hex 32)"  # enable auth in /api/v1/auth/*
+os start --home /var/lib/objectos          # persistent home (production)
+```
+
+모든 옵션은 [Runtime Configuration](/docs/configure/runtime)을,
+프로덕션 형태의 경로는 [Docker](/docs/deploy/docker)를 참고하세요.
+
+---
+
+## 경로 B — `os init` (개발자)
+
+직접 데이터 모델, 뷰, 플로우를 정의하기 위해 TypeScript를 작성할 때
+이 경로를 사용하세요.
+
+```bash
+npx @objectstack/cli init my-app -t app --install
+cd my-app
+pnpm dev
+```
+
+다음과 같은 화면이 표시됩니다:
+
+```text
+✓ Project initialized!
+
+◆ Compile
+  ✓ Build complete (462ms)
+  Data: 1 Objects  3 Fields
+
+◆ Development Mode
+  ✓ Server is ready
+
+  ➜  API:       http://localhost:3002/
+  ➜  Console:    http://localhost:3002/_console/
+  ➜  Account:   http://localhost:3002/_account/
+  ➜  Console:   http://localhost:3002/_console/
+```
+
+dev 서버는 3000에서 실행 중인 `os start`와 충돌을 피하기 위해
+**3002** 포트를 사용한다는 점에 유의하세요.
+
+### 직접 오브젝트 추가하기
+
+`src/objects/task.ts`를 편집하세요:
+
+```ts
+// src/objects/task.ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Task = ObjectSchema.create({
+  name: 'task',
+  label: 'Task',
+  fields: {
+    subject:   Field.text({ label: 'Subject', required: true, maxLength: 200 }),
+    done:      Field.boolean({ label: 'Done', defaultValue: false }),
+    due:       Field.date({ label: 'Due' }),
+    assignee:  Field.lookup({ label: 'Assignee', reference: 'sys_user' }),
+  },
+});
+```
+
+저장하세요. dev 서버가 다시 컴파일되고 즉시 다음을 사용할 수 있습니다:
+
+- **`/api/v1/data/task`** — 필터/정렬/페이지네이션이 포함된 전체 CRUD
+- **Console의 "Task" 뷰** — 목록, 폼, 상세가 모두 생성됨
+- **Console의 권한 행** — 역할별로 읽기/쓰기 권한 부여
+- **감사 로그 항목** — 모든 생성/수정/삭제가 기록됨
+
+마이그레이션 없음. 코드 생성 없음. 재시작 없음.
+
+### 프로젝트 레이아웃
+
+```text
+my-app/
+├── objectstack.config.ts    # Stack definition (manifest + objects)
+├── src/
+│   └── objects/             # Your data model — add files here
+├── dist/
+│   └── objectstack.json     # Compiled artifact (regenerated on save)
+├── package.json
+└── tsconfig.json
+```
+
+`dist/objectstack.json`은 프로덕션에 배포하는 파일입니다 — 실행 중인
+ObjectOS 컨테이너에 마운트하면 그것이 당신의 앱이 됩니다.
+
+### 또는 템플릿에서 시작하기
+
+프로덕션 형태의 스타터는
+[github.com/objectstack-ai/templates](https://github.com/objectstack-ai/templates)에 있습니다:
+
+```bash
+git clone https://github.com/objectstack-ai/templates.git
+cd templates/packages/todo
+pnpm install
+pnpm dev    # http://localhost:4002
+```
+
+각 템플릿은 2500 LOC 미만으로, 한 번에 읽을 수 있으며, 독립적으로 실행됩니다.
+
+---
+
+## 기본으로 로드되는 항목
+
+어느 경로든 다음 23개의 플러그인을 자동으로 제공합니다:
+
+> Auth, Security (RBAC + RLS + FLS), Audit, REST API, Console UI,
+> Account UI, Console UI, AI Service, Queue, Jobs, Cache, Settings,
+> Email, Storage, Marketplace, Metadata, ObjectQL, 그리고 SQL 드라이버.
+
+이들 중 어느 것도 직접 import하거나 연결할 필요가 없습니다 —
+무언가가 필요하다고 선언하면 자동으로 활성화됩니다.
+
+## 다음 단계
+
+| 이제 무엇을 | 읽어보기 |
+|---|---|
+| Docker에서 실행 (프로덕션 형태) | [Docker](/docs/deploy/docker) |
+| SQLite 대신 Postgres 사용 | [Runtime Configuration](/docs/configure/runtime) |
+| Google / Okta / Entra 로그인 추가 | [Authentication](/docs/configure/authentication) |
+| 누가 무엇을 할 수 있는지 제한 | [Permissions](/docs/configure/permissions) |
+| Slack / Zapier / 내 서비스로 이벤트 전송 | [Webhooks](/docs/configure/webhooks) |
+| 프로덕션에 배포 | [Production Readiness](/docs/operate/production) |

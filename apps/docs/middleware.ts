@@ -31,6 +31,8 @@ const LANGUAGE_MAPPING: Record<string, string> = {
   // Traditional variants fall back to Simplified until zh-Hant ships
   'zh-TW': 'zh-Hans',
   'zh-HK': 'zh-Hans',
+  'ko': 'ko',           // Korean
+  'ko-KR': 'ko',        // Korean (Korea) -> Korean
 };
 
 /**

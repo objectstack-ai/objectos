@@ -1,0 +1,75 @@
+---
+title: 런타임 기능
+description: ObjectOS가 ObjectStack 프레임워크 패키지에서 로드할 수 있는 기능.
+---
+
+# 런타임 기능
+
+ObjectOS는 모든 프로젝트에 대해 기본 런타임을 로드한 다음, 애플리케이션
+아티팩트가 선언한 선택적 기능을 설치합니다.
+
+## 기본 런타임
+
+기본 프로젝트 커널에는 다음이 포함됩니다.
+
+- ObjectKernel 라이프사이클 및 서비스 레지스트리;
+- ObjectQL 데이터 엔진;
+- 구성된 데이터 드라이버;
+- 메타데이터 서비스;
+- 애플리케이션 아티팩트 등록;
+- `OS_AUTH_SECRET`이 구성된 경우 인증;
+- RBAC, 행 수준 보안, 필드 보안을 위한 보안 플러그인;
+- i18n 서비스.
+
+## 선택적 기능
+
+아티팩트는 `requires` 목록에 기능을 선언할 수 있습니다. ObjectOS는
+이미지에 존재하는 경우 일치하는 프레임워크 패키지를 로드합니다.
+
+| 기능 | 패키지 | 용도 |
+|---|---|---|
+| `automation` | `@objectstack/service-automation` | Flow/DAG 실행 및 자동화 노드 |
+| `ai` | `@objectstack/service-ai` | LLM 어댑터, 대화, 도구, SSE 라우트 |
+| `analytics` | `@objectstack/service-analytics` | 큐브, 분석 쿼리, 리포팅 데이터 |
+| `audit` | `@objectstack/plugin-audit` | 감사 로그 객체 및 감사 추적 |
+| `cache` | `@objectstack/service-cache` | 캐시 추상화 및 어댑터 |
+| `storage` | `@objectstack/service-storage` | 파일/객체 스토리지 서비스 |
+| `queue` | `@objectstack/service-queue` | 큐 추상화 및 워커 |
+| `job` | `@objectstack/service-job` | 예약된/백그라운드 작업 |
+| `realtime` | `@objectstack/service-realtime` | WebSocket 및 pub/sub 실시간 |
+| `feed` | `@objectstack/service-feed` | 댓글, 반응, 구독, 활동 피드 |
+| `settings` | `@objectstack/service-settings` | 설정 매니페스트 및 K/V 리졸버 |
+
+기능이 요청되었지만 이미지에 해당 패키지가 포함되어 있지 않은 경우,
+**ObjectOS는 경고를 기록하고 해당 기능을 비활성화한 상태로 계속
+실행됩니다.** 이는 의도된 동작으로, 개발 중에 선택적 패키지가 누락된
+경우에도 런타임이 부팅 가능하도록 유지하기 위함입니다. 하지만
+**프로덕션에서는 실질적인 위험입니다**:
+
+- `@objectstack/plugin-audit` 없이 이미지에 로드된 감사 필수 앱은
+  정상적으로 시작되지만 **감사 로그를 기록하지 않습니다**. 어떤 오류도
+  없이 컴플라이언스 증거가 누락됩니다.
+- `@objectstack/service-job` 없이 이미지에 로드된 작업 기반 앱은
+  정상적으로 시작되지만 **예약된 작업을 조용히 실행하지 않습니다**.
+
+**프로덕션 체크리스트:**
+
+1. 기능 경고를 배포 실패로 취급하십시오. 시작 로그에서
+   `capability not loaded`(또는 이에 상응하는 메시지)를 검색하고, 해당
+   메시지가 나타나면 준비 상태 프로브 / 롤아웃을 실패시키십시오.
+2. 아티팩트가 `requires`에 선언한 모든 패키지를 포함하는 런타임
+   이미지에 고정하십시오.
+3. 아티팩트를 게시할 때, 운영자가 일치하는 이미지를 확인할 수 있도록
+   해당 `requires` 목록을 함께 문서화하십시오.
+
+## API 표면
+
+ObjectOS는 일반적으로 다음을 노출합니다.
+
+- 생성된 REST API;
+- `/api/v1/auth/*` 아래의 인증 엔드포인트;
+- 메타데이터 및 i18n 엔드포인트;
+- 활성화된 기능에 대한 서비스 엔드포인트.
+
+GraphQL과 OData는 프레임워크 수준의 기능이며, 배포된 런타임 패키지에
+포함되어 활성화된 경우에만 지원되는 것으로 문서화해야 합니다.
