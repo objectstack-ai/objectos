@@ -39,6 +39,10 @@ project environment id. This means:
 - tokens from one project cannot be reused on another project;
 - rotating `OS_AUTH_SECRET` invalidates sessions.
 
+See [Environment variables](/docs/reference/environment-variables) for the
+full list of auth-related settings, including the legacy `AUTH_SECRET`
+alias.
+
 ## Session isolation
 
 In multi-project deployments, cookies are scoped to the project hostname.
@@ -74,7 +78,8 @@ application registration before enabling the provider in ObjectOS.
 ## Enterprise OIDC/SSO
 
 OIDC providers are registered as generic OAuth2 providers and use the
-`/oauth2/callback/<provider>` path. A typical configuration requires:
+`/api/v1/auth/oauth2/callback/<provider>` path. A typical configuration
+requires:
 
 | Field | Description |
 |---|---|
@@ -109,3 +114,10 @@ Before production:
 - confirm callback URLs match the public project domain;
 - confirm trusted origins include only approved domains;
 - confirm `OS_AUTH_SECRET` is stored in a secret manager, not in source.
+
+## Next steps
+
+Authentication establishes *who* a user is. To control *what* they can
+access once signed in, see [Permissions](/docs/configure/permissions). For
+non-browser clients and machine-to-machine access, see
+[API access](/docs/configure/api-access).

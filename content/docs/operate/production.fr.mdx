@@ -1,0 +1,83 @@
+---
+title: Préparation à la production
+description: Liste de contrôle pour exécuter ObjectOS en toute sécurité en production.
+---
+
+# Préparation à la production
+
+Utilisez cette liste de contrôle avant d'exposer ObjectOS au trafic de production.
+
+## Renforcement HTTP
+
+Le runtime ObjectStack fournit des en-têtes de sécurité prudents pour les
+routes du dispatcher. Les déploiements en production doivent vérifier :
+
+- `Content-Security-Policy` ;
+- `X-Content-Type-Options` ;
+- `X-Frame-Options` ;
+- `Referrer-Policy` ;
+- `Permissions-Policy` ;
+- `Cross-Origin-Resource-Policy` ;
+- HSTS une fois le TLS confirmé.
+
+Si un reverse proxy gère les en-têtes, vérifiez la réponse finale avec :
+
+```bash
+curl -I https://app.example.com
+```
+
+## Secrets
+
+Stockez ces éléments dans un gestionnaire de secrets :
+
+| Secret | Objet |
+|---|---|
+| `OS_AUTH_SECRET` | Secret de base pour la signature des sessions |
+| `OS_CLOUD_API_KEY` | Accès à l'Artifact API du plan de contrôle |
+| Identifiants de base de données | Accès à la base de données métier |
+| Secret client OIDC | SSO d'entreprise |
+| Clés API de fournisseurs | E-mail, stockage, IA, intégrations |
+
+N'intégrez jamais de secrets dans les artefacts ou les images.
+
+## Limitation de débit
+
+Le framework expose un limiteur de débit de type token-bucket. Mettez en place
+la limitation de débit au niveau de l'adaptateur, de l'ingress ou de la
+passerelle, là où l'IP de l'appelant et l'identité authentifiée sont fiables.
+
+Buckets recommandés :
+
+| Trafic | Limite exemple |
+|---|---:|
+| Points de terminaison d'authentification | 10/min/IP |
+| Requêtes d'écriture | 60/min/IP |
+| Requêtes de lecture | 600/min/IP |
+
+Utilisez un backend partagé tel que Redis pour les déploiements multi-pods.
+
+## CORS
+
+Configurez des origines explicites :
+
+```text
+https://app.example.com
+https://admin.example.com
+```
+
+N'utilisez pas d'origines avec caractère générique pour les requêtes
+authentifiées.
+
+## Liste de contrôle de mise en production
+
+- [ ] Le TLS est terminé au niveau de l'edge ou de l'ingress.
+- [ ] Les en-têtes de sécurité sont présents.
+- [ ] HSTS est activé après validation du TLS.
+- [ ] Les origines CORS sont explicites.
+- [ ] Les limites de débit protègent les points de terminaison d'authentification et d'écriture.
+- [ ] `OS_AUTH_SECRET` est robuste et stocké comme un secret.
+- [ ] Les URL de callback OIDC correspondent au domaine public.
+- [ ] La sauvegarde et la restauration de la base de données métier sont testées.
+- [ ] Les journaux d'audit sont conservés conformément à la politique du client.
+- [ ] Les tests d'accès négatifs inter-organisations réussissent.
+- [ ] Le plan de rollback couvre à la fois l'image ObjectOS et la version de l'artefact.

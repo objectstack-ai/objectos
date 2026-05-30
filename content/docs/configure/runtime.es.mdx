@@ -1,0 +1,126 @@
+---
+title: Configuración del entorno de ejecución
+description: Configura la carga de artefactos, la resolución de proyectos, la base de datos, la caché y los secretos del entorno de ejecución.
+---
+
+# Configuración del entorno de ejecución
+
+La configuración del entorno de ejecución de ObjectOS responde a tres preguntas:
+
+1. ¿Qué proyecto debe atender esta solicitud?
+2. ¿Dónde está el artefacto compilado?
+3. ¿Qué base de datos y servicios de ejecución debe usar el proyecto?
+
+## Modos de arranque
+
+| Modo | Úsalo cuando | Configuración clave |
+|---|---|---|
+| Standalone | `os start` sin configuración — demo rápida, kernel vacío, ~23 plugins, SQLite local en `~/.objectstack/data/standalone.db` | _ninguna_ (valores por defecto) |
+| File-backed | Proyecto único, demo, paquete offline del cliente, despliegue aislado de la red | `OS_ARTIFACT_FILE` |
+| Cloud-connected | Un plano de control alojado o privado publica los artefactos del proyecto | `OS_CLOUD_URL`, `OS_PROJECT_ID` o resolución por nombre de host |
+
+### Modo standalone
+
+El modo por defecto cuando ejecutas `os start` sin configuración ni artefacto.
+ObjectOS arranca un kernel vacío con los plugins de plataforma cargados
+(`auth`, `security`, `audit`, `storage`, `webhooks`, `mcp-server`,
+`marketplace-proxy`, `marketplace-install-local`, …), abre SQLite local
+en `~/.objectstack/data/standalone.db` y sirve las interfaces de Console
+y Account.
+
+Instala apps desde la pestaña del marketplace en Console para poblar el kernel
+con objetos, vistas y flujos — sin recompilar ni reiniciar. Ideal para
+demos, evaluación y exploraciones del tipo "muéstrame qué hace esto".
+
+`os start` escala automáticamente:
+
+| Detectado | Comportamiento |
+|---|---|
+| Nada | Modo standalone (arriba) |
+| `objectstack.config.ts` en el cwd | Modo proyecto — compilación automática, `HOME=<cwd>/.objectstack` |
+| Artefacto compilado en el cwd | Modo artefacto — carga ese artefacto |
+| `--artifact <path>` explícito u `OS_CLOUD_URL` | Modos file-backed / cloud-connected |
+
+## Modo file-backed
+
+Configura:
+
+```bash
+OS_ARTIFACT_FILE=/artifacts/objectstack.json
+```
+
+ObjectOS usa un cliente local de la Artifact API. Cada nombre de host se resuelve
+al mismo proyecto. La configuración del entorno de ejecución se lee del artefacto cuando está presente,
+o recurre a un valor por defecto de ejecución local para evaluación.
+
+`OS_ARTIFACT_FILE` es la convención del app-wrapper de ObjectOS. El entorno de
+ejecución subyacente también acepta `OS_ARTIFACT_PATH` directamente (usado por los
+comandos `dev` y `start` de `@objectstack/cli` y por el stack standalone del
+framework). Configura uno u otro — no ambos.
+
+Opcional:
+
+```bash
+OS_ENVIRONMENT_ID=env_prod      # o el alias heredado OS_PROJECT_ID
+OS_WATCH_ARTIFACT=1
+```
+
+Usa el modo watch solo para desarrollo o pruebas de humo.
+
+## Modo cloud-connected
+
+Configura:
+
+```bash
+OS_CLOUD_URL=https://cloud.example.com
+OS_CLOUD_API_KEY=replace-with-deployment-token
+```
+
+ObjectOS le pide al plano de control que:
+
+- resuelva el nombre de host a proyecto/entorno;
+- obtenga el artefacto actual;
+- reciba la configuración de la base de datos de ejecución para ese proyecto.
+
+ObjectOS no debe conectarse directamente a la base de datos del plano de control.
+
+## Secreto de autenticación
+
+Configura un secreto base robusto:
+
+```bash
+OS_AUTH_SECRET=replace-with-a-strong-random-secret
+```
+
+ObjectOS deriva secretos de autenticación por proyecto a partir de este valor. Esto mantiene
+la firma de sesiones aislada por proyecto, sin dejar de permitir reinicios
+deterministas. Rotar este valor invalida las sesiones existentes.
+
+## Cachés de kernel y artefactos
+
+ObjectOS almacena en caché los entornos resueltos y los kernels de proyecto para evitar
+reconstruir un kernel en cada solicitud.
+
+| Variable | Por defecto | Propósito |
+|---|---:|---|
+| `OS_KERNEL_CACHE_SIZE` | `32` | Número máximo de kernels de proyecto en caché |
+| `OS_KERNEL_TTL_MS` | `900000` | TTL de inactividad para los kernels en caché |
+| `OS_ENV_CACHE_TTL_MS` | `300000` | Caché de resolución de nombre de host/entorno |
+| `OS_ARTIFACT_CACHE_TTL_MS` | `300000` | Caché de respuestas de artefactos |
+
+Los TTL más bajos hacen que los cambios sean visibles más rápido. Los TTL más altos reducen el
+tráfico al plano de control y los arranques en frío.
+
+## Configuración de la base de datos
+
+En el modo cloud-connected, el plano de control devuelve la configuración de la base de datos
+de ejecución por proyecto junto con la respuesta del artefacto.
+
+En el modo file-backed, ObjectOS puede derivar la configuración de la base de datos a partir de las
+declaraciones de datasource del artefacto. Los drivers del framework compatibles incluyen
+SQLite, PostgreSQL, MySQL, MongoDB y drivers de evaluación respaldados por
+memoria.
+
+Para producción, usa una base de datos gestionada por el cliente. No dependas del
+almacenamiento local del contenedor para los datos de negocio, a menos que el despliegue sea
+explícitamente una evaluación de un solo nodo.

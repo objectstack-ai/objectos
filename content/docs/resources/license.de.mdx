@@ -1,0 +1,101 @@
+---
+title: Lizenz
+description: ObjectOS-Lizenzierung — Apache-2.0, kommerzielle Optionen und FAQ.
+---
+
+# Lizenz
+
+## ObjectOS-Runtime — Apache-2.0
+
+Die ObjectOS-Runtime und alle Open-Source-Pakete `@objectstack/*` sind
+unter der [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0) lizenziert.
+
+In einfachen Worten:
+
+| Sie dürfen | Sie müssen |
+|---|---|
+| Es in kommerziellen Produkten verwenden | Die Dateien LICENSE und NOTICE bei der Weiterverteilung beilegen |
+| Es ändern, ohne die Änderungen zu teilen | Geänderte Dateien als geändert kennzeichnen |
+| Es in proprietäre Software einbetten | ObjectStack-Marken nicht ohne Erlaubnis verwenden |
+| Es zu jedem Zweck und überall ausführen | — |
+| Es als Teil eines größeren Werks unterlizenzieren | — |
+
+Es gibt **kein Copyleft**. Änderungen, die Sie für den internen Gebrauch
+vornehmen oder die Sie in einem Closed-Source-Produkt ausliefern, müssen
+**nicht** zurückgegeben werden. Die Apache-2.0-Lizenz enthält außerdem
+eine **ausdrückliche Patentlizenz** von den Mitwirkenden — wichtig für
+die rechtliche Prüfung in Unternehmen.
+
+Volltext: [LICENSE](https://github.com/objectstack-ai/framework/blob/main/LICENSE)
+
+## Was unter Apache-2.0 enthalten ist
+
+| | Lizenz |
+|---|---|
+| ObjectOS-Runtime-Image | Apache-2.0 |
+| Alle npm-Pakete `@objectstack/*` (Runtime, Plugins, Services, Treiber, Adapter, CLI, Client-SDKs) | Apache-2.0 |
+| Templates-Repository (`objectstack-ai/templates`) | Apache-2.0 |
+| Console- und Account-UIs | Apache-2.0 |
+| Dokumentation | CC-BY-4.0 |
+
+## Wann eine kommerzielle Vereinbarung sinnvoll sein kann
+
+Apache-2.0 deckt die meisten Anwendungsfälle ab. Eine kommerzielle
+Vereinbarung kann dennoch sinnvoll sein, wenn:
+
+| Szenario | Was wir anbieten |
+|---|---|
+| Sie **Support mit SLAs** benötigen | Kommerzieller Support |
+| Sie möchten, dass wir es **für Sie hosten** | Managed Cloud (ObjectStack Cloud) |
+| Sie **OEM-Rechte** wünschen (ObjectStack-Marken verwenden, es als Ihr eigenes Produkt kennzeichnen) | OEM-Vereinbarung |
+| Sie eine **Gewährleistung / Freistellung** wünschen | Kommerzielle Vereinbarung (Apache-2.0 schließt Gewährleistung aus) |
+| Sie **regulatorische Nachweise** benötigen (SOC-2-Bericht, ISO-Zertifikat des Runtime-Images) | Enterprise-Tier |
+
+Kontaktieren Sie **sales@objectstack.ai**, um darüber zu sprechen.
+
+## Preise für die Open-Source-Runtime
+
+**Kostenlos.** Für immer. Keine Plätze, keine Nutzungsstufe, kein Lizenzserver, kein Schlüssel.
+
+Führen Sie es aus auf:
+- Ihrem Laptop
+- Ihren Servern
+- Den Servern Ihrer Kunden
+- Einem Raspberry Pi
+- Einem Kubernetes-Cluster mit 1000 Pods
+
+Die Lizenz ist in jedem Fall dieselbe.
+
+## Komponenten von Drittanbietern
+
+ObjectOS hängt von mehreren vorgelagerten Open-Source-Projekten ab (Node.js,
+Hono, Zod, Better Auth, AI SDK, …). Jedes wird mit seiner eigenen Lizenz
+ausgeliefert — allesamt entweder Apache-2.0, MIT oder permissive Lizenzen
+im BSD-Stil, die mit kommerzieller Nutzung kompatibel sind. Die vollständige
+Inventarliste finden Sie in der SBOM, die mit jedem Release veröffentlicht wird.
+
+## FAQ
+
+**F: Kann ich ObjectOS in einer Closed-Source-SaaS verwenden, die ich an meine Kunden verkaufe?**
+A: Ja. Apache-2.0 hat kein Copyleft. Sie müssen Ihren Code nicht teilen.
+
+**F: Kann ich ObjectOS ändern und meine Änderungen nicht teilen?**
+A: Ja. Apache-2.0 verlangt nicht, dass Sie Änderungen teilen.
+
+**F: Kann ich Console als Teil meines Produkts umbenennen (Rebranding)?**
+A: Die UI selbst, ja. Die Verwendung des Namens oder Logos „ObjectStack",
+um Ihr Produkt zu bewerben, erfordert eine OEM-Vereinbarung — kontaktieren Sie den Vertrieb.
+
+**F: Schulde ich Ihnen etwas, wenn mein Produkt Geld einbringt?**
+A: Nein. Es gibt keine Lizenzgebühren oder Umsatzbeteiligung.
+
+**F: Sendet ObjectOS Nutzungsdaten nach Hause („phone home")?**
+A: Nein. Es gibt keine Telemetrie, keine Lizenzprüfung, keinen Update-Ping.
+Siehe [Security & Compliance](/docs/reference/security#data-residency).
+
+**F: Was, wenn ich eine vertragliche Gewährleistung möchte?**
+A: Apache-2.0 schließt Gewährleistung aus. Erwerben Sie eine kommerzielle
+Vereinbarung, und wir stellen eine bereit.
+
+**F: Wird die Open-Source-Version immer kostenlos sein?**
+A: Ja. Apache-2.0-Lizenzen sind unwiderruflich.

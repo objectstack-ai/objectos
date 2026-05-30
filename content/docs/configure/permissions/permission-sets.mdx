@@ -6,7 +6,7 @@ description: Grant application, object, field, and system permissions.
 # Permission Sets
 
 Permission sets are the primary way to grant capabilities. They can be
-assigned directly to users or indirectly through roles.
+assigned directly to users or indirectly through [roles](/docs/configure/permissions/roles).
 
 ## What permission sets control
 
@@ -38,8 +38,9 @@ plugin's permission evaluator):
 | `viewAllRecords` | Read every record for the object, bypassing record access |
 | `modifyAllRecords` | Update or delete every record for the object, bypassing record access; implies `viewAllRecords` for reads |
 
-Record access still matters unless `viewAllRecords` or `modifyAllRecords`
-bypasses the normal row-level boundary. Reserve those flags for
+[Record access](/docs/configure/permissions/record-access) still matters
+unless `viewAllRecords` or `modifyAllRecords` bypasses the normal
+row-level boundary. Reserve those flags for
 administrative permission sets — they are effectively a tenant-wide
 super-user grant for that object.
 

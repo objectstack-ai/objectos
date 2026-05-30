@@ -1,0 +1,80 @@
+---
+title: Laufzeit-Funktionen
+description: Funktionen, die ObjectOS aus ObjectStack-Framework-Paketen laden kann.
+---
+
+# Laufzeit-Funktionen
+
+ObjectOS lädt für jedes Projekt eine Basis-Laufzeitumgebung und installiert
+anschließend die optionalen Funktionen, die vom Anwendungsartefakt deklariert
+werden.
+
+## Basis-Laufzeitumgebung
+
+Der Basis-Projektkernel umfasst:
+
+- ObjectKernel-Lebenszyklus und Service-Registry;
+- ObjectQL-Datenengine;
+- konfigurierter Datentreiber;
+- Metadatendienst;
+- Registrierung des Anwendungsartefakts;
+- Authentifizierung, wenn `OS_AUTH_SECRET` konfiguriert ist;
+- Security-Plugin für RBAC, zeilenbasierte Sicherheit und Feldsicherheit;
+- i18n-Dienst.
+
+## Optionale Funktionen
+
+Artefakte können Funktionen in ihrer `requires`-Liste deklarieren. ObjectOS
+lädt passende Framework-Pakete, sofern sie im Image vorhanden sind.
+
+| Funktion | Paket | Zweck |
+|---|---|---|
+| `automation` | `@objectstack/service-automation` | Flow-/DAG-Ausführung und Automatisierungsknoten |
+| `ai` | `@objectstack/service-ai` | LLM-Adapter, Konversationen, Tools, SSE-Routen |
+| `analytics` | `@objectstack/service-analytics` | Cubes, Analyseabfragen, Reporting-Daten |
+| `audit` | `@objectstack/plugin-audit` | Audit-Log-Objekt und Audit-Trail |
+| `cache` | `@objectstack/service-cache` | Cache-Abstraktion und Adapter |
+| `storage` | `@objectstack/service-storage` | Datei-/Objektspeicherdienst |
+| `queue` | `@objectstack/service-queue` | Queue-Abstraktion und Worker |
+| `job` | `@objectstack/service-job` | Geplante/Hintergrund-Jobs |
+| `realtime` | `@objectstack/service-realtime` | WebSocket- und Pub/Sub-Echtzeit |
+| `feed` | `@objectstack/service-feed` | Kommentare, Reaktionen, Abonnements, Aktivitäts-Feed |
+| `settings` | `@objectstack/service-settings` | Settings-Manifeste und K/V-Resolver |
+
+Wird eine Funktion angefordert, das Image enthält das Paket jedoch nicht,
+**protokolliert ObjectOS eine Warnung und läuft mit deaktivierter Funktion
+weiter.** Das ist beabsichtigt – es hält die Laufzeitumgebung auch dann
+startfähig, wenn während der Entwicklung ein optionales Paket fehlt – aber in
+der **Produktion ist es ein echtes Risiko**:
+
+- Eine Anwendung, die Audit erfordert und in ein Image ohne
+  `@objectstack/plugin-audit` geladen wird, startet sauber **und schreibt
+  kein Audit-Log**. Compliance-Nachweise fehlen, ohne dass ein Fehler
+  auftritt.
+- Eine Job-gesteuerte Anwendung, die in ein Image ohne
+  `@objectstack/service-job` geladen wird, startet sauber **und führt
+  geplante Arbeiten stillschweigend nie aus**.
+
+**Produktions-Checkliste:**
+
+1. Behandeln Sie Funktionswarnungen als Bereitstellungsfehler. Durchsuchen
+   Sie die Startprotokolle nach `capability not loaded` (oder Ihrem
+   Äquivalent) und lassen Sie die Readiness-Probe / das Rollout fehlschlagen,
+   falls solche Warnungen auftreten.
+2. Fixieren Sie das Laufzeit-Image auf eines, das jedes Paket enthält, das
+   Ihre Artefakte in `requires` deklarieren.
+3. Dokumentieren Sie beim Veröffentlichen eines Artefakts dessen
+   `requires`-Liste mit, damit Betreiber das passende Image überprüfen können.
+
+## API-Oberfläche
+
+ObjectOS stellt üblicherweise bereit:
+
+- generierte REST-APIs;
+- Auth-Endpunkte unter `/api/v1/auth/*`;
+- Metadaten- und i18n-Endpunkte;
+- Dienst-Endpunkte für aktivierte Funktionen.
+
+GraphQL und OData sind Funktionen auf Framework-Ebene und sollten nur dann als
+unterstützt dokumentiert werden, wenn sie vom bereitgestellten
+Laufzeitpaket enthalten und aktiviert sind.

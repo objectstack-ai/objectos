@@ -1,0 +1,186 @@
+---
+title: エージェント
+description: エンドユーザー向けの AI アシスタント — Agent → Skill → Tool — あなたのデータとアクションから組み立てます。
+---
+
+# エージェント
+
+エージェントは、**エンドユーザー**が対話する AI アシスタントです — ヘルプ
+デスクの副操縦士、営業の BDR、社内向け HR Q&A ボットなど。これらは、
+すでに定義済みのデータとアクションの上に構築されます。新しいコードを書く
+必要はなく、既存のプリミティブを組み合わせて 1 つのペルソナを作り上げます。
+
+Salesforce Agentforce、Microsoft Copilot Studio、ServiceNow Now Assist
+と整合する 3 階層アーキテクチャ:
+
+```text
+Agent  ──→  Skill  ──→  Tool
+(persona)   (capability)  (callable function)
+```
+
+| 階層 | 概要 | 例 |
+|---|---|---|
+| **Tool** | 1 つの呼び出し可能な関数（アクション、クエリ、ナレッジ検索、MCP メソッド） | `create_ticket`, `get_order_status`, `search_kb` |
+| **Skill** | 共有 LLM 指示を持つ、関連するツールの名前付きバンドル | `ticket_management` = create + update + close + escalate |
+| **Agent** | ロール、システムプロンプト、付属スキル、ナレッジを備えたペルソナ | `tier1_support` = 共感的、本人確認を行い、`ticket_management` + `kb_search` を持つ |
+
+## エージェントを定義する（1 ファイル）
+
+```ts
+// src/agents/tier1_support.agent.ts
+import { defineAgent } from '@objectstack/spec/ai';
+
+export const tier1Support = defineAgent({
+  name: 'tier1_support',
+  label: 'First Line Support',
+  role: 'Help Desk Assistant',
+  instructions: `
+    You are a friendly first-line support agent.
+    Always verify the user's identity before discussing account specifics.
+    Escalate to tier 2 if the issue involves billing or security.
+  `,
+  skills: ['ticket_management', 'knowledge_search'],
+  knowledge: {
+    topics:  ['faq', 'policies'],
+    indexes: ['support_docs'],
+  },
+  model: { provider: 'openai', model: 'gpt-4o', temperature: 0.3 },
+  memory: { shortTerm: { maxMessages: 30 } },
+});
+```
+
+または Console から: **Console → Agents → New Agent**。
+
+あるいは — そしてこれが本質ですが — AI Builder にこう伝えます:
+
+> *「チケット管理を扱い、FAQ を検索する tier-1 サポートエージェントを作成して。
+> アカウントの詳細を話す前に本人確認を行うようにして。」*
+
+## スキルを定義する
+
+```ts
+// src/skills/ticket_management.skill.ts
+import { defineSkill } from '@objectstack/spec/ai';
+
+export const ticketManagement = defineSkill({
+  name: 'ticket_management',
+  label: 'Ticket Management',
+  instructions: `
+    Always confirm the ticket subject and priority before creating one.
+    Use 'urgent' priority sparingly — only for outages or security incidents.
+  `,
+  tools: [
+    'create_ticket',
+    'update_ticket',
+    'close_ticket',
+    'escalate_ticket',
+    'action_*',         // wildcard: pick up any future actions on the active object
+  ],
+});
+```
+
+スキルは**再利用に適した単位**です。1 つのスキルは多くのエージェントにまたがって
+機能します。
+
+## ツールは宣言したメタデータから生成される
+
+宣言したすべての `*.action.ts` は、自動的に `action_<name>` ツールとして
+具現化されます — 個別の配線は不要です。したがって、`support_ticket` オブジェクト
+上のアクションとして `escalate_ticket` をすでに定義していれば、AI Builder と
+あなたのエージェントの両方がそれを呼び出せます。権限は引き続き適用されます。
+エージェントは**ユーザーとして**アクションを呼び出すため、それが成功するかどうかは
+ユーザーの権限セットが決定します。
+
+次のものも公開できます:
+
+| ツールの種類 | ソース |
+|---|---|
+| **Action** | インストール済みパッケージ内の任意の `*.action.ts` |
+| **Flow** | 任意の手動フロー（`type: 'manual'`） |
+| **Query** | 保存済みの ObjectQL クエリ（`*.query.ts`） |
+| **Knowledge search** | エージェントに付属する任意のナレッジインデックス |
+| **MCP method** | 付属の MCP サーバーが公開する任意のもの |
+| **組み込みメタデータツール** | `create_object`, `add_field`, … — ただし管理者エージェントのみ |
+
+## アンビエントアシスタントパターン
+
+ユーザーにエージェントを選ばせる代わりに、**アプリ全体で 1 つのチャットボックス**
+（Claude Code / Agentforce スタイル）を使いたい場合は、App メタデータに
+`defaultAgent` を宣言し、アプリのコンテキストとともにアンビエントチャット
+エンドポイントを呼び出します:
+
+```text
+POST /api/v1/ai/chat   { context: { appName: 'crm' }, ... }
+```
+
+`context.appName` が `defaultAgent` を宣言するアプリに解決されると、ランタイムは
+そのエージェントを自動選択します — ユーザーがリストから選ぶことはありません。
+Console の組み込み AI パネルはこれを使用しています。ランタイムは次を解決します:
+
+1. アクティブなアプリの**デフォルトエージェント**（アプリの `defaultAgent`）、
+   またはユーザーがアクセスできる最初のエージェント。
+2. **アクティブなスキル** — Skill Registry から読み込まれたエージェントの
+   `skills:` リストで、ユーザーの権限セットと現在のオブジェクト／レコードの
+   コンテキストでフィルタリングされたもの。
+3. エージェントに付属する**ナレッジ**。
+
+どのエージェントをどこに表示するかを配線する必要はありません。アプリを宣言し、
+その `defaultAgent` を設定すれば、表示されます。
+
+## 権限
+
+| 機能 | 権限 |
+|---|---|
+| エージェントとチャットする | `ai:chat`（およびエージェントのスキルのツールへのアクセス） |
+| メタデータの変更を承認する | `ai:approve` |
+| エージェントとスキルを定義／編集する | `ai:author`（通常は Setup Administrator） |
+| AI 会話を読む（監査） | `ai:read` |
+
+会話はユーザー単位にスコープされます — あるユーザーは、委任された付与がない限り、
+別のユーザーのチャット履歴を見ることはできません。
+
+## メモリと会話の状態
+
+エージェントの `memory` ブロックには 2 つの階層があります:
+
+| フィールド | 役割 |
+|---|---|
+| `shortTerm.maxMessages` | ワーキングメモリに保持する直近のメッセージ数（デフォルト `50`） |
+| `shortTerm.maxTokens` | 短期コンテキストウィンドウの任意のトークン予算 |
+| `longTerm.enabled` | セッションをまたいでメモリを永続化する（デフォルト `false`） |
+| `longTerm.store` | 永続メモリのバックエンド: `vector`（デフォルト）、`database`、または `redis` |
+| `reflectionInterval` | N 回のインタラクションごとに振り返り、挙動を改善する |
+
+ライブコンテキストウィンドウのプルーニングは、会話のトークン予算戦略によって
+管理されます — `sliding_window`（デフォルト）、`fifo`、`importance`、`semantic`、
+または `summary`。
+
+会話の行は `ai_conversations` に存在します。ツール呼び出しの結果と保留中の
+アクションは、監査のために発生元の会話への相互参照を保持します。
+
+## オブザーバビリティ
+
+すべてのエージェント実行は次を発行します:
+
+- `audit:ai:chat` イベント（ターンごと）
+- `audit:ai:tool` イベント（ツール呼び出しごと、入力 + 出力付き）
+- `audit:ai:pending_action` イベント（ミューテーションがキューに入ったとき）
+- トークン数のメトリクス（モデルごと、プロバイダーごと）をチャージバックのために
+  監査ログへ
+
+これらは通常のオブザーバビリティスタックに配線できます — 
+[Observability](/docs/operate/observability) を参照してください。
+
+## マルチテナントに関する注意
+
+エージェントは Environment 単位です。テナント A の `tier1_support` エージェントは、
+marketplace パッケージで同じエージェント定義を出荷していても、テナント B の
+データ、会話、ナレッジを決して見ることはありません。
+
+## 次に進む先
+
+- [AI Builder](/docs/build/ai-builder) — ビルド時のアシスタント
+- [IDE Skills](/docs/build/ai-skills) — `npx skills add objectstack-ai/framework` で、IDE エージェントがメタデータを正しく作成できるようにします
+- [Actions](/docs/build/actions) — エージェントが使用するツールを宣言します
+- [AI Service](/docs/configure/ai) — プロバイダー、エンベッダー、MCP のセットアップ
+- [`@objectstack/spec/ai`](https://github.com/objectstack-ai/framework/tree/main/packages/spec/src/ai) — 完全なスキーマ

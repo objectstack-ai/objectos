@@ -1,0 +1,66 @@
+---
+title: Actualización y reversión
+description: Actualiza ObjectOS y los artefactos de la aplicación de forma segura.
+---
+
+# Actualización y reversión
+
+ObjectOS tiene dos flujos de versiones:
+
+| Versión | Responsable | Reversión |
+|---|---|---|
+| Imagen/runtime de ObjectOS | Equipo de plataforma/runtime | Etiqueta del contenedor anterior |
+| Artefacto de la aplicación | Publicación de la aplicación/plano de control | Artefacto anterior o puntero de versión del proyecto |
+
+No modifiques los artefactos en su lugar. Publica un nuevo artefacto y cambia el
+runtime para que lo use.
+
+## Actualizar ObjectOS
+
+Para Docker Compose:
+
+```bash
+docker compose -f docker/docker-compose.yml pull
+docker compose -f docker/docker-compose.yml up -d
+```
+
+Para Kubernetes, actualiza la etiqueta de la imagen y deja que el despliegue se renueve.
+
+## Actualizar el artefacto
+
+Modo basado en archivos:
+
+```bash
+cp objectstack-2026-05-24.json docker/artifacts/objectstack.json
+docker compose -f docker/docker-compose.yml restart objectos
+```
+
+Modo conectado a la nube:
+
+1. Publica el nuevo artefacto en el plano de control.
+2. Mueve el puntero del proyecto/entorno actual a la nueva versión.
+3. Deja que ObjectOS vuelva a obtenerlo tras la expiración de la caché o reinícialo para forzar la recarga.
+
+## Reversión
+
+Revertir ObjectOS: fija la etiqueta de la imagen anterior en tu archivo Compose (o
+manifiesto de despliegue) y vuelve a aplicarlo.
+
+```bash
+docker compose -f docker/docker-compose.yml up -d objectos
+```
+
+Revertir el artefacto:
+
+- restaura el archivo montado anterior; o
+- mueve el puntero del plano de control de vuelta a la versión anterior del artefacto.
+
+## Comprobaciones de compatibilidad
+
+Antes de actualizar:
+
+- confirma que el artefacto se compiló contra una versión compatible de ObjectStack;
+- confirma que las capacidades requeridas están disponibles en la imagen de ObjectOS;
+- confirma que se comprende el comportamiento de las migraciones de base de datos o la sincronización del esquema;
+- ejecuta pruebas de humo de autenticación y permisos;
+- verifica que la reversión no requiere cambios destructivos en los datos.

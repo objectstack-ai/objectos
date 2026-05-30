@@ -1,0 +1,101 @@
+---
+title: Licence
+description: Licence ObjectOS — Apache-2.0, options commerciales et FAQ.
+---
+
+# Licence
+
+## Runtime ObjectOS — Apache-2.0
+
+Le runtime ObjectOS et tous les paquets open source `@objectstack/*` sont
+distribués sous la [licence Apache, version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+En termes simples :
+
+| Vous pouvez | Vous devez |
+|---|---|
+| L'utiliser dans des produits commerciaux | Inclure les fichiers LICENSE et NOTICE lorsque vous le redistribuez |
+| Le modifier sans partager vos modifications | Indiquer les fichiers modifiés comme tels |
+| L'intégrer dans un logiciel propriétaire | Ne pas utiliser les marques ObjectStack sans autorisation |
+| L'exécuter à n'importe quelle fin, n'importe où | — |
+| Le sous-licencier dans le cadre d'une œuvre plus large | — |
+
+Il n'y a **aucun copyleft**. Les modifications que vous apportez pour un
+usage interne, ou que vous livrez dans un produit à code source fermé,
+n'ont **pas** à être reversées. La licence Apache-2.0 inclut également une
+**concession expresse de brevet** de la part des contributeurs — un point
+important pour les revues juridiques en entreprise.
+
+Texte intégral : [LICENSE](https://github.com/objectstack-ai/framework/blob/main/LICENSE)
+
+## Ce qui est couvert par Apache-2.0
+
+| | Licence |
+|---|---|
+| Image du runtime ObjectOS | Apache-2.0 |
+| Tous les paquets npm `@objectstack/*` (runtime, plugins, services, drivers, adaptateurs, CLI, SDK clients) | Apache-2.0 |
+| Dépôt de templates (`objectstack-ai/templates`) | Apache-2.0 |
+| Interfaces Console et Account | Apache-2.0 |
+| Documentation | CC-BY-4.0 |
+
+## Quand un accord commercial peut être souhaitable
+
+Apache-2.0 couvre la plupart des cas d'usage. Vous pouvez néanmoins
+souhaiter un accord commercial lorsque :
+
+| Scénario | Ce que nous proposons |
+|---|---|
+| Vous avez besoin d'un **support avec SLA** | Support commercial |
+| Vous voulez que nous l'**hébergions pour vous** | Cloud managé (ObjectStack Cloud) |
+| Vous voulez des **droits OEM** (utiliser les marques ObjectStack, le commercialiser sous votre propre nom) | Accord OEM |
+| Vous voulez une **garantie / indemnisation** | Accord commercial (Apache-2.0 exclut toute garantie) |
+| Vous avez besoin d'**attestations réglementaires** (rapport SOC 2, certificat ISO de l'image du runtime) | Offre Enterprise |
+
+Contactez **sales@objectstack.ai** pour en discuter.
+
+## Tarification du runtime open source
+
+**Gratuit.** Pour toujours. Pas de sièges, pas de palier d'utilisation,
+pas de serveur de licences, pas de clé.
+
+Exécutez-le sur :
+- Votre ordinateur portable
+- Vos serveurs
+- Les serveurs de vos clients
+- Un Raspberry Pi
+- Un cluster Kubernetes de 1000 pods
+
+La licence est la même dans tous les cas.
+
+## Composants tiers
+
+ObjectOS dépend de plusieurs projets open source en amont (Node.js,
+Hono, Zod, Better Auth, AI SDK, …). Chacun est fourni avec sa propre
+licence — toutes étant des licences permissives de type Apache-2.0, MIT
+ou BSD, compatibles avec un usage commercial. Consultez le SBOM publié
+avec chaque version pour l'inventaire complet.
+
+## FAQ
+
+**Q : Puis-je utiliser ObjectOS dans un SaaS à code source fermé que je vends à mes clients ?**
+R : Oui. Apache-2.0 n'a aucun copyleft. Vous n'avez pas besoin de partager votre code.
+
+**Q : Puis-je modifier ObjectOS sans partager mes modifications ?**
+R : Oui. Apache-2.0 ne vous oblige pas à partager vos modifications.
+
+**Q : Puis-je rebrander Console dans le cadre de mon produit ?**
+R : L'interface elle-même, oui. Utiliser le nom ou le logo « ObjectStack »
+pour promouvoir votre produit nécessite un accord OEM — contactez le service commercial.
+
+**Q : Vous dois-je quelque chose si mon produit génère des revenus ?**
+R : Non. Il n'y a aucune redevance ni partage de revenus.
+
+**Q : ObjectOS envoie-t-il des données d'utilisation à distance ?**
+R : Non. Il n'y a aucune télémétrie, aucune vérification de licence, aucun ping de mise à jour.
+Voir [Sécurité et conformité](/docs/reference/security#data-residency).
+
+**Q : Et si je veux une garantie contractuelle ?**
+R : Apache-2.0 exclut toute garantie. Souscrivez un accord commercial et nous vous en fournissons une.
+
+**Q : La version open source restera-t-elle toujours gratuite ?**
+R : Oui. Les concessions Apache-2.0 sont irrévocables.

@@ -1,0 +1,11 @@
+{
+  "title": "Betrieb",
+  "defaultOpen": false,
+  "pages": [
+    "production",
+    "observability",
+    "backup",
+    "upgrade",
+    "troubleshooting"
+  ]
+}

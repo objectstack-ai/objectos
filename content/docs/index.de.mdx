@@ -1,0 +1,99 @@
+---
+title: ObjectOS
+description: Die Laufzeitumgebung für interne Tools, die in Ihrem Netzwerk bleibt. Ein Befehl zum Starten, Ihre Datenbank, Ihre Authentifizierung, Ihre Daten — niemals unsere.
+---
+
+# ObjectOS
+
+**ObjectOS ist eine selbst gehostete Laufzeitumgebung zum Erstellen
+interner Tools, Admin-Panels und Back-Office-Anwendungen, ohne die
+Kontrolle über Ihre Daten aufzugeben.** Beschreiben Sie dem
+in der Console integrierten AI Builder, was Sie benötigen — oder forken Sie
+eine Vorlage — und erhalten Sie REST-APIs, eine generierte Admin-UI,
+Authentifizierung, RBAC, Audit-Logs, Dateispeicher, Hintergrundjobs,
+Webhooks und KI-Integration. Alles läuft in Ihrem Netzwerk, auf Ihrer
+Datenbank.
+
+Es ist das, was herauskäme, wenn Retool, Supabase und Salesforce ein Kind
+bekämen, das innerhalb Ihrer Firewall läuft — mit einer KI, die die Apps für
+Sie erstellt.
+
+## In 60 Sekunden einsatzbereit
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+Öffnen Sie **http://localhost:3000** und Sie haben ein funktionierendes
+ObjectOS mit Console und Account, einem Audit-Log und einer
+SQLite-Datenbank — ohne Konfiguration, ohne Scaffolding.
+
+Dann entweder:
+
+- **Sprechen Sie mit dem AI Builder** — *"Ich muss Support-Tickets mit
+  Priorität und zugewiesener Person verfolgen"* — und beobachten Sie, wie die
+  Metadaten generiert werden. Siehe
+  [Build → AI Builder](/docs/build/ai-builder).
+- **Installieren Sie eine Vorlage** aus dem in der Console integrierten
+  marketplace (Todo, Contracts, Helpdesk, …) und erhalten Sie mit einem Klick
+  eine echte App.
+- **Forken Sie eine [Vorlage](/docs/build/templates)**, wenn Sie
+  TypeScript-Quellcode unter Ihrer Kontrolle haben möchten.
+
+## Warum ObjectOS statt …
+
+| Sie verwenden | Schmerzpunkt | Was ObjectOS Ihnen bietet |
+|---|---|---|
+| **Retool / Appsmith** | Der UI-Builder ist großartig, aber Ihre Daten liegen in deren Cloud und die Preise skalieren mit der Nutzerzahl | Ihre Daten verlassen niemals Ihr Netzwerk; Apache-2.0, keine Lizenzgebühr pro Sitzplatz |
+| **Supabase / Firebase** | Backend-as-a-Service ist schnell, aber an einen Anbieter gebunden; mandantenfähiges SaaS von Grund auf | Gleiche DX (automatische APIs, Authentifizierung, Speicher), aber Sie besitzen die Laufzeitumgebung und die Datenbank |
+| **Salesforce / NetSuite** | Leistungsstarke Plattform, mühsame Anpassung, schwindelerregende Kosten pro Sitzplatz | Gleiches metadatengesteuertes Modell (Objekte, Felder, Rollen, Freigaberegeln), selbst gehostet, keine Gebühr pro Sitzplatz |
+| **Selbstentwicklung (Next + Prisma + NextAuth)** | Sie bauen jedes Mal RBAC, Audit, Datei-Uploads, Einstellungen, Webhooks und Jobs neu auf | Liefern Sie die eigentliche Geschäftslogik aus; die Plattform-Infrastruktur ist bereits vorhanden |
+
+## Was Sie sofort erhalten
+
+| Bereich | Was es ist |
+|---|---|
+| **Automatische REST-API** | Jedes Objekt, das Sie deklarieren, erhält `/api/v1/data/<object>` mit Filtern/Sortieren/Paginierung |
+| **Console** (`/_console/`) | Generierte Admin-UI: Datensätze durchsuchen und bearbeiten, Benutzer/Rollen/Berechtigungssätze verwalten, Audit-Log, Sitzungen, API-Schlüssel und Einstellungen anzeigen |
+| **Account** (`/_account/`) | Anmeldung, Registrierung, Passwort-Zurücksetzung, OAuth, OIDC/SSO, Passkeys, 2FA |
+| **20+ Plugins** | RBAC + Sicherheit auf Zeilenebene, Audit, Dateispeicher, Queues, Jobs, E-Mail, KI, Webhooks — deklarativ, bei Bedarf |
+
+## Worüber Sie die Kontrolle behalten
+
+| Asset | Wo es liegt |
+|---|---|
+| Geschäftsdaten | **Ihre** Datenbank (Postgres, SQLite, MySQL, MongoDB) |
+| Benutzeridentitäten & Sitzungen | **Ihre** Datenbank |
+| Audit-Log | **Ihre** Datenbank |
+| Dateien | **Ihr** Speicher (lokale Festplatte, S3 oder S3-kompatibel wie R2/MinIO) |
+| Secrets | **Ihr** Secret Manager |
+| Die Laufzeitumgebung selbst | **Ihre** Server, Container oder Ihr Laptop |
+
+ObjectOS funkt niemals nach Hause. Keine Telemetrie. Kein Lizenzserver.
+Air-Gapped-Netzwerke sind ein erstklassiges Deployment-Ziel — siehe
+[Air-gapped](/docs/deploy/air-gapped).
+
+## Wohin als Nächstes
+
+| Wenn Sie … möchten | Lesen Sie |
+|---|---|
+| Sehen, wie es tatsächlich funktioniert | [Quickstart](/docs/quickstart) |
+| Verstehen, was drinsteckt | [Architecture](/docs/architecture) |
+| Es in Docker ausführen | [Docker](/docs/deploy/docker) |
+| Auf Kubernetes deployen | [Kubernetes](/docs/deploy/kubernetes) |
+| Es mit Postgres / Ihrer DB verbinden | [Runtime Configuration](/docs/configure/runtime) |
+| SSO einrichten | [Authentication](/docs/configure/authentication) |
+| Festlegen, wer was sieht | [Permissions](/docs/configure/permissions) |
+| Es von einem anderen Dienst aus aufrufen | [API Access](/docs/configure/api-access) |
+| Ereignisse an andere Systeme senden | [Webhooks](/docs/configure/webhooks) |
+| In Produktion gehen | [Production Readiness](/docs/operate/production) |
+
+## Lizenz & Preise
+
+Die ObjectOS-Laufzeitumgebung ist **Apache-2.0** — die freizügigste
+weit verbreitete OSS-Lizenz. Verwenden Sie sie in kommerziellen Produkten,
+betten Sie sie ein, verteilen Sie sie weiter, behalten Sie Ihre Änderungen
+privat. Keine Gebühr pro Sitzplatz, kein Lizenzserver, kein
+"ab 50.000 $/Jahr". Optionaler kommerzieller Support und Managed Hosting
+sind separat verfügbar — siehe [License](/docs/resources/license).

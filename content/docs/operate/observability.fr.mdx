@@ -1,0 +1,119 @@
+---
+title: Observabilité
+description: Journaux, identifiants de requête, métriques, erreurs, sessions et journaux d'audit.
+---
+
+# Observabilité
+
+Les opérations ObjectOS nécessitent à la fois des signaux d'infrastructure
+et des signaux applicatifs. Le framework fournit les primitives d'identifiant
+de requête, de métriques, de rapport d'erreurs et d'audit ; le déploiement
+décide où les exporter.
+
+## Identité de la requête
+
+Chaque déploiement de production doit propager ou générer un identifiant de
+requête :
+
+```text
+X-Request-Id
+```
+
+Utilisez-le pour corréler :
+
+- les journaux d'entrée (ingress) ;
+- les journaux ObjectOS ;
+- les requêtes lentes de la base de données ;
+- les rapports d'erreurs ;
+- les tickets de support client.
+
+## Métriques et erreurs
+
+Le runtime expose des interfaces enfichables de métriques et de rapport
+d'erreurs. Connectez-les au système choisi par le client, tel que Prometheus,
+OpenTelemetry, Datadog, Sentry ou un autre backend approuvé.
+
+Suivez au minimum :
+
+| Signal | Pourquoi |
+|---|---|
+| Nombre de requêtes par route/statut | Détecter les pics d'erreurs |
+| Durée des requêtes | Détecter les régressions de latence |
+| Erreurs 5xx | Alerter sur les défaillances du runtime |
+| Échecs d'authentification | Détecter les problèmes de configuration ou les schémas d'attaque |
+| Échecs de cache d'artefact/kernel | Comprendre le comportement de démarrage à froid |
+
+### Exemple minimal Prometheus
+
+ObjectOS expose un point de terminaison de métriques compatible Prometheus
+lorsque le service de métriques est activé :
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: objectos
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['objectos:3000']
+```
+
+Alertes de démarrage utiles :
+
+```yaml
+groups:
+  - name: objectos
+    rules:
+      - alert: ObjectOS5xxSpike
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(http_requests_total[5m])) > 0.02
+        for: 5m
+        annotations:
+          summary: "ObjectOS 5xx rate above 2% for 5 minutes"
+
+      - alert: ObjectOSAuthFailureSpike
+        expr: rate(auth_failures_total[5m]) > 5
+        for: 10m
+        annotations:
+          summary: "Sustained auth failure rate — check for misconfiguration or attack"
+
+      - alert: ObjectOSKernelColdStartHigh
+        expr: rate(kernel_cache_misses_total[15m]) > 1
+        for: 15m
+        annotations:
+          summary: "Frequent project kernel cold starts — consider raising OS_KERNEL_CACHE_SIZE"
+```
+
+Pour OpenTelemetry, définissez `OTEL_EXPORTER_OTLP_ENDPOINT` et ObjectOS
+émettra les traces et les métriques au format OTLP. La forme des spans
+correspond au [flux de requête](/docs/architecture#how-a-request-is-served).
+
+## Journaux d'audit
+
+Lorsque la capacité d'audit est activée, ObjectOS écrit des enregistrements
+d'audit dans `sys_audit_log`.
+
+Utilisez les journaux d'audit pour :
+
+- les modifications sensibles aux permissions ;
+- les changements de paramètres ;
+- les investigations sur les utilisateurs/sessions ;
+- l'activité d'intégration ;
+- l'analyse des accès refusés.
+
+Pour les environnements réglementés, rendez la table d'audit en mode
+append-only au niveau de la base de données ou de la couche de stockage et
+définissez une politique de rétention.
+
+## Diagnostics de la Console
+
+La Console expose des surfaces opérationnelles telles que :
+
+- Sessions ;
+- Journaux d'audit ;
+- Notifications ;
+- Livraisons de webhooks lorsque les webhooks sont activés ;
+- Tableaux de bord de vue d'ensemble Système et Sécurité.
+
+Ces surfaces sont destinées aux opérateurs et aux ingénieurs de support, et
+pas uniquement aux développeurs.

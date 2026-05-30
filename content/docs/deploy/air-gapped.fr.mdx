@@ -1,0 +1,70 @@
+---
+title: Déploiement en réseau isolé
+description: Exécuter ObjectOS sans accès à l'internet public.
+---
+
+# Déploiement en réseau isolé
+
+Le déploiement en réseau isolé (air-gapped) est destiné aux réseaux clients où ObjectOS ne peut pas
+appeler un plan de contrôle hébergé ou des registres de paquets publics à l'exécution.
+
+## Ce qu'il faut livrer
+
+Un ensemble de release hors ligne doit contenir :
+
+| Élément | Objectif |
+|---|---|
+| Image de conteneur ObjectOS | Binaire d'exécution et dépendances |
+| Artefact `objectstack.json` | Définition d'application immuable |
+| Guide de migration/initialisation de la base de données | Configuration de la base de données métier du client |
+| Modèle d'environnement | Secrets et variables d'exécution requis |
+| Liste de contrôle des opérations | Mise à niveau, restauration, sauvegarde et diagnostics |
+
+L'image de conteneur et le montage de l'artefact suivent les mêmes conventions qu'un
+[déploiement Docker](/docs/deploy/docker) standard ; seule la
+posture réseau diffère.
+
+## Mode d'exécution
+
+Utilisez le mode adossé à des fichiers : pointez ObjectOS vers un artefact local et une
+base de données métier gérée par le client, et laissez le plan de contrôle cloud
+non défini.
+
+```bash
+OS_ARTIFACT_FILE=/artifacts/objectstack.json
+OS_BUSINESS_DB_URL=file:/var/lib/objectos/data.db
+# Leave OS_CLOUD_URL unset to run fully offline
+```
+
+ObjectOS résout chaque requête vers le projet empaqueté et charge
+l'artefact depuis le disque. Avec `OS_CLOUD_URL` non défini, aucun appel n'est effectué vers un
+plan de contrôle hébergé.
+
+## Attentes réseau
+
+ObjectOS n'a pas besoin d'accès à l'internet public dans ce mode. Les règles du réseau
+client ne doivent autoriser que :
+
+- le trafic HTTP/HTTPS entrant provenant de l'ingress ou de l'équilibreur de charge approuvé ;
+- le trafic de base de données sortant vers la base de données métier gérée par le client ;
+- le trafic sortant vers les intégrations explicitement configurées telles que SMTP,
+  le stockage objet, les cibles de webhook ou les fournisseurs d'identité.
+
+## Authentification
+
+Si le client utilise OIDC/SSO, le fournisseur d'identité doit être accessible
+depuis le réseau isolé. Sinon, utilisez l'authentification locale par e-mail/mot de passe ou un
+fournisseur d'identité hébergé à l'intérieur du même réseau.
+
+## Processus de mise à niveau
+
+Traitez les artefacts comme immuables :
+
+1. Importez la nouvelle image ObjectOS.
+2. Placez le nouvel artefact à côté de l'artefact précédent.
+3. Mettez à jour le montage ou la variable d'environnement pour qu'il pointe vers le nouvel artefact.
+4. Redémarrez ObjectOS.
+5. Effectuez une restauration en rétablissant le tag d'image précédent ou le chemin de l'artefact.
+
+Consultez [Mise à niveau](/docs/operate/upgrade) et [Sauvegarde](/docs/operate/backup)
+pour les procédures complètes que ces étapes résument.

@@ -1,0 +1,109 @@
+---
+title: Kubernetes
+description: Despliega ObjectOS en un entorno de Kubernetes.
+---
+
+# Kubernetes
+
+Usa Kubernetes para despliegues de producción que necesiten secretos
+gestionados, ingress, sondas, actualizaciones progresivas y bases de datos
+gestionadas por el cliente.
+
+ObjectOS todavía no incluye un chart de Helm empaquetado, por lo que la
+orientación a continuación describe los manifiestos que debes ensamblar en
+torno a la imagen de contenedor publicada.
+
+## Estructura del despliegue
+
+Un despliegue de ObjectOS en producción normalmente incluye:
+
+| Componente | Recomendación |
+|---|---|
+| Deployment | Una imagen de contenedor de ObjectOS |
+| Service | Servicio ClusterIP para el tráfico HTTP |
+| Ingress | Terminación TLS y enrutamiento por nombre de host del cliente |
+| Secret | `OS_AUTH_SECRET`, token del plano de control, credenciales de la base de datos |
+| ConfigMap | Configuración de tiempo de ejecución no secreta |
+| Almacenamiento persistente | Solo al usar artefactos de archivos locales o datos de evaluación SQLite |
+| Base de datos externa | Recomendada para los datos de negocio en producción |
+
+## Configuración requerida
+
+Como mínimo, configura:
+
+```yaml
+env:
+  - name: PORT
+    value: "3000"
+  - name: OS_AUTH_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: auth-secret
+```
+
+Para el modo conectado a la nube:
+
+```yaml
+env:
+  - name: OS_CLOUD_URL
+    value: "https://cloud.example.com"
+  - name: OS_CLOUD_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: cloud-api-key
+```
+
+Para el modo respaldado por archivos, monta el artefacto y configura:
+
+```yaml
+env:
+  - name: OS_ARTIFACT_FILE
+    value: "/artifacts/objectstack.json"
+```
+
+## Sondas
+
+ObjectOS expone un endpoint integrado `GET /health` que responde antes de
+que el kernel del proyecto esté completamente resuelto, lo que lo convierte
+en el destino adecuado tanto para las sondas de liveness como de readiness:
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 20
+```
+
+Para comprobaciones de readiness más estrictas, dirige una sonda adicional a
+una ruta de API generada específica de la aplicación: esto confirma que el
+artefacto se cargó y que el kernel está atendiendo solicitudes.
+
+## Ingress y CORS
+
+Termina TLS en el edge o en el ingress. Configura CORS explícitamente para
+los orígenes de front-end utilizados por el cliente. No combines orígenes
+comodín con solicitudes con credenciales.
+
+Cuando ObjectOS se ejecuta detrás de un proxy, asegúrate de que el proxy
+elimine los valores `X-Forwarded-For` proporcionados por el cliente antes de
+establecer los suyos propios. La limitación de tasa y los registros de
+auditoría dependen de una identidad de llamante fiable.
+
+## Actualizaciones progresivas
+
+Las versiones de la imagen de ObjectOS y las versiones del artefacto de la
+aplicación son independientes. Actualízalas por separado:
+
+- Imagen de ObjectOS: actualiza cambiando la etiqueta del contenedor.
+- Artefacto de la aplicación: publica o monta un nuevo artefacto inmutable.
+- Reversión: restaura la etiqueta de imagen anterior o el puntero del artefacto.

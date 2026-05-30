@@ -1,0 +1,66 @@
+---
+title: Upgrade und Rollback
+description: ObjectOS und Anwendungsartefakte sicher aktualisieren.
+---
+
+# Upgrade und Rollback
+
+ObjectOS hat zwei Versionsstränge:
+
+| Version | Verantwortlich | Rollback |
+|---|---|---|
+| ObjectOS-Image/Runtime | Plattform-/Runtime-Team | Vorheriger Container-Tag |
+| Anwendungsartefakt | Anwendungs-/Control-Plane-Release | Vorheriges Artefakt oder Projektversions-Zeiger |
+
+Ändern Sie Artefakte nicht direkt. Veröffentlichen Sie ein neues Artefakt und
+schalten Sie die Runtime darauf um.
+
+## ObjectOS aktualisieren
+
+Für Docker Compose:
+
+```bash
+docker compose -f docker/docker-compose.yml pull
+docker compose -f docker/docker-compose.yml up -d
+```
+
+Aktualisieren Sie für Kubernetes den Image-Tag und lassen Sie das Deployment rollen.
+
+## Artefakt aktualisieren
+
+Dateibasierter Modus:
+
+```bash
+cp objectstack-2026-05-24.json docker/artifacts/objectstack.json
+docker compose -f docker/docker-compose.yml restart objectos
+```
+
+Cloud-verbundener Modus:
+
+1. Veröffentlichen Sie das neue Artefakt in der Control Plane.
+2. Verschieben Sie den aktuellen Projekt-/Umgebungszeiger auf die neue Version.
+3. Lassen Sie ObjectOS nach Ablauf des Caches neu abrufen oder starten Sie neu, um ein Neuladen zu erzwingen.
+
+## Rollback
+
+ObjectOS zurückrollen: Pinnen Sie den vorherigen Image-Tag in Ihrer Compose-Datei
+(oder im Deployment-Manifest) und wenden Sie ihn erneut an.
+
+```bash
+docker compose -f docker/docker-compose.yml up -d objectos
+```
+
+Artefakt zurückrollen:
+
+- Stellen Sie die vorherige gemountete Datei wieder her; oder
+- Verschieben Sie den Control-Plane-Zeiger zurück auf die vorherige Artefaktversion.
+
+## Kompatibilitätsprüfungen
+
+Vor dem Upgrade:
+
+- bestätigen Sie, dass das Artefakt gegen eine kompatible ObjectStack-Version erstellt wurde;
+- bestätigen Sie, dass die erforderlichen Funktionen im ObjectOS-Image verfügbar sind;
+- bestätigen Sie, dass das Verhalten von Datenbankmigrationen oder Schema-Sync verstanden wurde;
+- führen Sie Smoke-Tests für Authentifizierung und Berechtigungen durch;
+- stellen Sie sicher, dass das Rollback keine destruktiven Datenänderungen erfordert.

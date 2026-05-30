@@ -20,7 +20,7 @@ com.acme.crm@1.2.0
 ├── actions/          *.action.ts
 ├── flows/            *.flow.ts, *.approval.ts
 ├── agents/           *.agent.ts, *.skill.ts
-├── permissions/      *.profile.ts
+├── permissions/      *.permission.ts
 ├── sharing/          *.sharing.ts
 ├── translations/     en.ts, zh-CN.ts, ...
 ├── apps/             *.app.ts  (navigation)
@@ -45,9 +45,9 @@ every object / field / action you describe lands in `crm`.
 ### From the CLI
 
 ```bash
-os init my-crm -t app --install
+os init my-crm -t app
 cd my-crm
-# manifest is at ./objectstack.manifest.json
+# manifest lives in the `manifest:` block of ./objectstack.config.ts
 pnpm dev
 ```
 
@@ -57,16 +57,12 @@ pnpm dev
 
 ## Active package
 
-A conversation, a CLI session, and a Console admin view each carry an
-**active package** — the default container for new metadata. Switch
-with:
-
-| Surface | How |
-|---|---|
-| AI Builder | *"Switch to `com.acme.helpdesk`."* (tool `set_active_package`) |
-| CLI | `os package use com.acme.helpdesk` |
-| Console | Top-bar package switcher |
-| REST | `X-Package-Id: com.acme.helpdesk` header |
+In the AI Builder, a conversation carries an **active package** — the
+default container for new metadata. The AI sets it with the
+`set_active_package` tool when you say something like *"Switch to
+`com.acme.helpdesk`."* From the CLI, the active package is simply the
+one declared in the project's `objectstack.config.ts` (the `manifest:`
+block).
 
 ## Versioning
 
@@ -103,31 +99,35 @@ audit, identity, etc.
 
 ```bash
 os compile                     # → dist/objectstack.json
-os package publish             # → configured registry
+os package publish             # → ObjectStack cloud catalog
 ```
 
-Publishes to the registry at `OS_PACKAGE_REGISTRY` (default: the
-ObjectStack public catalog). For private / air-gapped, run your own
-registry and point that env var at it. See [Marketplace](/docs/build/marketplace).
+`os package publish` uploads the compiled manifest to the cloud
+control plane configured by `OS_CLOUD_URL`, authenticated with
+`OS_CLOUD_API_KEY`. For private / air-gapped distribution, skip
+publishing and hand the compiled `dist/objectstack.json` directly to
+the target install (see Installing below). See [Marketplace](/docs/build/marketplace).
 
 ## Installing
 
 | Path | How |
 |---|---|
 | Console | Marketplace tab → pick package → Install |
-| CLI | `os package install com.acme.helpdesk@^0.3.0` |
-| REST | `POST /api/v1/marketplace/install` |
-| Air-gapped | Drop `dist/objectstack.json` in the local catalog dir |
+| REST | `POST /api/v1/marketplace/install-local` (body: `{ packageId, versionId? }`) |
+| Air-gapped | Mount the compiled `dist/objectstack.json` artifact (see [Air-gapped](/docs/deploy/air-gapped)) |
 
 Install merges the package's metadata into the live kernel, registers
-its objects with ObjectQL, and seeds initial data on first install.
-No restart.
+its objects with ObjectQL, and seeds initial data on first install —
+no restart needed. Cached installs are re-registered on the next boot,
+so they survive process restarts.
 
 ## Uninstalling
 
-Uninstalling marks the package as removed and unregisters its
-objects. By default, data is **kept** (you can re-install and resume).
-Pass `--drop-data` to drop the tables.
+Uninstalling removes the package's cached manifest so it is no longer
+re-registered on the next boot. Because object registration is
+additive, a **kernel restart** is required to fully unload an
+already-running package's objects. Data is **kept** by default, so you
+can re-install and resume.
 
 ## Cross-package conventions
 
@@ -151,11 +151,11 @@ polymorphic services:
 
 | Package | Provides |
 |---|---|
-| `sys.identity` | `sys_user`, `sys_org`, `sys_member`, sessions, API keys |
+| `sys.identity` | `sys_user`, `sys_organization`, `sys_member`, sessions, API keys |
 | `sys.feeds` | `sys_comment`, `sys_activity`, `sys_attachment` |
 | `sys.audit` | `sys_audit_log` |
 | `sys.files` | `sys_file` |
-| `sys.ai` | `sys_ai_conversation`, `sys_ai_pending_action` |
+| `sys.ai` | `ai_conversations`, `ai_pending_actions` |
 | `sys.settings` | `sys_setting` |
 
 You enable them via `enable: { feeds: true, trackHistory: true, … }`

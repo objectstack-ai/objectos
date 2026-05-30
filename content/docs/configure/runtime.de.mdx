@@ -1,0 +1,125 @@
+---
+title: Laufzeitkonfiguration
+description: Konfigurieren Sie das Laden von Artefakten, die Projektauflösung, die Datenbank, den Cache und Laufzeit-Secrets.
+---
+
+# Laufzeitkonfiguration
+
+Die ObjectOS-Laufzeitkonfiguration beantwortet drei Fragen:
+
+1. Welches Projekt soll diese Anfrage bedienen?
+2. Wo befindet sich das kompilierte Artefakt?
+3. Welche Datenbank und welche Laufzeitdienste soll das Projekt verwenden?
+
+## Boot-Modi
+
+| Modus | Verwenden, wenn | Wichtige Konfiguration |
+|---|---|---|
+| Standalone | `os start` ohne Konfiguration — schnelle Demo, leerer Kernel, ~23 Plugins, lokales SQLite unter `~/.objectstack/data/standalone.db` | _keine_ (Standardwerte) |
+| File-backed | Einzelnes Projekt, Demo, Offline-Bundle für Kunden, Air-Gapped-Bereitstellung | `OS_ARTIFACT_FILE` |
+| Cloud-connected | Eine gehostete oder private Control Plane veröffentlicht Projektartefakte | `OS_CLOUD_URL`, `OS_PROJECT_ID` oder Hostnamen-Auflösung |
+
+### Standalone-Modus
+
+Der Standard, wenn Sie `os start` ohne Konfiguration oder Artefakt ausführen.
+ObjectOS startet einen leeren Kernel mit geladenen Plattform-Plugins
+(`auth`, `security`, `audit`, `storage`, `webhooks`, `mcp-server`,
+`marketplace-proxy`, `marketplace-install-local`, …), öffnet lokales
+SQLite unter `~/.objectstack/data/standalone.db` und stellt die Console-
+und Account-UIs bereit.
+
+Installieren Sie Apps über den marketplace-Tab in der Console, um den Kernel
+mit Objekten, Ansichten und Flows zu füllen — kein Rebuild, kein Neustart. Am besten geeignet für
+Demos, Evaluierung und die Erkundung im Sinne von "Zeig mir, was das Ding kann".
+
+`os start` eskaliert automatisch:
+
+| Erkannt | Verhalten |
+|---|---|
+| Nichts | Standalone-Modus (siehe oben) |
+| `objectstack.config.ts` im cwd | Projektmodus — automatische Kompilierung, `HOME=<cwd>/.objectstack` |
+| Kompiliertes Artefakt im cwd | Artefaktmodus — dieses Artefakt laden |
+| Explizites `--artifact <path>` oder `OS_CLOUD_URL` | File-backed- / Cloud-connected-Modus |
+
+## File-backed-Modus
+
+Festlegen:
+
+```bash
+OS_ARTIFACT_FILE=/artifacts/objectstack.json
+```
+
+ObjectOS verwendet einen lokalen Artifact-API-Client. Jeder Hostname wird auf
+dasselbe Projekt aufgelöst. Die Laufzeitkonfiguration wird aus dem Artefakt gelesen, sofern vorhanden,
+oder fällt für die Evaluierung auf einen lokalen Laufzeit-Standard zurück.
+
+`OS_ARTIFACT_FILE` ist die Konvention des ObjectOS-App-Wrappers. Die zugrunde liegende
+Laufzeit akzeptiert auch `OS_ARTIFACT_PATH` direkt (verwendet von den
+Befehlen `dev` und `start` der `@objectstack/cli` und vom Standalone-Stack des
+Frameworks). Legen Sie eines von beiden fest — nicht beide.
+
+Optional:
+
+```bash
+OS_ENVIRONMENT_ID=env_prod      # or the legacy alias OS_PROJECT_ID
+OS_WATCH_ARTIFACT=1
+```
+
+Verwenden Sie den Watch-Modus nur für die Entwicklung oder für Smoke-Tests.
+
+## Cloud-connected-Modus
+
+Festlegen:
+
+```bash
+OS_CLOUD_URL=https://cloud.example.com
+OS_CLOUD_API_KEY=replace-with-deployment-token
+```
+
+ObjectOS fordert die Control Plane auf:
+
+- den Hostnamen zu Projekt/Umgebung aufzulösen;
+- das aktuelle Artefakt abzurufen;
+- die Laufzeit-Datenbankkonfiguration für dieses Projekt zu empfangen.
+
+ObjectOS sollte sich nicht direkt mit der Datenbank der Control Plane verbinden.
+
+## Authentifizierungs-Secret
+
+Legen Sie ein starkes Basis-Secret fest:
+
+```bash
+OS_AUTH_SECRET=replace-with-a-strong-random-secret
+```
+
+ObjectOS leitet projektspezifische Auth-Secrets aus diesem Wert ab. Das hält
+die Sitzungssignierung pro Projekt isoliert und ermöglicht gleichzeitig deterministische
+Neustarts. Das Rotieren dieses Werts macht bestehende Sitzungen ungültig.
+
+## Kernel- und Artefakt-Caches
+
+ObjectOS cacht aufgelöste Umgebungen und Projekt-Kernel, um zu vermeiden,
+dass für jede Anfrage ein Kernel neu erstellt wird.
+
+| Variable | Standard | Zweck |
+|---|---:|---|
+| `OS_KERNEL_CACHE_SIZE` | `32` | Maximale Anzahl zwischengespeicherter Projekt-Kernel |
+| `OS_KERNEL_TTL_MS` | `900000` | Leerlauf-TTL für zwischengespeicherte Kernel |
+| `OS_ENV_CACHE_TTL_MS` | `300000` | Cache für Hostnamen-/Umgebungsauflösung |
+| `OS_ARTIFACT_CACHE_TTL_MS` | `300000` | Cache für Artefaktantworten |
+
+Niedrigere TTLs machen Änderungen schneller sichtbar. Höhere TTLs reduzieren den Datenverkehr
+zur Control Plane und Kaltstarts.
+
+## Datenbankkonfiguration
+
+Im Cloud-connected-Modus gibt die Control Plane die projektspezifische
+Laufzeit-Datenbankkonfiguration mit der Artefaktantwort zurück.
+
+Im File-backed-Modus kann ObjectOS die Datenbankeinstellungen aus den
+Datasource-Deklarationen des Artefakts ableiten. Zu den unterstützten Framework-Treibern gehören
+SQLite, PostgreSQL, MySQL, MongoDB und speicherbasierte Evaluierungstreiber.
+
+Verwenden Sie für die Produktion eine kundenverwaltete Datenbank. Verlassen Sie sich für
+Geschäftsdaten nicht auf containerlokalen Speicher, es sei denn, die Bereitstellung ist
+ausdrücklich eine Single-Node-Evaluierung.

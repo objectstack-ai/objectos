@@ -45,7 +45,8 @@ new StorageServicePlugin({
 ```
 
 In standalone mode (`os start` with no project), the runtime configures
-local storage automatically under `~/.objectstack/data/uploads/`.
+local storage automatically under `.objectstack/data/uploads/`. Override
+the root directory with the `OS_STORAGE_ROOT` environment variable.
 
 **Production fit depends on the deployment shape:**
 
@@ -184,8 +185,8 @@ The change applies to the next request — no restart needed.
 
 ## Where to go next
 
-- [Configuration overview](/docs/configure) — the rest of the
-  Configure section
+- [System settings](/docs/configure/system-settings) — live
+  configuration and the settings service used by storage swaps
 - [Production Readiness](/docs/operate/production) — checklist that
   includes object storage durability and backup
 - [`@objectstack/service-storage` on GitHub](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-storage) — source and full option reference

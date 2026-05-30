@@ -1,0 +1,10 @@
+{
+  "title": "Bereitstellen",
+  "defaultOpen": false,
+  "pages": [
+    "index",
+    "docker",
+    "kubernetes",
+    "air-gapped"
+  ]
+}

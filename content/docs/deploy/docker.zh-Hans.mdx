@@ -1,0 +1,142 @@
+---
+title: Docker
+description: 在容器中运行 ObjectOS —— 适用于评估、预发布或生产环境。
+---
+
+# Docker
+
+Docker 是大多数团队迈向生产环境的路径。它契合运行时本应采用的运维方式：
+每个实例对应一个无状态容器、一个外部数据库、一个用于存放文件的外部对象存储，
+以及在运行时注入的密钥。
+
+## 拉取预构建镜像
+
+我们会在每次推送到 `main` 以及发布带标签的版本时，将运行时镜像发布到
+GitHub Container Registry：
+
+```bash
+docker pull ghcr.io/objectstack-ai/objectos:latest
+```
+
+可用标签：
+
+| 标签 | 通道 |
+|---|---|
+| `latest` | `main` 的最新构建（推荐用于首次评估） |
+| `main` | 与 `latest` 相同，但更明确 |
+| `sha-<short>` | 固定到特定提交（推荐用于生产环境） |
+| `vX.Y.Z`、`X.Y`、`X` | 带标签的发布版本 |
+
+对于生产环境，请固定到 `sha-<short>` 或语义化版本标签 —— `latest` 会随时间漂移。
+
+## 使用内置示例运行
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+然后打开 http://localhost:3000。该镜像附带一个空的示例应用，
+便于你在将其指向自己的产物之前，验证运行时能够启动并正确渲染 Console/Account。
+
+启动时必须提供 `OS_AUTH_SECRET`。轮换它会使现有会话失效。
+
+## 使用你自己的产物运行
+
+你的应用定义是单个文件：`dist/objectstack.json`。它由以下方式生成：
+
+| 来源 | 方式 |
+|---|---|
+| 你自己的项目 | 编辑 `objectstack.config.ts` 后运行 `pnpm exec objectstack compile` |
+| 模板 | 从 [templates 仓库](https://github.com/objectstack-ai/templates) 克隆，运行 `pnpm install && pnpm exec objectstack compile` |
+| 应用 marketplace | 作为已发布应用的一部分提供 |
+
+将该文件挂载到 `/artifacts/objectstack.json` 并让运行时指向它：
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
+  -v "$PWD/dist:/artifacts:ro" \
+  -v objectos-data:/var/lib/objectos \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+`objectos-data` 卷用于保存 SQLite 数据库（当未配置外部数据库时）以及任何
+本地存储的上传文件。
+
+## 使用 Postgres 代替 SQLite
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
+  -e OS_DATABASE_DRIVER=postgres \
+  -e OS_DATABASE_URL='postgres://user:pass@db.internal:5432/myapp' \
+  -v "$PWD/dist:/artifacts:ro" \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+驱动和连接选项的完整矩阵请参阅[运行时配置](/docs/configure/runtime)。
+
+## Docker Compose
+
+仓库的 `docker/` 目录下提供了一份参考 `docker-compose.yml`：
+
+```bash
+git clone https://github.com/objectstack-ai/objectos.git
+cd objectos
+mkdir -p docker/artifacts
+cp /path/to/your/objectstack.json docker/artifacts/
+export OS_AUTH_SECRET="$(openssl rand -hex 32)"
+docker compose -f docker/docker-compose.yml up
+```
+
+默认端口为 `3000`；可通过 `OBJECTOS_PORT=3200 docker compose ...` 覆盖。
+
+## 构建你自己的镜像
+
+如果你需要嵌入产物、自定义插件，或你自己的 SSL/CA 证书包：
+
+```bash
+git clone https://github.com/objectstack-ai/objectos.git
+cd objectos
+docker build -f docker/Dockerfile -t myorg/objectos:custom .
+```
+
+随附的 Dockerfile 是一个多阶段构建，可在 Node 20 Alpine 上生成一个精简的
+运行时镜像。
+
+## 需要分开管理的内容
+
+| 资产 | 应存放位置 |
+|---|---|
+| 产物（`objectstack.json`） | 镜像（不可变）或挂载的卷 |
+| 业务数据库 | 外部托管的 Postgres / MySQL / Mongo |
+| 身份与会话 | 同一数据库 |
+| 上传的文件 | 外部托管的 S3 / R2 / 磁盘卷 |
+| 密钥（`OS_AUTH_SECRET`、DB URL、API 密钥） | 你的密钥管理器，以环境变量形式注入 |
+| 日志 | stdout —— 由你的日志驱动收集 |
+
+## 验证
+
+启动之后：
+
+```bash
+curl -fsS http://localhost:3000/health
+# {"status":"ok",...}
+```
+
+然后在 http://localhost:3000/_account/register 登录，并确认 API 有响应：
+
+```bash
+curl http://localhost:3000/api/v1/data/<your-object>
+```
+
+## 下一步
+
+- [Kubernetes](/docs/deploy/kubernetes) —— 生产级编排
+- [Air-gapped](/docs/deploy/air-gapped) —— 在无互联网出站访问的环境中运行
+- [Production Readiness](/docs/operate/production) —— 上线前检查清单
+- [Observability](/docs/operate/observability) —— 日志、指标、审计

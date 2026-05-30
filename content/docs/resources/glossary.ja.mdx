@@ -1,0 +1,156 @@
+---
+title: 用語集
+description: ObjectOS と ObjectStack 全体で使われる用語 — 各用語につき定義は1つ。
+---
+
+# 用語集
+
+このドキュメントで使われる各用語について、唯一の正式な定義を示します。
+
+### Artifact
+
+コンパイル済みの `objectstack.json` ファイル。アプリの自己完結型かつ不変な記述で、マニフェスト、オブジェクト、ビュー、アプリ、フロー、権限、翻訳を含みます。`os compile` によって生成されます。ObjectOS が実際に実行する対象です。
+
+### Action
+
+メタデータで宣言される名前付き操作で、REST（`/api/v1/data/<object>/actions/<action>`）、Console のボタン、またはフローのステップから呼び出せます。呼び出し元の権限を継承します。
+
+### Adapter
+
+ObjectStack をホストランタイムと統合するフレームワークパッケージ — Express、Fastify、Hono、Next.js、Nuxt、SvelteKit、NestJS。ほとんどの ObjectOS デプロイメントでは不要です。ObjectOS は独自の HTTP サーバーを内蔵しています。
+
+### App
+
+オブジェクト + ビュー + 権限をまとめたもので、Console 上で単一のナビゲート可能なアプリケーションとして提供されます。複数のアプリを1つのランタイムに共存させることができます（例: CRM + Helpdesk + Setup）。
+
+### Better Auth
+
+`@objectstack/plugin-auth` を支える認証ライブラリ。Better Auth を直接設定することはありません。プラグインがそれをラップします。
+
+### Capability
+
+Artifact が `requires` リスト内で宣言する、オプションのランタイム機能。パッケージにマッピングされます — 例: `audit` → `@objectstack/plugin-audit`。ObjectOS によってオンデマンドで読み込まれます。[Runtime Capabilities](/docs/reference/runtime-capabilities) を参照してください。
+
+### CEL
+
+[Common Expression Language](https://github.com/google/cel-spec) — Google による安全でサンドボックス化された式構文。数式、検証ルール、権限述語、共有ルール、フロー条件で使われます。
+
+### Console
+
+`/_console/` にあるシステム UI — ユーザー、ロール、権限セット、監査ログ、セッション、API キー、システム設定を管理します。Console（ビジネス UI）とは区別されます。
+
+### Control Plane
+
+バージョン管理された Artifact を ObjectOS インスタンスに公開するオプションのサービス。ObjectStack Cloud としてホストするか、セルフホストします。ほとんどのデプロイメントでは不要です — ファイルベースモードは単一アプリの本番環境で機能します。
+
+### Driver
+
+データバックエンドの実装: `driver-sql`（Postgres、MySQL、SQLite、Turso/libSQL）、`driver-mongodb`、`driver-memory`。データベース URL を介して起動時に選択されます。
+
+### Embedder
+
+RAG / セマンティック検索のためにテキストをベクトルに変換するサービス。プロバイダー間で差し替え可能です（OpenAI、Azure、硅基流动、Ollama、…）。[AI Service](/docs/configure/ai) を参照してください。
+
+### Environment
+
+独自のデータベースとアイデンティティに裏付けられた、テナントごとのランタイムインスタンス。v4.x では *Project* と呼ばれることがあります（エイリアスは維持）。v5.0 では CLI、HTTP、環境変数、スキーマ全体で *Environment* に標準化されています。
+
+### Field
+
+Object 上の型付きプロパティ。約25種類の組み込み型: `text`、`select`、`lookup`、`markdown`、`attachment`、`formula`、`rollup` など。[Data Model](/docs/build/data-model) を参照してください。
+
+### Flow
+
+宣言的なビジネスロジック — 自動起動（レコードトリガー）、スケジュール（cron）、または手動（ボタン / API）。condition/loop/retry/parallel プリミティブを備えた DAG として実行されます。[Flows & Automation](/docs/build/flows) を参照してください。
+
+### Formula field
+
+値が CEL 式で、読み取り時に評価される計算フィールド。保存されません。
+
+### Hook
+
+オブジェクトのライフサイクル（`beforeInsert`、`afterUpdate`、…）に注入される関数。TypeScript で記述されます。フローとは異なります: フックはファーストクラスのコードで、フローはメタデータです。
+
+### Kernel
+
+ObjectOS 内部のマイクロカーネルで、プラグインを読み込み、DI コンテナを保持し、イベントをディスパッチし、単一の Environment のメタデータを提供します。1つのプロセスは多数のキャッシュされたカーネル（Environment ごとに1つ）を LRU で保持できます。
+
+### Manifest
+
+Artifact の先頭にあるトップレベルのメタデータ: `id`、`namespace`、`version`、`type`（`app` / `plugin` / `service`）、`name`、`description`、`requires` リスト。
+
+### Marketplace
+
+インストール可能なアプリの Console 内カタログ。設定可能なパッケージレジストリに裏付けられています。[Marketplace](/docs/build/marketplace) を参照してください。
+
+### MCP (Model Context Protocol)
+
+AI エージェントがツールを検出して呼び出すためのオープンプロトコル。ObjectOS は `@objectstack/plugin-mcp-server` を介して、オブジェクト + アクションを MCP として公開できます。
+
+### Object
+
+型付きのビジネスエンティティ — `task`、`account`、`invoice`。TypeScript スキーマとして宣言され、REST API、Console ビュー、監査エントリ、RBAC チェックポイントを自動的に生成します。[Data Model](/docs/build/data-model) を参照してください。
+
+### ObjectOS
+
+ランタイム — アプリを提供する単一の Node.js プロセス。オープンソース、Apache-2.0。**このドキュメントサイトは ObjectOS 向けです。**
+
+### ObjectQL
+
+データレイヤープロトコルおよびクエリエンジン。宣言的クエリをネイティブの SQL / Mongo クエリにコンパイルします。REST エンドポイント、Console、フローで使われます — すべて同じエンジンです。
+
+### ObjectStack
+
+全体を包括するプロジェクト: フレームワーク（`@objectstack/*` npm パッケージ）、ランタイム（ObjectOS）、オプションのクラウドサービス、そして marketplace。「プラットフォーム」と呼ばれることもあります。
+
+### ObjectUI
+
+ビューレイヤープロトコル — アプリ、ビュー、ページ、ダッシュボード、アクション、チャート、ナビゲーション。Console は ObjectUI 宣言をレンダリングします。
+
+### Permission Set
+
+付与のまとまり — オブジェクト権限、フィールド権限、システム権限。ユーザーに直接、またはロールを介してアタッチされます。主要な認可単位です。[Permissions](/docs/configure/permissions) を参照してください。
+
+### Plugin
+
+ランタイムをある機能で拡張するフレームワークパッケージ — `plugin-auth`、`plugin-security`、`plugin-audit`、`plugin-webhooks`、`plugin-mcp-server` など。DI + ライフサイクルフック（`init → start → destroy`）を介して有効化されます。
+
+### Project
+
+**Environment** の旧名称。v4.x の CLI/環境変数では今も使われています（エイリアス）。v5.0 で削除されました。
+
+### Record Share
+
+特定のユーザー / ロール / グループに対して、特定のレコードへのアクセスを直接付与するもの。`sys_record_share` の行として保存されます。共有ルール（宣言的な条件）とは異なります。
+
+### Sharing Rule
+
+条件に基づいてレコードアクセスを付与する宣言的なルール（「地域マネージャーは自分の地域のレコードを参照できる」）。クエリ時に評価され、行レベルのフィルターにコンパイルされます。
+
+### Console
+
+`/_console/` にあるビジネス UI — レコードの参照、作成、編集、ビューの設定、marketplace からのアプリのインストール。Console（システム UI）とは区別されます。
+
+### Surface
+
+実行中の ObjectOS が公開する4つの HTTP エントリポイントの1つ: `/`（REST API）、`/_console/`、`/_account/`、`/_console/`。
+
+### System Context
+
+セキュリティチェックをバイパスする必要があるプラグイン、フック、シードスクリプトが使う内部実行モード。監査可能で、ユーザーコードには公開されません。
+
+### Tenant
+
+マルチテナントデプロイメントにおける論理的な分離境界。1つのテナントは通常1つの Environment にマッピングされます。Cookie とセッションはホスト名ごとにスコープされ、データは Environment ごとにスコープされます。
+
+### Trigger
+
+フローを起動する条件 — レコードイベント（`after_insert`）、スケジュール（cron）、または手動呼び出し。
+
+### View
+
+Object にアタッチされる宣言的な UI 設定 — リスト、フォーム、カンバン、カレンダー、ガント。Console がレンダリングし、コンポーネントを記述する必要はありません。
+
+### Zod schema
+
+`@objectstack/spec` が使うランタイム + コンパイル時の型システム。すべてのオブジェクト、フィールド、ビュー、アプリ、フローは Zod スキーマによってパースおよび検証されます。JSON Schema、TypeScript 型、REST リクエストバリデーターはすべて同じ Zod 定義から派生します。

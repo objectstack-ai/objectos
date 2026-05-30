@@ -1,0 +1,210 @@
+---
+title: CLI リファレンス
+description: すべての `os` コマンド、その機能、そして最も役立つフラグ。
+---
+
+# CLI リファレンス
+
+`@objectstack/cli` パッケージは単一のバイナリ `os`（`objectstack` としても
+利用可能）をインストールします。以下の例ではすべて短い `os` を使用します。
+
+```bash
+npm i -g @objectstack/cli
+os --help
+```
+
+## サーバーコマンド
+
+### `os start` — ゼロコンフィグ起動
+
+段階的にエスカレートする 4 つのモードを自動検出します。
+
+1. **空起動** — アーティファクトなし、cwd に設定なし → Console と marketplace
+   を備えた最小限のカーネルを起動します。
+2. **プロジェクト起動** — cwd に `objectstack.config.ts` がある場合 →
+   自動的に `./dist/objectstack.json` にコンパイルし、そこから起動します。
+3. **アーティファクト起動** — `dist/objectstack.json` に到達可能な場合 →
+   そこから直接起動します。
+4. **明示的なオーバーライド** — `--artifact`、`--database`、`--port` が優先されます。
+
+```bash
+os start                                # default port 3000
+os start --port 8080
+os start --artifact ./build/myapp.json
+os start --artifact https://cdn.example.com/app.json
+os start --database file:./data/prod.db
+os start --database postgres://user:pass@host:5432/mydb
+os start --database libsql://my-db.turso.io --database-auth-token $TURSO
+os start --auth-secret "$(openssl rand -hex 32)"
+os start --home /var/lib/objectos      # persistent home dir
+os start --no-ui                       # API only (no Console/Account)
+```
+
+HOME ディレクトリのデフォルト:
+- cwd にプロジェクト設定がある場合 → `<cwd>/.objectstack`（プロジェクトローカル）
+- ない場合 → `~/.objectstack`（グローバル、呼び出し間で共有）
+
+### `os serve` — 本番サーバー
+
+`objectstack.config.ts` が存在すればそれを読み込み、なければ
+`dist/objectstack.json`（または `OS_ARTIFACT_PATH`、`http(s)://` URL を含む）に
+フォールバックします。厳格な動作が必要な本番コンテナで使用してください。
+
+```bash
+os serve                       # port 3000
+os serve --port 4000 --no-ui
+```
+
+### `os dev` — ホットリロード付き開発
+
+`objectstack.config.ts` と `src/` を監視します。保存時に再コンパイルして
+リロードします。スキャフォールドされたプロジェクトで npm の `dev` スクリプトとして
+使用されます。
+
+```bash
+os dev                         # port 3002 by default
+os dev -p 4002
+```
+
+### `os studio` — 開発サーバー付き Console
+
+`os dev` と同じですが、Console が明示的に有効化されています。
+
+## プロジェクトコマンド
+
+### `os init` — 新しいプロジェクトのスキャフォールド
+
+```bash
+os init my-app                       # interactive
+os init my-app -t app --install      # auto-install with default pnpm
+os init my-app -t app --install -p npm
+os init my-app -t plugin             # plugin scaffold
+os init my-app -t empty              # bare minimum
+```
+
+テンプレート:
+| テンプレート | 提供される内容 |
+|---|---|
+| `app` | 完全なアプリ — オブジェクト、ビュー、アクション、拡張可能な状態 |
+| `plugin` | 再利用可能な機能を配布するためのプラグインスキャフォールド |
+| `empty` | マニフェストと tsconfig のみ |
+
+### `os create` — テンプレートからパッケージ、プラグイン、または例を作成
+
+```bash
+os create plugin my-plugin
+os create example my-example
+```
+
+## ビルド / 検証コマンド
+
+| コマンド | 目的 |
+|---|---|
+| `os compile` (`os build`) | `objectstack.config.ts` を `dist/objectstack.json` にコンパイル |
+| `os validate` | プロトコルスキーマに対して設定を検証 |
+| `os lint` | スタイルと規約のチェック（CI で推奨） |
+| `os diff <old> <new>` | 2 つの設定を比較し、破壊的変更を検出 |
+| `os info` | 設定またはアーティファクトのメタデータ概要を出力 |
+| `os explain <object>` | オブジェクトスキーマの人間が読める説明 |
+| `os doctor` | ヘルスチェック: 循環依存、壊れた参照、環境の問題を検出 |
+| `os generate` (`os g`) | TypeScript 型 / メタデータファイルを生成 |
+
+`os doctor` は **何かおかしいと感じたときに最初に実行すべきもの** です。
+ランタイムが警告としてのみ表面化させるような設定ミスを捕捉します。
+
+## データコマンド
+
+ターミナルからレコードを操作します — シーディング、マイグレーション、
+CI のスモークテストに役立ちます。
+
+```bash
+os data create <object> --data '{"subject": "Hello"}'
+os data get <object> <id>
+os data query <object> --filter 'status:active' --limit 10
+os data update <object> <id> --data '{"done": true}'
+os data delete <object> <id>
+```
+
+## メタデータコマンド
+
+ランタイムでメタデータレコード（オブジェクト、ビュー、パーミッションセットなど）を
+読み書きします。
+
+```bash
+os meta list <kind>
+os meta get <kind> <id>
+os meta register <file>
+os meta delete <kind> <id>
+```
+
+## i18n コマンド
+
+```bash
+os i18n extract               # extract translation keys from source
+os i18n check                 # find missing keys across configured locales
+```
+
+## クラウドコマンド
+
+ObjectStack Cloud（オプションのホスト型コントロールプレーン）のユーザー向けです。
+
+```bash
+os login                      # interactive
+os logout
+os whoami
+os register                   # create an account
+os cloud login | logout | whoami
+```
+
+## パブリッシュ / パッケージコマンド
+
+```bash
+os package publish            # publish artifact as a versioned package
+os publish                    # publish to ObjectStack Cloud
+os rollback <revision>        # activate a previous artifact revision
+```
+
+## 環境コマンド
+
+コントロールプレーンに支えられた、プロジェクトごとに複数の環境（dev、staging、
+prod）を使用するデプロイメント向けです。
+
+```bash
+os environments list
+os environments show <id>
+os environments create <name>
+os environments switch <id>
+os environments bind          # bind local artifact to an environment
+```
+
+## テストコマンド
+
+```bash
+os test                       # run Quality Protocol scenarios against a running server
+```
+
+## 共通のフラグ規約
+
+| フラグ | 意味 |
+|---|---|
+| `-p, --port` | HTTP ポート |
+| `-a, --artifact` | コンパイル済みアーティファクトへのパスまたは URL |
+| `-d, --database` | データベース URL |
+| `--home` | 永続的な状態ディレクトリ |
+| `-v, --verbose` | 詳細な出力 |
+| `--no-ui` | Console / Account ポータルを無効化 |
+
+完全なフラグ一覧を表示するには、任意のコマンドを `--help` 付きで実行します。
+
+```bash
+os start --help
+os data query --help
+```
+
+## CLI の位置づけ
+
+- **オペレーター / 初回実行** → `os start`
+- **アプリを構築する開発者** → `os init` → `os dev` → `os compile`
+- **CI / リリースパイプライン** → `os lint && os validate && os compile && os test`
+- **本番ランタイム** → `os serve`（通常は Docker イメージの `CMD` 内）
+- **診断** → `os doctor`、`os info`、`os explain`

@@ -11,7 +11,7 @@ layers**:
 | Layer | Package | What it does |
 |---|---|---|
 | **Chat / generation** | `@objectstack/service-ai` | Conversations, tool calls, streaming |
-| **Embeddings** | `@objectstack/service-embedder` + adapter | Text → vectors for semantic search and RAG |
+| **Embeddings** | `@objectstack/embedder-openai` (OpenAI-compatible) | Text → vectors for semantic search and RAG |
 | **Knowledge / RAG** | `@objectstack/service-knowledge` + adapter | Documents → indexed knowledge bases |
 
 All three are optional, all three are provider-agnostic, and all three
@@ -30,24 +30,27 @@ pnpm add @ai-sdk/google          # Gemini
 pnpm add @ai-sdk/gateway         # AI gateway / OpenRouter / proxies
 ```
 
-Then register the service with one or more models:
+Then register the AI service plugin with a Vercel-SDK adapter:
 
 ```ts
-import { ServiceAI } from '@objectstack/service-ai';
-import { openai }     from '@ai-sdk/openai';
-import { anthropic }  from '@ai-sdk/anthropic';
+import { AIServicePlugin, VercelLLMAdapter } from '@objectstack/service-ai';
+import { openai } from '@ai-sdk/openai';
 
-ServiceAI.configure({
-  defaultModel: 'fast',
-  models: {
-    fast:     openai('gpt-4o-mini'),
-    smart:    openai('gpt-4o'),
-    claude:   anthropic('claude-3-5-sonnet-latest'),
-  },
-  enableStreaming: true,
-  maxHistoryLength: 50,
-});
+kernel.use(new AIServicePlugin({
+  adapter: new VercelLLMAdapter({ model: openai('gpt-4o') }),
+  models: [
+    { id: 'fast',  provider: 'openai', model: 'gpt-4o-mini' },
+    { id: 'smart', provider: 'openai', model: 'gpt-4o' },
+  ],
+  defaultModelId: 'fast',
+}));
 ```
+
+The `models` list feeds the runtime model registry — it drives
+default-model resolution and cost attribution in traces. By default the
+plugin also binds to the `ai` settings namespace and rebuilds the
+adapter live when an operator edits the provider/credentials/model in
+Console, so no restart is needed.
 
 Provider API keys come from each SDK's normal env vars:
 
@@ -67,68 +70,61 @@ no restart.
 ```ts
 const ai = kernel.getService<IAIService>('ai');
 
-const convo = await ai.createConversation({
-  model: 'smart',
-  systemPrompt: 'You are a helpful assistant.',
-});
+// One-shot chat
+const result = await ai.chat(
+  [{ role: 'user', content: 'Summarize ObjectStack in two sentences.' }],
+  { model: 'smart' },
+);
 
-const reply = await ai.sendMessage({
-  conversationId: convo.id,
-  message: 'Summarize ObjectStack in two sentences.',
-});
+// Structured output
+const { object } = await ai.generateObject(
+  [{ role: 'user', content: 'Classify this ticket: ...' }],
+  { schema, model: 'fast' },
+);
 ```
 
-### Using it from a flow
+The service also exposes `complete()`, `streamChat()`, `embed()`, and
+`listModels()`. Conversations are persisted as `ai_conversations` /
+`ai_messages` records and managed over the REST API
+(`POST /api/v1/ai/chat`, `POST /api/v1/ai/conversations`).
 
-The `automation` capability exposes an `ai_call` step type:
+### Using it from agents and flows
 
-```ts
-{
-  type: 'action',
-  action: 'ai_call',
-  inputs: {
-    model:   'fast',
-    prompt:  'Categorize this ticket: {!trigger.record.subject}',
-    schema:  { category: 'string', priority: 'string' },
-  },
-  output: 'classified',
-}
-```
-
-See [Flows & Automation](/docs/build/flows) for the surrounding
-context.
+For declarative AI — agents, skills, and tools — see
+[AI Agents](/docs/build/agents). Flows can invoke any registered action
+(including actions that wrap an `ai.chat()` / `ai.generateObject()`
+call) as an `action` node; see [Flows & Automation](/docs/build/flows)
+for the surrounding context.
 
 ## Embedders
 
-The embedder service converts text to dense vectors. ObjectStack
-ships adapters for many providers — chosen because the embedding
-landscape moves fast and your "best" choice depends on cost, latency,
-and language.
+The embedder converts text to dense vectors. A single OpenAI-compatible
+adapter, `@objectstack/embedder-openai`, covers OpenAI plus any provider
+that exposes an OpenAI-compatible `/v1/embeddings` endpoint — pick one
+with a **preset** (which sets the base URL for you) or point `baseUrl`
+at a custom endpoint.
 
-| Provider | Adapter | Notes |
+| Provider | `preset` | Notes |
 |---|---|---|
-| OpenAI | `@objectstack/embedder-openai` | `text-embedding-3-small`/`-large` |
-| Azure OpenAI | `@objectstack/embedder-openai` (Azure config) | Enterprise, regional |
-| 阿里通义 DashScope | `@objectstack/embedder-dashscope` | `text-embedding-v3` |
-| 智谱 GLM | `@objectstack/embedder-zhipu` | `embedding-2` |
-| 硅基流动 SiliconFlow | `@objectstack/embedder-siliconflow` | Aggregator of OSS models |
-| 火山 Doubao | `@objectstack/embedder-doubao` | ByteDance |
-| MiniMax | `@objectstack/embedder-minimax` | — |
-| Ollama (self-hosted) | `@objectstack/embedder-ollama` | Air-gapped friendly |
-| Custom | `@objectstack/embedder-custom` | Bring your own HTTP endpoint |
-| None | _builtin_ | Disable embeddings entirely |
+| OpenAI | `openai` | `text-embedding-3-small`/`-large` |
+| Azure OpenAI | `azure` | Provide full deployment URL via `baseUrl` |
+| 阿里通义 DashScope | `dashscope` | `text-embedding-v3` |
+| 智谱 GLM | `zhipu` | `embedding-2` |
+| 硅基流动 SiliconFlow | `siliconflow` | Aggregator of OSS models |
+| 火山 Doubao | `doubao` | ByteDance |
+| MiniMax | `minimax` | — |
+| Ollama (self-hosted) | `ollama` | Air-gapped friendly (`http://localhost:11434/v1`) |
+| Custom | _(omit; set `baseUrl`)_ | Bring your own OpenAI-compatible endpoint |
 
 Configure in code:
 
 ```ts
-import { ServiceEmbedder }      from '@objectstack/service-embedder';
-import { OpenAIEmbedderPlugin } from '@objectstack/embedder-openai';
+import { createOpenAIEmbedder } from '@objectstack/embedder-openai';
 
-ServiceEmbedder.configure({ defaultModel: 'small' });
-// then register the adapter plugin:
-new OpenAIEmbedderPlugin({
+const embedder = createOpenAIEmbedder({
+  preset: 'openai',
   model: 'text-embedding-3-small',
-  // OPENAI_API_KEY from env
+  // apiKey from OPENAI_API_KEY env if omitted
 });
 ```
 
@@ -145,18 +141,17 @@ storage and search backend is pluggable:
 | Adapter | Backend | Good for |
 |---|---|---|
 | `@objectstack/knowledge-memory` | In-process | Dev, demos, small KBs |
-| `@objectstack/knowledge-turso` | Turso/libSQL + sqlite-vss | Single-region production, embedded vectors |
 | `@objectstack/knowledge-ragflow` | [RAGFlow](https://github.com/infiniflow/ragflow) | High-quality OSS RAG with chunking + reranking |
 
 ```ts
-import { ServiceKnowledge }     from '@objectstack/service-knowledge';
-import { TursoKnowledgePlugin } from '@objectstack/knowledge-turso';
+import { KnowledgeServicePlugin } from '@objectstack/service-knowledge';
+import { KnowledgeRagflowPlugin } from '@objectstack/knowledge-ragflow';
 
-ServiceKnowledge.configure();
-new TursoKnowledgePlugin({
-  databaseUrl: process.env.TURSO_DATABASE_URL,
-  authToken:   process.env.TURSO_AUTH_TOKEN,
-});
+kernel.use(new KnowledgeServicePlugin({ defaultTopK: 10 }));
+kernel.use(new KnowledgeRagflowPlugin({
+  endpoint: process.env.RAGFLOW_ENDPOINT, // e.g. http://localhost:9380
+  apiKey:   process.env.RAGFLOW_API_KEY,
+}));
 ```
 
 Indexed knowledge bases become first-class objects — query them from
@@ -170,18 +165,18 @@ Desktop, IDEs, custom agents) via the open [Model Context
 Protocol](https://modelcontextprotocol.io).
 
 ```ts
-import { McpServerPlugin } from '@objectstack/plugin-mcp-server';
+import { MCPServerPlugin } from '@objectstack/plugin-mcp-server';
 
-new McpServerPlugin({
-  // expose specific objects + actions as MCP tools
-  expose: ['todo_task', 'support_ticket'],
-});
+kernel.use(new MCPServerPlugin({
+  transport: 'stdio', // or 'http'
+  autoStart: true,
+}));
 ```
 
-Agents discover and invoke ObjectOS actions through MCP — subject to
-the calling user's permission set. The MCP server also exposes a
-small set of universal tools: `search_records`, `get_record`,
-`create_record`, `invoke_action`.
+Agents discover and invoke ObjectOS tools through MCP — subject to the
+calling user's permissions. The server bridges the AI service's tool
+registry, including universal tools such as `list_objects`,
+`describe_object`, `query_records`, `get_record`, and `aggregate_data`.
 
 ## Operational guarantees
 
@@ -198,9 +193,10 @@ small set of universal tools: `search_records`, `get_record`,
 
 ## Where to go next
 
+- [AI Agents](/docs/build/agents) — declarative agents, skills, and tools
 - [Flows & Automation](/docs/build/flows) — call AI from declarative business logic
 - [Marketplace](/docs/build/marketplace) — AI-powered apps in the default catalog
 - [Security & Compliance](/docs/reference/security) — how AI data flows are isolated
 - [`@objectstack/service-ai` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-ai)
-- [`@objectstack/service-embedder` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-embedder)
+- [`@objectstack/embedder-openai` source](https://github.com/objectstack-ai/framework/tree/main/packages/plugins/embedder-openai)
 - [`@objectstack/service-knowledge` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-knowledge)

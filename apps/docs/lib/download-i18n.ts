@@ -1,7 +1,7 @@
 /**
  * Download page translations + static install data.
  *
- * English is the source of truth — edit `en` first, then sync `cn`.
+ * English is the source of truth — edit `en` first, then sync `zhHans`.
  *
  * Only include install methods that have a real, published artifact:
  *   - Docker image:    ghcr.io/objectstack-ai/objectos:latest        (docker.yml)
@@ -198,7 +198,7 @@ export const en: DownloadTranslations = {
   copy: { copy: 'Copy', copied: 'Copied' },
 };
 
-export const cn: DownloadTranslations = {
+export const zhHans: DownloadTranslations = {
   badge: `最新发布 · v${ONE_VERSION}`,
   hero: {
     title: '下载 ObjectOS',
@@ -313,8 +313,17 @@ export const cn: DownloadTranslations = {
   copy: { copy: '复制', copied: '已复制' },
 };
 
+/**
+ * Registry of available download-page translations. Locales absent
+ * here (ja, de, es, fr until translated) resolve to English.
+ */
+const DOWNLOAD_TRANSLATIONS: Partial<Record<string, DownloadTranslations>> = {
+  en,
+  'zh-Hans': zhHans,
+};
+
 export function getDownloadTranslations(lang: string): DownloadTranslations {
-  return lang === 'cn' ? cn : en;
+  return DOWNLOAD_TRANSLATIONS[lang] ?? en;
 }
 
 /* ------------------------------------------------------------------ */

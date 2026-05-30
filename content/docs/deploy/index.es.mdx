@@ -1,0 +1,24 @@
+---
+title: Despliegue
+description: Elige cómo ejecutar ObjectOS — Docker para evaluación, Kubernetes para alta disponibilidad en producción, o un paquete air-gapped para redes sin salida a internet.
+---
+
+ObjectOS se distribuye como un único artefacto de runtime que funciona de la misma forma en cada entorno. Elige el modelo de despliegue que se ajuste a tu infraestructura.
+
+## Docker
+
+Un único contenedor es la forma más rápida de evaluar ObjectOS o de ejecutarlo en un solo host. Monta un volumen para el directorio de datos, apúntalo a tu base de datos e inicia el contenedor.
+
+[Guía de Docker →](/docs/deploy/docker)
+
+## Kubernetes
+
+Para producción, ejecuta ObjectOS como un Deployment detrás de un Service, con almacenamiento persistente para el directorio de datos y tus secretos proporcionados mediante los mecanismos estándar de Kubernetes.
+
+[Guía de Kubernetes →](/docs/deploy/kubernetes)
+
+## Air-Gapped
+
+Lleva un paquete de release a una red sin salida a internet. ObjectOS lee su artefacto de aplicación desde un archivo local y nunca accede a un servicio alojado.
+
+[Guía air-gapped →](/docs/deploy/air-gapped)

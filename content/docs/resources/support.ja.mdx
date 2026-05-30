@@ -1,0 +1,78 @@
+---
+title: サポート
+description: ヘルプの入手先、バグの報告方法、応答時間の目安。
+---
+
+# サポート
+
+## 目的別の問い合わせ先
+
+| 状況 | 問い合わせ先 |
+|---|---|
+| 「どうやって～する」という質問がある | [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions) — コミュニティ + メンテナー |
+| バグを見つけた | [GitHub Issues](https://github.com/objectstack-ai/objectos/issues) — バージョン、再現手順、期待される動作と実際の動作を記載してください |
+| セキュリティ脆弱性を見つけた | **security@objectstack.ai** — 公開 issue は**作成しない**でください |
+| 商用サポート / SLA が必要 | **sales@objectstack.ai** |
+| ユーザーやメンテナーと交流したい | [Discord](https://discord.gg/objectstack)（コミュニティ運営） |
+| リリースを追いたい | [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos) → Releases をウォッチ |
+| 有償で機能を実装してほしい | Discussion を作成 → `funding` でタグ付け |
+
+## 良いバグレポートの書き方
+
+30 秒で済むテンプレート:
+
+```text
+ObjectOS version:           4.0.4 (or sha-abc123)
+Node version:               22.4.0
+Install method:             docker / npm -g / source
+Database:                   postgres 16 / sqlite / turso / mongo
+Repro steps:                1. ...  2. ...  3. ...
+Expected:                   ...
+Actual:                     ...
+Logs:                       (sanitized, last 30 lines)
+```
+
+設定に関する問題の場合は、`os doctor` の出力を添付してください。
+これだけで設定ミスの 80% を診断できます。
+
+## 応答時間の目安
+
+| チャネル | ベストエフォートの応答時間 |
+|---|---|
+| セキュリティメール | 1 営業日 |
+| GitHub Issues — バグ（再現手順あり） | トリアージまで 3 営業日、次回リリース時に修正 |
+| GitHub Issues — 機能リクエスト | トリアージまで 7 営業日 |
+| GitHub Discussions | コミュニティ主導。メンテナーも定期的に参加します |
+| 商用サポート | サポート契約に準じます |
+
+これらはベストエフォートであり、SLA ではありません。商用サポート契約には
+正式な SLA が付帯します。
+
+## 商用サポート & サービス
+
+ObjectStack チームが提供します:
+
+- 応答時間 SLA 付きの**商用サポート**。
+- **マネージドホスティング** — 当社が運用を代行します。
+- **アーキテクチャレビュー** — デプロイ前の健全性チェック。
+- ご要望の仕様に合わせて構築する**カスタムプラグイン / 機能**。
+- **OEM 再配布** — ObjectOS を自社製品に組み込めます。
+
+お問い合わせは **sales@objectstack.ai** まで。
+
+## コントリビューション
+
+ObjectOS は Apache-2.0 ライセンスであり、コントリビューションを受け付けています:
+
+- [CONTRIBUTING.md](https://github.com/objectstack-ai/framework/blob/main/CONTRIBUTING.md)
+- [Code of Conduct](https://github.com/objectstack-ai/framework/blob/main/CODE_OF_CONDUCT.md)
+- 早めにドラフト PR を作成してください。重複した作業をするよりも、
+  下書きをレビューするほうが望ましいです。
+
+## ステータス & インシデント
+
+ホスティングサービス（ObjectStack Cloud、パッケージレジストリ）:
+[status.objectstack.ai](https://status.objectstack.ai)。
+
+セルフホストの ObjectOS デプロイのステータスはご自身で管理してください。
+通常の監視に組み込んでください（[Observability](/docs/operate/observability) を参照）。

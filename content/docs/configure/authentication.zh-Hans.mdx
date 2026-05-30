@@ -1,0 +1,100 @@
+---
+title: 认证
+description: 配置登录、会话、OAuth、OIDC/SSO 以及设备流程。
+---
+
+# 认证
+
+ObjectOS 使用由 Better Auth 驱动的 ObjectStack 认证插件。认证是项目本地的：每个项目拥有独立的身份表和会话作用域。
+
+## 支持的能力
+
+视所打包的应用和已启用的设置而定，ObjectOS 可支持：
+
+- 邮箱/密码登录；
+- 会话管理；
+- 密码重置和邮箱验证；
+- Google、GitHub、Microsoft、Apple 等社交 OAuth Provider；
+- Okta、Entra ID、Keycloak、Ping 等企业级 OIDC/SSO；
+- 双因素认证；
+- Passkey/WebAuthn；
+- 魔法链接；
+- CLI/浏览器设备流程。
+
+## 必需的 Secret
+
+设置：
+
+```bash
+OS_AUTH_SECRET=replace-with-a-strong-random-secret
+```
+
+ObjectOS 基于该值和项目环境 id 派生稳定的项目级 secret。这意味着：
+
+- 会话能在容器重启后保持；
+- 一个项目的 token 不能在另一个项目中复用；
+- 轮换 `OS_AUTH_SECRET` 会使会话失效。
+
+完整的认证相关设置列表（包括旧版 `AUTH_SECRET` 别名）请参阅 [Environment variables](/docs/reference/environment-variables)。
+
+## 会话隔离
+
+在多项目部署中，Cookie 限定到项目主机名。ObjectOS 故意避免使用宽泛的根域 Cookie 作为项目会话——以防止会话跨客户项目泄漏。
+
+## 社交登录
+
+通过环境变量或系统设置配置 Provider 凭据，具体取决于应用包暴露认证配置的方式。
+
+Provider 回调 URL 取决于 Provider 类型。ObjectStack 暴露了两条不同的回调路径，并且它们**不可**互换：
+
+| Provider 类型 | 回调路径 |
+|---|---|
+| 内置社交（Google、GitHub、Microsoft、Apple ……） | `/api/v1/auth/callback/<provider>` |
+| 通用 OIDC / OAuth2（Okta、Entra ID、Keycloak、Ping ……） | `/api/v1/auth/oauth2/callback/<provider>` |
+
+示例：
+
+```text
+https://crm.example.com/api/v1/auth/callback/google
+https://crm.example.com/api/v1/auth/callback/microsoft
+https://crm.example.com/api/v1/auth/oauth2/callback/okta
+https://crm.example.com/api/v1/auth/oauth2/callback/entra
+```
+
+在 ObjectOS 中启用 Provider 前，先在身份提供方的应用注册中配置匹配的 redirect URI。
+
+## 企业级 OIDC/SSO
+
+OIDC Provider 注册为通用 OAuth2 Provider，使用 `/api/v1/auth/oauth2/callback/<provider>` 路径。典型配置需要：
+
+| 字段 | 说明 |
+|---|---|
+| Provider id | 稳定 id，例如 `okta` 或 `entra`（用于回调 URL） |
+| 显示名 | 给用户看的按钮文案 |
+| Discovery URL | `.well-known/openid-configuration` 端点 |
+| Client id | 来自身份提供方的应用 client id |
+| Client secret | 存于环境变量或加密设置 |
+| Scopes | 通常为 `openid email profile` |
+
+对客户部署，优先使用 OIDC discovery URL，而不是手工配置 authorization/token/userinfo 端点。
+
+## 平台 SSO
+
+在云连接部署中，ObjectOS 可以使用控制面登录作为平台 SSO Provider。已经登录控制面的建设者无需创建独立的项目本地账户即可被预置到项目运行时。
+
+这要求控制面与 ObjectOS 共享同一个 `OS_AUTH_SECRET` 基础 secret。仅在客户希望每个项目拥有完全独立的登录边界时才禁用平台 SSO。
+
+## 运行检查
+
+上线前：
+
+- 确认过期 token 返回 `401`；
+- 确认登出会撤销活动会话；
+- 如策略需要，确认密码重置会撤销其他会话；
+- 确认回调 URL 与公开的项目域名一致；
+- 确认可信 origin 仅包含已批准的域名；
+- 确认 `OS_AUTH_SECRET` 存于 secret manager，而不是源码。
+
+## 后续步骤
+
+认证确立的是用户*是谁*。要控制用户登录后*能访问什么*，请参阅 [Permissions](/docs/configure/permissions)。对于非浏览器客户端和机器对机器的访问，请参阅 [API access](/docs/configure/api-access)。

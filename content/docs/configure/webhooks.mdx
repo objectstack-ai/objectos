@@ -39,7 +39,16 @@ When enabled, two objects show up in the Console:
 
 ## Signing
 
-When a webhook subscription has a `secret`, ObjectOS signs every
+Every delivery carries identifying headers so receivers can route,
+deduplicate, and verify it:
+
+```text
+X-Objectstack-Event:     <event type, e.g. data.record.created>
+X-Objectstack-Delivery:  <delivery id — use as your idempotency key>
+X-Objectstack-Attempt:   <attempt number, starting at 1>
+```
+
+When a webhook subscription has a `secret`, ObjectOS also signs every
 request:
 
 ```text
@@ -63,19 +72,22 @@ running both for a transition window, then disabling the old one.
 
 ## Receiver expectations
 
-- Respond with `2xx` within a few seconds. Anything else is treated as
-  a failure and retried.
-- Treat any non-2xx as "do not commit." The dispatcher does **not**
-  consume the row until you ack.
-- Be idempotent — deduplicate on the delivery id header or your own
-  event id in the payload.
+- Respond with `2xx` within a few seconds. A `408`, `429`, or `5xx`
+  response (or a timeout/transport error) is retriable and gets retried
+  with backoff. Any other `4xx` is treated as a permanent failure and
+  moved to `dead` without further retries.
+- The dispatcher does **not** mark a delivery successful until it sees a
+  `2xx`, so a failed receiver keeps the row in `sys_webhook_delivery` for
+  inspection or redelivery.
+- Be idempotent — deduplicate on the `X-Objectstack-Delivery` header (the
+  delivery id) or your own event id in the payload.
 
 ## Failure handling
 
 When something fails:
 
-1. Check `sys_webhook_delivery` for the row — `response_code`,
-   `response_body`, and `attempt` are recorded.
+1. Check `sys_webhook_delivery` for the row — `status`, `response_code`,
+   `response_body`, and `attempts` are recorded.
 2. Confirm outbound network access from ObjectOS to the receiver.
 3. If the receiver was permanently changed, update the subscription URL
    and re-deliver the row from the Console.

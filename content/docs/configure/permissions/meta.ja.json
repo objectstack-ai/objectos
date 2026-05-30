@@ -1,0 +1,9 @@
+{
+  "title": "権限",
+  "pages": [
+    "index",
+    "roles",
+    "permission-sets",
+    "record-access"
+  ]
+}

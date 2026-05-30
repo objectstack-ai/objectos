@@ -26,18 +26,22 @@ render and store values consistently.
 
 ## Resolution order
 
-Effective values resolve in this order:
+Each setting declares a scope (`global`, `tenant`, or `user`). The
+resolver walks the cascade from highest to lowest precedence and the
+first value that is set wins:
 
 ```text
-Environment override
+Environment override (locked)
+Global setting
 Tenant setting
 User setting
 Manifest default
 ```
 
 Environment overrides are locked. If a value is set through an
-environment variable, the Console UI should show it as managed by the host
-and reject runtime edits.
+environment variable, the Console UI shows it as managed by the host
+and rejects runtime edits. A locked value anywhere up the chain also
+locks the effective value, so lower scopes cannot shadow it.
 
 ## Common settings areas
 
@@ -55,8 +59,10 @@ Customer-facing settings usually include:
 ## Secrets
 
 Password and credential fields should be encrypted by the settings
-service or provided as environment-managed values. Do not store secrets
-in artifacts, compose files, or Git.
+service or provided as environment-managed values. When a secret
+provider is configured, the settings service stores the ciphertext in
+`sys_secret` and keeps only a handle in `sys_setting`. Do not store
+secrets in artifacts, compose files, or Git.
 
 ## Test actions
 
@@ -69,3 +75,13 @@ Settings manifests can declare standard action buttons, such as:
 
 Use these actions for customer setup flows instead of asking operators
 to inspect logs first.
+
+## Related
+
+Several settings areas have dedicated configuration guides:
+
+- [Email](/docs/configure/email)
+- [Storage](/docs/configure/storage)
+- [AI providers](/docs/configure/ai)
+- [Authentication and SSO](/docs/configure/authentication)
+- [Runtime](/docs/configure/runtime)

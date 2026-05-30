@@ -1,0 +1,109 @@
+---
+title: Kubernetes
+description: ObjectOS in einer Kubernetes-Umgebung bereitstellen.
+---
+
+# Kubernetes
+
+Verwenden Sie Kubernetes für Produktivbereitstellungen, die verwaltete
+Secrets, Ingress, Probes, fortlaufende Upgrades und kundenverwaltete
+Datenbanken benötigen.
+
+ObjectOS liefert noch kein gepacktes Helm-Chart aus, daher beschreibt die
+folgende Anleitung die Manifeste, die Sie rund um das veröffentlichte
+Container-Image zusammenstellen.
+
+## Aufbau der Bereitstellung
+
+Eine produktive ObjectOS-Bereitstellung umfasst in der Regel:
+
+| Komponente | Empfehlung |
+|---|---|
+| Deployment | Ein ObjectOS-Container-Image |
+| Service | ClusterIP-Service für HTTP-Verkehr |
+| Ingress | TLS-Terminierung und Routing über den Kunden-Hostnamen |
+| Secret | `OS_AUTH_SECRET`, Control-Plane-Token, Datenbank-Zugangsdaten |
+| ConfigMap | Nicht-geheime Laufzeitkonfiguration |
+| Persistenter Speicher | Nur bei Verwendung lokaler Datei-Artefakte oder SQLite-Evaluierungsdaten |
+| Externe Datenbank | Empfohlen für produktive Geschäftsdaten |
+
+## Erforderliche Konfiguration
+
+Konfigurieren Sie mindestens:
+
+```yaml
+env:
+  - name: PORT
+    value: "3000"
+  - name: OS_AUTH_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: auth-secret
+```
+
+Für den Cloud-verbundenen Modus:
+
+```yaml
+env:
+  - name: OS_CLOUD_URL
+    value: "https://cloud.example.com"
+  - name: OS_CLOUD_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: cloud-api-key
+```
+
+Für den dateibasierten Modus binden Sie das Artefakt ein und setzen:
+
+```yaml
+env:
+  - name: OS_ARTIFACT_FILE
+    value: "/artifacts/objectstack.json"
+```
+
+## Probes
+
+ObjectOS stellt einen integrierten `GET /health`-Endpunkt bereit, der
+antwortet, bevor der Projekt-Kernel vollständig aufgelöst ist. Das macht
+ihn zum richtigen Ziel sowohl für Liveness- als auch für Readiness-Probes:
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 20
+```
+
+Für strengere Readiness-Prüfungen richten Sie eine zusätzliche Probe auf
+eine anwendungsspezifische, generierte API-Route — dies bestätigt, dass
+das Artefakt geladen wurde und der Kernel Anfragen bedient.
+
+## Ingress und CORS
+
+Terminieren Sie TLS am Edge oder am Ingress. Konfigurieren Sie CORS
+explizit für die vom Kunden verwendeten Front-End-Ursprünge. Kombinieren
+Sie keine Wildcard-Ursprünge mit Anfragen, die Anmeldedaten enthalten.
+
+Wenn ObjectOS hinter einem Proxy läuft, stellen Sie sicher, dass der Proxy
+clientseitig übermittelte `X-Forwarded-For`-Werte entfernt, bevor er seine
+eigenen setzt. Rate Limiting und Audit-Trails sind auf eine
+vertrauenswürdige Aufrufer-Identität angewiesen.
+
+## Fortlaufende Upgrades
+
+ObjectOS-Image-Versionen und Anwendungs-Artefakt-Versionen sind getrennt.
+Rollen Sie sie unabhängig voneinander aus:
+
+- ObjectOS-Image: Upgrade durch Ändern des Container-Tags.
+- Anwendungs-Artefakt: Veröffentlichen oder binden Sie ein neues, unveränderliches Artefakt ein.
+- Rollback: Stellen Sie den vorherigen Image-Tag oder Artefakt-Zeiger wieder her.

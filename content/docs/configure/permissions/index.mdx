@@ -37,7 +37,7 @@ Identity objects live in your project database. The most important ones:
 | Object | What it represents |
 |---|---|
 | `sys_user` | A person or service account that can authenticate |
-| `sys_org` | Tenant / workspace boundary (multi-tenant apps) |
+| `sys_organization` | Tenant / workspace boundary (multi-tenant apps) |
 | `sys_member` | A user's membership in an organization (role assigned per membership) |
 | `sys_department`, `sys_team` | Optional org structure for sharing rules |
 | `sys_invitation` | Pending invite waiting to be accepted |
@@ -107,7 +107,7 @@ The model supports:
 - Implicit ownership (rows the user created or owns)
 - Sharing rules (declarative — "team A sees team A's records")
 - Explicit shares (`sys_record_share` rows — one-off shares)
-- Organization scoping (the row's `org_id` matches the user's
+- Organization scoping (the row's `organization_id` matches the user's
   organization)
 
 See [Record Access](/docs/configure/permissions/record-access).

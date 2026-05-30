@@ -1,0 +1,165 @@
+---
+title: AI サービス
+description: LLM、埋め込み、RAG、MCP — プロバイダーをまたいでプラグイン化でき、実行時に差し替え可能。
+---
+
+# AI サービス
+
+ObjectOS は AI を第一級の機能として扱い、**3 つのプラグイン可能なレイヤー**を提供します。
+
+| レイヤー | パッケージ | 役割 |
+|---|---|---|
+| **チャット / 生成** | `@objectstack/service-ai` | 会話、ツール呼び出し、ストリーミング |
+| **埋め込み** | `@objectstack/embedder-openai`（OpenAI 互換） | テキスト → ベクトル（セマンティック検索と RAG 用） |
+| **ナレッジ / RAG** | `@objectstack/service-knowledge` + アダプター | ドキュメント → インデックス化されたナレッジベース |
+
+3 つとも任意であり、3 つともプロバイダー非依存で、3 つとも再起動なしに **Console → Configuration** から実行時に再設定できます。
+
+## チャット / 生成
+
+[Vercel AI SDK](https://ai-sdk.dev) を基盤としています。必要なプロバイダーをピア依存としてインストールしてください。
+
+```bash
+pnpm add @ai-sdk/openai          # OpenAI
+pnpm add @ai-sdk/anthropic       # Claude
+pnpm add @ai-sdk/google          # Gemini
+pnpm add @ai-sdk/gateway         # AI gateway / OpenRouter / proxies
+```
+
+次に、Vercel SDK アダプターを指定して AI サービスプラグインを登録します。
+
+```ts
+import { AIServicePlugin, VercelLLMAdapter } from '@objectstack/service-ai';
+import { openai } from '@ai-sdk/openai';
+
+kernel.use(new AIServicePlugin({
+  adapter: new VercelLLMAdapter({ model: openai('gpt-4o') }),
+  models: [
+    { id: 'fast',  provider: 'openai', model: 'gpt-4o-mini' },
+    { id: 'smart', provider: 'openai', model: 'gpt-4o' },
+  ],
+  defaultModelId: 'fast',
+}));
+```
+
+`models` リストは実行時のモデルレジストリに渡され、デフォルトモデルの解決やトレースにおけるコスト按分を駆動します。デフォルトでは、プラグインは `ai` 設定ネームスペースにもバインドされ、オペレーターが Console でプロバイダー / 認証情報 / モデルを編集すると、アダプターをライブで再構築します。そのため再起動は不要です。
+
+プロバイダーの API キーは、各 SDK の通常の環境変数から取得されます。
+
+| プロバイダー | 環境変数 |
+|---|---|
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| AI Gateway | `AI_GATEWAY_API_KEY` |
+
+Console ではこれらを実行時設定として貼り付けることもできます。同じ優先順位（env > settings）に従いますが、ライブ編集なので再起動は不要です。
+
+### コードから AI サービスを使う
+
+```ts
+const ai = kernel.getService<IAIService>('ai');
+
+// One-shot chat
+const result = await ai.chat(
+  [{ role: 'user', content: 'Summarize ObjectStack in two sentences.' }],
+  { model: 'smart' },
+);
+
+// Structured output
+const { object } = await ai.generateObject(
+  [{ role: 'user', content: 'Classify this ticket: ...' }],
+  { schema, model: 'fast' },
+);
+```
+
+このサービスは `complete()`、`streamChat()`、`embed()`、`listModels()` も公開しています。会話は `ai_conversations` / `ai_messages` レコードとして永続化され、REST API（`POST /api/v1/ai/chat`、`POST /api/v1/ai/conversations`）経由で管理されます。
+
+### エージェントとフローから使う
+
+宣言的な AI — エージェント、スキル、ツール — については [AI Agents](/docs/build/agents) を参照してください。フローは、登録済みの任意のアクション（`ai.chat()` / `ai.generateObject()` 呼び出しをラップするアクションを含む）を `action` ノードとして呼び出せます。周辺の文脈については [Flows & Automation](/docs/build/flows) を参照してください。
+
+## 埋め込み（Embedders）
+
+埋め込みはテキストを密ベクトルに変換します。単一の OpenAI 互換アダプター `@objectstack/embedder-openai` は、OpenAI に加えて、OpenAI 互換の `/v1/embeddings` エンドポイントを公開するあらゆるプロバイダーをカバーします。**プリセット**（ベースURLを自動設定します）を選ぶか、`baseUrl` をカスタムエンドポイントに向けてください。
+
+| プロバイダー | `preset` | 備考 |
+|---|---|---|
+| OpenAI | `openai` | `text-embedding-3-small`/`-large` |
+| Azure OpenAI | `azure` | `baseUrl` で完全なデプロイメント URL を指定 |
+| 阿里通义 DashScope | `dashscope` | `text-embedding-v3` |
+| 智谱 GLM | `zhipu` | `embedding-2` |
+| 硅基流动 SiliconFlow | `siliconflow` | OSS モデルのアグリゲーター |
+| 火山 Doubao | `doubao` | ByteDance |
+| MiniMax | `minimax` | — |
+| Ollama（セルフホスト） | `ollama` | エアギャップ環境に対応（`http://localhost:11434/v1`） |
+| カスタム | _(省略し、`baseUrl` を設定)_ | 独自の OpenAI 互換エンドポイントを使用 |
+
+コードでの設定:
+
+```ts
+import { createOpenAIEmbedder } from '@objectstack/embedder-openai';
+
+const embedder = createOpenAIEmbedder({
+  preset: 'openai',
+  model: 'text-embedding-3-small',
+  // apiKey from OPENAI_API_KEY env if omitted
+});
+```
+
+または **Console → Configuration → AI → Embedder** から実行時に選択します。再起動なしでプロバイダーを切り替えても、既存のベクトルは検索可能なまま残ります（バックグラウンドで再インデックスできます）。
+
+## ナレッジ / RAG
+
+ナレッジサービスは、ドキュメントの取り込み、チャンク分割、埋め込み（embedder サービス経由）、検索をオーケストレーションします。実際のストレージと検索のバックエンドはプラグイン可能です。
+
+| アダプター | バックエンド | 適した用途 |
+|---|---|---|
+| `@objectstack/knowledge-memory` | インプロセス | 開発、デモ、小規模な KB |
+| `@objectstack/knowledge-ragflow` | [RAGFlow](https://github.com/infiniflow/ragflow) | チャンク分割 + リランキングを備えた高品質な OSS RAG |
+
+```ts
+import { KnowledgeServicePlugin } from '@objectstack/service-knowledge';
+import { KnowledgeRagflowPlugin } from '@objectstack/knowledge-ragflow';
+
+kernel.use(new KnowledgeServicePlugin({ defaultTopK: 10 }));
+kernel.use(new KnowledgeRagflowPlugin({
+  endpoint: process.env.RAGFLOW_ENDPOINT, // e.g. http://localhost:9380
+  apiKey:   process.env.RAGFLOW_API_KEY,
+}));
+```
+
+インデックス化されたナレッジベースは第一級のオブジェクトになります。フローからクエリしたり、Console に表示したり、検索コンテキストとして AI アシスタントに紐付けたりできます。
+
+## MCP — Model Context Protocol
+
+ObjectOS は、オープンな [Model Context Protocol](https://modelcontextprotocol.io) を介して、AI エージェント（Claude Desktop、IDE、カスタムエージェント）に対してツールサーバーとして自身を公開できます。
+
+```ts
+import { MCPServerPlugin } from '@objectstack/plugin-mcp-server';
+
+kernel.use(new MCPServerPlugin({
+  transport: 'stdio', // or 'http'
+  autoStart: true,
+}));
+```
+
+エージェントは MCP を通じて ObjectOS のツールを検出し呼び出します — 呼び出しユーザーの権限に従います。サーバーは AI サービスのツールレジストリをブリッジし、`list_objects`、`describe_object`、`query_records`、`get_record`、`aggregate_data` などの汎用ツールを含みます。
+
+## 運用上の保証
+
+- **クラウド依存を必須としない。** チャットに Ollama、埋め込みに Ollama embedder、ナレッジに memory を使えば、完全なエアギャップ運用が可能です。
+- **ライブで差し替え可能。** Console でプロバイダーを変更すると、次の呼び出しから新しいリクエストが新しいプロバイダーを使用します。再起動は不要です。
+- **テナントごとの設定。** 各 Environment は独自の AI 設定を持ちます。テナント A は OpenAI、テナント B は Anthropic — 同一ランタイムで実現できます。
+- **監査ログの記録。** すべての会話、ツール呼び出し、embedder リクエストを監査できます（`@objectstack/plugin-audit`）。
+- **コストを意識。** トークン数とプロバイダー ID は監査ログに流れ、チャージバックやコスト分析に利用できます。
+
+## 次に読むべきもの
+
+- [AI Agents](/docs/build/agents) — 宣言的なエージェント、スキル、ツール
+- [Flows & Automation](/docs/build/flows) — 宣言的なビジネスロジックから AI を呼び出す
+- [Marketplace](/docs/build/marketplace) — デフォルトカタログに含まれる AI 搭載アプリ
+- [Security & Compliance](/docs/reference/security) — AI のデータフローがどのように隔離されるか
+- [`@objectstack/service-ai` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-ai)
+- [`@objectstack/embedder-openai` source](https://github.com/objectstack-ai/framework/tree/main/packages/plugins/embedder-openai)
+- [`@objectstack/service-knowledge` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-knowledge)

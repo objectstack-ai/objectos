@@ -24,10 +24,21 @@ function setLocaleCookie(response: NextResponse, locale: string): void {
  * Maps browser language codes to our supported language codes
  */
 const LANGUAGE_MAPPING: Record<string, string> = {
-  'zh': 'cn',      // Chinese -> cn
-  'zh-CN': 'cn',   // Chinese (China) -> cn
-  'zh-TW': 'cn',   // Chinese (Taiwan) -> cn
-  'zh-HK': 'cn',   // Chinese (Hong Kong) -> cn
+  'zh': 'zh-Hans',      // Chinese -> Simplified
+  'zh-CN': 'zh-Hans',   // Chinese (China) -> Simplified
+  'zh-SG': 'zh-Hans',   // Chinese (Singapore) -> Simplified
+  'zh-Hans': 'zh-Hans', // already Simplified
+  // Traditional variants fall back to Simplified until zh-Hant ships
+  'zh-TW': 'zh-Hans',
+  'zh-HK': 'zh-Hans',
+};
+
+/**
+ * Legacy locale redirects: old locale code -> current BCP 47 tag.
+ * Permanent (308) so search engines transfer ranking to the new path.
+ */
+const LEGACY_LOCALE_REDIRECTS: Record<string, string> = {
+  cn: 'zh-Hans',
 };
 
 /**
@@ -83,7 +94,8 @@ function getPreferredLanguage(request: NextRequest): string {
  * - Detects the user's preferred language from browser settings or cookies
  * - Redirects users to the appropriate localized version
  * - For default language (en): keeps URL as "/" (with internal rewrite)
- * - For other languages (cn): redirects to "/cn/"
+ * - For other languages (e.g. zh-Hans): redirects to "/zh-Hans/"
+ * - Redirects legacy locale paths (e.g. /cn/*) to their new tag
  * - Stores language preference as a cookie
  */
 export default function middleware(request: NextRequest) {
@@ -98,6 +110,20 @@ export default function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
+
+  // Legacy locale redirect (e.g. /cn/... -> /zh-Hans/...), permanent for SEO.
+  const legacySeg = pathname.split('/')[1];
+  if (legacySeg && LEGACY_LOCALE_REDIRECTS[legacySeg]) {
+    const target = LEGACY_LOCALE_REDIRECTS[legacySeg];
+    const url = new URL(request.url);
+    url.pathname = pathname.replace(
+      new RegExp(`^/${legacySeg}(/|$)`),
+      `/${target}$1`,
+    );
+    const response = NextResponse.redirect(url, 308);
+    setLocaleCookie(response, target);
+    return response;
+  }
 
   // Check if the pathname already has a locale
   const pathnameHasLocale = i18n.languages.some(

@@ -25,8 +25,8 @@ The default when you run `os start` without a config or artifact.
 ObjectOS boots an empty kernel with the platform plugins loaded
 (`auth`, `security`, `audit`, `storage`, `webhooks`, `mcp-server`,
 `marketplace-proxy`, `marketplace-install-local`, …), opens local
-SQLite at `~/.objectstack/data/standalone.db`, and serves Console,
-Account, and Console.
+SQLite at `~/.objectstack/data/standalone.db`, and serves the Console
+and Account UIs.
 
 Install apps from the marketplace tab in Console to populate the kernel
 with objects, views, and flows — no rebuild, no restart. Best for
@@ -118,7 +118,7 @@ runtime database configuration with the artifact response.
 
 In file-backed mode, ObjectOS can derive database settings from the
 artifact's datasource declarations. Supported framework drivers include
-SQLite, PostgreSQL, Turso/libSQL, MongoDB, and memory-backed evaluation
+SQLite, PostgreSQL, MySQL, MongoDB, and memory-backed evaluation
 drivers.
 
 For production, use a customer-managed database. Do not rely on

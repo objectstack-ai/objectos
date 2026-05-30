@@ -1,0 +1,233 @@
+---
+title: Glosario
+description: El vocabulario utilizado en ObjectOS y ObjectStack — una definición para cada término.
+---
+
+# Glosario
+
+Una única definición canónica para cada término utilizado en esta documentación.
+
+### Artifact
+
+Un archivo `objectstack.json` compilado. Una descripción autónoma e
+inmutable de una aplicación — manifiesto, objetos, vistas, apps, flujos,
+permisos, traducciones. Producido por `os compile`. Lo que ObjectOS
+realmente ejecuta.
+
+### Action
+
+Una operación con nombre declarada en los metadatos, invocable mediante REST
+(`/api/v1/data/<object>/actions/<action>`), botones de Console o pasos de
+flujo. Hereda los permisos de quien la invoca.
+
+### Adapter
+
+Un paquete del framework que integra ObjectStack con un runtime anfitrión —
+Express, Fastify, Hono, Next.js, Nuxt, SvelteKit, NestJS. La mayoría de los
+despliegues de ObjectOS no necesitan uno; ObjectOS incluye su propio
+servidor HTTP.
+
+### App
+
+Un conjunto de objetos + vistas + permisos presentado como una única
+aplicación navegable en Console. Múltiples apps pueden coexistir en un mismo
+runtime (p. ej. CRM + Helpdesk + Setup).
+
+### Better Auth
+
+La biblioteca de autenticación que impulsa `@objectstack/plugin-auth`. No
+configuras Better Auth directamente; el plugin lo encapsula.
+
+### Capability
+
+Una funcionalidad opcional del runtime declarada por un artifact en su lista
+`requires`. Se corresponde con un paquete — p. ej. `audit` →
+`@objectstack/plugin-audit`. ObjectOS la carga bajo demanda. Consulta
+[Runtime Capabilities](/docs/reference/runtime-capabilities).
+
+### CEL
+
+[Common Expression Language](https://github.com/google/cel-spec) —
+la sintaxis de expresiones segura y aislada de Google. Se usa en fórmulas,
+reglas de validación, predicados de permisos, reglas de compartición y
+condiciones de flujo.
+
+### Console
+
+La interfaz del sistema en `/_console/` — gestiona usuarios, roles, conjuntos
+de permisos, registro de auditoría, sesiones, claves de API y ajustes del
+sistema. Distinta de Console (interfaz de negocio).
+
+### Control Plane
+
+Un servicio opcional que publica artifacts versionados en instancias de
+ObjectOS. Alojado como ObjectStack Cloud o autohospedado. La mayoría de los
+despliegues no necesitan uno — el modo basado en archivos funciona para
+producción de una sola app.
+
+### Driver
+
+Una implementación de backend de datos: `driver-sql` (Postgres, MySQL,
+SQLite, Turso/libSQL), `driver-mongodb`, `driver-memory`. Se elige al
+arrancar mediante la URL de la base de datos.
+
+### Embedder
+
+El servicio que convierte texto en vectores para RAG / búsqueda semántica.
+Conectable entre proveedores (OpenAI, Azure, 硅基流动, Ollama, …).
+Consulta [AI Service](/docs/configure/ai).
+
+### Environment
+
+Una instancia de runtime por tenant respaldada por su propia base de datos e
+identidad. En la v4.x a veces se le llamaba *Project* (se mantiene el alias).
+La v5.0 estandariza *Environment* en CLI, HTTP, variables de entorno y
+esquemas.
+
+### Field
+
+Una propiedad tipada en un Object. ~25 tipos integrados: `text`, `select`,
+`lookup`, `markdown`, `attachment`, `formula`, `rollup`, etc. Consulta
+[Data Model](/docs/build/data-model).
+
+### Flow
+
+Lógica de negocio declarativa — autolanzada (disparador de registro),
+programada (cron) o manual (botón / API). Se ejecuta como un DAG con
+primitivas de condición/bucle/reintento/paralelismo. Consulta
+[Flows & Automation](/docs/build/flows).
+
+### Formula field
+
+Un campo calculado cuyo valor es una expresión CEL evaluada en el momento de
+la lectura. No se almacena.
+
+### Hook
+
+Una función inyectada en el ciclo de vida del objeto (`beforeInsert`,
+`afterUpdate`, …). Escrita en TypeScript. Diferente de un flujo: los hooks
+son código de primera clase; los flujos son metadatos.
+
+### Kernel
+
+El microkernel dentro de ObjectOS que carga plugins, mantiene el contenedor
+de DI, despacha eventos y sirve los metadatos de un único Environment. Un
+proceso puede mantener muchos kernels en caché (uno por Environment) en una
+LRU.
+
+### Manifest
+
+Los metadatos de nivel superior al inicio de un artifact: `id`, `namespace`,
+`version`, `type` (`app` / `plugin` / `service`), `name`,
+`description`, lista `requires`.
+
+### Marketplace
+
+El catálogo dentro de Console de apps instalables. Respaldado por un registro
+de paquetes configurable. Consulta [Marketplace](/docs/build/marketplace).
+
+### MCP (Model Context Protocol)
+
+Un protocolo abierto para que los agentes de IA descubran e invoquen
+herramientas. ObjectOS puede exponer sus objetos + acciones como MCP mediante
+`@objectstack/plugin-mcp-server`.
+
+### Object
+
+Una entidad de negocio tipada — `task`, `account`, `invoice`. Declarada como
+un esquema de TypeScript; genera APIs REST, vistas de Console, entradas de
+auditoría y puntos de control de RBAC automáticamente. Consulta [Data Model](/docs/build/data-model).
+
+### ObjectOS
+
+El runtime — un único proceso de Node.js que sirve tus apps. De código
+abierto, Apache-2.0. **Este sitio de documentación es para ObjectOS.**
+
+### ObjectQL
+
+El protocolo de la capa de datos y el motor de consultas. Compila consultas
+declarativas a consultas nativas de SQL / Mongo. Usado por los endpoints
+REST, Console y flujos — todos el mismo motor.
+
+### ObjectStack
+
+El proyecto paraguas: el framework (paquetes npm `@objectstack/*`), el
+runtime (ObjectOS), el servicio en la nube opcional y el marketplace. A veces
+llamado "la plataforma".
+
+### ObjectUI
+
+El protocolo de la capa de vistas — apps, vistas, páginas, paneles, acciones,
+gráficos, navegación. Console renderiza las declaraciones de ObjectUI.
+
+### Permission Set
+
+Un conjunto de concesiones — permisos de objeto, permisos de campo, permisos
+del sistema. Se asocia a los usuarios directamente o mediante roles. La
+unidad principal de autorización. Consulta [Permissions](/docs/configure/permissions).
+
+### Plugin
+
+Un paquete del framework que extiende el runtime con una capability —
+`plugin-auth`, `plugin-security`, `plugin-audit`, `plugin-webhooks`,
+`plugin-mcp-server`, etc. Activado mediante DI + hooks de ciclo de vida
+(`init → start → destroy`).
+
+### Project
+
+Antiguo nombre de **Environment**. Todavía se usa en la CLI/entorno de la
+v4.x (con alias). Eliminado en la v5.0.
+
+### Record Share
+
+Una concesión directa de acceso a un registro específico para un usuario /
+rol / grupo específico. Almacenada como filas `sys_record_share`. Diferente
+de las reglas de compartición (criterios declarativos).
+
+### Sharing Rule
+
+Una regla declarativa que concede acceso a registros según criterios ("los
+gerentes regionales pueden ver los registros de su región"). Evaluada en el
+momento de la consulta, compilada en filtros a nivel de fila.
+
+### Console
+
+La interfaz de negocio en `/_console/` — explora, crea y edita registros,
+configura vistas e instala apps desde el marketplace. Distinta de Console
+(interfaz del sistema).
+
+### Surface
+
+Uno de los cuatro puntos de entrada HTTP que expone un ObjectOS en ejecución:
+`/` (REST API), `/_console/`, `/_account/`, `/_console/`.
+
+### System Context
+
+El modo de ejecución interno usado por plugins, hooks y scripts de inicialización
+que necesitan omitir las comprobaciones de seguridad. Auditable; no expuesto
+al código de usuario.
+
+### Tenant
+
+Un límite de aislamiento lógico en despliegues multi-tenant. Un tenant
+normalmente se corresponde con un Environment. Las cookies y sesiones tienen
+alcance por nombre de host; los datos tienen alcance por Environment.
+
+### Trigger
+
+La condición que dispara un flujo — evento de registro (`after_insert`),
+programación (cron) o invocación manual.
+
+### View
+
+Una configuración de UI declarativa — lista, formulario, kanban, calendario,
+gantt — asociada a un Object. Console la renderiza; tú no escribes el
+componente.
+
+### Zod schema
+
+El sistema de tipos en runtime + tiempo de compilación usado por
+`@objectstack/spec`. Cada objeto, campo, vista, app y flujo es analizado y
+validado por un esquema de Zod. JSON Schema, los tipos de TypeScript y los
+validadores de peticiones REST se derivan todos de las mismas definiciones de
+Zod.

@@ -1,0 +1,188 @@
+---
+title: AI Builder
+description: 自然言語の要件を実行可能なメタデータに変換する Console 内チャット。
+---
+
+# AI Builder
+
+AI Builder は、**顧客が ObjectOS を拡張するための主要な手段**です。Console
+を開き、アシスタントに自然言語で話しかければ、アシスタントがメタデータ
+（パッケージ、オブジェクト、フィールド、アクション、フロー）を構築して
+くれます。すべての変更は、本番反映前に Human-in-the-Loop (HITL) の承認
+リストにキューイングされます。
+
+## 30 秒で試す
+
+```
+You: I need to track customer support tickets.
+     Each ticket has a subject, description, priority (low/medium/high/urgent),
+     status (new/open/pending/resolved/closed), and assignee.
+
+AI:  I'll create that for you. Here's the plan:
+     • Create package `com.you.support` (v0.1.0)
+     • Create object `support_ticket` with 5 fields
+     • Add a kanban view grouped by status
+     • Add 3 permission sets: agent, manager, viewer
+
+     Approve? [Yes] [Modify] [Cancel]
+
+You: [Yes]
+
+AI:  ✓ Package created
+     ✓ Object created with 5 fields and 12 indexes
+     ✓ Kanban view registered
+     ✓ Permission sets created
+     Done. Try it: /support_ticket
+```
+
+これで動作するチケット管理アプリが完成します。REST エンドポイント、
+Console ビュー、監査ログのエントリ、権限チェックポイントまで一式そろって
+います。ファイルは一切編集されず、再起動も発生していません。
+
+## AI ができること
+
+アシスタントは、すべて名前空間化され `@objectstack/spec` に対して検証された
+**組み込みメタデータツール**のセットにアクセスできます。
+
+| カテゴリ | ツール | 機能 |
+|---|---|---|
+| **Packages** | `create_package` | マニフェスト + バージョン付きの新しいコンテナ |
+| | `list_packages` | 既存のパッケージを閲覧 |
+| | `get_package` / `get_active_package` | 内容を確認 |
+| | `set_active_package` | 会話で作業対象とするパッケージを選択 |
+| **Objects** | `create_object` | 初期フィールド付きの新しいオブジェクト |
+| | `list_objects` | アクティブなパッケージ内のオブジェクトを閲覧 |
+| | `describe_object` | スキーマ、フィールド、リレーションを出力 |
+| **Fields** | `add_field` | 型付きフィールドを追加（一般的な[フィールドタイプ](/docs/reference/field-types)） |
+| | `modify_field` | ラベル、選択リストのオプション、検証を変更 |
+| | `delete_field` | フィールドを削除（安全チェック付き） |
+| **Data** | `query_data` | ObjectQL でレコードを読み取り |
+| **Actions / Knowledge** | `action_<name>`, `search_knowledge` | アクションの呼び出し、ドキュメントに対する RAG |
+
+さらに、宣言されたすべての `*.action.ts` から具体化されたアクション
+ツール（`action_<name>` という名前）が利用できます。そのため、パッケージ
+にアクションが存在すれば、AI は組み込みツールと同じように呼び出せます。
+
+実行時にツールの完全なカタログを確認するには: `GET /api/v1/ai/tools`。
+
+## Human-in-the-Loop の承認
+
+**メタデータを変更する**ツール呼び出しは、保留中アクションのキューを経由
+します。承認担当のオペレーターは、*Approve* をクリックする前に、提案され
+た変更の差分を確認できます。
+
+| エンドポイント | 目的 |
+|---|---|
+| `GET  /api/v1/ai/pending-actions` | キューイングされたアクションの一覧（ステータスでフィルタ） |
+| `GET  /api/v1/ai/pending-actions/:id` | 単一の提案アクションの差分 |
+| `POST /api/v1/ai/pending-actions/:id/approve` | 変更を適用 |
+| `POST /api/v1/ai/pending-actions/:id/reject` | 理由を付けて破棄 |
+
+必要な権限:
+
+| アクション | 権限 |
+|---|---|
+| キューの読み取り | `ai:read` |
+| 承認 / 却下 | `ai:approve` |
+
+デフォルトでは、**Setup Administrator** のメンバーのみが `ai:approve` を
+持ちます。[Permission Sets](/docs/configure/permissions/permission-sets) で
+さらに細かく分割できます。たとえば「プロダクトオーナーは `com.acme.crm`
+で承認できるが、それ以外は誰も承認できない」といった設定が可能です。
+
+このキューは監査可能で、すべての承認 / 却下は、発生元の会話 ID とともに
+`sys_audit_log` に記録されます。
+
+## 会話とコンテキスト
+
+各チャットは `ai_conversations` レコードです。プラットフォームは次を追跡
+します。
+
+- **アクティブなパッケージ** — `set_active_package` で設定します。新しい
+  オブジェクト / フィールドはここに配置されます。
+- **Skills** — 現在のコンテキストで利用可能なツールのスライス（たとえば
+  `support_ticket` の詳細ページ内では、AI が `support_ticket` スコープの
+  スキルを有効にできる場合があります）。
+- **Knowledge** — 会話にアタッチされた RAG トピック + インデックス。
+
+```text
+POST /api/v1/ai/assistant/chat
+{
+  "messages": [{ "role": "user", "content": "Add a tags field to support_ticket" }],
+  "context":  { "objectName": "support_ticket", "recordId": "tkt_123" }
+}
+```
+
+プラットフォームはアクティブなアプリケーションのデフォルト Agent を解決し、
+コンテキストでスキルセットをフィルタし、どのツールを呼び出すかを LLM に
+選ばせます。エージェントを特定の UI に事前配線する必要はありません。
+エージェントはメタデータに基づいて自身をアタッチします。
+
+## 依頼できること
+
+検証済みのパターンと、ワンライナーのプロンプト:
+
+| 目的 | プロンプト |
+|---|---|
+| 新しいオブジェクト | *"Create a `product` object with name, sku, price, category."* |
+| フィールドの追加 | *"Add a `discount` decimal field to `order`, max 50."* |
+| 選択リストの変更 | *"On `task.status`, add 'blocked' between 'open' and 'done'."* |
+| インデックス | *"Index `order` by status + created_at for the dashboard."* |
+| リレーション | *"Make `order_line` master-detail to `order`."* |
+| 検証 | *"On `invoice`, the discount can't exceed the subtotal."* |
+| フロー | *"When a high-priority ticket sits in 'new' for 30 minutes, notify the manager."* |
+| アクション | *"Create an action `approve_invoice` that sets status to approved."* |
+| 権限セット | *"Create `agent` permission set with read/create/edit on support_ticket and read on customer."* |
+| 翻訳 | *"Translate the support_ticket labels and picklists to Spanish."* |
+
+AI が対応できない場合はそう伝え、手動の方法（通常は 30 行程度の `*.ts`
+ファイルか Console フォーム）を案内します。
+
+## ライブプレビュー
+
+承認された変更ごとに、Console は影響を受けるビューをその場で再レンダリング
+します。リロードは不要です。カーネルキャッシュは変更されたパッケージを
+無効化し、以降のリクエストは新しいメタデータを使用します。
+
+## ロールバック
+
+保留中アクションのレコードは**変更前の状態**を保持します。変更がうまく
+いかなかった場合は、処理中のアイテムを却下し、AI に依頼します。
+
+```
+You: Roll back the last 3 changes to support_ticket.
+AI:  Found 3 mutations from conversation conv_abc (3 minutes ago).
+     Restoring 'support_ticket' to its state at 13:42:11.
+     Approve? [Yes]
+```
+
+より大規模なロールバックには、最後に正常だったアーティファクトに対して
+[`os diff`](/docs/reference/cli) を使用し、逆方向の差分を適用してください。
+
+## 制限事項（現時点）
+
+- **データアクセスはオペレーター自身の権限に従います。** アシスタントは
+  サインインしたユーザーとして動作するため、そのユーザーがすでに操作を
+  許可されているレコードのみを読み取り / 書き込みできます。多くのチームは、
+  アシスタントをメタデータに集中させ、顧客データについては変更ではなく
+  クエリのみを行わせています。
+- **パッケージをまたぐ変更には明示的な確認が必要です。** システム
+  パッケージ（`sys_*`）の変更を AI に依頼すると、却下メッセージが返され
+  ます。プラットフォームは原則としてこれを拒否します。
+- **長時間にわたる複数ステップの計画**（たとえば「ゼロから完全な HR アプリ
+  を構築する」）も動作しますが、それぞれが 1〜2 個のオブジェクトを配置する
+  一連の小さな会話に分けて行うのが最適です。
+
+## ビルド時 AI のその先へ
+
+同じ AI の仕組みは、エンドユーザー向けの**ランタイムエージェント**
+（サポートアシスタント、セールスコパイロット、社内 Q&A ボットなど）も
+動かします。これらは同じ Agent → Skill → Tool アーキテクチャの上に構築
+されています。[Agents](/docs/build/agents) を参照してください。
+
+## 次に読むべきページ
+
+- [Agents](/docs/build/agents) — あなたのデータの上に構築するエンドユーザー向けアシスタント
+- [Data Model](/docs/build/data-model) — AI が実際に生成しているもの
+- [Actions](/docs/build/actions) — AI がランタイムツールとして公開する単位
+- [AI Service](/docs/configure/ai) — プロバイダー設定（OpenAI / Anthropic / Doubao / …）

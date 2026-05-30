@@ -1,0 +1,66 @@
+---
+title: Mise à niveau et restauration
+description: Mettez à niveau ObjectOS et les artefacts d'application en toute sécurité.
+---
+
+# Mise à niveau et restauration
+
+ObjectOS possède deux flux de versions :
+
+| Version | Responsable | Restauration |
+|---|---|---|
+| Image/runtime ObjectOS | Équipe plateforme/runtime | Tag de conteneur précédent |
+| Artefact d'application | Publication application/plan de contrôle | Artefact précédent ou pointeur de version du projet |
+
+Ne modifiez pas les artefacts en place. Publiez un nouvel artefact et faites pointer le
+runtime vers celui-ci.
+
+## Mettre à niveau ObjectOS
+
+Pour Docker Compose :
+
+```bash
+docker compose -f docker/docker-compose.yml pull
+docker compose -f docker/docker-compose.yml up -d
+```
+
+Pour Kubernetes, mettez à jour le tag de l'image et laissez le déploiement se dérouler.
+
+## Mettre à niveau l'artefact
+
+Mode basé sur fichier :
+
+```bash
+cp objectstack-2026-05-24.json docker/artifacts/objectstack.json
+docker compose -f docker/docker-compose.yml restart objectos
+```
+
+Mode connecté au cloud :
+
+1. Publiez le nouvel artefact sur le plan de contrôle.
+2. Déplacez le pointeur de projet/environnement actuel vers la nouvelle version.
+3. Laissez ObjectOS récupérer à nouveau les données après l'expiration du cache ou redémarrez pour forcer le rechargement.
+
+## Restauration
+
+Restaurer ObjectOS : épinglez le tag d'image précédent dans votre fichier Compose (ou
+votre manifeste de déploiement), puis réappliquez-le.
+
+```bash
+docker compose -f docker/docker-compose.yml up -d objectos
+```
+
+Restaurer l'artefact :
+
+- restaurez le fichier monté précédent ; ou
+- ramenez le pointeur du plan de contrôle vers la version d'artefact précédente.
+
+## Vérifications de compatibilité
+
+Avant la mise à niveau :
+
+- confirmez que l'artefact a été construit pour une version compatible d'ObjectStack ;
+- confirmez que les capacités requises sont disponibles dans l'image ObjectOS ;
+- confirmez que les migrations de base de données ou le comportement de synchronisation du schéma sont bien compris ;
+- exécutez des tests de fumée d'authentification et de permissions ;
+- vérifiez que la restauration ne nécessite pas de modifications destructrices des données.

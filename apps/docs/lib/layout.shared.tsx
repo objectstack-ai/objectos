@@ -9,7 +9,11 @@ export const gitConfig = {
 
 const NAV_LABELS: Record<string, { docs: string; download: string; changelog: string }> = {
   en: { docs: 'Docs', download: 'Download', changelog: 'Changelog' },
-  cn: { docs: '文档', download: '下载', changelog: '更新日志' },
+  'zh-Hans': { docs: '文档', download: '下载', changelog: '更新日志' },
+  ja: { docs: 'ドキュメント', download: 'ダウンロード', changelog: '変更履歴' },
+  de: { docs: 'Dokumentation', download: 'Download', changelog: 'Änderungen' },
+  es: { docs: 'Documentación', download: 'Descargar', changelog: 'Cambios' },
+  fr: { docs: 'Documentation', download: 'Télécharger', changelog: 'Journal' },
 };
 
 const RELEASES_URL = 'https://github.com/objectstack-ai/objectos/releases';

@@ -1,0 +1,185 @@
+---
+title: AI Builder
+description: Le chat intégré à la Console qui transforme des exigences exprimées en langage courant en métadonnées opérationnelles.
+---
+
+# AI Builder
+
+L'AI Builder est le **principal moyen pour les clients d'étendre ObjectOS**. Ouvrez
+la Console, parlez à l'assistant en langage courant, et il construit les
+métadonnées pour vous — packages, objets, champs, actions, flux. Chaque
+modification est placée dans une file d'approbation Human-in-the-Loop (HITL) avant
+sa mise en production.
+
+## Essayez-le en 30 secondes
+
+```
+You: I need to track customer support tickets.
+     Each ticket has a subject, description, priority (low/medium/high/urgent),
+     status (new/open/pending/resolved/closed), and assignee.
+
+AI:  I'll create that for you. Here's the plan:
+     • Create package `com.you.support` (v0.1.0)
+     • Create object `support_ticket` with 5 fields
+     • Add a kanban view grouped by status
+     • Add 3 permission sets: agent, manager, viewer
+
+     Approve? [Yes] [Modify] [Cancel]
+
+You: [Yes]
+
+AI:  ✓ Package created
+     ✓ Object created with 5 fields and 12 indexes
+     ✓ Kanban view registered
+     ✓ Permission sets created
+     Done. Try it: /support_ticket
+```
+
+Vous disposez désormais d'une application de gestion de tickets fonctionnelle — points de terminaison REST, vues Console,
+entrées de journal d'audit, points de contrôle de permissions, tout y est. Aucun fichier n'a été
+modifié ; aucun redémarrage n'a eu lieu.
+
+## Ce que l'IA peut faire
+
+L'assistant a accès à un ensemble d'**outils de métadonnées intégrés**, tous
+regroupés dans un espace de noms et validés par rapport à `@objectstack/spec` :
+
+| Catégorie | Outil | Ce qu'il fait |
+|---|---|---|
+| **Packages** | `create_package` | Nouveau conteneur avec manifeste + version |
+| | `list_packages` | Parcourir les packages existants |
+| | `get_package` / `get_active_package` | Inspecter le contenu |
+| | `set_active_package` | Choisir le package de travail pour la conversation |
+| **Objects** | `create_object` | Nouvel objet avec champs initiaux |
+| | `list_objects` | Parcourir les objets du package actif |
+| | `describe_object` | Afficher le schéma, les champs, les relations |
+| **Fields** | `add_field` | Ajouter un champ typé (les [types de champs](/docs/reference/field-types) courants) |
+| | `modify_field` | Modifier le libellé, les options de liste de sélection, la validation |
+| | `delete_field` | Supprimer un champ (avec contrôle de sécurité) |
+| **Data** | `query_data` | Lire des enregistrements via ObjectQL |
+| **Actions / Knowledge** | `action_<name>`, `search_knowledge` | Invoquer des actions, RAG sur la documentation |
+
+Auxquels s'ajoutent des outils d'action matérialisés à partir de chaque `*.action.ts` déclaré —
+nommés `action_<name>` — de sorte qu'une fois qu'une action existe dans le package,
+l'IA peut l'appeler comme n'importe quel outil intégré.
+
+Consultez le catalogue complet des outils à l'exécution : `GET /api/v1/ai/tools`.
+
+## Approbation Human-in-the-Loop
+
+Les appels d'outils qui **modifient les métadonnées** transitent par une file
+d'attente d'actions en attente. Les opérateurs chargés de l'approbation voient le diff de la
+modification proposée avant de cliquer sur *Approve*.
+
+| Point de terminaison | Objet |
+|---|---|
+| `GET  /api/v1/ai/pending-actions` | Lister les actions en file d'attente (filtrer par statut) |
+| `GET  /api/v1/ai/pending-actions/:id` | Diff d'une seule action proposée |
+| `POST /api/v1/ai/pending-actions/:id/approve` | Appliquer la modification |
+| `POST /api/v1/ai/pending-actions/:id/reject` | Rejeter avec un motif |
+
+Permissions requises :
+
+| Action | Permission |
+|---|---|
+| Lire la file d'attente | `ai:read` |
+| Approuver / rejeter | `ai:approve` |
+
+Par défaut : seuls les membres de **Setup Administrator** disposent de `ai:approve`.
+Vous pouvez affiner ce découpage dans les [Permission Sets](/docs/configure/permissions/permission-sets) — par exemple
+« les product owners peuvent approuver dans `com.acme.crm`, personne d'autre ».
+
+La file d'attente est auditable : chaque approbation/rejet est enregistré dans
+`sys_audit_log` avec l'identifiant de la conversation d'origine.
+
+## Conversations et contexte
+
+Chaque chat correspond à un enregistrement `ai_conversations`. La plateforme suit :
+
+- **Package actif** — défini par `set_active_package`. Les nouveaux objets /
+  champs y sont créés.
+- **Skills** — l'ensemble des outils disponibles pour le contexte courant
+  (par exemple, dans la page de détail de `support_ticket`, l'IA peut disposer de
+  skills limités à `support_ticket`).
+- **Knowledge** — les sujets RAG + index rattachés à la conversation.
+
+```text
+POST /api/v1/ai/assistant/chat
+{
+  "messages": [{ "role": "user", "content": "Add a tags field to support_ticket" }],
+  "context":  { "objectName": "support_ticket", "recordId": "tkt_123" }
+}
+```
+
+La plateforme résout l'Agent par défaut de l'application active,
+filtre l'ensemble des skills selon le contexte, et laisse le LLM choisir quel outil
+appeler. Vous ne câblez pas à l'avance les agents dans des interfaces spécifiques — l'agent se rattache
+de lui-même en fonction des métadonnées.
+
+## Ce que vous pouvez demander
+
+Modèles vérifiés, avec des prompts en une ligne :
+
+| Objectif | Prompt |
+|---|---|
+| Nouvel objet | *"Create a `product` object with name, sku, price, category."* |
+| Ajouter un champ | *"Add a `discount` decimal field to `order`, max 50."* |
+| Modification de liste de sélection | *"On `task.status`, add 'blocked' between 'open' and 'done'."* |
+| Index | *"Index `order` by status + created_at for the dashboard."* |
+| Relation | *"Make `order_line` master-detail to `order`."* |
+| Validation | *"On `invoice`, the discount can't exceed the subtotal."* |
+| Flux | *"When a high-priority ticket sits in 'new' for 30 minutes, notify the manager."* |
+| Action | *"Create an action `approve_invoice` that sets status to approved."* |
+| Permission set | *"Create `agent` permission set with read/create/edit on support_ticket and read on customer."* |
+| Traduction | *"Translate the support_ticket labels and picklists to Spanish."* |
+
+Si l'IA ne peut pas le faire, elle vous le dit — et vous oriente vers la voie manuelle
+(généralement un fichier `*.ts` de 30 lignes ou un formulaire Console).
+
+## Aperçu en direct
+
+Après chaque modification approuvée, la Console restitue à nouveau les vues affectées sur
+place. Aucun rechargement nécessaire. Le cache du noyau invalide le package touché ;
+les requêtes suivantes utilisent les nouvelles métadonnées.
+
+## Annuler les modifications
+
+Les enregistrements d'actions en attente conservent l'**état antérieur**. Si une modification tourne
+mal, rejetez les éléments en cours et demandez à l'IA :
+
+```
+You: Roll back the last 3 changes to support_ticket.
+AI:  Found 3 mutations from conversation conv_abc (3 minutes ago).
+     Restoring 'support_ticket' to its state at 13:42:11.
+     Approve? [Yes]
+```
+
+Pour des annulations plus importantes, utilisez [`os diff`](/docs/reference/cli) par rapport à
+votre dernier artefact connu comme fiable et appliquez le diff inverse.
+
+## Limitations (aujourd'hui)
+
+- **L'accès aux données suit les permissions propres de l'opérateur.** L'assistant
+  s'exécute en tant qu'utilisateur connecté, il ne peut donc lire ou écrire que les
+  enregistrements que cet utilisateur est déjà autorisé à manipuler. La plupart des équipes
+  maintiennent l'assistant centré sur les métadonnées et le laissent interroger — et non modifier —
+  les données client.
+- **Les modifications inter-packages nécessitent une confirmation explicite.** Demander
+  à l'IA de modifier un package système (`sys_*`) renvoie un message de rejet —
+  la plateforme refuse par principe.
+- **Les plans multi-étapes de longue durée** (par exemple « construire une application RH complète à partir
+  de zéro ») fonctionnent, mais il est préférable de les réaliser sous forme d'une série de
+  conversations plus courtes, chacune aboutissant à un ou deux objets.
+
+## Aller au-delà de l'IA au moment de la construction
+
+La même tuyauterie d'IA alimente les **agents d'exécution** destinés à vos utilisateurs finaux —
+assistants de support, copilotes commerciaux, bots de questions-réponses internes — construits sur
+la même architecture Agent → Skill → Tool. Voir [Agents](/docs/build/agents).
+
+## Pour aller plus loin
+
+- [Agents](/docs/build/agents) — des assistants pour utilisateurs finaux au-dessus de vos données
+- [Data Model](/docs/build/data-model) — ce que l'IA génère réellement
+- [Actions](/docs/build/actions) — l'unité que l'IA expose en tant qu'outils d'exécution
+- [AI Service](/docs/configure/ai) — configuration des fournisseurs (OpenAI / Anthropic / Doubao / …)

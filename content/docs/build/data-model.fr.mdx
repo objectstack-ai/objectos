@@ -1,0 +1,263 @@
+---
+title: Modèle de données
+description: Objets, champs, relations, validation, index — décrits à l'IA ou écrits en TypeScript.
+---
+
+# Modèle de données
+
+Le modèle de données est la source de vérité unique de votre application. Dès
+qu'un objet existe, ObjectOS vous fournit des API REST, une vue Console, des
+points de contrôle RBAC, des entrées de journal d'audit et une exposition aux
+outils d'IA — gratuitement.
+
+**La plupart des clients n'écrivent jamais le schéma à la main.** Ils décrivent
+ce dont ils ont besoin dans l'[AI Builder](/docs/build/ai-builder) et la
+plateforme crée les objets, les champs, les index et les traductions. Cette
+page décrit la structure sous-jacente — afin que vous compreniez ce que l'IA
+génère et que vous puissiez la modifier directement quand vous le souhaitez.
+
+## Méthodes de création
+
+| Méthode | À quoi cela ressemble |
+|---|---|
+| **AI Builder** (principale) | *« Créer un objet `support_ticket` avec sujet, description, priorité, statut, responsable. »* |
+| **Construction par clic dans la Console** | Console → Objects → New Object → formulaires |
+| **TypeScript (`*.object.ts`)** | Le TS présenté ci-dessous — généralement à l'intérieur d'un [template](/docs/build/templates) forké |
+
+Les trois produisent le même schéma. Le schéma est canonique ; tout le reste en
+est dérivé.
+
+## Anatomie d'un objet
+
+```ts
+// src/objects/task.ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Task = ObjectSchema.create({
+  name: 'todo_task',
+  label: 'Task',
+  pluralLabel: 'Tasks',
+  icon: 'check-square',
+  description: 'A single unit of work.',
+
+  fields: {
+    subject:     Field.text({ label: 'Subject', required: true, maxLength: 200 }),
+    description: Field.markdown({ label: 'Description' }),
+    status:      Field.select({
+      label: 'Status',
+      options: [
+        { label: 'To Do',       value: 'todo', default: true },
+        { label: 'In Progress', value: 'in_progress' },
+        { label: 'Done',        value: 'done' },
+      ],
+    }),
+    due:         Field.date({ label: 'Due' }),
+    assignee:    Field.lookup('sys_user', { label: 'Assignee' }),
+  },
+
+  enable: {
+    trackHistory: true,    // record field changes in audit log
+    apiEnabled: true,      // expose REST endpoints (default true)
+    feeds: true,           // chatter / comments / @mentions
+  },
+});
+```
+
+Enregistrez-le dans votre stack :
+
+```ts
+// objectstack.config.ts
+import { defineStack } from '@objectstack/spec';
+import * as objects from './src/objects';
+
+export default defineStack({
+  manifest: { id: 'my.app', namespace: 'myapp', version: '0.1.0', type: 'app', name: 'My App' },
+  objects: Object.values(objects),
+});
+```
+
+C'est tout ce dont vous avez besoin. `os dev` recompile, et
+`/api/v1/data/todo_task`, la vue Task de la Console et la ligne d'autorisation
+de la Console apparaissent tous.
+
+## Types de champs
+
+ObjectStack fournit environ 25 types de champs. Les plus utilisés :
+
+### Scalaires
+
+| Type | Ce qu'il stocke | Helper |
+|---|---|---|
+| `text` | Chaîne courte | `Field.text({ maxLength, required })` |
+| `textarea` | Chaîne longue | `Field.textarea(...)` |
+| `markdown` | Texte enrichi avec markdown | `Field.markdown(...)` |
+| `number` | Entier | `Field.number({ min, max })` |
+| `decimal` | Décimal exact (monnaie, etc.) | `Field.decimal({ precision, scale })` |
+| `boolean` | Vrai/faux | `Field.boolean({ defaultValue })` |
+| `date` | Date du calendrier | `Field.date(...)` |
+| `datetime` | Horodatage | `Field.datetime(...)` |
+| `email` | E-mail validé | `Field.email(...)` |
+| `url` | URL validée | `Field.url(...)` |
+| `phone` | Téléphone validé | `Field.phone(...)` |
+| `json` | JSON arbitraire | `Field.json(...)` |
+
+### Choix
+
+| Type | À utiliser pour |
+|---|---|
+| `select` | Choix unique (enum) |
+| `multiselect` | Choix multiples |
+
+### Relations
+
+| Type | Cardinalité | Helper |
+|---|---|---|
+| `lookup` | Un-à-plusieurs (FK) | `Field.lookup({ reference: 'sys_user' })` |
+| `masterDetail` | Un-à-plusieurs avec suppression en cascade | `Field.masterDetail({ reference: 'order' })` |
+
+### Fichiers et médias
+
+| Type | Ce qu'il stocke |
+|---|---|
+| `attachment` | Un fichier via le service de stockage |
+| `image` | Pièce jointe image avec aperçu |
+
+### Calculé / dérivé
+
+| Type | Comportement |
+|---|---|
+| `formula` | Calculé à la lecture à partir d'une expression CEL |
+| `rollup` | Agrégat d'enregistrements liés (somme/nombre/moyenne) |
+| `autoNumber` | Séquence (`INV-{000001}`) |
+| `created`, `lastModified` | Horodatages gérés par le système |
+| `createdBy`, `lastModifiedBy` | Références utilisateur gérées par le système |
+
+## Requis / unique / par défaut
+
+Modificateurs courants sur chaque champ scalaire :
+
+```ts
+Field.text({
+  label: 'Code',
+  required: true,
+  unique: true,          // unique constraint enforced at DB level
+  defaultValue: '',
+  helpText: 'Internal short code',
+})
+```
+
+## Validation
+
+En ligne :
+
+```ts
+Field.number({ label: 'Quantity', min: 1, max: 9999 })
+Field.text({ label: 'SKU', pattern: '^[A-Z]{3}-[0-9]{4}$' })
+```
+
+Règles au niveau de l'objet (entre champs) :
+
+```ts
+ObjectSchema.create({
+  name: 'order',
+  fields: { /* ... */ },
+  validations: [
+    {
+      name: 'discount_lt_total',
+      message: 'Discount cannot exceed total',
+      condition: 'discount < total',
+    },
+  ],
+});
+```
+
+La validation s'exécute à chaque écriture — REST, Console, ObjectQL — il n'y a
+donc aucune « porte dérobée ».
+
+## Index et performance
+
+```ts
+ObjectSchema.create({
+  name: 'order',
+  fields: { /* ... */ },
+  indexes: [
+    { fields: ['status', 'created_at'] },
+    { fields: ['account', 'created_at'], unique: false },
+  ],
+});
+```
+
+Le driver crée de vrais index de base de données lors de la synchronisation du
+schéma.
+
+## Groupes de champs
+
+Pour les formulaires longs, regroupez les champs dans la Console :
+
+```ts
+ObjectSchema.create({
+  name: 'task',
+  fieldGroups: [
+    { key: 'core',     label: 'Task',     icon: 'check-square' },
+    { key: 'planning', label: 'Planning', icon: 'calendar' },
+    { key: 'meta',     label: 'Metadata', icon: 'info', defaultExpanded: false },
+  ],
+  fields: {
+    subject: Field.text({ label: 'Subject', group: 'core' }),
+    due:     Field.date({ label: 'Due',     group: 'planning' }),
+  },
+});
+```
+
+## Cycle de vie et propriété
+
+```ts
+ObjectSchema.create({
+  name: 'task',
+  ownership: 'own',          // 'own' | 'shared' | 'system'
+  enable: {
+    apiEnabled: true,         // generated REST endpoints
+    trackHistory: true,       // audit log of field changes
+    feeds: true,              // sys_comment / sys_activity / @mentions
+    softDelete: true,         // tombstone instead of hard delete
+  },
+});
+```
+
+## Objets système (gratuits avec chaque projet)
+
+Vous n'avez pas à les déclarer — ils sont toujours présents :
+
+| Objet | Quoi |
+|---|---|
+| `sys_user` | Comptes utilisateurs |
+| `sys_org` | Organisations / locataires |
+| `sys_member` | Appartenance à une organisation |
+| `sys_role`, `sys_permission_set` | Primitives RBAC |
+| `sys_audit_log` | Piste d'audit (lorsque la capacité d'audit est chargée) |
+| `sys_file`, `sys_attachment` | Métadonnées de fichier (lorsque le stockage est chargé) |
+| `sys_comment`, `sys_activity` | Fil / chatter (lorsque le fil est chargé) |
+| `sys_session`, `sys_api_key` | Artefacts d'authentification |
+| `sys_webhook`, `sys_webhook_delivery` | Abonnements webhook (lorsqu'ils sont activés) |
+
+Référencez-les dans les champs `lookup` par leur nom — par exemple `Field.lookup({ reference: 'sys_user' })`.
+
+## Fonctionnalités polymorphes de la plateforme
+
+Lorsque vous activez `feeds: true` et `trackHistory: true`, votre objet
+participe automatiquement à :
+
+- `sys_comment` (thread_id = `<object>:<id>`)
+- `sys_attachment` (parent_object = `<object>`, parent_id = `<id>`)
+- `sys_activity` (chronologie)
+- `sys_audit_log` (différences au niveau des champs)
+
+Vous ne câblez pas cela par objet — c'est polymorphe sur la plateforme.
+
+## Pour aller plus loin
+
+- [Permissions](/docs/configure/permissions) — contrôlez l'accès à vos objets
+- [Flows / Automation](/docs/build/flows) — réagissez aux modifications d'enregistrements
+- [API Access](/docs/configure/api-access) — appelez vos API REST générées
+- [`os explain`](/docs/reference/cli) — affichez le schéma rendu
+- [Source de `@objectstack/spec`](https://github.com/objectstack-ai/framework/tree/main/packages/spec) — le schéma est le contrat ; tout ce qui est ici en est dérivé

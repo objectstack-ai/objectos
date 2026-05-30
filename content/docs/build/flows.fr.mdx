@@ -1,0 +1,237 @@
+---
+title: Flux & Automatisation
+description: Logique métier déclarative — décrite à l'IA ou écrite en TypeScript, le runtime exécute le même artefact dans les deux cas.
+---
+
+# Flux & Automatisation
+
+Les flux sont la façon d'exprimer la logique métier sans écrire de serveur.
+Chaque flux est une métadonnée déclarative que le runtime exécute — au même
+titre que les objets et les vues. Cela signifie que les flux apparaissent dans `os diff`, le
+journal d'audit, le générateur de flux de la Console et l'[AI Builder](/docs/build/ai-builder)
+tout à la fois.
+
+La plupart des clients créent des flux en demandant à l'IA :
+
+> *« Lorsqu'un ticket à haute priorité reste en statut « new » pendant 30 minutes, notifier
+> le manager sur Slack. »*
+
+L'IA génère le flux ci-dessous. Cette page décrit sa structure afin que vous puissiez
+le lire et le modifier.
+
+Activez la capacité dans votre stack :
+
+```ts
+export default defineStack({
+  // ...
+  requires: ['automation'],
+});
+```
+
+## Trois types de flux
+
+| Type | Déclenché par | À utiliser pour |
+|---|---|---|
+| **Autolaunched** | Une modification d'enregistrement (insertion/mise à jour/suppression) | « Envoyer un e-mail de bienvenue à l'inscription d'un utilisateur » |
+| **Scheduled** | Expression cron ou intervalle | « Marquer les tâches obsolètes chaque nuit à 2h » |
+| **Manual** | L'utilisateur clique sur un bouton dans la Console, ou un appel d'API | Actions « Approuver la facture » |
+
+## Autolaunched : réagir à une modification d'enregistrement
+
+```ts
+// src/flows/welcome_email.ts
+import { defineFlow } from '@objectstack/spec';
+
+export const welcomeEmail = defineFlow({
+  name: 'welcome_email',
+  type: 'autolaunched',
+  trigger: {
+    object: 'sys_user',
+    when: 'after_insert',
+  },
+  steps: [
+    {
+      type: 'action',
+      action: 'send_email',
+      inputs: {
+        to:      '{!trigger.record.email}',
+        subject: 'Welcome to {!org.name}',
+        body:    'Hi {!trigger.record.name}, welcome aboard.',
+      },
+    },
+  ],
+});
+```
+
+Interpolation de variables : `{!trigger.record.<field>}`, `{!org.<field>}`,
+`{!user.<field>}`, `{!step.<step-name>.output}`. Utilisez des expressions CEL dans
+les blocs `condition:`.
+
+Moment de déclenchement :
+
+| `when` | Se déclenche |
+|---|---|
+| `before_insert` | À l'intérieur de la transaction d'écriture, avant l'INSERT |
+| `after_insert` | Après le commit |
+| `before_update` | À l'intérieur de la transaction d'écriture, avant l'UPDATE |
+| `after_update` | Après le commit |
+| `before_delete` | À l'intérieur de la transaction d'écriture, avant le DELETE |
+| `after_delete` | Après le commit |
+
+Les flux `before_*` peuvent modifier l'enregistrement en cours d'écriture (calculer des champs,
+normaliser des données). Les flux `after_*` s'exécutent de manière asynchrone et peuvent appeler des services externes
+lents.
+
+## Scheduled : s'exécuter selon une horloge
+
+```ts
+export const nightlyCleanup = defineFlow({
+  name: 'nightly_cleanup',
+  type: 'scheduled',
+  schedule: { cron: '0 2 * * *', timezone: 'America/New_York' },
+  steps: [
+    {
+      type: 'query',
+      query: { object: 'task', filter: 'status:open AND due_lt:now()' },
+      output: 'stale',
+    },
+    {
+      type: 'foreach',
+      items: '{!step.stale}',
+      do: [
+        { type: 'update', record: '{!item.id}', fields: { status: 'overdue' } },
+      ],
+    },
+  ],
+});
+```
+
+Reposant sur la capacité `@objectstack/service-job` — voir
+[Runtime Capabilities](/docs/reference/runtime-capabilities).
+
+## Manual : actions et approbations
+
+```ts
+export const approveInvoice = defineFlow({
+  name: 'approve_invoice',
+  type: 'manual',
+  inputs: {
+    invoice_id: { type: 'lookup', reference: 'invoice', required: true },
+    note:       { type: 'textarea' },
+  },
+  steps: [
+    {
+      type: 'update',
+      record: '{!inputs.invoice_id}',
+      fields: { status: 'approved', approved_by: '{!user.id}' },
+    },
+  ],
+});
+```
+
+Affichez-le dans la Console sous forme de bouton sur la vue Invoice, ou appelez-le via
+REST :
+
+```bash
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"inputs": {"invoice_id": "inv_123", "note": "OK"}}'
+```
+
+## Types d'étapes
+
+| Étape | Objectif |
+|---|---|
+| `query` | Lire des enregistrements via ObjectQL |
+| `create` / `update` / `delete` | Écrire dans les objets |
+| `action` | Invoquer une action intégrée ou enregistrée par un plugin (e-mail, webhook, appel IA, …) |
+| `condition` | Brancher selon une expression CEL |
+| `foreach` | Itérer sur une collection |
+| `parallel` | Exécuter des sous-étapes en parallèle |
+| `wait` | Mettre en pause pendant une durée / jusqu'à un horodatage / jusqu'à une condition |
+| `subflow` | Appeler un autre flux |
+| `approval` | Bloquer jusqu'à ce qu'un utilisateur approuve (nécessite `@objectstack/plugin-approvals`) |
+
+## Conditions et branchements
+
+```ts
+{
+  type: 'condition',
+  when: 'trigger.record.amount > 10000',
+  then: [
+    { type: 'action', action: 'send_slack', inputs: { /* ... */ } },
+  ],
+  else: [
+    { type: 'update', record: '{!trigger.record.id}', fields: { status: 'auto_approved' } },
+  ],
+}
+```
+
+## Gestion des erreurs
+
+Chaque étape accepte :
+
+```ts
+{
+  type: 'action',
+  action: 'send_email',
+  inputs: { /* ... */ },
+  retry: { attempts: 3, backoffMs: 1000, multiplier: 2 },
+  onError: 'continue' | 'fail' | 'rollback',
+}
+```
+
+Pour les flux `before_*` de type autolaunched, `onError: 'fail'` (par défaut) interrompt
+la transaction d'écriture d'origine. Pour les flux `after_*`, l'écriture d'origine
+est déjà validée ; les exécutions de flux échouées sont placées dans la file d'attente de
+nouvelle tentative des jobs.
+
+## Formules et expressions (CEL)
+
+Les conditions, valeurs de champ dynamiques et expressions de filtre acceptent toutes le
+**CEL** (Common Expression Language) — le langage de Google pour l'évaluation sécurisée
+d'expressions :
+
+```ts
+'amount > 10000 && account.tier == "enterprise"'
+'duration(now() - created_at) > duration("30d")'
+'has(record.notes) && record.notes != ""'
+```
+
+Le CEL est isolé (sans effets de bord, sans I/O), évalué côté serveur, et
+auditable dans le générateur de flux.
+
+## Générateur visuel
+
+La Console est livrée avec un générateur de flux visuel qui fait l'aller-retour avec la
+métadonnée déclarative — les non-ingénieurs peuvent modifier un flux, et celui-ci se sérialise
+de nouveau dans la même structure que le TypeScript que vous écririez à la main.
+
+## Tester les flux
+
+```bash
+os test --scenario "welcome email fires on signup"
+```
+
+## Limites & bonnes pratiques
+
+- **Gardez les before-hooks petits.** Ils bloquent la transaction d'écriture.
+- **Utilisez `wait` plutôt que des étapes de longue durée.** Un flux qui se met en veille
+  bloque un worker ; un `wait until` rend le worker au pool.
+- **Utilisez `parallel` pour les étapes indépendantes.** L'exécution séquentielle est
+  le comportement par défaut.
+- **L'idempotence est importante.** Les nouvelles tentatives peuvent exécuter la même étape deux fois ;
+  les effets de bord externes doivent dédupliquer (utilisez l'identifiant d'exécution du flux comme clé).
+- **Actions sensibles à l'audit.** Les flux qui modifient des permissions ou
+  suppriment des enregistrements doivent eux-mêmes consigner dans `sys_audit_log`.
+
+## Où aller ensuite
+
+- [Webhooks](/docs/configure/webhooks) — notifications sortantes, souvent
+  déclenchées depuis les flux
+- [Email](/docs/configure/email) — le transport de l'action `send_email`
+- [AI Service](/docs/configure/ai) — l'action `ai_call` pour les étapes LLM
+- [API Access](/docs/configure/api-access) — invoquer des flux manuels depuis des
+  systèmes externes
+- [@objectstack/service-automation](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-automation)
+  — code source du moteur d'exécution

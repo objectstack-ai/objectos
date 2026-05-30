@@ -26,7 +26,7 @@ const content = {
     ],
     back: '← Back to home',
   },
-  cn: {
+  'zh-Hans': {
     title: '隐私政策',
     updated: '最近更新：2026 年 5 月 27 日',
     body: [
@@ -57,7 +57,7 @@ export default async function PrivacyPage({
   params: Promise<{ lang: string }>;
 }) {
   const { lang } = await params;
-  const t = content[lang === 'cn' ? 'cn' : 'en'];
+  const t = content[lang as keyof typeof content] ?? content.en;
 
   return (
     <HomeLayout {...baseOptions(lang)} i18n>

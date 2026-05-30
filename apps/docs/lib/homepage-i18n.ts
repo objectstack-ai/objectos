@@ -7,7 +7,8 @@
  * evaluating a customer-hosted runtime for ObjectStack applications —
  * NOT framework developers.
  *
- * Supports: en (English), cn (Chinese / 中文)
+ * Supports: en (English), zh-Hans (简体中文). Additional locales
+ * (ja, de, es, fr) fall back to English until their objects are added.
  */
 
 import { SPEC_VERSION, OBJECTOS_VERSION } from './version';
@@ -332,9 +333,9 @@ export const en: HomepageTranslations = {
 };
 
 /**
- * Chinese Translations (中文翻译)
+ * Chinese (Simplified) Translations (简体中文翻译)
  */
-export const cn: HomepageTranslations = {
+export const zhHans: HomepageTranslations = {
   badge: {
     status: 'AI 原生业务平台',
     version: SPEC_VERSION,
@@ -487,14 +488,17 @@ export const cn: HomepageTranslations = {
 };
 
 /**
- * Get translations for a specific language
+ * Registry of available homepage translations. Locales absent here
+ * (ja, de, es, fr until translated) resolve to English via the getter.
+ */
+const HOMEPAGE_TRANSLATIONS: Partial<Record<string, HomepageTranslations>> = {
+  en,
+  'zh-Hans': zhHans,
+};
+
+/**
+ * Get translations for a specific language, falling back to English.
  */
 export function getHomepageTranslations(lang: string): HomepageTranslations {
-  switch (lang) {
-    case 'cn':
-      return cn;
-    case 'en':
-    default:
-      return en;
-  }
+  return HOMEPAGE_TRANSLATIONS[lang] ?? en;
 }

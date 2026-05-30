@@ -5,7 +5,11 @@ import { i18n } from '@/lib/i18n';
 // Language display names mapping
 const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English',
-  cn: '中文',
+  'zh-Hans': '简体中文',
+  ja: '日本語',
+  de: 'Deutsch',
+  es: 'Español',
+  fr: 'Français',
 };
 
 export default async function LanguageLayout({

@@ -1,0 +1,87 @@
+---
+title: Variables d'environnement
+description: Référence des variables d'environnement d'exécution d'ObjectOS.
+---
+
+# Variables d'environnement
+
+Utilisez les variables d'environnement pour la configuration au niveau du déploiement et les secrets.
+Utilisez les paramètres système pour la configuration applicative modifiable par le locataire ou l'utilisateur.
+
+> **Nommage.** À partir de la prochaine version, toutes les variables appartenant à ObjectStack utilisent le
+> préfixe `OS_`. Les noms sans préfixe antérieurs à la version 1.0 (`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`,
+> …) fonctionnent toujours mais émettent un avertissement de dépréciation unique. Préférez les noms canoniques
+> `OS_*` dans les nouveaux déploiements ; voir [Alias hérités](#legacy-aliases).
+
+## Cœur
+
+| Variable | Requis | Description |
+|---|---:|---|
+| `OS_PORT` | Non | Port HTTP sur lequel le runtime écoute. Par défaut `3000`. Alias hérité : `PORT`. |
+| `OS_AUTH_SECRET` | Oui pour l'authentification | Secret de base utilisé pour dériver les secrets d'authentification par projet. Alias hérité : `AUTH_SECRET`. |
+
+## Résolution des artefacts et des projets
+
+| Variable | Requis | Description |
+|---|---:|---|
+| `OS_ARTIFACT_FILE` | Mode fichier | Chemin vers un `objectstack.json` compilé localement. Lu par le wrapper de l'application ObjectOS et transmis en tant que `fileConfig.artifactPath`. |
+| `OS_ARTIFACT_PATH` | Alternative | Nom au niveau du framework pour le même chemin ou une URL `http(s)://`. Pris en charge directement par `@objectstack/runtime` (CLI `dev`/`start`, mode autonome). |
+| `OS_PROJECT_ID` | Optionnel | Alias hérité pour `OS_ENVIRONMENT_ID`, accepté par le wrapper ObjectOS pour des raisons de rétrocompatibilité. Préférez `OS_ENVIRONMENT_ID` dans les nouveaux déploiements. |
+| `OS_ENVIRONMENT_ID` | Optionnel | Identifiant d'environnement pour le mode autonome/adossé à un fichier (par défaut `proj_local`). Également utilisé pour dériver le secret d'authentification par projet. Le wrapper ObjectOS accepte aussi l'alias hérité `OS_PROJECT_ID`. |
+| `OS_ORGANIZATION_ID` | Optionnel | Identifiant d'organisation par défaut pour le mode adossé à un fichier (par défaut `org_local`). |
+| `OS_WATCH_ARTIFACT` | Non | Définissez-le à `1` pour recharger l'artefact local lorsqu'il change. À utiliser uniquement en développement. |
+| `OS_CLOUD_URL` | Mode cloud | URL de base du plan de contrôle pour la résolution des noms d'hôte et la récupération des artefacts. Définissez-le à `off` ou `local` pour désactiver le comportement connecté au cloud. |
+| `OS_CLOUD_API_KEY` | Optionnel | Jeton Bearer pour l'accès privé à l'API Artifact du plan de contrôle. |
+| `OS_MULTI_ORG_ENABLED` | Non | Définissez-le à `true` pour activer le routage multi-locataire / le changement d'organisation (par défaut `false`). Alias hérité : `OS_MULTI_TENANT`. |
+| `OS_RUNTIME_PORT` | Dev uniquement | Port localhost utilisé pour construire les URL de rappel SSO de la plateforme lors du développement sur `http://localhost:<port>`. |
+
+## Cache
+
+| Variable | Par défaut | Description |
+|---|---:|---|
+| `OS_KERNEL_CACHE_SIZE` | `32` | Nombre maximal de kernels de projet en cache. |
+| `OS_KERNEL_TTL_MS` | `900000` | TTL d'inactivité pour les kernels de projet. |
+| `OS_ENV_CACHE_TTL_MS` | `300000` | TTL du cache d'environnement/de noms d'hôte. |
+| `OS_ARTIFACT_CACHE_TTL_MS` | `300000` | TTL du cache des réponses d'artefacts. |
+
+## Authentification et origines de confiance
+
+| Variable | Description |
+|---|---|
+| `AUTH_SECRET` | Alias hérité pour `OS_AUTH_SECRET`. Toujours pris en charge dans cette version ; préférez `OS_AUTH_SECRET`. |
+| `OS_TRUSTED_ORIGINS` | Origines de confiance supplémentaires, séparées par des virgules. |
+| `OS_ROOT_DOMAIN` | Domaine racine utilisé pour faire confiance aux sous-domaines de projet dans les déploiements SSO de la plateforme. |
+| `OS_PLATFORM_SSO` | Définissez-le à `false` pour désactiver le câblage SSO de la plateforme. |
+| `OS_RUNTIME_PORT` | Aide au développement local pour les noms d'hôte de projet en localhost. |
+
+## Base de données
+
+En mode connecté au cloud, le plan de contrôle renvoie la configuration de la
+base de données d'exécution par projet avec la réponse d'artefact. En
+mode adossé à un fichier, ObjectOS lit les déclarations de source de données depuis
+l'artefact. En dernier recours, le framework prend également en charge :
+
+| Variable | Description |
+|---|---|
+| `OS_DATABASE_URL` | URL de connexion (`file:./db.sqlite`, `libsql://…`, `postgres://…`, `mongodb://…`, `memory://`). Utilisée par le mode autonome et la CLI `dev`. |
+| `OS_DATABASE_DRIVER` | Remplace le pilote auto-détecté à partir de l'URL. |
+| `OS_DATABASE_AUTH_TOKEN` | Jeton d'authentification pour les pilotes managés tels que Turso/libSQL. |
+| `OS_BUSINESS_DB_URL` | Convention du wrapper ObjectOS pour l'URL de la base de données métier par projet. Résolvez-la vers `OS_DATABASE_URL` ou un remplacement de source de données d'exécution dans votre déploiement. |
+| `OS_CACHE_DIR` | Répertoire de cache local des artefacts et de l'exécution (par défaut `/var/cache/objectos`). |
+| `OS_SKIP_SCHEMA_SYNC` | Définissez-le à `1` pour ignorer la synchronisation DDL ObjectQL au démarrage. À utiliser lorsque le schéma est géré hors bande. |
+
+Pour les déploiements clients ObjectOS, préférez une configuration d'exécution
+explicite du plan de contrôle ou une configuration de source de données d'artefact
+plutôt que de vous appuyer sur les valeurs par défaut locales au conteneur.
+
+## Alias hérités
+
+Ces noms antérieurs à la version 1.0 fonctionnent toujours dans cette version mais émettent un avertissement
+de dépréciation unique. Ils seront supprimés dans une future version majeure. Préférez le nom canonique.
+
+| Canonique | Hérité |
+|---|---|
+| `OS_PORT` | `PORT` |
+| `OS_AUTH_SECRET` | `AUTH_SECRET` |
+| `OS_MULTI_ORG_ENABLED` | `OS_MULTI_TENANT` |
+| `OS_ENVIRONMENT_ID` | `OS_PROJECT_ID` |

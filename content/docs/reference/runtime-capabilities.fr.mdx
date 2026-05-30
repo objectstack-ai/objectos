@@ -1,0 +1,77 @@
+---
+title: Capacités d'exécution
+description: Capacités qu'ObjectOS peut charger depuis les paquets du framework ObjectStack.
+---
+
+# Capacités d'exécution
+
+ObjectOS charge un runtime de base pour chaque projet, puis installe les
+capacités optionnelles déclarées par l'artefact de l'application.
+
+## Runtime de base
+
+Le noyau de projet de base comprend :
+
+- le cycle de vie d'ObjectKernel et le registre de services ;
+- le moteur de données ObjectQL ;
+- le pilote de données configuré ;
+- le service de métadonnées ;
+- l'enregistrement de l'artefact de l'application ;
+- l'authentification lorsque `OS_AUTH_SECRET` est configuré ;
+- le plugin de sécurité pour le RBAC, la sécurité au niveau des lignes et la sécurité des champs ;
+- le service i18n.
+
+## Capacités optionnelles
+
+Les artefacts peuvent déclarer des capacités dans leur liste `requires`. ObjectOS
+charge les paquets de framework correspondants lorsqu'ils sont présents dans l'image.
+
+| Capacité | Paquet | Objectif |
+|---|---|---|
+| `automation` | `@objectstack/service-automation` | Exécution de flux/DAG et nœuds d'automatisation |
+| `ai` | `@objectstack/service-ai` | Adaptateurs LLM, conversations, outils, routes SSE |
+| `analytics` | `@objectstack/service-analytics` | Cubes, requêtes analytiques, données de reporting |
+| `audit` | `@objectstack/plugin-audit` | Objet de journal d'audit et piste d'audit |
+| `cache` | `@objectstack/service-cache` | Abstraction de cache et adaptateurs |
+| `storage` | `@objectstack/service-storage` | Service de stockage de fichiers/objets |
+| `queue` | `@objectstack/service-queue` | Abstraction de file d'attente et workers |
+| `job` | `@objectstack/service-job` | Tâches planifiées/en arrière-plan |
+| `realtime` | `@objectstack/service-realtime` | Temps réel WebSocket et pub/sub |
+| `feed` | `@objectstack/service-feed` | Commentaires, réactions, abonnements, flux d'activité |
+| `settings` | `@objectstack/service-settings` | Manifestes de paramètres et résolveur clé/valeur |
+
+Si une capacité est demandée mais que l'image n'inclut pas le paquet,
+**ObjectOS enregistre un avertissement et continue de fonctionner avec cette
+capacité désactivée.** C'est intentionnel — cela permet de maintenir le runtime
+démarrable même lorsqu'un paquet optionnel est absent pendant le développement — mais en
+**production, c'est un risque réel** :
+
+- Une application nécessitant l'audit chargée dans une image sans
+  `@objectstack/plugin-audit` démarrera correctement **et n'écrira aucun
+  journal d'audit**. Les preuves de conformité seront manquantes sans aucune erreur.
+- Une application pilotée par des tâches chargée dans une image sans
+  `@objectstack/service-job` démarrera correctement **et n'exécutera silencieusement jamais
+  les travaux planifiés**.
+
+**Liste de contrôle pour la production :**
+
+1. Traitez les avertissements de capacité comme des échecs de déploiement. Recherchez dans les journaux de démarrage
+   `capability not loaded` (ou son équivalent) et faites échouer la
+   sonde de disponibilité / le déploiement si l'un d'eux apparaît.
+2. Épinglez l'image du runtime à une image qui inclut chaque paquet que vos
+   artefacts déclarent dans `requires`.
+3. Lors de la publication d'un artefact, documentez sa liste `requires` à côté de
+   lui afin que les opérateurs puissent vérifier l'image correspondante.
+
+## Surface d'API
+
+ObjectOS expose couramment :
+
+- des API REST générées ;
+- des points de terminaison d'authentification sous `/api/v1/auth/*` ;
+- des points de terminaison de métadonnées et d'i18n ;
+- des points de terminaison de service pour les capacités activées.
+
+GraphQL et OData sont des capacités au niveau du framework et ne doivent être
+documentés comme pris en charge que lorsqu'ils sont inclus et activés par le paquet
+de runtime déployé.

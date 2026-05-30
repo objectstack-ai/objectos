@@ -104,7 +104,7 @@ catalog lives.
 | Mode | When | How |
 |---|---|---|
 | **Standalone** | Single app, dev, evaluation, air-gapped, most production deployments | `pnpm dev` or run `dist/objectstack.json` from disk |
-| **File-backed** | Production with externally-managed artifacts | Set `OS_ARTIFACT_FILE=/path/to/objectstack.json` |
+| **File-backed** | Production with externally-managed artifacts | Set `OS_ARTIFACT_PATH=/path/to/objectstack.json` |
 | **Cloud-connected** | Multi-tenant / multi-app deployments fed by a control plane | Set `OS_CLOUD_URL` + `OS_CLOUD_API_KEY` |
 
 Mode is auto-detected from environment variables.

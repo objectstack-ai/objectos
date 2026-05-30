@@ -1,0 +1,190 @@
+---
+title: Agentes
+description: Asistentes de IA para usuarios finales — Agente → Skill → Tool — conectados desde tus datos y acciones.
+---
+
+# Agentes
+
+Los agentes son los asistentes de IA con los que conversan tus **usuarios
+finales** — un copiloto de mesa de ayuda, un BDR de ventas, un bot interno
+de preguntas y respuestas de RR. HH. Se apoyan en los datos y las acciones
+que ya has definido; no escribes código nuevo, compones primitivas
+existentes para formar una persona.
+
+Arquitectura de tres niveles, alineada con Salesforce Agentforce, Microsoft
+Copilot Studio y ServiceNow Now Assist:
+
+```text
+Agent  ──→  Skill  ──→  Tool
+(persona)   (capability)  (callable function)
+```
+
+| Nivel | Qué es | Ejemplo |
+|---|---|---|
+| **Tool** | Una función invocable (acción, consulta, búsqueda de conocimiento, método MCP) | `create_ticket`, `get_order_status`, `search_kb` |
+| **Skill** | Un paquete con nombre de tools relacionadas con instrucciones de LLM compartidas | `ticket_management` = create + update + close + escalate |
+| **Agent** | Una persona con un rol, prompt de sistema, skills adjuntas y conocimiento | `tier1_support` = empático, verifica identidad, tiene `ticket_management` + `kb_search` |
+
+## Definir un agente (un archivo)
+
+```ts
+// src/agents/tier1_support.agent.ts
+import { defineAgent } from '@objectstack/spec/ai';
+
+export const tier1Support = defineAgent({
+  name: 'tier1_support',
+  label: 'First Line Support',
+  role: 'Help Desk Assistant',
+  instructions: `
+    You are a friendly first-line support agent.
+    Always verify the user's identity before discussing account specifics.
+    Escalate to tier 2 if the issue involves billing or security.
+  `,
+  skills: ['ticket_management', 'knowledge_search'],
+  knowledge: {
+    topics:  ['faq', 'policies'],
+    indexes: ['support_docs'],
+  },
+  model: { provider: 'openai', model: 'gpt-4o', temperature: 0.3 },
+  memory: { shortTerm: { maxMessages: 30 } },
+});
+```
+
+O en Console: **Console → Agents → New Agent**.
+
+O — y este es el punto clave — dile al AI Builder:
+
+> *"Crea un agente de soporte de nivel 1 que gestione la administración de
+> tickets y busque en las preguntas frecuentes. Debe verificar la identidad
+> antes de hablar de los detalles de la cuenta."*
+
+## Definir una Skill
+
+```ts
+// src/skills/ticket_management.skill.ts
+import { defineSkill } from '@objectstack/spec/ai';
+
+export const ticketManagement = defineSkill({
+  name: 'ticket_management',
+  label: 'Ticket Management',
+  instructions: `
+    Always confirm the ticket subject and priority before creating one.
+    Use 'urgent' priority sparingly — only for outages or security incidents.
+  `,
+  tools: [
+    'create_ticket',
+    'update_ticket',
+    'close_ticket',
+    'escalate_ticket',
+    'action_*',         // wildcard: pick up any future actions on the active object
+  ],
+});
+```
+
+Las skills son **la unidad correcta para la reutilización**. Una skill
+funciona en muchos agentes.
+
+## Las tools provienen de tus metadatos declarados
+
+Cada `*.action.ts` que declaras se materializa automáticamente como una
+tool `action_<name>` — sin conexiones por separado. Por lo tanto, si ya has
+definido `escalate_ticket` como una Action en el objeto `support_ticket`,
+tanto el AI Builder como tus agentes pueden invocarla. Los permisos siguen
+aplicándose: el agente invoca la acción **como el usuario**, por lo que el
+conjunto de permisos del usuario decide si tiene éxito.
+
+También puedes exponer:
+
+| Tipo de tool | Origen |
+|---|---|
+| **Action** | Cualquier `*.action.ts` en cualquier paquete instalado |
+| **Flow** | Cualquier flujo manual (`type: 'manual'`) |
+| **Query** | Consultas ObjectQL guardadas (`*.query.ts`) |
+| **Knowledge search** | Cualquier índice de conocimiento adjunto al agente |
+| **MCP method** | Cualquier cosa expuesta por un servidor MCP adjunto |
+| **Built-in metadata tools** | `create_object`, `add_field`, … — pero solo para agentes administradores |
+
+## Patrón de asistente ambiental
+
+Si quieres **un solo cuadro de chat para toda la app** (estilo Claude Code /
+Agentforce) en lugar de obligar al usuario a elegir un agente, declara un
+`defaultAgent` en los metadatos de la App y llama al endpoint de chat
+ambiental con el contexto de la app:
+
+```text
+POST /api/v1/ai/chat   { context: { appName: 'crm' }, ... }
+```
+
+Cuando `context.appName` se resuelve a una app que declara un
+`defaultAgent`, el runtime selecciona automáticamente ese agente — el
+usuario nunca elige de una lista. El panel de IA integrado de Console usa
+esto. El runtime resuelve:
+
+1. El **agente predeterminado** para la app activa (el `defaultAgent` de la
+   app), o el primer agente al que el usuario tenga acceso.
+2. Las **skills activas** — la lista `skills:` del agente cargada desde el
+   Skill Registry, filtrada por el conjunto de permisos del usuario y el
+   contexto actual de objeto/registro.
+3. El **conocimiento** adjunto al agente.
+
+No tienes que conectar qué agente se muestra dónde. Declara una app,
+configura su `defaultAgent` y aparece.
+
+## Permisos
+
+| Capacidad | Permiso |
+|---|---|
+| Conversar con un agente | `ai:chat` (y acceso a las tools de las skills del agente) |
+| Aprobar cambios de metadatos | `ai:approve` |
+| Definir / editar agentes y skills | `ai:author` (normalmente Setup Administrator) |
+| Leer conversaciones de IA (auditoría) | `ai:read` |
+
+Las conversaciones tienen alcance por usuario — un usuario no puede ver el
+historial de chat de otro a menos que tenga una concesión delegada.
+
+## Memoria y estado de la conversación
+
+El bloque `memory` del agente tiene dos niveles:
+
+| Campo | Qué hace |
+|---|---|
+| `shortTerm.maxMessages` | Mensajes recientes guardados en la memoria de trabajo (predeterminado `50`) |
+| `shortTerm.maxTokens` | Presupuesto opcional de tokens para la ventana de contexto a corto plazo |
+| `longTerm.enabled` | Persiste la memoria entre sesiones (predeterminado `false`) |
+| `longTerm.store` | Backend para la memoria persistida: `vector` (predeterminado), `database` o `redis` |
+| `reflectionInterval` | Reflexiona cada N interacciones para refinar el comportamiento |
+
+La poda de la ventana de contexto en vivo se rige por la estrategia de
+presupuesto de tokens de la conversación — `sliding_window` (predeterminado),
+`fifo`, `importance`, `semantic` o `summary`.
+
+Las filas de conversación viven en `ai_conversations`. Los resultados de las
+llamadas a tools y las acciones pendientes hacen referencia cruzada a la
+conversación de origen para la auditoría.
+
+## Observabilidad
+
+Cada ejecución de un agente emite:
+
+- eventos `audit:ai:chat` (por turno)
+- eventos `audit:ai:tool` (por llamada a tool, con entradas + salidas)
+- eventos `audit:ai:pending_action` (cuando se pone en cola una mutación)
+- métricas de recuento de tokens (por modelo, por proveedor) en el registro
+  de auditoría para la facturación interna
+
+Puedes conectarlas a tu pila de observabilidad habitual — consulta
+[Observability](/docs/operate/observability).
+
+## Nota sobre multi-tenant
+
+Los agentes son por Environment. El agente `tier1_support` del tenant A
+nunca ve los datos, conversaciones ni conocimiento del tenant B — incluso si
+distribuyes la misma definición de agente en un paquete del marketplace.
+
+## A dónde ir después
+
+- [AI Builder](/docs/build/ai-builder) — el asistente de tiempo de build
+- [IDE Skills](/docs/build/ai-skills) — `npx skills add objectstack-ai/framework` para que el agente de tu IDE genere los metadatos correctamente
+- [Actions](/docs/build/actions) — declara las tools que usarán tus agentes
+- [AI Service](/docs/configure/ai) — configuración de proveedor, embedder y MCP
+- [`@objectstack/spec/ai`](https://github.com/objectstack-ai/framework/tree/main/packages/spec/src/ai) — esquemas completos

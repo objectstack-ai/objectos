@@ -1,0 +1,140 @@
+---
+title: Por qué ObjectOS
+description: La propuesta honesta — cuándo deberías usarlo, cuándo no, y qué lo hace diferente.
+---
+
+# Por qué ObjectOS
+
+Esta página existe para que no tengas que leer entre líneas de cada
+otro documento para averiguar si ObjectOS es adecuado para ti.
+
+## La forma de la apuesta
+
+ObjectOS hace una apuesta con una opinión clara: **la IA escribe los
+metadatos de tu aplicación, tú eres dueño del runtime que los ejecuta.**
+
+No escribes a mano objetos, campos, vistas, flujos y permisos
+archivo por archivo. Tus usuarios describen lo que necesitan en lenguaje
+natural al [AI Builder](/docs/build/ai-builder) integrado en la Console;
+este invoca un pequeño conjunto de herramientas auditadas, pone en cola
+cada cambio para su aprobación humana, y el resultado está en vivo —
+endpoints REST, pantallas de Console, RBAC, registro de auditoría,
+todo generado a partir de los mismos metadatos.
+
+El runtime reside en **tu** VPC, en **tu** base de datos, bajo
+**tu** fork con licencia Apache-2.0. El modelo se comunica con una API
+de metadatos en sandbox, no con tu data warehouse.
+
+Esa es toda la propuesta. El resto de esta página trata sobre a quién
+le encaja y a quién no.
+
+## Usa ObjectOS si …
+
+- necesitas una herramienta interna, panel de administración o aplicación de back-office, **y**
+- quieres que las personas que la usan (o los agentes de IA que actúan en su nombre) puedan
+  *extenderla* sin abrir un ticket, **y**
+- no puedes (o no quieres) poner los datos en la nube de otra persona, **y**
+- no quieres reconstruir auth + RBAC + auditoría + cargas de archivos + trabajos +
+  webhooks por décima vez.
+
+Escenarios comunes donde encaja:
+
+| Escenario | Por qué funciona |
+|---|---|
+| Reemplazar una app de Retool / Appsmith porque la soberanía de datos surgió en una revisión de seguridad | ObjectOS se ejecuta en tu VPC; los datos nunca salen |
+| Construir una herramienta de cumplimiento / riesgo / gestión de proveedores para un negocio regulado | El registro de auditoría, RBAC, seguridad a nivel de campo y aislamiento a nivel de fila son de primera clase — y cada cambio impulsado por IA es en sí mismo una entrada de auditoría |
+| Levantar un administrador interno para un producto SaaS | Un único proceso de Node, encaja junto a tus servicios existentes |
+| Despliegue air-gapped u on-premise para un cliente empresarial | Destino de despliegue de primera clase, sin necesidad de salida a internet (BYO modelo local) |
+| Portal interno multi-inquilino (un runtime, muchas apps pequeñas) | Kernel por proyecto + caché LRU diseñados para esto |
+| Quieres que tus usuarios "vibe-codeen" sus propias extensiones de forma segura | El AI Builder + la cola de aprobación HITL + el registro de auditoría son justamente el punto |
+
+## No uses ObjectOS si …
+
+- estás construyendo un producto de consumo de alto tráfico → usa un framework
+  web tradicional, tendrás más control.
+- necesitas una interfaz a medida y perfecta al píxel para usuarios finales → la Console de ObjectOS es
+  para uso administrativo/interno; combínala con tu propio front-end vía REST.
+- quieres un constructor no-code de arrastrar y soltar para no ingenieros y una nube
+  alojada → usa Retool, Bubble o Airtable. ObjectOS es code-first, impulsado por IA y autoalojado.
+- necesitas edición colaborativa en tiempo real (estilo Figma) → no es lo que resuelve el
+  plugin de realtime.
+
+## Comparado con lo que probablemente estás usando
+
+### vs. Retool / Appsmith / Internal
+
+| | Retool | ObjectOS |
+|---|---|---|
+| Ubicación de los datos | Su nube (o autoalojado en un nivel superior) | Tu red, siempre |
+| Constructor de UI | Arrastrar y soltar, muy pulido | Impulsado por metadatos, generado; menos personalizado |
+| Precios | Por usuario, escala de forma dolorosa | Autoalojado, Apache-2.0 |
+| Flujo de trabajo / disparadores | Su motor de flujos de trabajo | Flujos declarativos + plugins |
+| Lógica de backend | Limitada a su editor de consultas | TypeScript completo, ecosistema completo de Node |
+| Mejor para | Dashboards rápidos sobre APIs existentes | Apps que *son dueñas* de sus datos |
+
+### vs. Supabase / Firebase
+
+| | Supabase | ObjectOS |
+|---|---|---|
+| Tiempo de configuración | ~30 segundos | ~30 segundos |
+| Base de datos | Postgres, suya (autoalojado posible) | Cualquier Postgres / MySQL / SQLite / Turso / Mongo, **tuya** |
+| Auth | Incorporado | Incorporado |
+| APIs generadas | PostgREST | REST generado por ObjectQL |
+| UI de administración | Console (básica) | Console + Account |
+| RBAC | A nivel de fila vía Postgres RLS | RBAC + a nivel de fila + a nivel de campo, declarativo |
+| Registro de auditoría | Hazlo tú mismo | De primera clase |
+| Dependencia del proveedor | Su auth + su almacenamiento + su realtime | Ninguna — cada capa es un plugin |
+| Mejor para | Apps nuevas que quieren un BaaS | Apps que necesitan ser dueñas del runtime |
+
+### vs. Salesforce / NetSuite / ServiceNow
+
+| | Salesforce | ObjectOS |
+|---|---|---|
+| Modelo de datos | Objetos + campos + relaciones | Igual |
+| Permisos | Perfil + conjuntos de permisos + reglas de compartición + FLS | **El mismo vocabulario**, TypeScript declarativo |
+| Costo por usuario | $150-300/usuario/mes | $0 |
+| Personalización | Apex + Lightning + flujos | TypeScript + flujos |
+| Dónde se ejecuta | Su nube, punto | Tu infraestructura |
+| Tiempo hasta "es nuestro" | Meses de trabajo de consultoría | Una tarde |
+| Mejor para | Empresas lideradas por ventas que pagarán por el ecosistema | Equipos que quieren el modelo sin el impuesto |
+
+### vs. construir lo tuyo propio (Next.js + Prisma + NextAuth)
+
+| | DIY | ObjectOS |
+|---|---|---|
+| Primer endpoint REST | Unas horas | 60 segundos |
+| Auth (email + OAuth + OIDC + passkey + 2FA) | Semanas | Incluido |
+| UI de administración para cada objeto | Construir por objeto | Generada |
+| Registro de auditoría | Hazlo tú mismo | Plugin, declarativo |
+| Carga de archivos a S3 con permisos | Hazlo tú mismo | Plugin |
+| Trabajos en segundo plano + reintentos + dead letter | Hazlo tú mismo | Plugin |
+| Multi-inquilino | Hazlo tú mismo (y lo harás mal dos veces) | Incorporado |
+| Mejor para | App pública con UX a medida | Tooling interno donde gana la velocidad |
+
+## Las concesiones honestas
+
+- **Menos libertad de UI que Retool.** La Console se genera a partir de tus
+  metadatos. Puedes combinarla con un front-end personalizado (la API REST es
+  la misma que usa la Console), pero si necesitas una interfaz hecha a mano y
+  perfecta al píxel, constrúyela tú mismo y usa ObjectOS como backend.
+- **TypeScript primero.** Los no ingenieros no escribirán objetos directamente.
+  Los administradores de Salesforce están acostumbrados a hacer clic en un constructor de UI; aquí,
+  es `git`.
+- **Más nuevo que Salesforce.** Salesforce tiene 25 años de casos límite
+  documentados. Nosotros tenemos unos cientos. El protocolo es estable; el
+  ecosistema está creciendo.
+- **Apache-2.0.** Úsalo en productos comerciales, incorpóralo, modifícalo
+  de forma privada. Sin sorpresas de copyleft. Soporte comercial opcional
+  disponible por separado.
+
+## Verificación de la realidad
+
+El despliegue de ObjectOS viable más pequeño es un único `pnpm dev` o un
+único contenedor Docker con SQLite. El más grande en producción hoy en día
+sirve a decenas de miles de usuarios internos en múltiples regiones con
+Postgres + S3 + Redis. Ambos son el mismo software.
+
+Comienza con `npx @objectstack/cli init my-app` y decide en 5 minutos.
+Si no es para ti, habrás gastado 5 minutos.
+
+[**Prueba el Quickstart →**](/docs/quickstart)

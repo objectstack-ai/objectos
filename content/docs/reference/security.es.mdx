@@ -1,0 +1,277 @@
+---
+title: Seguridad y Cumplimiento
+description: Qué se protege, cómo y quién es responsable — para revisión de seguridad.
+---
+
+# Seguridad y Cumplimiento
+
+Esta página está dirigida a revisores de seguridad, administradores de TI y
+cualquier persona que tenga que responder "¿es seguro adoptar esto?"
+
+## El modelo de amenazas en una frase
+
+ObjectOS se ejecuta como un único proceso de Node.js dentro de **tu** red,
+se comunica con **tu** base de datos y nunca se conecta a casa. El radio de
+impacto de un compromiso es la información de la base de datos a la que se
+conecta — nada más.
+
+## Residencia de los datos
+
+| Clase de datos | Reside en | ¿Sale de tu red? |
+|---|---|---|
+| Registros de negocio | Tu base de datos | **No** |
+| Cuentas de usuario, sesiones, tokens OAuth | Tu base de datos | **No** |
+| Registro de auditoría | Tu base de datos | **No** |
+| Configuración, claves de API | Tu base de datos / tu gestor de secretos | **No** |
+| Archivos subidos | Tu disco o bucket compatible con S3 | **No** |
+| Telemetría / datos de uso | — | **No se recopila nada** |
+
+ObjectOS realiza **cero llamadas salientes** a menos que las configures
+explícitamente (descubrimiento OIDC, proveedor de correo, proveedor de IA,
+destinos de webhook, almacenamiento externo). No se conecta a casa, no
+consulta un servidor de licencias, no hace ping en busca de actualizaciones.
+
+## Cifrado
+
+| Capa | Mecanismo | Responsabilidad |
+|---|---|---|
+| En tránsito (navegador ↔ ObjectOS) | TLS, terminado en tu edge / ingress | Tú |
+| En tránsito (ObjectOS ↔ base de datos) | TLS a nivel de driver (Postgres `sslmode=require`, MongoDB `tls=true`, …) | Tú — define la cadena de conexión |
+| En reposo (datos de negocio) | Nativo de la base de datos (p. ej. Postgres TDE, cifrado de RDS) | Tú |
+| En reposo (archivos subidos) | Nativo del almacenamiento (S3 SSE, R2 por defecto, FDE a nivel de disco) | Tú |
+| Secretos en la BD (configuración, secreto de cliente OIDC) | Cifrados por el servicio de configuración | ObjectOS |
+| Cookies de sesión / tokens | Firmados con HMAC mediante `OS_AUTH_SECRET` | ObjectOS |
+| Valores de claves de API | **Hasheados** en la BD — una fila de BD filtrada no puede reconstruir la clave | ObjectOS |
+
+## Autenticación
+
+Integrada (mediante `@objectstack/plugin-auth`, impulsada por Better Auth):
+
+- correo/contraseña con verificación + restablecimiento
+- gestión de sesiones con revocación
+- OAuth social (Google, GitHub, Microsoft, Apple, …)
+- OIDC/SSO empresarial (Okta, Entra ID, Keycloak, Ping)
+- doble factor (TOTP)
+- passkeys / WebAuthn
+- enlaces mágicos
+- flujo de dispositivo CLI/navegador
+- claves de API (hasheadas, con caducidad, revocables, vinculadas a un usuario)
+
+Consulta [Authentication](/docs/configure/authentication).
+
+## Autorización
+
+Aplicación por capas (mediante `@objectstack/plugin-security`):
+
+1. **Permisos de objeto** — CRUD por objeto y por conjunto de permisos
+2. **Seguridad a nivel de fila** — expresiones de política declarativas inyectadas en
+   las consultas; no es opcional
+3. **Seguridad a nivel de campo** — campos eliminados de las respuestas /
+   rechazados en escritura
+4. **Alcance por organización** — aislamiento multiinquilino; omitirlo requiere
+   `viewAllRecords` explícito
+
+Las operaciones en contexto de sistema omiten las comprobaciones para que los trabajos
+internos / migraciones puedan ejecutarse — estas rutas son auditables.
+
+Consulta [Permissions](/docs/configure/permissions).
+
+## Auditoría y evidencias
+
+Cuando la capacidad de auditoría está cargada (`@objectstack/plugin-audit`):
+
+- Cada operación CRUD sobre cada objeto → una fila de auditoría.
+- Valores anteriores/posteriores de los cambios de campo.
+- Eventos de autenticación, concesión de permisos, revocación de sesiones.
+- Las filas de auditoría son **inmutables**: no pueden modificarse, solo archivarse.
+- La retención es configurable; combínala con la política de archivado de tu BD.
+
+Esta es la base de evidencias para SOC 2 CC6/CC7, ISO 27001 A.12.4, HIPAA
+§164.312(b) y el Artículo 30 del RGPD.
+
+## Marcos de cumplimiento
+
+ObjectOS proporciona las **primitivas técnicas** que pide cada marco común.
+La certificación es una propiedad del despliegue, no del software — pero los
+controles se mapean con claridad:
+
+| Marco | Qué te aporta ObjectOS |
+|---|---|
+| **SOC 2** | Control de acceso (CC6), gestión de cambios (registro de auditoría), cifrado (despliegue), monitorización (observabilidad), copias de seguridad (operate/backup) |
+| **ISO 27001** | A.5 políticas (RBAC), A.8 gestión de activos (catálogo de objetos), A.9 control de acceso, A.12 operaciones, A.18 cumplimiento |
+| **HIPAA** | Controles de acceso (§164.312(a)), controles de auditoría (§164.312(b)), integridad (auditoría inmutable), seguridad en la transmisión (TLS) |
+| **RGPD** | Artículo 30 registros de actividades de tratamiento (auditoría), Artículo 32 seguridad del tratamiento, Artículo 17 derecho de supresión (se admite borrado lógico + físico), residencia de datos (tú eliges la región) |
+| **CCPA / China DSL / Russia 152-FZ** | El autoalojamiento en la región adecuada satisface la residencia; los controles de acceso + auditoría cubren la mayoría de las obligaciones de reporte |
+
+ObjectOS en sí **no está certificado** porque la certificación corresponde a un
+despliegue en ejecución, no a un binario. Tu despliegue sí puede certificarse —
+muchos ya lo están.
+
+## Manejo de secretos
+
+| Secreto | Dónde colocarlo |
+|---|---|
+| `OS_AUTH_SECRET` | Tu gestor de secretos (Vault, AWS Secrets Manager, k8s Secret); inyéctalo como variable de entorno |
+| URL de base de datos con credenciales | Igual |
+| Secreto de cliente OIDC | Igual |
+| Secretos de proveedores OAuth | Igual |
+| Claves de proveedores de API (correo, almacenamiento, IA) | Igual |
+| Configuración almacenada en la BD | Cifrada en reposo por el servicio de configuración |
+
+**Nunca** incorpores secretos en el artefacto (`objectstack.json`), la
+imagen de Docker, el archivo compose ni en Git. La interfaz de configuración en Console
+muestra los valores gestionados por entorno como bloqueados, de modo que los operadores no puedan
+sobrescribirlos accidentalmente.
+
+## Modelo de red
+
+Entrada requerida:
+- HTTPS desde tu ingress / balanceador de carga hacia ObjectOS en `:3000` (por defecto).
+
+Salida requerida (solo si configuras estas funciones):
+- Tu base de datos (Postgres / Mongo / Turso / …).
+- Almacenamiento compatible con S3 (si la capacidad `storage` está habilitada con el adaptador de S3).
+- URL de descubrimiento OIDC (si SSO está habilitado).
+- API del proveedor de correo (Resend / Postmark).
+- API del proveedor de IA (OpenAI / Anthropic / Google / …).
+- Destinos de webhook.
+
+Esa es toda la superficie de salida. Consulta [Air-gapped](/docs/deploy/air-gapped)
+para despliegues que reducen aún más.
+
+## IA: herramientas, aprobaciones, aislamiento
+
+El AI Builder es la superficie más sensible a la seguridad que vas a exponer,
+por lo que cuenta con su propia capa de aplicación además de todo lo anterior.
+
+### Cómo puede la IA modificar el estado
+
+El modelo **no puede escribir directamente** en tu base de datos. La única manera
+de que cambie el estado es emitiendo una llamada estructurada a una herramienta que el servicio
+de IA recibe, valida y encola. La cadena:
+
+```text
+user prompt
+  → model emits tool call (e.g. add_field { object: 'ticket', name: 'severity', type: 'select' })
+  → AI service validates payload against the tool's Zod schema
+  → if the tool is "mutating": queue as pending action (no state change yet)
+  → human reviewer approves → mutation applied → audit row written
+  → if the tool is "read-only": run immediately, response returned to model
+```
+
+Hay 11 herramientas de metadatos de primera parte
+([consulta Build → AI Builder](/docs/build/ai-builder)) más una herramienta
+`action_<name>` por cada acción declarada. Cada herramienta — de primera parte o
+personalizada — tiene el mismo ciclo de vida.
+
+### Claves de permiso
+
+| Clave | Concede |
+|:--|:--|
+| `ai:chat` | Mantener una conversación; consumir modelos; permitir que el agente llame a herramientas de solo lectura |
+| `ai:complete` | Endpoint de completado en bruto (sin bucle de agente) |
+| `ai:conversations` | Listar / inspeccionar / eliminar conversaciones (propias o todas, según el alcance de RBAC) |
+| `ai:agents` | Gestionar metadatos de agentes (junto con `ai:chat` para invocarlos) |
+| `ai:tools` | Listar el catálogo de herramientas |
+| `ai:execute` | Invocar una herramienta directamente vía REST (avanzado — normalmente solo los agentes ambientales lo necesitan) |
+| `ai:read` | Leer la cola de acciones pendientes y la lista de modelos |
+| `ai:approve` | Aprobar / rechazar mutaciones encoladas |
+| `ai:admin` | Administración completa del servicio de IA |
+
+La división crítica es **`ai:chat` ≠ `ai:approve`**. Otorga a la mayoría de los usuarios
+`ai:chat` para que el asistente funcione; reserva `ai:approve` para los
+administradores / propietarios de la aplicación que deban revisar cambios estructurales. Los usuarios
+finales pueden, por tanto, "construir al vuelo" de forma segura — lo peor que pueden hacer es
+encolar un cambio incorrecto que otra persona debe aceptar.
+
+### Aislamiento de inquilinos
+
+- Los agentes, conversaciones, bases de conocimiento y acciones pendientes están
+  acotados a un único **Environment** (inquilino). El inquilino A no puede ver las
+  conversaciones del inquilino B, las herramientas que la IA propuso ni los corpus de conocimiento —
+  incluso si se instaló la misma definición de agente desde el mismo
+  paquete del marketplace.
+- Las herramientas de metadatos (`create_object`, `add_field`, …) operan sobre
+  el **paquete activo** en el inquilino del llamante. No pueden salir
+  de él.
+- Las entradas de las herramientas se validan con CEL y el motor rechaza referencias a
+  paquetes de sistema reservados (`sys.*`) o a nombres de objeto de otros inquilinos.
+
+### Eventos de auditoría
+
+Cuando la capacidad de auditoría está cargada:
+
+- `ai.chat.message` — cada mensaje de usuario / asistente, con modelo + recuento de tokens
+- `ai.tool.call` — nombre de herramienta, entrada validada, salida completa (o error)
+- `ai.pending_action.queued` — mutación propuesta, diff completo
+- `ai.pending_action.approved` / `.rejected` — quién decidió, cuándo, por qué
+- `ai.metadata.applied` — escritura real en el almacén de metadatos, con diff
+
+Estas filas son inmutables y pueden exportarse para revisión de seguridad o
+imputación de costes. Los recuentos de tokens por (proveedor, modelo, usuario) alimentan la
+atribución de costes.
+
+### Postura frente a la inyección de prompts
+
+La inyección indirecta de prompts (p. ej. contenido malicioso en un documento que
+el agente recupera) es un riesgo real; ObjectOS reduce el radio de impacto por
+construcción:
+
+- La IA **no puede eludir la validación de herramientas** — incluso si se la convence de
+  emitir una carga maliciosa, el esquema de Zod rechaza las entradas malformadas
+  antes de que lleguen al motor.
+- Las herramientas mutadoras siempre se encolan. Un prompt inyectado no puede escribir
+  silenciosamente en la base de datos.
+- Las llamadas a herramientas heredan los **permisos del usuario final**, no los permisos
+  de la cuenta de servicio del modelo. Un usuario nunca puede usar la IA para hacer
+  algo que no pudiera hacer por sí mismo a través de Console o REST.
+- Las skills cargadas en los agentes están versionadas y son explícitas — consulta
+  [Build → IDE Skills](/docs/build/ai-skills) y
+  [Build → AI Builder](/docs/build/ai-builder).
+
+### Flujo de datos hacia proveedores de IA externos
+
+Cuando configuras un proveedor (OpenAI, Anthropic, …), solo lo
+siguiente sale de tu red:
+
+- El historial de conversación que el modelo necesita (sujeto a la configuración
+  `redact` de tu servicio de IA — consulta [Configure → AI](/docs/configure/ai))
+- Definiciones de herramientas (nombres, esquemas JSON — sin datos de registros)
+- Salidas de herramientas que el modelo necesita para continuar (p. ej. el resultado de una consulta
+  que el usuario solicitó explícitamente)
+
+Para despliegues air-gapped, apunta el servicio de IA a un endpoint local de Ollama /
+vLLM / TGI y el mismo flujo permanece dentro de tu perímetro.
+
+## Divulgación de vulnerabilidades
+
+Reporta los problemas de seguridad de forma privada a
+**security@objectstack.ai**. Respondemos en un plazo de 1 día hábil. No
+abras issues públicas en GitHub para problemas de seguridad.
+
+## Cadena de suministro
+
+- Imágenes precompiladas publicadas desde [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos)
+  con procedencia de compilación reproducible.
+- Todos los paquetes `@objectstack/*` tienen el código fuente publicado en GitHub —
+  Apache-2.0, sin ofuscación.
+- Usa etiquetas de imagen ancladas a SHA (`sha-<short>`) en producción para evitar
+  desviaciones; consulta [Docker](/docs/deploy/docker).
+
+## Lista de verificación de endurecimiento sugerida
+
+- [ ] TLS terminado en el edge con un certificado real.
+- [ ] `OS_AUTH_SECRET` tiene 32+ bytes aleatorios, en un gestor de secretos.
+- [ ] La conexión a la base de datos usa TLS.
+- [ ] HSTS habilitado tras validar TLS.
+- [ ] Orígenes CORS explícitos (nunca `*` con credenciales).
+- [ ] Límites de tasa en los endpoints de autenticación (`10/min/IP` recomendado).
+- [ ] La retención de auditoría coincide con la política.
+- [ ] OIDC para cuentas humanas; claves de API para cuentas de máquina.
+- [ ] Simulacro de copia de seguridad + restauración ejecutado y cronometrado.
+- [ ] Pruebas negativas: acceso entre organizaciones denegado, la seguridad de campo se mantiene, la sesión expirada se rechaza.
+- [ ] Imagen anclada a una etiqueta `sha-<short>` o semver.
+- [ ] `os doctor` limpio en CI antes de cada release.
+
+Consulta [Production Readiness](/docs/operate/production) para la lista de
+verificación completa de puesta en marcha.

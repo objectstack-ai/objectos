@@ -1,0 +1,10 @@
+{
+  "title": "Desplegar",
+  "defaultOpen": false,
+  "pages": [
+    "index",
+    "docker",
+    "kubernetes",
+    "air-gapped"
+  ]
+}

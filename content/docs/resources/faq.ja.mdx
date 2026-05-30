@@ -1,0 +1,201 @@
+---
+title: FAQ
+description: よく寄せられる質問への回答。
+---
+
+# FAQ
+
+## はじめに
+
+**Q: ObjectOS を最速で試す方法は?**
+A: `npm i -g @objectstack/cli && os start` を実行し、
+http://localhost:3000 を開いてください。[クイックスタート](/docs/quickstart)を参照してください。
+
+**Q: Docker は必要ですか?**
+A: いいえ。Node 20+ と CLI があれば十分です。Docker は本番環境への
+推奨デプロイ構成です。
+
+**Q: データベースは必要ですか?**
+A: いいえ、開始時には不要です。ObjectOS はデフォルトでローカルの SQLite を
+使用します。本番環境に移行する際は Postgres / MySQL / Turso / Mongo に
+切り替えてください。
+
+**Q: アカウントやクラウドサービスは必要ですか?**
+A: いいえ。ObjectOS は完全に自己完結しています。ObjectStack Cloud は、
+コントロールプレーンを備えたマルチ環境・マルチアプリのデプロイにおいて
+任意で利用できます。
+
+## アーキテクチャ
+
+**Q: Postgres / MySQL / MongoDB を使えますか?**
+A: はい。Postgres、MySQL、SQLite、Turso/libSQL、MongoDB が
+サポートされるドライバです。[ランタイム設定](/docs/configure/runtime)を参照してください。
+
+**Q: Console / Account を無効化して REST API のみを使えますか?**
+A: はい。`os start --no-ui` を実行するか、対応するフラグを設定してください。
+REST API は UI がマウントされているかどうかに関わらず同一です。
+
+**Q: Console の代わりに独自のフロントエンドを使えますか?**
+A: はい。Console は、独自のコードから呼び出すのと同じ `/api/v1/*`
+エンドポイントを使用します。`@objectstack/client` SDK または任意の HTTP
+クライアントを使用してください。
+
+**Q: ObjectOS は GraphQL をサポートしていますか?**
+A: REST が主要なインターフェースです。GraphQL はロードマップにあります。
+それまでは、ObjectQL クエリ言語(REST の `?filter=`/`?sort=` 上)が
+同等の範囲をカバーします。
+
+**Q: マルチテナンシーはどのように扱われますか?**
+A: 1 つの ObjectOS プロセスが多数の Environment(テナント)を提供できます。
+ホスト名 → Environment の解決は LRU にキャッシュされ、各 Environment は
+独自のデータベース、アイデンティティ、監査ログを持ちます。Cookie は
+ホスト名ごとにスコープされるため、セッションがテナント間で漏れることは
+ありません。
+
+**Q: ObjectOS はサーバーレス / Lambda 環境で実行できますか?**
+A: ランタイムは長時間稼働する Node プロセスであり、ステートレスな関数では
+なくコンテナや VM 向けに設計されています。カーネルキャッシュと Better Auth
+のセッションモデルはいずれも、プロセス内のウォームな状態に依存します。
+
+**Q: 水平方向にスケールしますか?**
+A: はい。複数のインスタンスをロードバランサーの背後で実行してください。
+セッションはデータベース(インメモリではない)に保存されるため、どの
+インスタンスでも任意のリクエストを処理できます。共有のレート制限やキューを
+有効にする場合は Redis を使用してください。
+
+## データとマイグレーション
+
+**Q: スキーマのマイグレーションはどのように扱われますか?**
+A: ドライバは起動時に、宣言したオブジェクトに合わせてデータベース
+スキーマを同期します。Postgres の場合、`CREATE TABLE` / `ALTER TABLE`
+ステートメントになります。規制された環境で制御されたマイグレーションを
+行う場合は、`OS_SKIP_SCHEMA_SYNC=1` を設定し、DDL を自分で管理してください。
+
+**Q: フィールド名を変更するとデータはどうなりますか?**
+A: 名前の変更はデータ層では破壊的な変更です(「古い列を削除し、新しい列を
+追加する」ように見えます)。`os diff` でこれを検出し、マイグレーションの
+ステップを追加してください(新しいアーティファクトをデプロイする前に DB で
+列名を変更します)。
+
+**Q: CSV / Excel / Salesforce からデータをインポートできますか?**
+A: CSV: はい、ループ内での `os data create` または Console の一括アップロードで
+可能です。Salesforce: 現時点で最善の方法は CSV にエクスポートしてから
+インポートすることです。ネイティブコネクタはロードマップにあります。
+
+**Q: ObjectOS をアップグレードするとデータが失われますか?**
+A: いいえ。パッチおよびマイナーアップグレードは非破壊的です。メジャー
+アップグレード(例: 4 → 5)では必要なマイグレーションが明示的に文書化されます。
+まずバックアップを取得してください。[バックアップと DR](/docs/operate/backup)。
+
+## 権限とマルチテナンシー
+
+**Q: 行レベルのセキュリティはどう実装しますか?**
+A: 共有ルール(Salesforce のような宣言的なもの)、またはオブジェクトの
+`recordAccess` 設定における CEL の述語を宣言してください。セキュリティ
+プラグインがすべてのクエリに対応するフィルタを注入します。
+[権限](/docs/configure/permissions)を参照してください。
+
+**Q: 特定のユーザーには一部のフィールドを非表示にできますか?**
+A: はい。権限セットでのフィールドレベルセキュリティです。権限セットごと、
+フィールドごとに非表示または読み取り専用にできます。REST、ObjectQL、
+Console 全体で一様に適用されます。
+[権限セット](/docs/configure/permissions/permission-sets)を参照してください。
+
+**Q: Okta / Entra / Keycloak とどう統合しますか?**
+A: OIDC です。**Console → Authentication**(または env 経由)で
+ディスカバリ URL とクライアント id / secret を設定してください。プロバイダの
+コールバック URL は `/api/v1/auth/oauth2/callback/<provider-id>` です。
+[認証](/docs/configure/authentication)を参照してください。
+
+## 連携
+
+**Q: Webhook を送信できますか?**
+A: はい。`requires` で `webhooks` を有効にしてください。ObjectOS は
+HMAC-SHA256 署名付きの永続的な outbox を使用します。
+[Webhooks](/docs/configure/webhooks)を参照してください。
+
+**Q: Zapier / Make / n8n と統合できますか?**
+A: はい。アウトバウンドには Webhook、インバウンドには REST API + API キーを
+使用します。人気の iPaaS ツール向けのネイティブコネクタはロードマップに
+あります。
+
+**Q: AI エージェントは私の ObjectOS を呼び出せますか?**
+A: はい、MCP(`@objectstack/plugin-mcp-server`)経由で可能です。オブジェクトや
+アクションを MCP ツールとして公開し、Claude Desktop、IDE、その他の MCP
+クライアントが利用できます。[AI Service](/docs/configure/ai)を参照してください。
+
+## カスタマイズ
+
+**Q: カスタムプラグインを書けますか?**
+A: はい。プラグインはシンプルな DI + ライフサイクルパターン
+(`init → start → destroy`)に従います。例については GitHub 上の
+`@objectstack/plugin-*` パッケージを参照してください。
+
+**Q: Console の見た目をカスタマイズできますか?**
+A: ブランディング(ロゴ、アクセントカラー、デフォルトテーマ)は
+**Console → System Settings** にあります。より高度な UI カスタマイズには、
+`@objectstack/client-react` をフォークするか、REST API に対して独自の
+フロントエンドを構築する必要があります。
+
+**Q: 英語以外の言語を追加できますか?**
+A: はい。i18n はファーストクラスでサポートされています。`os i18n extract` /
+`os i18n check` を使用し、翻訳バンドルを同梱してください。
+
+## 運用
+
+**Q: 推奨される本番デプロイ構成は?**
+A: Docker(マルチポッドの場合は Kubernetes)+ マネージド Postgres +
+ファイル用の S3 または R2 + `OS_AUTH_SECRET` 用のシークレットマネージャです。
+[本番環境への準備](/docs/operate/production)を参照してください。
+
+**Q: ObjectOS にステータスページはありますか?**
+A: セルフホスト型のデプロイでは、ステータスはあなたの責任です。`/health` を
+監視ツールに接続してください。ホスト型サービスについては
+[status.objectstack.ai](https://status.objectstack.ai) を参照してください。
+
+**Q: どのメトリクスを監視すべきですか?**
+A: 5xx 率、p95 レイテンシ、認証失敗率、カーネルキャッシュのミス率、
+キューの深さです。最小限の Prometheus の例は
+[Observability](/docs/operate/observability)にあります。
+
+**Q: バックアップはどう取得しますか?**
+A: **データベース**と**ストレージバケット**をバックアップしてください。
+それらにすべての顧客データが保持されています。ObjectOS 自体はステートレスです。
+[バックアップ](/docs/operate/backup)を参照してください。
+
+## 料金と法務
+
+**Q: ObjectOS は本当に無料ですか?**
+A: はい。Apache-2.0 です。シート課金も使用量ティアもライセンスサーバーも
+ありません。
+
+**Q: 販売する商用製品に ObjectOS を使えますか?**
+A: はい。Apache-2.0 は商用利用を許可しています。
+[ライセンス](/docs/resources/license)を参照してください。
+
+**Q: テレメトリを収集しますか?**
+A: いいえ。あなたが設定しない限り、アウトバウンド通信は一切ありません
+(OIDC、メール、AI、Webhook)。
+[セキュリティとコンプライアンス](/docs/reference/security#data-residency)を参照してください。
+
+**Q: ObjectOS は SOC 2 / ISO 27001 / HIPAA / GDPR に準拠していますか?**
+A: ObjectOS は、あらゆるフレームワークが必要とする**プリミティブ**(RBAC、
+監査、暗号化対応、データレジデンシー)を提供します。認証はバイナリではなく
+あなたの**デプロイ**の属性です。多くの ObjectOS デプロイが認証を取得しています。
+[セキュリティとコンプライアンス](/docs/reference/security#compliance-frameworks)を参照してください。
+
+## 行き詰まったときは
+
+**Q: 何かが壊れている、まず何をすべき?**
+A: `os doctor` です。これだけで設定ミスの 80% を捕捉します。その後は
+[トラブルシューティング](/docs/operate/troubleshooting)へ。
+
+**Q: バグはどこに報告しますか?**
+A: [GitHub Issues](https://github.com/objectstack-ai/objectos/issues) です。
+`os doctor` の出力を含めてください。セキュリティの問題は
+**security@objectstack.ai** へ。
+
+**Q: 人によるサポートはどこで受けられますか?**
+A: [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions)、
+コミュニティの Discord、または商用サポートについては **sales@objectstack.ai**
+へ。

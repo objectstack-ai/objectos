@@ -1,0 +1,167 @@
+---
+title: CEL-Ausdrücke
+description: Die Ausdruckssprache, die für Formeln, Prädikate, Zeitpläne und vorlagenbasierte Zeichenketten verwendet wird — bereitgestellt über fünf getaggte Templates.
+---
+
+# CEL-Ausdrücke
+
+ObjectOS verwendet [CEL](https://github.com/google/cel-spec) (Common
+Expression Language) überall dort, wo Sie einen kleinen, sicheren,
+sandboxed Ausdruck benötigen: Formelfelder, Validierungsregeln,
+Sichtbarkeitsprädikate, Freigabebedingungen, Flow-Guards, Zeitpläne und
+vorlagenbasierte Zeichenketten.
+
+Das Erstellen erfolgt über **fünf getaggte Templates**, die aus
+`@objectstack/spec` importiert werden. Sie alle erzeugen ein kleines
+JSON-Objekt, das die Laufzeit parst:
+
+```ts
+{ dialect: 'cel' | 'template' | 'cron', source: string }
+```
+
+Schema-Quelle:
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts).
+
+## Die fünf getaggten Templates
+
+| Template | Dialekt | Verwendung für | Beispiel |
+|:--|:--|:--|:--|
+| `` F`...` `` | `cel` | **Formelfelder** — abgeleitete Werte, die zusammen mit dem Datensatz gespeichert werden | `` F`record.amount * 0.1` `` |
+| `` P`...` `` | `cel` | **Prädikate** — Booleans für Validierung / Freigabe / Sichtbarkeit / Bedingungen | `` P`record.status == "open"` `` |
+| `` cel`...` `` | `cel` | **Allgemeines CEL** — wenn weder F noch P passt (z. B. ein Parameterwert) | `` cel`now() + duration("P30D")` `` |
+| `` tmpl`...` `` | `template` | **Zeichenketten-Templates** mit `{{var}}`-Interpolation | `` tmpl`Order from {{record.customer.name}}` `` |
+| `` cron`...` `` | `cron` | **Zeitpläne** — standardmäßige Cron-Syntax mit 5 Feldern | `` cron`0 9 * * 1-5` `` |
+
+Zur Auswertungszeit gibt es keinen funktionalen Unterschied zwischen `F`,
+`P` und `cel` — sie alle führen CEL aus. Die Aufteilung existiert, damit
+Schemas (und KI-Agenten) wissen, welche Rolle der Ausdruck spielt, und
+damit der Editor eine Typprüfung durchführen kann (Formeln müssen einen
+Wert zurückgeben, Prädikate müssen einen Boolean zurückgeben).
+
+### Import
+
+```ts
+import { F, P, cel, tmpl, cron } from '@objectstack/spec'
+```
+
+## Wo jedes verwendet wird
+
+| Feld einer Spec | Tag | Beispielort |
+|:--|:--|:--|
+| `Field.expression` (Formeltyp) | `F` | `*.object.ts` Formelfelder |
+| `Field.conditionalRequired` | `P` | Objektfelder |
+| `Validation.predicate` | `P` | Objektvalidierungen |
+| `SharingRule.condition` | `P` | Freigaberegeln |
+| `View.conditionalFormatting[].condition` | `P` | Ansichten |
+| `Flow.step.when` / `Flow.transition.when` | `P` | Flows |
+| `Action.guard` | `P` | Aktionen |
+| Benachrichtigungsbetreffe / Nachrichtentexte | `tmpl` | Benachrichtigungen |
+| `Schedule.cron` | `cron` | geplante Flows / Berichte |
+| Beliebiger Wertparameter | `cel` | Flow-Schritt-Eingaben |
+
+## Variablen-Geltungsbereich
+
+CEL-Ausdrücke werden in einem Kontext mit diesen Top-Level-Variablen
+ausgewertet:
+
+| Variable | Verfügbar wenn | Inhalt |
+|:--|:--|:--|
+| `record` | fast immer | Der aktuell ausgewertete Datensatz |
+| `previous` | bei Update-Hooks / Änderungserkennung | Der Zustand des Datensatzes vor der Änderung (oder `null`) |
+| `input` | Aktionen, Flow-Schritte | Die vom Benutzer bereitgestellte Eingabe-Payload |
+| `os.user` | immer | `{ id, roles: string[], permissions: string[] }` |
+| `os.org` | immer | Organisations- / Mandantenkontext |
+| `os.env` | immer | Für Ausdrücke verfügbar gemachte Umgebungsvariablen |
+
+> Die veralteten Variablen `OLD` / `NEW` wurden in M9.5 entfernt.
+> Verwenden Sie `previous` und `record`.
+
+## Standardbibliothek
+
+Registriert in
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts).
+Die am häufigsten verwendeten Built-ins:
+
+### Zeit
+
+| Funktion | Gibt zurück | Hinweise |
+|:--|:--|:--|
+| `now()` | `Timestamp` | An den Auswertungskontext gebunden — innerhalb einer Abfrage stabil |
+| `today()` | `Timestamp` | Beginn des UTC-Tages |
+| `daysFromNow(int)` | `Timestamp` | Zukünftiges Datum |
+| `daysAgo(int)` | `Timestamp` | Vergangenes Datum |
+
+CEL enthält außerdem die nativen `timestamp(...)`, `duration(...)`,
+`date.getDayOfWeek()` usw. — siehe die
+[CEL-Spezifikation](https://github.com/google/cel-spec/blob/master/doc/langdef.md#standard-definitions).
+
+### Hilfsfunktionen
+
+| Funktion | Zweck |
+|:--|:--|
+| `isBlank(x)` | `true` wenn `null`, `undefined`, `""` oder leere Liste |
+| `coalesce(a, b)` | Erster Nicht-Null-Wert |
+| `trim(s)` | Whitespace entfernen |
+| `joinNonEmpty(list, sep)` | Nicht-leere Einträge verketten |
+
+Native CEL-String-Helfer (`.contains(...)`, `.startsWith(...)`,
+`.matches(...)`, `.size()`) sind immer verfügbar.
+
+## Beispiele
+
+**Formelfeld** — Positionssumme:
+
+```ts
+{ name: 'subtotal', type: 'formula', expression: F`record.quantity * record.unit_price` }
+```
+
+**Validierung** — Abschlussdatum muss nach heute liegen:
+
+```ts
+{ message: 'Close date must be in the future', predicate: P`record.close_date > today()` }
+```
+
+**Sichtbarkeit** — Feld nur für Manager anzeigen:
+
+```ts
+{ visibleIf: P`'manager' in os.user.roles` }
+```
+
+**Flow-Guard** — Schritt überspringen, wenn der Betrag klein ist:
+
+```ts
+{ when: P`record.amount >= 1000` }
+```
+
+**Zeitplan** — wochentags 9 Uhr:
+
+```ts
+{ schedule: cron`0 9 * * 1-5` }
+```
+
+**Template** — Benachrichtigungsbetreff:
+
+```ts
+{ subject: tmpl`[{{record.priority}}] {{record.subject}}` }
+```
+
+## Fehler
+
+Ausdrücke werden zur Ladezeit kompiliert. Fehler erscheinen als
+`VALIDATION_ERROR` mit der Quellposition:
+
+```json
+{ "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
+```
+
+Eine fehlgeschlagene Auswertung zur Laufzeit wird für Formelfelder als
+`null` und für Prädikate als `false` behandelt, zusätzlich zu einem
+Eintrag im Audit-Log.
+
+## Siehe auch
+
+- [Feldtypen](./field-types) — Formel- und bedingt erforderliche Felder
+- [Build → Datenmodell](/docs/build/data-model) — Validierungen und Prädikate
+- [Build → Flows](/docs/build/flows) — Guards und Zeitpläne
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — Schema
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — Built-ins
