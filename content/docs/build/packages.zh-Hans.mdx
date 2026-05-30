@@ -1,0 +1,156 @@
+---
+title: Packages
+description: ObjectOS 中的组织单元 —— 可版本化、可安装、可共享。
+---
+
+# Packages
+
+你在 ObjectOS 中构建的一切都存放于一个**包（package）**中：一个可版本化、
+自包含的元数据捆绑体。包是 AI Builder 操作的单元，是 marketplace 分发的单元，
+也是 ObjectOS 追踪更新所依据的单元。
+
+## 包里有什么
+
+```text
+com.acme.crm@1.2.0
+├── manifest          id, version, namespace, dependencies
+├── objects/          *.object.ts, *.state.ts, *.hook.ts
+├── views/            *.view.ts, *.page.ts, *.form.ts
+├── actions/          *.action.ts
+├── flows/            *.flow.ts, *.approval.ts
+├── agents/           *.agent.ts, *.skill.ts
+├── permissions/      *.permission.ts
+├── sharing/          *.sharing.ts
+├── translations/     en.ts, zh-CN.ts, ...
+├── apps/             *.app.ts  (navigation)
+└── data/             defineDataset(...) seed
+```
+
+每一个元数据制品（对象、操作、流程……）都恰好归属于一个包。包 id 采用
+**反向 DNS**（`com.acme.crm`、`org.mycompany.helpdesk`），而命名空间前缀
+（`crm_`、`hd_`）能避免在同一租户中安装的不同包之间，表名 / 对象名发生冲突。
+
+## 创建一个包
+
+### 从 AI Builder 创建
+
+> *"为我们的内部 CRM 新建一个包，命名空间为 `crm`。"*
+
+AI 会调用 `create_package` 和 `set_active_package`。从此之后，
+你所描述的每一个对象 / 字段 / 操作都会落入 `crm`。
+
+### 从 CLI 创建
+
+```bash
+os init my-crm -t app
+cd my-crm
+# manifest lives in the `manifest:` block of ./objectstack.config.ts
+pnpm dev
+```
+
+### 从 Console 创建
+
+**Console → Packages → New Package** —— 填写名称、id、版本、命名空间。
+
+## 活动包（Active package）
+
+在 AI Builder 中，一段对话会携带一个**活动包**—— 即新元数据的默认容器。
+当你说类似 *"切换到 `com.acme.helpdesk`。"* 这样的话时，AI 会通过
+`set_active_package` 工具来设置它。从 CLI 来看，活动包就是项目的
+`objectstack.config.ts` 中声明的那个包（即 `manifest:` 块）。
+
+## 版本管理
+
+包采用 **semver**。规则与运行时相同 —— 参见
+[Changelog & Versioning](/docs/resources/changelog)。
+
+在你发布之前，提升版本号不会改变任何东西。运行时会按租户、按包追踪
+`installed_version`，当目录中存在更新版本时，marketplace 会显示一个
+*"Update available"* 徽标。
+
+## 依赖
+
+包可以依赖其他包：
+
+```json
+{
+  "id": "com.acme.helpdesk",
+  "version": "0.3.0",
+  "dependencies": {
+    "com.acme.crm": "^1.0.0",
+    "sys.feeds":   "*"
+  }
+}
+```
+
+运行时会在安装时解析依赖。如果 `com.acme.crm` 未安装，helpdesk 的安装会
+带着清晰的错误信息失败。
+
+系统包（`sys.*`）始终存在 —— feeds、附件、审计、身份等。
+
+## 发布
+
+```bash
+os compile                     # → dist/objectstack.json
+os package publish             # → ObjectStack cloud catalog
+```
+
+`os package publish` 会将编译后的 manifest 上传到由 `OS_CLOUD_URL` 配置的
+云端控制平面，并使用 `OS_CLOUD_API_KEY` 进行认证。对于私有 / 隔离网络
+（air-gapped）分发，可跳过发布，直接将编译好的 `dist/objectstack.json`
+交给目标安装方（参见下方的「安装」）。参见 [Marketplace](/docs/build/marketplace)。
+
+## 安装
+
+| 路径 | 方式 |
+|---|---|
+| Console | Marketplace 标签页 → 选择包 → Install |
+| REST | `POST /api/v1/marketplace/install-local`（请求体：`{ packageId, versionId? }`） |
+| 隔离网络（Air-gapped） | 挂载编译后的 `dist/objectstack.json` 制品（参见 [Air-gapped](/docs/deploy/air-gapped)） |
+
+安装会将包的元数据合并进运行中的内核，将其对象注册到 ObjectQL，并在首次安装时
+注入初始数据 —— 无需重启。已缓存的安装会在下次启动时重新注册，因此能够在进程
+重启后依然保留。
+
+## 卸载
+
+卸载会移除包已缓存的 manifest，使其不再在下次启动时被重新注册。由于对象注册是
+增量式的，要彻底卸载一个已在运行中的包的对象，需要进行一次**内核重启**。
+数据默认会被**保留**，因此你可以重新安装并继续使用。
+
+## 跨包约定
+
+为防止多个包共存时发生冲突：
+
+| 制品 | 约定 |
+|---|---|
+| 对象名 | 始终带前缀：`crm_account`、`hd_ticket` |
+| 操作名 | 带前缀：`crm_assign_owner`、`hd_close_ticket` |
+| 流程名 | 带前缀：`hd_overdue_alert` |
+| 翻译键 | 限定在命名空间下：`crm.account.label` |
+| 种子数据 `externalId` | `<prefix>:<key>`，例如 `crm:demo-account-1` |
+| 系统名 | 保留：`sys_*`（切勿在自定义包中使用） |
+
+CLI 和 AI Builder 在创建时都会强制执行这些约定。
+
+## 系统包
+
+运行时自带一小组始终存在的包，提供多态服务：
+
+| 包 | 提供内容 |
+|---|---|
+| `sys.identity` | `sys_user`、`sys_organization`、`sys_member`、会话、API keys |
+| `sys.feeds` | `sys_comment`、`sys_activity`、`sys_attachment` |
+| `sys.audit` | `sys_audit_log` |
+| `sys.files` | `sys_file` |
+| `sys.ai` | `ai_conversations`、`ai_pending_actions` |
+| `sys.settings` | `sys_setting` |
+
+你可以在对象上通过 `enable: { feeds: true, trackHistory: true, … }` 来启用它们 ——
+参见 [Data Model](/docs/build/data-model)。
+
+## 下一步去哪
+
+- [Marketplace](/docs/build/marketplace) —— 将包分发到其他租户
+- [Data Model](/docs/build/data-model) —— 包里都放些什么
+- [`os package` 命令](/docs/reference/cli) —— 完整 CLI 参考

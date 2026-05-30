@@ -1,0 +1,99 @@
+---
+title: Changelog & Versionierung
+description: Wie ObjectOS versioniert wird, was sich zwischen Releases ändert und was unterstützt wird.
+---
+
+# Changelog & Versionierung
+
+## Versionierungsrichtlinie
+
+ObjectOS folgt **[Semantic Versioning](https://semver.org/)**: `MAJOR.MINOR.PATCH`.
+
+| Versionssprung | Was es bedeutet | Was zu tun ist |
+|---|---|---|
+| **Patch** (`4.0.1 → 4.0.2`) | Fehlerbehebungen, keine Verhaltensänderung | Aktualisieren, keine App-Änderungen nötig |
+| **Minor** (`4.0 → 4.1`) | Neue Funktionen, abwärtskompatibel | Aktualisieren, optional neue Funktionen übernehmen |
+| **Major** (`4 → 5`) | Breaking Changes, in den Release Notes dokumentiert | Lesen Sie den Migrationsleitfaden vor dem Upgrade |
+
+Alle `@objectstack/*`-Pakete werden gemeinsam mit einer synchronisierten
+Versionsnummer veröffentlicht — sie werden als Matrix getestet, nicht einzeln.
+
+## Kompatibilitätsmatrix
+
+| Komponente | Kompatibilitätsregel |
+|---|---|
+| ObjectOS-Image ↔ kompiliertes Artefakt | Gleiche Minor-Version. Ein 4.0.x-Image führt ein 4.0.x-Artefakt aus; ein 4.1-Artefakt kann Funktionen nutzen, die in einem 4.0-Image nicht verfügbar sind. |
+| ObjectOS ↔ CLI | Gleiche Minor-Version empfohlen. Die per `npm i -g` installierte CLI erzeugt Scaffolds, die auf ihre eigene Version gepinnt sind. |
+| ObjectOS ↔ Datenbanktreiber | Treiber durch den Image-Build gepinnt; prüfen Sie Postgres ≥ 13 / MongoDB ≥ 5 / Turso (jede aktuelle Version). |
+| Node.js | **20 LTS oder neuer**. 22 LTS empfohlen für neue Deployments. |
+
+## Support-Zeiträume
+
+| Branch | Status | Bis |
+|---|---|---|
+| **4.x** (aktuell) | Aktive Entwicklung; neue Funktionen und Fixes | Mindestens 12 Monate nach dem Erscheinen von 5.0 |
+| **3.x** | Nur Sicherheitsfixes | EOL mit dem Release von 5.0 |
+| **≤ 2.x** | Nicht unterstützt | Bereits EOL |
+
+Kritische Sicherheitsfixes werden auf den aktuellen und den vorherigen
+Major-Branch zurückportiert. Alles andere landet auf `main`.
+
+## Release Notes
+
+Veröffentlichte ObjectOS-Versionen und ihre CHANGELOG-Einträge werden hier publiziert:
+
+- **npm**: [`@objectstack/runtime`](https://www.npmjs.com/package/@objectstack/runtime)
+- **GitHub**: [github.com/objectstack-ai/objectos/releases](https://github.com/objectstack-ai/objectos/releases)
+- **Quell-CHANGELOG**: [`CHANGELOG.md`](https://github.com/objectstack-ai/framework/blob/main/CHANGELOG.md)
+- **Ausführliche Release Notes**: [`RELEASE_NOTES.md`](https://github.com/objectstack-ai/framework/blob/main/RELEASE_NOTES.md)
+
+Abonnieren Sie Releases auf GitHub, um benachrichtigt zu werden.
+
+## Aktuelle Highlights
+
+### 4.0.x — aktueller Release-Zug
+
+- **42 Pakete** auf npm unter `@objectstack/*` veröffentlicht.
+- Console erhielt vollständige Konfigurationsseiten für Einstellungen (AI, Storage,
+  Knowledge).
+- Embedder-Dienst: 10 Anbieter (`openai`, `azure`, 阿里通义,
+  智谱, 硅基流动, 火山, MiniMax, Ollama, benutzerdefiniert).
+- Live-Einstellungen → Runtime-Bridge — wechseln Sie den Anbieter in Console, mit
+  In-Process-Austausch ohne Neustart.
+
+### 5.0 (kommend) — Umbenennung `project` → `environment`
+
+Das Runtime-Konzept, das früher *Project* hieß, wird durchgängig in *Environment*
+umbenannt. Betroffen sind:
+
+- CLI-Flags: `--environment` / `-e`
+- HTTP-Pfade: `/api/v1/environments/:environmentId/...`
+- Header: `X-Environment-Id`
+- Umgebungsvariablen: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` bleibt als Alias in 4.x erhalten, entfernt in 5.0)
+- DB-Spalten: `environment_id`
+- JSON-Schemas: `EnvironmentArtifact`
+
+Keine Aliase oder Deprecation-Shims. Planen Sie das Upgrade sorgfältig — siehe den
+5.0-Migrationsleitfaden zum Release.
+
+## Upgrade
+
+Siehe [Upgrade und Rollback](/docs/operate/upgrade) für die konkreten
+Schritte. Vorab-Prüfung:
+
+1. Lesen Sie den CHANGELOG-Eintrag für jede Minor-Version zwischen Ihrer
+   aktuellen und der Zielversion.
+2. Führen Sie `os diff <old-artifact> <new-artifact>` aus, um Breaking
+   Schema-Änderungen aufzudecken.
+3. Führen Sie `os doctor` gegen die Zielversion aus.
+4. Bringen Sie eine Canary-Instanz hoch, bevor Sie die gesamte Flotte ausrollen.
+5. Halten Sie einen Rollback-Plan sowohl für das Image-Tag als auch für die
+   Artefakt-Version bereit (sie werden unabhängig voneinander ausgerollt).
+
+## Regressionen melden
+
+Wenn ein Patch oder eine Minor-Version etwas zuvor Funktionierendes bricht, melden Sie
+einen Bug unter
+[github.com/objectstack-ai/objectos/issues](https://github.com/objectstack-ai/objectos/issues)
+mit der Version, von der / auf die Sie aktualisiert haben. Wir behandeln Regressionen als
+die höchstpriorisierte Fehlerklasse.

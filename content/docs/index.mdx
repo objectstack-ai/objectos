@@ -52,16 +52,16 @@ Then either:
 | **Auto REST API** | Every object you declare gets `/api/v1/data/<object>` with filter/sort/paginate |
 | **Console** (`/_console/`) | Generated admin UI: browse and edit records, manage users/roles/permission sets, view audit log, sessions, API keys, settings |
 | **Account** (`/_account/`) | Login, register, password reset, OAuth, OIDC/SSO, passkeys, 2FA |
-| **23 plugins** | RBAC + row-level security, audit, file storage, queues, jobs, email, AI, webhooks — declarative, on demand |
+| **20+ plugins** | RBAC + row-level security, audit, file storage, queues, jobs, email, AI, webhooks — declarative, on demand |
 
 ## What you keep control of
 
 | Asset | Where it lives |
 |---|---|
-| Business data | **Your** database (Postgres, SQLite, MySQL, Turso, MongoDB) |
+| Business data | **Your** database (Postgres, SQLite, MySQL, MongoDB) |
 | User identities & sessions | **Your** database |
 | Audit log | **Your** database |
-| Files | **Your** storage (local disk, S3, R2) |
+| Files | **Your** storage (local disk, S3, or S3-compatible like R2/MinIO) |
 | Secrets | **Your** secret manager |
 | The runtime itself | **Your** servers, containers, or laptop |
 

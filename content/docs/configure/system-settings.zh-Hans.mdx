@@ -1,0 +1,80 @@
+---
+title: 系统设置
+description: 通过清单（manifest）和共享的 K/V 存储配置租户与用户设置。
+---
+
+# 系统设置
+
+ObjectStack 包含一个用于运行时和插件设置的设置服务。
+当应用工件需要设置能力时，ObjectOS 会通过 Console 暴露这些设置。
+
+## 设置模型
+
+设置由代码声明，并以值的形式存储：
+
+| 层级 | 用途 |
+|---|---|
+| Settings Manifest | 定义字段、标签、默认值、校验、可见性以及操作 |
+| `sys_setting` | 存储租户/用户的 K/V 值 |
+| Resolver | 读取生效的值 |
+| Console UI | 渲染标准的设置页面 |
+
+对于普通配置，插件不应创建一次性的设置表。
+它们应当声明设置清单，并让 ObjectOS 一致地渲染和存储这些值。
+
+## 解析顺序
+
+每项设置都声明一个作用域（`global`、`tenant` 或 `user`）。
+解析器按从最高到最低的优先级遍历这个层叠结构，第一个已设置的值生效：
+
+```text
+Environment override (locked)
+Global setting
+Tenant setting
+User setting
+Manifest default
+```
+
+环境覆盖是锁定的。如果某个值是通过环境变量设置的，Console UI 会将其
+显示为由主机托管，并拒绝运行时编辑。链路中更上层的任何锁定值也会锁定
+生效的值，因此更低层的作用域无法将其遮盖。
+
+## 常见设置领域
+
+面向客户的设置通常包括：
+
+| 领域 | 示例 |
+|---|---|
+| Email | SMTP 主机、提供商 API key、发件地址、测试邮件 |
+| Branding | 产品名称、Logo URL、强调色、默认主题 |
+| Feature flags | 租户级功能开关 |
+| Storage | 本地文件系统或对象存储凭据 |
+| AI providers | 模型提供商、API key、预算上限 |
+| SSO | OIDC 提供商设置以及测试连接 |
+
+## 机密信息
+
+密码和凭据字段应由设置服务加密，或以环境托管的值提供。当配置了机密提供商时，
+设置服务会将密文存储在 `sys_secret` 中，并在 `sys_setting` 中只保留一个句柄。
+不要将机密信息存储在工件、compose 文件或 Git 中。
+
+## 测试操作
+
+设置清单可以声明标准的操作按钮，例如：
+
+- 发送测试邮件；
+- 测试 SSO discovery；
+- 验证对象存储凭据；
+- 校验 webhook 目标。
+
+在客户配置流程中使用这些操作，而不是要求运维人员先去翻查日志。
+
+## 相关内容
+
+若干设置领域有专门的配置指南：
+
+- [Email](/docs/configure/email)
+- [Storage](/docs/configure/storage)
+- [AI providers](/docs/configure/ai)
+- [Authentication and SSO](/docs/configure/authentication)
+- [Runtime](/docs/configure/runtime)

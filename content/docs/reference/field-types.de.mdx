@@ -1,0 +1,208 @@
+---
+title: Feldtypen
+description: Jeder Feldtyp, den du auf einem Objekt deklarieren kannst — was er speichert, welche Optionen er akzeptiert, wie er in REST, Console und im AI Builder erscheint.
+---
+
+# Feldtypen
+
+53 integrierte Feldtypen, gruppiert nach Familie. Das vollständige Zod-Schema befindet sich in
+[`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — diese Seite ist eine praktische Zusammenfassung.
+
+## Kerneigenschaften (jedes Feld)
+
+| Eigenschaft | Typ | Standard | Zweck |
+|:--|:--|:--|:--|
+| `name` | string (snake_case) | — | Maschinen-Bezeichner — REST-Pfadsegment, SQL-Spalte |
+| `label` | string | — | Anzeigebezeichnung in der Console |
+| `type` | FieldType | — | Siehe Typtabellen unten |
+| `required` | boolean | `false` | NOT NULL-Beschränkung |
+| `unique` | boolean | `false` | Eindeutiger Index |
+| `searchable` | boolean | `false` | Indexiert für `/api/v1/search` |
+| `multiple` | boolean | `false` | Speichert ein Array von Werten |
+| `defaultValue` | unknown | — | Anfangswert (Literal oder CEL) |
+| `columnName` | string | = `name` | Überschreibt physische DB-Spalte |
+| `hidden` | boolean | `false` | In Standard-Console-Ansichten ausblenden |
+| `readonly` | boolean | `false` | In Formularen deaktivieren |
+| `system` | boolean | `false` | Automatisch eingefügt (id, created_at, …) |
+| `index` | boolean | `false` | Erstellt einen DB-Index |
+| `externalId` | boolean | `false` | Für Upsert über externen Schlüssel geeignet |
+| `inlineHelpText` | string | — | Tooltip / Hilfetext |
+| `conditionalRequired` | `P`-Prädikat | — | Erforderlich, wenn CEL wahr ist |
+| `auditTrail` | boolean | `false` | Jede Änderung im Audit-Log verfolgen |
+| `encryptionConfig` | object | — | Verschlüsselung auf Feldebene (siehe [Security](./security)) |
+| `maskingRule` | string | — | PII-Maskierungsmuster |
+
+## Text-Familie
+
+| Typ | Verwendung für | Wichtige Optionen |
+|:--|:--|:--|
+| `text` | kurze Zeichenketten | `maxLength`, `minLength` |
+| `textarea` | mehrzeilig | `maxLength` |
+| `email` | E-Mail | formatvalidiert; kleingeschrieben |
+| `url` | URL | formatvalidiert |
+| `phone` | Telefon | E.164 |
+| `password` | Geheimnisse | gehasht; nie von GET zurückgegeben |
+| `markdown` | Markdown-Inhalt | in Console-Vorschau gerendert |
+| `html` | bereinigtes HTML | DOMPurify beim Schreiben |
+| `richtext` | WYSIWYG | Console-Editor + serialisiertes JSON |
+
+## Zahlen
+
+| Typ | Verwendung für | Wichtige Optionen |
+|:--|:--|:--|
+| `number` | Gleitkommazahlen | `min`, `max`, `precision`, `scale` |
+| `currency` | Geld | `currencyConfig: { precision, currencyMode: 'fixed' \| 'dynamic', defaultCurrency }` |
+| `percent` | 0–100 % | `min`, `max`, `scale` |
+
+> `integer` und `decimal` sind keine eigenen Typen — verwende `number` mit
+> `scale: 0` für Ganzzahlen, `precision`+`scale` für feste Dezimalstellen.
+
+## Datum / Uhrzeit
+
+| Typ | Speichert | Hinweise |
+|:--|:--|:--|
+| `date` | Kalenderdatum | keine Zeitzone |
+| `datetime` | Zeitpunkt | UTC |
+| `time` | Uhrzeit | kein Datum |
+
+## Logik
+
+| Typ | Hinweise |
+|:--|:--|
+| `boolean` | Kontrollkästchen |
+| `toggle` | Wie boolean, Schalter-UI |
+
+## Auswahl
+
+| Typ | Hinweise |
+|:--|:--|
+| `select` | Einzelauswahl — Optionen inline deklariert oder aus einer Auswahlliste referenziert |
+| `multiselect` | Mehrfachauswahl, als Array gespeichert |
+| `radio` | UI-Alias für `select` mit Radio-Button-Darstellung |
+| `checkboxes` | UI-Alias für `multiselect` mit Kontrollkästchen-Darstellung |
+
+Optionsform:
+
+```ts
+options: [
+  { value: 'low',    label: 'Low' },
+  { value: 'high',   label: 'High',   color: '#e02' },
+  { value: 'urgent', label: 'Urgent', color: '#c00' }
+]
+```
+
+## Beziehungen
+
+| Typ | Kardinalität | Semantik |
+|:--|:--|:--|
+| `lookup` | viele-zu-eins | Lose Referenz; das Löschen des übergeordneten Datensatzes löscht das untergeordnete standardmäßig nicht |
+| `master_detail` | viele-zu-eins, kaskadierend | Untergeordneter Datensatz kann ohne übergeordneten nicht existieren; Berechtigungen werden vom übergeordneten geerbt |
+| `tree` | Selbstreferenz | Hierarchisch (parent_id auf demselben Objekt) |
+
+Häufige Optionen:
+
+```ts
+{
+  type: 'lookup',
+  reference: 'account',                       // target object name
+  referenceFilters: ['status:active'],        // narrow the lookup picker
+  deleteBehavior: 'set_null'                  // 'set_null' | 'cascade' | 'restrict'
+}
+```
+
+## Berechnet
+
+| Typ | Funktion | Wichtige Option |
+|:--|:--|:--|
+| `formula` | Abgeleiteter Wert, beim Lesen oder Neuberechnen ausgewertet | `expression: F\`record.qty * record.unit_price\`` — siehe [CEL](./cel) |
+| `summary` | Aggregation über eine untergeordnete Beziehung | `summaryOperations: { object, field, function }` (`count` \| `sum` \| `avg` \| `min` \| `max`) |
+| `autonumber` | Automatisch hochzählende Anzeigenummer | `format` (z. B. `TKT-{0000}`), `startAt` |
+
+Formel-Beispiel:
+
+```ts
+{
+  name: 'profit_margin',
+  type: 'formula',
+  expression: F`(record.revenue - record.cost) / record.revenue * 100`
+}
+```
+
+## Medien
+
+| Typ | Verwendung für | Wichtige Option |
+|:--|:--|:--|
+| `image` | Bildanhänge | `fileAttachmentConfig` (siehe unten) |
+| `file` | beliebige Datei | dasselbe |
+| `avatar` | Profilbilder | quadratischer Zuschnitt, sinnvolle Standardwerte |
+| `video` | Video-Uploads | Dauer + Thumbnail-Erfassung |
+| `audio` | Audio | Wellenform-Vorschau |
+
+```ts
+fileAttachmentConfig: {
+  maxSize: 10_000_000,                        // bytes
+  allowedTypes: ['image/png','image/jpeg'],
+  virusScan: true,
+  storageProvider: 's3',                       // see Configure → Storage
+  imageValidation: { minWidth: 200, maxWidth: 4096, generateThumbnails: ['sm','md','lg'] }
+}
+```
+
+## Strukturiert
+
+| Typ | Speichert | Hinweise |
+|:--|:--|:--|
+| `json` | beliebiges JSON | Auf Postgres als JSONB gespeichert |
+| `composite` | Unterdatensatz mit benannten Feldern | Inline-Struktur, keine separate Tabelle |
+| `repeater` | Array von zusammengesetzten Werten | Eins-zu-viele ohne untergeordnetes Objekt |
+
+## Erweiterte UI
+
+| Typ | Hinweise |
+|:--|:--|
+| `location` | Breiten-/Längengrad + Genauigkeit |
+| `address` | Straße / Stadt / Region / Postleitzahl / Land |
+| `code` | Quellcode-Feld — `language`, `theme`, `lineNumbers` |
+| `color` | `colorFormat: 'hex' \| 'rgb' \| 'rgba' \| 'hsl'`, `presetColors[]` |
+| `rating` | 1–N Sterne — `max`, `icon` |
+| `slider` | begrenzte Zahl mit Schieberegler-UI |
+| `signature` | gezeichnete Unterschrift, als Bild gespeichert |
+| `qrcode` | rendert den Wert als QR-Code — `qrErrorCorrection: 'L' \| 'M' \| 'Q' \| 'H'` |
+| `barcode` | EAN/UPC/Code128 — `barcodeFormat` |
+| `progress` | abgeleiteter Prozentwert als Balken dargestellt |
+| `tags` | frei wählbares Tag-Array mit Autovervollständigung |
+| `vector` | Embedding-Spalte — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
+
+## Systemfelder (automatisch auf jedem Objekt eingefügt)
+
+| Feld | Typ | Hinweise |
+|:--|:--|:--|
+| `id` | text (ULID) | Primärschlüssel |
+| `created_at` | datetime | UTC-Einfügezeit |
+| `updated_at` | datetime | UTC-Zeit der letzten Schreiboperation |
+| `created_by` | lookup → `user` | wer eingefügt hat |
+| `updated_by` | lookup → `user` | wer zuletzt geschrieben hat |
+| `version` | integer | Token für optimistische Nebenläufigkeit |
+
+Diese deklarierst du nicht — deaktiviere sie pro Objekt mit
+`ObjectSpec.systemFields: false` (selten eine gute Idee).
+
+## Wie Felder durch den Stack fließen
+
+```
+*.object.ts (field spec)
+   │
+   ├─► Postgres / MySQL / SQLite column + index + constraint
+   ├─► REST: validated on POST/PATCH, exposed on GET
+   ├─► Console: form widget + list column
+   ├─► AI Builder: tool argument schema (so the AI knows what to ask)
+   └─► Audit: change-tracked if `auditTrail: true`
+```
+
+## Siehe auch
+
+- [Build → Datenmodell](/docs/build/data-model) — Felder zu Objekten zusammensetzen
+- [CEL](./cel) — `expression`, `conditionalRequired`, Validierungen
+- [ObjectQL](./objectql) — diese Felder abfragen
+- [REST API](./rest-api) — Endpunkte, die sie erzeugen / konsumieren
+- [`@objectstack/spec/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — maßgebliches Schema

@@ -1,0 +1,230 @@
+---
+title: Glossar
+description: Das in ObjectOS und ObjectStack verwendete Vokabular — jeweils eine Definition.
+---
+
+# Glossar
+
+Eine einzige kanonische Definition für jeden in dieser Dokumentation verwendeten Begriff.
+
+### Artifact
+
+Eine kompilierte `objectstack.json`-Datei. Eine in sich geschlossene, unveränderliche
+Beschreibung einer App — Manifest, Objekte, Views, Apps, Flows,
+Berechtigungen, Übersetzungen. Erzeugt durch `os compile`. Das, was
+ObjectOS tatsächlich ausführt.
+
+### Action
+
+Ein in den Metadaten deklarierter, benannter Vorgang, der über REST
+(`/api/v1/data/<object>/actions/<action>`), Console-Schaltflächen oder Flow-Schritte
+aufgerufen werden kann. Erbt die Berechtigungen des Aufrufers.
+
+### Adapter
+
+Ein Framework-Paket, das ObjectStack mit einer Host-Laufzeitumgebung integriert —
+Express, Fastify, Hono, Next.js, Nuxt, SvelteKit, NestJS. Die meisten
+ObjectOS-Deployments benötigen keinen; ObjectOS bringt seinen eigenen HTTP-
+Server mit.
+
+### App
+
+Ein Bündel aus Objekten + Views + Berechtigungen, das als eine einzige
+navigierbare Anwendung in der Console dargestellt wird. Mehrere Apps können in einer
+Laufzeitumgebung koexistieren (z. B. CRM + Helpdesk + Setup).
+
+### Better Auth
+
+Die Auth-Bibliothek, die `@objectstack/plugin-auth` antreibt. Du konfigurierst
+Better Auth nicht direkt; das Plugin kapselt es.
+
+### Capability
+
+Ein optionales Laufzeit-Feature, das ein Artifact in seiner `requires`-Liste
+deklariert. Wird einem Paket zugeordnet — z. B. `audit` → `@objectstack/plugin-audit`.
+Bei Bedarf von ObjectOS geladen. Siehe
+[Runtime Capabilities](/docs/reference/runtime-capabilities).
+
+### CEL
+
+[Common Expression Language](https://github.com/google/cel-spec) —
+Googles sichere, isolierte Ausdruckssyntax. Wird in Formeln,
+Validierungsregeln, Berechtigungsprädikaten, Sharing-Regeln und Flow-
+Bedingungen verwendet.
+
+### Console
+
+Die System-UI unter `/_console/` — verwaltet Benutzer, Rollen, Permission Sets,
+Audit-Log, Sessions, API-Schlüssel, Systemeinstellungen. Unterscheidet sich von der Console
+(Business-UI).
+
+### Control Plane
+
+Ein optionaler Dienst, der versionierte Artifacts an ObjectOS-Instanzen
+veröffentlicht. Wird als ObjectStack Cloud gehostet oder selbst betrieben. Die meisten
+Deployments benötigen keine — der dateibasierte Modus funktioniert für die
+produktive Bereitstellung einer einzelnen App.
+
+### Driver
+
+Eine Implementierung eines Daten-Backends: `driver-sql` (Postgres, MySQL, SQLite,
+Turso/libSQL), `driver-mongodb`, `driver-memory`. Wird beim Start anhand
+der Datenbank-URL ausgewählt.
+
+### Embedder
+
+Der Dienst, der Text für RAG / semantische Suche in Vektoren umwandelt.
+Über verschiedene Anbieter hinweg austauschbar (OpenAI, Azure, 硅基流动, Ollama, …).
+Siehe [AI Service](/docs/configure/ai).
+
+### Environment
+
+Eine mandantenspezifische Laufzeitinstanz, die von ihrer eigenen Datenbank und Identität
+gestützt wird. In v4.x manchmal *Project* genannt (Alias beibehalten). v5.0 standardisiert auf
+*Environment* in CLI, HTTP, Umgebungsvariablen und Schemas.
+
+### Field
+
+Eine typisierte Eigenschaft eines Objects. ~25 eingebaute Typen: `text`, `select`,
+`lookup`, `markdown`, `attachment`, `formula`, `rollup` usw. Siehe
+[Data Model](/docs/build/data-model).
+
+### Flow
+
+Deklarative Geschäftslogik — automatisch gestartet (Datensatz-Trigger), geplant
+(Cron) oder manuell (Schaltfläche / API). Wird als DAG mit
+Bedingungs-/Schleifen-/Wiederholungs-/Parallel-Primitiven ausgeführt. Siehe
+[Flows & Automation](/docs/build/flows).
+
+### Formula field
+
+Ein berechnetes Feld, dessen Wert ein CEL-Ausdruck ist, der beim Lesen
+ausgewertet wird. Nicht gespeichert.
+
+### Hook
+
+Eine Funktion, die in den Objektlebenszyklus eingefügt wird (`beforeInsert`,
+`afterUpdate`, …). In TypeScript geschrieben. Anders als ein Flow:
+Hooks sind erstklassiger Code; Flows sind Metadaten.
+
+### Kernel
+
+Der Mikrokernel innerhalb von ObjectOS, der Plugins lädt, den DI-
+Container hält, Events verteilt und die Metadaten eines einzelnen Environments
+bereitstellt. Ein Prozess kann viele zwischengespeicherte Kernels (einen pro
+Environment) in einem LRU halten.
+
+### Manifest
+
+Die Metadaten auf oberster Ebene am Kopf eines Artifacts: `id`, `namespace`,
+`version`, `type` (`app` / `plugin` / `service`), `name`,
+`description`, `requires`-Liste.
+
+### Marketplace
+
+Der in der Console integrierte Katalog installierbarer Apps. Gestützt durch eine konfigurierbare
+Paket-Registry. Siehe [Marketplace](/docs/build/marketplace).
+
+### MCP (Model Context Protocol)
+
+Ein offenes Protokoll, mit dem KI-Agenten Werkzeuge entdecken und aufrufen können.
+ObjectOS kann seine Objekte + Actions über
+`@objectstack/plugin-mcp-server` als MCP bereitstellen.
+
+### Object
+
+Eine typisierte Geschäftsentität — `task`, `account`, `invoice`. Wird als
+TypeScript-Schema deklariert; erzeugt automatisch REST-APIs, Console-Views, Audit-Einträge,
+RBAC-Prüfpunkte. Siehe [Data Model](/docs/build/data-model).
+
+### ObjectOS
+
+Die Laufzeitumgebung — ein einzelner Node.js-Prozess, der deine Apps bereitstellt. Open
+Source, Apache-2.0. **Diese Dokumentationsseite ist für ObjectOS.**
+
+### ObjectQL
+
+Das Datenschicht-Protokoll und die Query-Engine. Kompiliert deklarative Abfragen
+in native SQL-/Mongo-Abfragen. Wird von REST-Endpunkten, Console,
+Flows verwendet — alles dieselbe Engine.
+
+### ObjectStack
+
+Das übergeordnete Projekt: das Framework (`@objectstack/*` npm-Pakete),
+die Laufzeitumgebung (ObjectOS), der optionale Cloud-Dienst und der
+marketplace. Manchmal auch „die Plattform“ genannt.
+
+### ObjectUI
+
+Das View-Schicht-Protokoll — Apps, Views, Seiten, Dashboards, Actions,
+Diagramme, Navigation. Die Console rendert ObjectUI-Deklarationen.
+
+### Permission Set
+
+Ein Bündel aus Berechtigungen — Objektberechtigungen, Feldberechtigungen, Systemberechtigungen.
+Wird Benutzern direkt oder über Rollen zugewiesen. Die primäre
+Autorisierungseinheit. Siehe [Permissions](/docs/configure/permissions).
+
+### Plugin
+
+Ein Framework-Paket, das die Laufzeitumgebung um eine Capability erweitert —
+`plugin-auth`, `plugin-security`, `plugin-audit`, `plugin-webhooks`,
+`plugin-mcp-server` usw. Wird über DI + Lifecycle-Hooks aktiviert
+(`init → start → destroy`).
+
+### Project
+
+Alter Name für **Environment**. Wird in v4.x noch in CLI/Umgebung verwendet (als Alias).
+In v5.0 entfernt.
+
+### Record Share
+
+Eine direkte Zugriffsgewährung auf einen bestimmten Datensatz für einen bestimmten Benutzer /
+eine bestimmte Rolle / Gruppe. Gespeichert als `sys_record_share`-Zeilen. Unterscheidet sich von
+Sharing-Regeln (deklarative Kriterien).
+
+### Sharing Rule
+
+Eine deklarative Regel, die den Datensatzzugriff anhand von Kriterien gewährt
+(„regionale Manager können Datensätze in ihrer Region sehen“). Wird zur
+Abfragezeit ausgewertet und in Zeilenebene-Filter kompiliert.
+
+### Console
+
+Die Business-UI unter `/_console/` — Datensätze durchsuchen, erstellen, bearbeiten,
+Views konfigurieren, Apps aus dem marketplace installieren. Unterscheidet sich von der Console (System-UI).
+
+### Surface
+
+Einer der vier HTTP-Einstiegspunkte, die ein laufendes ObjectOS bereitstellt:
+`/` (REST API), `/_console/`, `/_account/`, `/_console/`.
+
+### System Context
+
+Der interne Ausführungsmodus, der von Plugins, Hooks und Seed-Skripten
+verwendet wird, die Sicherheitsprüfungen umgehen müssen. Auditierbar; nicht für
+Benutzercode zugänglich.
+
+### Tenant
+
+Eine logische Isolationsgrenze in Multi-Tenant-Deployments. Ein Tenant
+entspricht typischerweise einem Environment. Cookies und Sessions sind pro
+Hostname gescoped; Daten sind pro Environment gescoped.
+
+### Trigger
+
+Die Bedingung, die einen Flow auslöst — Datensatzereignis (`after_insert`),
+Zeitplan (Cron) oder manueller Aufruf.
+
+### View
+
+Eine deklarative UI-Konfiguration — Liste, Formular, Kanban, Kalender, Gantt —
+die an ein Object angehängt ist. Die Console rendert sie; du schreibst die
+Komponente nicht.
+
+### Zod schema
+
+Das Laufzeit- und Compile-Zeit-Typsystem, das von `@objectstack/spec` verwendet wird.
+Jedes Objekt, Feld, jede View, App und jeder Flow wird durch ein Zod-
+Schema geparst und validiert. JSON Schema, TypeScript-Typen und REST-Request-Validatoren
+werden alle aus denselben Zod-Definitionen abgeleitet.

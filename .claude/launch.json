@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Docs site (@objectos/docs)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@objectos/docs", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "ObjectStack server (@objectos/server)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@objectos/server", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "Desktop app (@objectos/one, Tauri)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@objectos/one", "dev"]
+    }
+  ]
+}

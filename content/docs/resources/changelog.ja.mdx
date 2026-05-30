@@ -1,0 +1,84 @@
+---
+title: 変更履歴とバージョニング
+description: ObjectOS のバージョン管理方法、リリース間の変更点、サポート対象について。
+---
+
+# 変更履歴とバージョニング
+
+## バージョニングポリシー
+
+ObjectOS は **[セマンティックバージョニング](https://semver.org/)** に従います: `MAJOR.MINOR.PATCH`。
+
+| バージョンの更新 | 意味 | 対応 |
+|---|---|---|
+| **パッチ** (`4.0.1 → 4.0.2`) | バグ修正、動作の変更なし | そのまま更新でき、アプリの変更は不要 |
+| **マイナー** (`4.0 → 4.1`) | 新機能、後方互換あり | そのまま更新でき、必要に応じて新機能を採用 |
+| **メジャー** (`4 → 5`) | リリースノートに記載された破壊的変更 | アップグレード前に移行ガイドを必読 |
+
+すべての `@objectstack/*` パッケージは、同期されたバージョン番号で一緒にリリースされます。これらは個別ではなく、マトリックスとしてテストされます。
+
+## 互換性マトリックス
+
+| コンポーネント | 互換性ルール |
+|---|---|
+| ObjectOS イメージ ↔ コンパイル済みアーティファクト | 同一のマイナーバージョン。4.0.x のイメージは 4.0.x のアーティファクトを実行します。4.1 のアーティファクトは 4.0 のイメージで利用できない機能を使用している場合があります。 |
+| ObjectOS ↔ CLI | 同一のマイナーバージョンを推奨。`npm i -g` の CLI は、自身のバージョンに固定されたスキャフォールドを書き出します。 |
+| ObjectOS ↔ データベースドライバー | ドライバーはイメージビルドで固定されます。Postgres ≥ 13 / MongoDB ≥ 5 / Turso(現行いずれか)を確認してください。 |
+| Node.js | **20 LTS 以降**。新規デプロイには 22 LTS を推奨。 |
+
+## サポート期間
+
+| ブランチ | ステータス | 期限 |
+|---|---|---|
+| **4.x**(現行) | 活発に開発中。新機能と修正 | 5.0 リリース後、少なくとも 12 か月 |
+| **3.x** | セキュリティ修正のみ | 5.0 リリースで EOL |
+| **≤ 2.x** | サポート対象外 | すでに EOL |
+
+重大なセキュリティ修正は、現行および 1 つ前のメジャーバージョンにバックポートされます。それ以外はすべて `main` に取り込まれます。
+
+## リリースノート
+
+リリース済みの ObjectOS バージョンとその CHANGELOG エントリは、次の場所で公開されています:
+
+- **npm**: [`@objectstack/runtime`](https://www.npmjs.com/package/@objectstack/runtime)
+- **GitHub**: [github.com/objectstack-ai/objectos/releases](https://github.com/objectstack-ai/objectos/releases)
+- **ソース CHANGELOG**: [`CHANGELOG.md`](https://github.com/objectstack-ai/framework/blob/main/CHANGELOG.md)
+- **詳細リリースノート**: [`RELEASE_NOTES.md`](https://github.com/objectstack-ai/framework/blob/main/RELEASE_NOTES.md)
+
+GitHub でリリースを購読すると、通知を受け取れます。
+
+## 最近のハイライト
+
+### 4.0.x — 現行リリーストレイン
+
+- **42 個のパッケージ** を `@objectstack/*` 配下で npm に公開。
+- Console に完全な Configuration 設定ページ(AI、Storage、Knowledge)を追加。
+- Embedder サービス: 10 のプロバイダー(`openai`、`azure`、阿里通義、智谱、硅基流动、火山、MiniMax、Ollama、custom)。
+- ライブ設定 → ランタイムのブリッジ — Console でプロバイダーを変更すると、再起動なしでプロセス内で切り替わります。
+
+### 5.0(予定) — `project` → `environment` への名称変更
+
+これまで *Project* と呼ばれていたランタイムの概念が、全体を通して *Environment* に名称変更されます。影響範囲:
+
+- CLI フラグ: `--environment` / `-e`
+- HTTP パス: `/api/v1/environments/:environmentId/...`
+- ヘッダー: `X-Environment-Id`
+- 環境変数: `OS_ENVIRONMENT_ID`(`OS_PROJECT_ID` は 4.x ではエイリアスとして維持され、5.0 で削除)
+- DB カラム: `environment_id`
+- JSON スキーマ: `EnvironmentArtifact`
+
+エイリアスや非推奨用のシムはありません。慎重にアップグレードを計画してください。リリース時の 5.0 移行ガイドを参照してください。
+
+## アップグレード
+
+具体的な手順については [アップグレードとロールバック](/docs/operate/upgrade) を参照してください。事前チェック:
+
+1. 現行バージョンとターゲットバージョンの間にあるすべてのマイナーについて、CHANGELOG エントリを読みます。
+2. `os diff <old-artifact> <new-artifact>` を実行して、破壊的なスキーマ変更を洗い出します。
+3. ターゲットバージョンに対して `os doctor` を実行します。
+4. フリート全体に展開する前に、カナリアインスタンスを 1 台立ち上げます。
+5. イメージタグとアーティファクトバージョンの両方についてロールバック計画を用意します(これらは独立してロールします)。
+
+## リグレッションの報告
+
+パッチまたはマイナーによって、以前は動作していたものが壊れた場合は、[github.com/objectstack-ai/objectos/issues](https://github.com/objectstack-ai/objectos/issues) で、アップグレード元/先のバージョンを添えてバグを報告してください。リグレッションは最優先で対応すべきバグとして扱います。

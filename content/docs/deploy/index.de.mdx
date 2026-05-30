@@ -1,0 +1,24 @@
+---
+title: Bereitstellung
+description: Wählen Sie, wie Sie ObjectOS betreiben — Docker zur Evaluierung, Kubernetes für hochverfügbare Produktionsumgebungen oder ein Air-Gapped-Bundle für Netzwerke ohne ausgehenden Datenverkehr.
+---
+
+ObjectOS wird als ein einziges Laufzeit-Artefakt ausgeliefert, das in jeder Umgebung auf die gleiche Weise läuft. Wählen Sie die Bereitstellungsform, die zu Ihrer Infrastruktur passt.
+
+## Docker
+
+Ein einzelner Container ist der schnellste Weg, um ObjectOS zu evaluieren oder es auf einem einzelnen Host auszuführen. Binden Sie ein Volume für das Datenverzeichnis ein, verweisen Sie es auf Ihre Datenbank und starten Sie den Container.
+
+[Docker-Anleitung →](/docs/deploy/docker)
+
+## Kubernetes
+
+Führen Sie ObjectOS in der Produktion als Deployment hinter einem Service aus, mit persistentem Speicher für das Datenverzeichnis und Ihren Secrets, die über standardmäßige Kubernetes-Mechanismen bereitgestellt werden.
+
+[Kubernetes-Anleitung →](/docs/deploy/kubernetes)
+
+## Air-Gapped
+
+Bringen Sie ein Release-Bundle in ein Netzwerk ohne Internetzugang ein. ObjectOS liest sein Anwendungs-Artefakt aus einer lokalen Datei und greift niemals auf einen gehosteten Dienst zu.
+
+[Air-Gapped-Anleitung →](/docs/deploy/air-gapped)

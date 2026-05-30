@@ -1,0 +1,185 @@
+---
+title: AI Builder
+description: Console 内置的对话功能，将自然语言需求转化为可运行的元数据。
+---
+
+# AI Builder
+
+AI Builder 是**客户扩展 ObjectOS 的主要方式**。打开
+Console，用自然语言与助手对话，它就会为你构建
+元数据——包、对象、字段、动作、流程。每一次
+变更都会先进入人机协作（HITL）审批列表，然后才会
+正式生效。
+
+## 30 秒快速体验
+
+```
+You: I need to track customer support tickets.
+     Each ticket has a subject, description, priority (low/medium/high/urgent),
+     status (new/open/pending/resolved/closed), and assignee.
+
+AI:  I'll create that for you. Here's the plan:
+     • Create package `com.you.support` (v0.1.0)
+     • Create object `support_ticket` with 5 fields
+     • Add a kanban view grouped by status
+     • Add 3 permission sets: agent, manager, viewer
+
+     Approve? [Yes] [Modify] [Cancel]
+
+You: [Yes]
+
+AI:  ✓ Package created
+     ✓ Object created with 5 fields and 12 indexes
+     ✓ Kanban view registered
+     ✓ Permission sets created
+     Done. Try it: /support_ticket
+```
+
+现在你就拥有了一个可用的工单应用——REST 端点、Console 视图、
+审计日志条目、权限检查点，一应俱全。没有编辑任何
+文件，也没有发生重启。
+
+## AI 能做什么
+
+助手可以访问一组**内置的元数据工具**，它们都
+带有命名空间，并依据 `@objectstack/spec` 进行校验：
+
+| 类别 | 工具 | 功能 |
+|---|---|---|
+| **Packages** | `create_package` | 创建带有 manifest + 版本的新容器 |
+| | `list_packages` | 浏览已有的包 |
+| | `get_package` / `get_active_package` | 查看内容 |
+| | `set_active_package` | 为当前对话选定工作包 |
+| **Objects** | `create_object` | 创建带有初始字段的新对象 |
+| | `list_objects` | 浏览当前活动包中的对象 |
+| | `describe_object` | 输出 schema、字段、关系 |
+| **Fields** | `add_field` | 添加一个有类型的字段（常见[字段类型](/docs/reference/field-types)） |
+| | `modify_field` | 修改标签、选项列表选项、校验规则 |
+| | `delete_field` | 删除字段（带安全检查） |
+| **Data** | `query_data` | 通过 ObjectQL 读取记录 |
+| **Actions / Knowledge** | `action_<name>`、`search_knowledge` | 调用动作，对文档进行 RAG 检索 |
+
+此外，每一个声明的 `*.action.ts` 都会物化为动作工具——
+命名为 `action_<name>`——因此一旦某个动作存在于包中，
+AI 就可以像调用任何内置工具一样调用它。
+
+在运行时查看完整的工具目录：`GET /api/v1/ai/tools`。
+
+## 人机协作审批
+
+**会变更元数据**的工具调用会路由进一个待处理动作
+队列。审批操作员在点击*批准*之前，会看到所提议
+变更的差异（diff）。
+
+| 端点 | 用途 |
+|---|---|
+| `GET  /api/v1/ai/pending-actions` | 列出排队中的动作（可按状态过滤） |
+| `GET  /api/v1/ai/pending-actions/:id` | 查看单个所提议动作的差异 |
+| `POST /api/v1/ai/pending-actions/:id/approve` | 应用变更 |
+| `POST /api/v1/ai/pending-actions/:id/reject` | 带原因丢弃 |
+
+所需权限：
+
+| 操作 | 权限 |
+|---|---|
+| 读取队列 | `ai:read` |
+| 批准 / 拒绝 | `ai:approve` |
+
+默认情况下，只有 **Setup Administrator** 的成员才拥有 `ai:approve`。
+你可以在[权限集](/docs/configure/permissions/permission-sets)中进行更细粒度的拆分——例如
+“产品负责人可以在 `com.acme.crm` 中批准，其他人都不行。”
+
+该队列可审计：每一次批准/拒绝都会记录到
+`sys_audit_log`，并附带发起对话的 id。
+
+## 对话与上下文
+
+每一次聊天都是一条 `ai_conversations` 记录。平台会跟踪：
+
+- **活动包（Active package）**——由 `set_active_package` 设定。新建的对象/
+  字段会落到这里。
+- **技能（Skills）**——当前上下文中可用的工具子集
+  （例如在 `support_ticket` 详情页内，AI 可能启用了
+  `support_ticket` 范围的技能）。
+- **知识（Knowledge）**——附加到该对话的 RAG 主题 + 索引。
+
+```text
+POST /api/v1/ai/assistant/chat
+{
+  "messages": [{ "role": "user", "content": "Add a tags field to support_ticket" }],
+  "context":  { "objectName": "support_ticket", "recordId": "tkt_123" }
+}
+```
+
+平台会为当前活动应用解析出默认的 Agent，
+根据上下文过滤技能集，然后让 LLM 选择要调用哪个工具。
+你无需把 agent 预先绑定到特定的 UI 上——agent 会
+根据元数据自动挂载。
+
+## 你可以请求什么
+
+经过验证的模式，附带一行提示词：
+
+| 目标 | 提示词 |
+|---|---|
+| 新对象 | *"Create a `product` object with name, sku, price, category."* |
+| 添加字段 | *"Add a `discount` decimal field to `order`, max 50."* |
+| 选项列表变更 | *"On `task.status`, add 'blocked' between 'open' and 'done'."* |
+| 索引 | *"Index `order` by status + created_at for the dashboard."* |
+| 关系 | *"Make `order_line` master-detail to `order`."* |
+| 校验 | *"On `invoice`, the discount can't exceed the subtotal."* |
+| 流程 | *"When a high-priority ticket sits in 'new' for 30 minutes, notify the manager."* |
+| 动作 | *"Create an action `approve_invoice` that sets status to approved."* |
+| 权限集 | *"Create `agent` permission set with read/create/edit on support_ticket and read on customer."* |
+| 翻译 | *"Translate the support_ticket labels and picklists to Spanish."* |
+
+如果 AI 无法完成，它会明确告知——并为你指出
+手动操作的途径（通常是一个 30 行的 `*.ts` 文件，或一个 Console 表单）。
+
+## 实时预览
+
+每次变更获批后，Console 会就地重新渲染受影响的视图。
+无需重新加载。内核缓存会使被改动的包失效；
+后续请求将使用新的元数据。
+
+## 回滚
+
+待处理动作记录会保留**变更前的状态**。如果某次变更出错，
+拒绝所有在途的条目，然后请 AI：
+
+```
+You: Roll back the last 3 changes to support_ticket.
+AI:  Found 3 mutations from conversation conv_abc (3 minutes ago).
+     Restoring 'support_ticket' to its state at 13:42:11.
+     Approve? [Yes]
+```
+
+对于规模更大的回滚，请使用 [`os diff`](/docs/reference/cli)
+对比你上一个已知良好的产物，并应用反向 diff。
+
+## 当前的限制
+
+- **数据访问遵循操作员自身的权限。**
+  助手以登录用户的身份运行，因此它只能读取或写入
+  该用户本就有权限操作的记录。大多数团队会让
+  助手专注于元数据，并让它查询——而非变更——
+  客户数据。
+- **跨包变更需要显式确认。** 请求
+  AI 修改系统包（`sys_*`）会返回拒绝
+  消息——平台在原则上拒绝这类操作。
+- **长时间运行的多步骤计划**（例如“从零构建一个完整的 HR 应用”）
+  是可行的，但最好拆分成一系列较小的
+  对话来完成，每次落地一两个对象。
+
+## 超越构建期 AI
+
+同样的 AI 底层能力也为你的终端用户驱动**运行时 agent**——
+支持助手、销售副驾、内部问答机器人——它们构建于
+同一套 Agent → Skill → Tool 架构之上。参见 [Agents](/docs/build/agents)。
+
+## 下一步去哪里
+
+- [Agents](/docs/build/agents) —— 基于你的数据构建的终端用户助手
+- [Data Model](/docs/build/data-model) —— AI 实际生成的内容
+- [Actions](/docs/build/actions) —— AI 作为运行时工具暴露的单元
+- [AI Service](/docs/configure/ai) —— 提供商配置（OpenAI / Anthropic / Doubao / …）

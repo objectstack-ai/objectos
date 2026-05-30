@@ -1,0 +1,237 @@
+---
+title: Flujos y Automatización
+description: Lógica de negocio declarativa — descrita a la IA o escrita en TypeScript, el runtime ejecuta el mismo artefacto en cualquiera de los dos casos.
+---
+
+# Flujos y Automatización
+
+Los flujos son la forma de expresar lógica de negocio sin escribir un servidor.
+Cada flujo es metadato declarativo que el runtime ejecuta — igual
+que los objetos y las vistas. Eso significa que los flujos aparecen en `os diff`, el
+registro de auditoría, el constructor de flujos de Console y el [AI Builder](/docs/build/ai-builder)
+todo a la vez.
+
+La mayoría de los clientes crean flujos pidiéndoselo a la IA:
+
+> *"Cuando un ticket de alta prioridad permanezca en 'new' durante 30 minutos, notifica
+> al responsable por Slack."*
+
+La IA genera el flujo de abajo. Esta página describe su estructura para que puedas
+leerlo y editarlo.
+
+Habilita la capacidad en tu stack:
+
+```ts
+export default defineStack({
+  // ...
+  requires: ['automation'],
+});
+```
+
+## Tres tipos de flujo
+
+| Tipo | Activado por | Úsalo para |
+|---|---|---|
+| **Autolaunched** | Un cambio en un registro (insert/update/delete) | "Enviar correo de bienvenida cuando un usuario se registra" |
+| **Scheduled** | Expresión cron o intervalo | "Marcar tareas obsoletas cada noche a las 2am" |
+| **Manual** | El usuario hace clic en un botón en Console, o una llamada a la API | Acciones de "Aprobar factura" |
+
+## Autolaunched: reaccionar a un cambio en un registro
+
+```ts
+// src/flows/welcome_email.ts
+import { defineFlow } from '@objectstack/spec';
+
+export const welcomeEmail = defineFlow({
+  name: 'welcome_email',
+  type: 'autolaunched',
+  trigger: {
+    object: 'sys_user',
+    when: 'after_insert',
+  },
+  steps: [
+    {
+      type: 'action',
+      action: 'send_email',
+      inputs: {
+        to:      '{!trigger.record.email}',
+        subject: 'Welcome to {!org.name}',
+        body:    'Hi {!trigger.record.name}, welcome aboard.',
+      },
+    },
+  ],
+});
+```
+
+Interpolación de variables: `{!trigger.record.<field>}`, `{!org.<field>}`,
+`{!user.<field>}`, `{!step.<step-name>.output}`. Usa expresiones CEL en
+los bloques `condition:`.
+
+Momento del trigger:
+
+| `when` | Se dispara |
+|---|---|
+| `before_insert` | Dentro de la transacción de escritura, antes del INSERT |
+| `after_insert` | Después del commit |
+| `before_update` | Dentro de la transacción de escritura, antes del UPDATE |
+| `after_update` | Después del commit |
+| `before_delete` | Dentro de la transacción de escritura, antes del DELETE |
+| `after_delete` | Después del commit |
+
+Los flujos `before_*` pueden mutar el registro que se está escribiendo (calcular campos,
+normalizar datos). Los flujos `after_*` se ejecutan de forma asíncrona y pueden llamar a servicios
+externos lentos.
+
+## Scheduled: ejecutar según un reloj
+
+```ts
+export const nightlyCleanup = defineFlow({
+  name: 'nightly_cleanup',
+  type: 'scheduled',
+  schedule: { cron: '0 2 * * *', timezone: 'America/New_York' },
+  steps: [
+    {
+      type: 'query',
+      query: { object: 'task', filter: 'status:open AND due_lt:now()' },
+      output: 'stale',
+    },
+    {
+      type: 'foreach',
+      items: '{!step.stale}',
+      do: [
+        { type: 'update', record: '{!item.id}', fields: { status: 'overdue' } },
+      ],
+    },
+  ],
+});
+```
+
+Respaldado por la capacidad `@objectstack/service-job` — consulta
+[Runtime Capabilities](/docs/reference/runtime-capabilities).
+
+## Manual: acciones y aprobaciones
+
+```ts
+export const approveInvoice = defineFlow({
+  name: 'approve_invoice',
+  type: 'manual',
+  inputs: {
+    invoice_id: { type: 'lookup', reference: 'invoice', required: true },
+    note:       { type: 'textarea' },
+  },
+  steps: [
+    {
+      type: 'update',
+      record: '{!inputs.invoice_id}',
+      fields: { status: 'approved', approved_by: '{!user.id}' },
+    },
+  ],
+});
+```
+
+Muéstralo en Console como un botón en la vista de Invoice, o invócalo mediante
+REST:
+
+```bash
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"inputs": {"invoice_id": "inv_123", "note": "OK"}}'
+```
+
+## Tipos de paso
+
+| Paso | Propósito |
+|---|---|
+| `query` | Leer registros mediante ObjectQL |
+| `create` / `update` / `delete` | Escribir en objetos |
+| `action` | Invocar una acción integrada o registrada por un plugin (email, webhook, llamada a IA, …) |
+| `condition` | Ramificar según una expresión CEL |
+| `foreach` | Iterar sobre una colección |
+| `parallel` | Ejecutar sub-pasos de forma concurrente |
+| `wait` | Pausar durante una duración / hasta un timestamp / hasta una condición |
+| `subflow` | Llamar a otro flujo |
+| `approval` | Bloquear hasta que un usuario apruebe (requiere `@objectstack/plugin-approvals`) |
+
+## Condiciones y ramificaciones
+
+```ts
+{
+  type: 'condition',
+  when: 'trigger.record.amount > 10000',
+  then: [
+    { type: 'action', action: 'send_slack', inputs: { /* ... */ } },
+  ],
+  else: [
+    { type: 'update', record: '{!trigger.record.id}', fields: { status: 'auto_approved' } },
+  ],
+}
+```
+
+## Manejo de errores
+
+Cada paso acepta:
+
+```ts
+{
+  type: 'action',
+  action: 'send_email',
+  inputs: { /* ... */ },
+  retry: { attempts: 3, backoffMs: 1000, multiplier: 2 },
+  onError: 'continue' | 'fail' | 'rollback',
+}
+```
+
+Para los flujos autolaunched `before_*`, `onError: 'fail'` (por defecto) aborta
+la transacción de escritura de origen. Para los flujos `after_*`, la escritura de origen
+ya está confirmada; las ejecuciones de flujo fallidas pasan a la cola de reintentos
+de jobs.
+
+## Fórmulas y expresiones (CEL)
+
+Las condiciones, los valores de campo dinámicos y las expresiones de filtro aceptan
+todas **CEL** (Common Expression Language) — el lenguaje de Google para la evaluación
+segura de expresiones:
+
+```ts
+'amount > 10000 && account.tier == "enterprise"'
+'duration(now() - created_at) > duration("30d")'
+'has(record.notes) && record.notes != ""'
+```
+
+CEL está aislado en un sandbox (sin efectos secundarios, sin E/S), se evalúa en el servidor y
+es auditable en el constructor de flujos.
+
+## Constructor visual
+
+Console incluye un constructor visual de flujos que va y vuelve con el
+metadato declarativo — quienes no son ingenieros pueden editar un flujo, y este se serializa
+de vuelta a la misma estructura que el TypeScript que escribirías a mano.
+
+## Probar flujos
+
+```bash
+os test --scenario "welcome email fires on signup"
+```
+
+## Límites y buenas prácticas
+
+- **Mantén pequeños los before-hooks.** Bloquean la transacción de escritura.
+- **Usa `wait` en lugar de pasos de larga duración.** Un flujo que duerme
+  bloquea un worker; un `wait until` devuelve el worker al pool.
+- **Usa `parallel` para pasos independientes.** La ejecución secuencial es
+  la opción por defecto.
+- **La idempotencia importa.** Los reintentos pueden ejecutar el mismo paso dos veces;
+  los efectos secundarios externos deben deduplicarse (usa el id de ejecución del flujo como clave).
+- **Acciones sensibles para auditoría.** Los flujos que cambian permisos o
+  eliminan registros deberían registrar ellos mismos en `sys_audit_log`.
+
+## A dónde ir después
+
+- [Webhooks](/docs/configure/webhooks) — notificaciones salientes, a menudo
+  activadas desde flujos
+- [Email](/docs/configure/email) — el transporte de la acción `send_email`
+- [AI Service](/docs/configure/ai) — la acción `ai_call` para pasos con LLM
+- [API Access](/docs/configure/api-access) — invocar flujos manuales desde
+  sistemas externos
+- [@objectstack/service-automation](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-automation)
+  — código fuente del motor de ejecución

@@ -1,0 +1,234 @@
+---
+title: Démarrage rapide
+description: De zéro à un ObjectOS opérationnel — installez une CLI, exécutez une commande, vous avez une application.
+---
+
+# Démarrage rapide
+
+Il existe deux façons de commencer, selon ce que vous faites.
+
+| Vous êtes … | Commencez ici |
+|---|---|
+| Vous essayez ObjectOS pour la première fois, ou vous l'exécutez en production | [Parcours A — `os start`](#path-a--os-start-operator-first-time-evaluator) |
+| Vous créez ou personnalisez une application dans le code | [Parcours B — `os init`](#path-b--os-init-developer) |
+
+Les deux produisent un serveur opérationnel avec Console + Account. La
+différence réside dans le fait que vous générez ou non des fichiers source.
+
+## Prérequis
+
+- **Node.js 20 ou plus récent** — `node --version`
+- Un terminal
+
+C'est tout. Pas de Docker. Pas de base de données. Pas d'inscription de compte.
+
+---
+
+## Parcours A — `os start` (opérateur / premier évaluateur)
+
+Installez la CLI globalement, puis exécutez-la :
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+Vous verrez :
+
+```text
+◆ ObjectStack
+────────────────────────────────────────
+🏠 Home: ~/.objectstack
+📦 Artifact: none (empty kernel — install apps via Console marketplace)
+🗄️ Database: file:~/.objectstack/data/objectstack.db
+
+  ✓ Server is ready
+
+  ➜  API:       http://localhost:3000/
+  ➜  Console:    http://localhost:3000/_console/
+  ➜  Account:   http://localhost:3000/_account/
+  ➜  Console:   http://localhost:3000/_console/
+
+  Plugins: 23 loaded
+```
+
+C'est tout. ObjectOS est en cours d'exécution.
+
+### Ce qui est en cours d'exécution
+
+| URL | Ce que c'est |
+|---|---|
+| http://localhost:3000/_account/register | Créez votre premier compte |
+| http://localhost:3000/_console/ | L'interface d'administration — et le **marketplace d'applications** |
+| http://localhost:3000/_console/ | Utilisateurs, rôles, journal d'audit, paramètres |
+| http://localhost:3000/health | Sonde de disponibilité |
+
+Le runtime démarre sur un **kernel vide** — aucun objet, aucune application —
+et expose le marketplace pour que vous puissiez installer des applications
+prêtes à l'emploi en quelques secondes.
+
+### Construire par conversation — l'AI Builder
+
+Une fois connecté, ouvrez l'assistant IA dans Console (icône étincelle en
+haut à droite) et décrivez ce dont vous avez besoin :
+
+> *« J'ai besoin de suivre les tickets de support client. Chacun a un sujet,
+> une description, une priorité (basse/moyenne/haute/urgente), un statut et
+> un assigné. Ajoutez une vue kanban regroupée par statut. »*
+
+L'IA propose un plan, vous l'approuvez, et les métadonnées sont actives —
+points de terminaison REST, vues Console, entrées du journal d'audit, contrôles
+de permissions. Aucun fichier modifié, aucun redémarrage. Consultez
+[Build → AI Builder](/docs/build/ai-builder) pour le vocabulaire complet.
+
+> **Vous codez à la main dans votre IDE ?** Exécutez `npx skills add objectstack-ai/framework`
+> pour apprendre à Claude Code / Cursor / Copilot / Codex comment rédiger
+> des métadonnées ObjectOS conformes aux véritables schémas Zod. Consultez
+> [Build → IDE Skills](/docs/build/ai-skills).
+
+### Installer une application depuis le marketplace
+
+Ouvrez **http://localhost:3000/_console/**, connectez-vous et choisissez une application :
+
+| Application | Ce qu'elle vous apporte |
+|---|---|
+| Todo | Suivi universel des tâches et des projets |
+| Contracts | Cycle de vie des contrats avec extraction par IA |
+| Procurement | Fournisseurs, bons de commande, rapprochement à 3 voies |
+| Compliance | Contrôles SOC 2 / ISO 27001 + preuves |
+| Helpdesk | Support client centré sur l'IA |
+| Content | Calendrier éditorial + ROI par canal |
+| HR | Annuaire, organigramme, congés |
+
+Installer → recharger → c'est là, avec ses objets, ses vues, ses permissions
+et ses données initiales. Aucun redémarrage requis.
+
+### Options courantes
+
+```bash
+os start --port 3200                       # different port
+os start --database postgres://...         # external database
+os start --auth-secret "$(openssl rand -hex 32)"  # enable auth in /api/v1/auth/*
+os start --home /var/lib/objectos          # persistent home (production)
+```
+
+Consultez [Runtime Configuration](/docs/configure/runtime) pour toutes les options,
+et [Docker](/docs/deploy/docker) pour le parcours orienté production.
+
+---
+
+## Parcours B — `os init` (développeur)
+
+Utilisez ceci lorsque vous écrivez du TypeScript pour définir votre propre
+modèle de données, vos vues et vos flux.
+
+```bash
+npx @objectstack/cli init my-app -t app --install
+cd my-app
+pnpm dev
+```
+
+Vous verrez :
+
+```text
+✓ Project initialized!
+
+◆ Compile
+  ✓ Build complete (462ms)
+  Data: 1 Objects  3 Fields
+
+◆ Development Mode
+  ✓ Server is ready
+
+  ➜  API:       http://localhost:3002/
+  ➜  Console:    http://localhost:3002/_console/
+  ➜  Account:   http://localhost:3002/_account/
+  ➜  Console:   http://localhost:3002/_console/
+```
+
+Notez que le serveur de développement utilise le port **3002** pour éviter
+tout conflit avec un `os start` en cours d'exécution sur le port 3000.
+
+### Ajouter votre propre objet
+
+Modifiez `src/objects/task.ts` :
+
+```ts
+// src/objects/task.ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Task = ObjectSchema.create({
+  name: 'task',
+  label: 'Task',
+  fields: {
+    subject:   Field.text({ label: 'Subject', required: true, maxLength: 200 }),
+    done:      Field.boolean({ label: 'Done', defaultValue: false }),
+    due:       Field.date({ label: 'Due' }),
+    assignee:  Field.lookup({ label: 'Assignee', reference: 'sys_user' }),
+  },
+});
+```
+
+Enregistrez. Le serveur de développement recompile et vous disposez immédiatement de :
+
+- **`/api/v1/data/task`** — CRUD complet avec filtrage/tri/pagination
+- **Une vue « Task » dans Console** — liste, formulaire, détail, tout généré
+- **Des lignes de permissions dans Console** — accordez lecture/écriture par rôle
+- **Des entrées de journal d'audit** — chaque création/mise à jour/suppression enregistrée
+
+Aucune migration. Aucune génération de code. Aucun redémarrage.
+
+### Structure du projet
+
+```text
+my-app/
+├── objectstack.config.ts    # Stack definition (manifest + objects)
+├── src/
+│   └── objects/             # Your data model — add files here
+├── dist/
+│   └── objectstack.json     # Compiled artifact (regenerated on save)
+├── package.json
+└── tsconfig.json
+```
+
+`dist/objectstack.json` est ce que vous livrez en production — montez-le sur
+un conteneur ObjectOS en cours d'exécution et cela devient votre application.
+
+### Ou partez d'un modèle
+
+Des modèles de démarrage orientés production sont disponibles sur
+[github.com/objectstack-ai/templates](https://github.com/objectstack-ai/templates) :
+
+```bash
+git clone https://github.com/objectstack-ai/templates.git
+cd templates/packages/todo
+pnpm install
+pnpm dev    # http://localhost:4002
+```
+
+Chaque modèle fait moins de 2500 lignes de code, se lit en une seule séance
+et s'exécute de manière autonome.
+
+---
+
+## Ce qui est chargé par défaut
+
+Les deux parcours vous fournissent automatiquement ces 23 plugins :
+
+> Auth, Security (RBAC + RLS + FLS), Audit, REST API, Console UI,
+> Account UI, Console UI, AI Service, Queue, Jobs, Cache, Settings,
+> Email, Storage, Marketplace, Metadata, ObjectQL, ainsi que le pilote SQL.
+
+Vous n'en importez ni n'en câblez aucun — ils s'activent lorsqu'un élément
+déclare en avoir besoin.
+
+## Étapes suivantes
+
+| Et maintenant | À lire |
+|---|---|
+| L'exécuter dans Docker (orienté production) | [Docker](/docs/deploy/docker) |
+| Utiliser Postgres au lieu de SQLite | [Runtime Configuration](/docs/configure/runtime) |
+| Ajouter la connexion Google / Okta / Entra | [Authentication](/docs/configure/authentication) |
+| Verrouiller qui peut faire quoi | [Permissions](/docs/configure/permissions) |
+| Envoyer des événements vers Slack / Zapier / votre service | [Webhooks](/docs/configure/webhooks) |
+| Déployer en production | [Production Readiness](/docs/operate/production) |

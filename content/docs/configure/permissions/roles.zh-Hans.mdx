@@ -1,0 +1,59 @@
+---
+title: 角色
+description: 使用角色对层级结构和管理职责进行建模。
+---
+
+# 角色
+
+角色描述用户在组织中的位置。它们对于表达层级结构和管理职责很有用，但不应成为授予权限的唯一方式。
+
+## 角色职责
+
+使用角色来建模：
+
+- 上下级（经理/下属）关系；
+- 部门或团队层级结构；
+- 基于所有权层级的记录可见性；
+- 审批职责；
+- 汇报结构。
+
+使用[权限集](/docs/configure/permissions/permission-sets)来授予具体的对象、字段和系统能力。
+
+## 系统对象
+
+| 对象 | 用途 |
+|---|---|
+| `sys_role` | 角色定义与层级结构 |
+| `sys_role_permission_set` | 通过角色分配的权限集 |
+| `sys_member` | 用户的组织成员身份与角色上下文 |
+
+## 推荐模式
+
+从一个精简的角色层级开始：
+
+```text
+System Administrator
+Sales Director
+Sales Manager
+Sales Representative
+Support Manager
+Support Agent
+```
+
+然后为各项能力附加权限集：
+
+```text
+Sales Manager role
+  -> CRM User
+  -> Sales Manager Access
+  -> Report Viewer
+```
+
+这样可以保持角色树的稳定，同时允许权限不断演进。
+
+## 应避免
+
+- 为每个用户单独创建一个角色；
+- 在每个角色中重复定义所有权限；
+- 将角色名称用作业务逻辑判断条件；
+- 在[记录共享](/docs/configure/permissions/record-access)能更精确实现需求时，却通过经理角色授予宽泛的访问权限。

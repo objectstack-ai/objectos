@@ -1,0 +1,99 @@
+---
+title: Registro de cambios y versionado
+description: Cómo se versiona ObjectOS, qué cambia entre versiones y qué tiene soporte.
+---
+
+# Registro de cambios y versionado
+
+## Política de versionado
+
+ObjectOS sigue el **[Versionado semántico](https://semver.org/)**: `MAJOR.MINOR.PATCH`.
+
+| Incremento de versión | Qué significa | Qué hacer |
+|---|---|---|
+| **Parche** (`4.0.1 → 4.0.2`) | Corrección de errores, sin cambios de comportamiento | Actualiza, no se requieren cambios en la aplicación |
+| **Menor** (`4.0 → 4.1`) | Nuevas funciones, compatible con versiones anteriores | Actualiza y, opcionalmente, adopta las nuevas funciones |
+| **Mayor** (`4 → 5`) | Cambios incompatibles documentados en las notas de versión | Lee la guía de migración antes de actualizar |
+
+Todos los paquetes `@objectstack/*` se publican juntos con un número de
+versión sincronizado: se prueban como una matriz, no de forma independiente.
+
+## Matriz de compatibilidad
+
+| Componente | Regla de compatibilidad |
+|---|---|
+| Imagen de ObjectOS ↔ artefacto compilado | Misma versión menor. Una imagen 4.0.x ejecuta un artefacto 4.0.x; un artefacto 4.1 puede usar funciones no disponibles en una imagen 4.0. |
+| ObjectOS ↔ CLI | Se recomienda la misma versión menor. La CLI en `npm i -g` genera andamiajes fijados a su propia versión. |
+| ObjectOS ↔ controlador de base de datos | El controlador queda fijado por la compilación de la imagen; verifica Postgres ≥ 13 / MongoDB ≥ 5 / Turso (cualquiera actual). |
+| Node.js | **20 LTS o posterior**. Se recomienda 22 LTS para nuevos despliegues. |
+
+## Ventanas de soporte
+
+| Rama | Estado | Hasta |
+|---|---|---|
+| **4.x** (actual) | Desarrollo activo; nuevas funciones y correcciones | Al menos 12 meses después del lanzamiento de 5.0 |
+| **3.x** | Solo correcciones de seguridad | EOL en el lanzamiento de 5.0 |
+| **≤ 2.x** | Sin soporte | Ya en EOL |
+
+Las correcciones de seguridad críticas se retroportan a la versión mayor
+actual y a la anterior. Todo lo demás se incorpora en `main`.
+
+## Notas de versión
+
+Las versiones publicadas de ObjectOS y sus entradas de CHANGELOG se publican en:
+
+- **npm**: [`@objectstack/runtime`](https://www.npmjs.com/package/@objectstack/runtime)
+- **GitHub**: [github.com/objectstack-ai/objectos/releases](https://github.com/objectstack-ai/objectos/releases)
+- **CHANGELOG de origen**: [`CHANGELOG.md`](https://github.com/objectstack-ai/framework/blob/main/CHANGELOG.md)
+- **Notas de versión extensas**: [`RELEASE_NOTES.md`](https://github.com/objectstack-ai/framework/blob/main/RELEASE_NOTES.md)
+
+Suscríbete a las versiones en GitHub para recibir notificaciones.
+
+## Aspectos destacados recientes
+
+### 4.0.x — tren de versiones actual
+
+- **42 paquetes** publicados en npm bajo `@objectstack/*`.
+- Console incorporó páginas completas de configuración (AI, Storage,
+  Knowledge).
+- Servicio de incrustación: 10 proveedores (`openai`, `azure`, 阿里通义,
+  智谱, 硅基流动, 火山, MiniMax, Ollama, personalizado).
+- Puente de configuración en vivo → runtime: cambia el proveedor en Console,
+  con intercambio en proceso sin reinicio.
+
+### 5.0 (próximamente) — cambio de nombre de `project` a `environment`
+
+El concepto de runtime antes llamado *Project* pasa a llamarse *Environment*
+en todo el sistema. Afecta a:
+
+- Indicadores de CLI: `--environment` / `-e`
+- Rutas HTTP: `/api/v1/environments/:environmentId/...`
+- Cabeceras: `X-Environment-Id`
+- Variables de entorno: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` se mantiene como alias en 4.x, eliminado en 5.0)
+- Columnas de BD: `environment_id`
+- Esquemas JSON: `EnvironmentArtifact`
+
+Sin alias ni adaptadores de compatibilidad. Planifica la actualización con
+cuidado: consulta la guía de migración a 5.0 en el lanzamiento.
+
+## Actualización
+
+Consulta [Actualización y reversión](/docs/operate/upgrade) para los pasos
+mecánicos. Comprobaciones previas:
+
+1. Lee la entrada del CHANGELOG de cada versión menor entre tu versión
+   actual y la de destino.
+2. Ejecuta `os diff <old-artifact> <new-artifact>` para detectar cambios
+   de esquema incompatibles.
+3. Ejecuta `os doctor` contra la versión de destino.
+4. Pon en marcha una instancia canary antes de desplegar en toda la flota.
+5. Ten un plan de reversión tanto para la etiqueta de la imagen como para
+   la versión del artefacto (se revierten de forma independiente).
+
+## Informar regresiones
+
+Si un parche o una versión menor rompe algo que antes funcionaba, abre un
+informe de error en
+[github.com/objectstack-ai/objectos/issues](https://github.com/objectstack-ai/objectos/issues)
+indicando la versión desde la que actualizaste y a la que actualizaste.
+Tratamos las regresiones como la clase de error de máxima prioridad.

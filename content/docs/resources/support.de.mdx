@@ -1,0 +1,78 @@
+---
+title: Support
+description: Wo Sie Hilfe erhalten, wie Sie Fehler melden, welche Reaktionszeiten zu erwarten sind.
+---
+
+# Support
+
+## Wohin für welches Anliegen
+
+| Wenn Sie … | Gehen Sie zu |
+|---|---|
+| Eine „Wie mache ich …"-Frage haben | [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions) — Community + Maintainer |
+| Einen Fehler gefunden haben | [GitHub Issues](https://github.com/objectstack-ai/objectos/issues) — bitte Version, Reproduktion sowie erwartetes vs. tatsächliches Verhalten angeben |
+| Eine Sicherheitslücke gefunden haben | **security@objectstack.ai** — **kein** öffentliches Issue eröffnen |
+| Kommerziellen Support / ein SLA benötigen | **sales@objectstack.ai** |
+| Mit Nutzern + Maintainern chatten möchten | [Discord](https://discord.gg/objectstack) (von der Community betrieben) |
+| Releases verfolgen möchten | [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos) beobachten → Releases |
+| Ein kostenpflichtiges Feature umgesetzt haben möchten | Eine Discussion eröffnen → mit `funding` taggen |
+
+## Einen guten Fehlerbericht erstellen
+
+Die 30-Sekunden-Variante:
+
+```text
+ObjectOS version:           4.0.4 (or sha-abc123)
+Node version:               22.4.0
+Install method:             docker / npm -g / source
+Database:                   postgres 16 / sqlite / turso / mongo
+Repro steps:                1. ...  2. ...  3. ...
+Expected:                   ...
+Actual:                     ...
+Logs:                       (sanitized, last 30 lines)
+```
+
+Bei Konfigurationsproblemen fügen Sie die Ausgabe von `os doctor` bei — es
+diagnostiziert 80 % der Fehlkonfigurationen ganz von allein.
+
+## Reaktionszeiten
+
+| Kanal | Reaktionszeit nach bestem Bemühen |
+|---|---|
+| Security-E-Mail | 1 Werktag |
+| GitHub Issues — Fehler, mit Reproduktion | 3 Werktage für die Triage, Fix mit dem nächsten Release-Zug |
+| GitHub Issues — Feature-Anfrage | 7 Werktage für die Triage |
+| GitHub Discussions | Community-getrieben; Maintainer melden sich regelmäßig zu Wort |
+| Kommerzieller Support | Gemäß Ihrem Supportvertrag |
+
+Dies erfolgt nach bestem Bemühen und stellt keine SLAs dar. Verträge für
+kommerziellen Support enthalten formale SLAs.
+
+## Kommerzieller Support & Dienstleistungen
+
+Verfügbar vom ObjectStack-Team:
+
+- **Kommerzieller Support** mit Reaktionszeit-SLAs.
+- **Managed Hosting** — wir betreiben es für Sie.
+- **Architektur-Review** — Plausibilitätsprüfung vor dem Deployment.
+- **Individuelle Plugins / Funktionen**, gebaut nach Ihren Vorgaben.
+- **OEM-Weiterverbreitung** — betten Sie ObjectOS in Ihr Produkt ein.
+
+Kontakt: **sales@objectstack.ai**.
+
+## Zurückgeben
+
+ObjectOS steht unter Apache-2.0 und nimmt Beiträge an:
+
+- [CONTRIBUTING.md](https://github.com/objectstack-ai/framework/blob/main/CONTRIBUTING.md)
+- [Code of Conduct](https://github.com/objectstack-ai/framework/blob/main/CODE_OF_CONDUCT.md)
+- Eröffnen Sie früh einen Draft-PR — wir prüfen lieber einen Entwurf, als dass
+  doppelte Arbeit entsteht.
+
+## Status & Vorfälle
+
+Gehostete Dienste (ObjectStack Cloud, Package-Registry):
+[status.objectstack.ai](https://status.objectstack.ai).
+
+Für Ihr selbst gehostetes ObjectOS-Deployment liegt der Status in Ihrer
+Verantwortung — binden Sie ihn an Ihr übliches Monitoring an (siehe [Observability](/docs/operate/observability)).

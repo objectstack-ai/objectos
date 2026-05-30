@@ -1,0 +1,136 @@
+---
+title: パッケージ
+description: ObjectOS における組織化の単位 — バージョン管理され、インストール可能で、共有可能。
+---
+
+# パッケージ
+
+ObjectOS で構築するものはすべて **パッケージ** の中に存在します。パッケージとは、バージョン管理された、自己完結型のメタデータのまとまりです。パッケージは AI Builder が作業する単位であり、marketplace が配布する単位であり、ObjectOS が更新を追跡する単位でもあります。
+
+## パッケージの中身
+
+```text
+com.acme.crm@1.2.0
+├── manifest          id, version, namespace, dependencies
+├── objects/          *.object.ts, *.state.ts, *.hook.ts
+├── views/            *.view.ts, *.page.ts, *.form.ts
+├── actions/          *.action.ts
+├── flows/            *.flow.ts, *.approval.ts
+├── agents/           *.agent.ts, *.skill.ts
+├── permissions/      *.permission.ts
+├── sharing/          *.sharing.ts
+├── translations/     en.ts, zh-CN.ts, ...
+├── apps/             *.app.ts  (navigation)
+└── data/             defineDataset(...) seed
+```
+
+すべてのメタデータ成果物（object、action、flow、…）は、ちょうど 1 つのパッケージに属します。パッケージ id は **逆 DNS** 形式（`com.acme.crm`、`org.mycompany.helpdesk`）であり、namespace のプレフィックス（`crm_`、`hd_`）によって、同一テナントにインストールされたパッケージ間でテーブル名 / object 名が衝突しないようにします。
+
+## パッケージの作成
+
+### AI Builder から
+
+> *「社内 CRM 用の新しいパッケージを namespace `crm` で開始して。」*
+
+AI は `create_package` と `set_active_package` を呼び出します。それ以降、記述したすべての object / field / action は `crm` に格納されます。
+
+### CLI から
+
+```bash
+os init my-crm -t app
+cd my-crm
+# manifest lives in the `manifest:` block of ./objectstack.config.ts
+pnpm dev
+```
+
+### Console から
+
+**Console → Packages → New Package** — name、id、version、namespace を指定します。
+
+## アクティブパッケージ
+
+AI Builder では、会話は **アクティブパッケージ**（新しいメタデータのデフォルトのコンテナ）を保持します。*「`com.acme.helpdesk` に切り替えて。」* のように指示すると、AI は `set_active_package` ツールでこれを設定します。CLI では、アクティブパッケージは単にプロジェクトの `objectstack.config.ts`（`manifest:` ブロック）で宣言されているものになります。
+
+## バージョニング
+
+パッケージは **semver** に従います。ランタイムと同じルールです。詳しくは [Changelog & Versioning](/docs/resources/changelog) を参照してください。
+
+バージョンを上げても、公開するまでは何も変わりません。ランタイムはテナントごと・パッケージごとに `installed_version` を追跡し、カタログにより新しいバージョンがある場合、marketplace には *「Update available」* バッジが表示されます。
+
+## 依存関係
+
+パッケージは他のパッケージに依存できます。
+
+```json
+{
+  "id": "com.acme.helpdesk",
+  "version": "0.3.0",
+  "dependencies": {
+    "com.acme.crm": "^1.0.0",
+    "sys.feeds":   "*"
+  }
+}
+```
+
+ランタイムはインストール時に依存関係を解決します。`com.acme.crm` がインストールされていない場合、helpdesk のインストールは明確なエラーとともに失敗します。
+
+システムパッケージ（`sys.*`）は常に存在します。feeds、attachments、audit、identity などです。
+
+## 公開
+
+```bash
+os compile                     # → dist/objectstack.json
+os package publish             # → ObjectStack cloud catalog
+```
+
+`os package publish` は、コンパイル済みの manifest を、`OS_CLOUD_URL` で設定されたクラウドコントロールプレーンにアップロードし、`OS_CLOUD_API_KEY` で認証します。プライベートな / エアギャップ環境での配布の場合は、公開をスキップし、コンパイル済みの `dist/objectstack.json` を直接インストール先に渡します（後述の「インストール」を参照）。[Marketplace](/docs/build/marketplace) も参照してください。
+
+## インストール
+
+| 経路 | 方法 |
+|---|---|
+| Console | Marketplace タブ → パッケージを選択 → Install |
+| REST | `POST /api/v1/marketplace/install-local`（body: `{ packageId, versionId? }`） |
+| エアギャップ | コンパイル済みの `dist/objectstack.json` 成果物をマウント（[Air-gapped](/docs/deploy/air-gapped) を参照） |
+
+インストールは、パッケージのメタデータを稼働中のカーネルにマージし、その object を ObjectQL に登録し、初回インストール時には初期データをシードします。再起動は不要です。キャッシュされたインストールは次回のブート時に再登録されるため、プロセスの再起動後も維持されます。
+
+## アンインストール
+
+アンインストールはパッケージのキャッシュされた manifest を削除するため、次回のブート時に再登録されなくなります。object の登録は追加的に行われるため、すでに稼働中のパッケージの object を完全にアンロードするには **カーネルの再起動** が必要です。データはデフォルトで **保持** されるため、再インストールして再開できます。
+
+## パッケージ横断の規約
+
+多数のパッケージが共存する際の衝突を防ぐために：
+
+| 成果物 | 規約 |
+|---|---|
+| Object 名 | 常にプレフィックス付き: `crm_account`、`hd_ticket` |
+| Action 名 | プレフィックス付き: `crm_assign_owner`、`hd_close_ticket` |
+| Flow 名 | プレフィックス付き: `hd_overdue_alert` |
+| 翻訳キー | namespace 配下にスコープ: `crm.account.label` |
+| シードの `externalId` | `<prefix>:<key>`、例: `crm:demo-account-1` |
+| システム名 | 予約済み: `sys_*`（カスタムパッケージでは使用しない） |
+
+CLI と AI Builder はどちらも、作成時にこの規約を強制します。
+
+## システムパッケージ
+
+ランタイムには、ポリモーフィックなサービスを提供する、常に存在する小さなパッケージ群が同梱されています。
+
+| パッケージ | 提供するもの |
+|---|---|
+| `sys.identity` | `sys_user`、`sys_organization`、`sys_member`、セッション、API キー |
+| `sys.feeds` | `sys_comment`、`sys_activity`、`sys_attachment` |
+| `sys.audit` | `sys_audit_log` |
+| `sys.files` | `sys_file` |
+| `sys.ai` | `ai_conversations`、`ai_pending_actions` |
+| `sys.settings` | `sys_setting` |
+
+これらは object 上で `enable: { feeds: true, trackHistory: true, … }` を指定することで有効化します。[Data Model](/docs/build/data-model) を参照してください。
+
+## 次に読むべきもの
+
+- [Marketplace](/docs/build/marketplace) — パッケージを他のテナントに配布する
+- [Data Model](/docs/build/data-model) — パッケージの中に入るもの
+- [`os package` commands](/docs/reference/cli) — CLI の完全なリファレンス

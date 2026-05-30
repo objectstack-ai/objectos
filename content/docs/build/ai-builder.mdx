@@ -41,7 +41,7 @@ edited; no restart happened.
 
 ## What the AI can do
 
-The assistant has access to **11 built-in metadata tools**, all
+The assistant has access to a set of **built-in metadata tools**, all
 namespaced and validated against `@objectstack/spec`:
 
 | Category | Tool | What it does |
@@ -53,11 +53,11 @@ namespaced and validated against `@objectstack/spec`:
 | **Objects** | `create_object` | New object with initial fields |
 | | `list_objects` | Browse objects in active package |
 | | `describe_object` | Print schema, fields, relationships |
-| **Fields** | `add_field` | Add a typed field (25 types supported) |
+| **Fields** | `add_field` | Add a typed field (common [field types](/docs/reference/field-types)) |
 | | `modify_field` | Change label, picklist options, validation |
 | | `delete_field` | Remove a field (with safety check) |
 | **Data** | `query_data` | Read records via ObjectQL |
-| **Actions / Knowledge** | `*_action`, `search_knowledge` | Invoke actions, RAG over docs |
+| **Actions / Knowledge** | `action_<name>`, `search_knowledge` | Invoke actions, RAG over docs |
 
 Plus action tools materialized from every declared `*.action.ts` —
 named `action_<name>` — so once an action exists in the package,
@@ -94,7 +94,7 @@ The queue is auditable: every approve/reject lands in
 
 ## Conversations and context
 
-Each chat is a `sys_ai_conversation` record. The platform tracks:
+Each chat is an `ai_conversations` record. The platform tracks:
 
 - **Active package** — set by `set_active_package`. New objects /
   fields land here.
@@ -159,9 +159,11 @@ your last known-good artifact and apply the reverse diff.
 
 ## Limitations (today)
 
-- **The assistant is read-only on customer data by default.** It can
-  query records but cannot insert/update/delete unless given the
-  `ai:write_data` permission. Most customers leave this off.
+- **Data access follows the operator's own permissions.** The
+  assistant runs as the signed-in user, so it can only read or write
+  records that user is already allowed to touch. Most teams keep the
+  assistant focused on metadata and let it query — not mutate —
+  customer data.
 - **Cross-package mutations require explicit confirmation.** Asking
   the AI to modify a system package (`sys_*`) returns a rejection
   message — the platform refuses on principle.

@@ -1,0 +1,10 @@
+{
+  "title": "Déploiement",
+  "defaultOpen": false,
+  "pages": [
+    "index",
+    "docker",
+    "kubernetes",
+    "air-gapped"
+  ]
+}

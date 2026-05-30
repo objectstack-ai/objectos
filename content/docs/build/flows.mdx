@@ -133,7 +133,7 @@ Surface it in Console as a button on the Invoice view, or call it via
 REST:
 
 ```bash
-curl -X POST https://app.example.com/api/v1/data/invoice/actions/approve_invoice \
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice \
   -H 'Authorization: Bearer <token>' \
   -d '{"inputs": {"invoice_id": "inv_123", "note": "OK"}}'
 ```

@@ -1,0 +1,15 @@
+{
+  "title": "Configurer",
+  "defaultOpen": false,
+  "pages": [
+    "runtime",
+    "authentication",
+    "permissions",
+    "storage",
+    "ai",
+    "system-settings",
+    "api-access",
+    "webhooks",
+    "email"
+  ]
+}

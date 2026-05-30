@@ -21,13 +21,13 @@ Notable surfaces:
 |---|---|
 | `/api/v1/data/<object>` | Generated CRUD for each object (e.g. `/api/v1/data/account`) |
 | `/api/v1/data/<object>/{id}` | Read/update/delete a single record |
-| `/api/v1/data/<object>/actions/<action>` | Invoke a declarative action |
+| `/api/v1/actions/<object>/<action>` | Invoke a declarative action (POST) |
 | `/api/v1/auth/*` | Authentication (sign-in, sessions, OAuth, OIDC) |
 | `/api/v1/meta/*` | Metadata APIs (objects, fields, views) when enabled |
-| `/health` | Liveness/readiness probe (no auth) |
+| `/api/v1/health` | Liveness/readiness probe (no auth) |
 
-The `apiPrefix` defaults to `/api/v1` and is configurable on the
-ObjectOS stack.
+The prefix defaults to `/api/v1` (the API `basePath` of `/api` plus the
+`version` of `v1`) and is configurable on the ObjectOS stack.
 
 ## Authentication options
 
@@ -75,7 +75,7 @@ parameters:
 
 | Parameter | Meaning |
 |---|---|
-| `?limit=` | Page size (capped by the object's `maxPageSize`) |
+| `?limit=` | Page size (subject to a server-side ceiling) |
 | `?offset=` or `?cursor=` | Pagination |
 | `?filter=` | Server-side filtering using the ObjectQL filter syntax |
 | `?sort=` | Sort expression (e.g. `-created_at`) |

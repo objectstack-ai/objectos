@@ -1,0 +1,11 @@
+{
+  "title": "運用",
+  "defaultOpen": false,
+  "pages": [
+    "production",
+    "observability",
+    "backup",
+    "upgrade",
+    "troubleshooting"
+  ]
+}

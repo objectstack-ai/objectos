@@ -1,0 +1,11 @@
+{
+  "title": "リソース",
+  "defaultOpen": false,
+  "pages": [
+    "glossary",
+    "faq",
+    "changelog",
+    "license",
+    "support"
+  ]
+}

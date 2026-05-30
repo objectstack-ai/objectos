@@ -1,0 +1,205 @@
+---
+title: アクション
+description: プラットフォームが REST エンドポイント、Console のボタン、フローのステップ、AI ツールとして公開する名前付きの操作 — 1 つの宣言から。
+---
+
+# アクション
+
+**アクション**とは、オブジェクトに対する名前付きの操作です。一度宣言すれば、
+次のように表れます。
+
+- `/api/v1/actions/<object>/<action>` の **REST エンドポイント**
+- Console のレコード詳細にある**ボタン**
+- 自動化のための**フローステップ**（`type: 'action'`）
+- Agents と AI Builder のための **AI ツール**（`action_<name>`）
+
+4 つのサーフェスにわたって同じことを繰り返す必要はありません。宣言は 1 つ、
+呼び出し方は 4 通りです。
+
+## アクションを宣言する
+
+```ts
+// src/actions/approve_invoice.action.ts
+import { Action } from '@objectstack/spec';
+
+export const approveInvoice = Action.create({
+  name: 'approve_invoice',          // lowercase snake_case (machine id)
+  label: 'Approve Invoice',
+  objectName: 'invoice',            // attaches to the invoice object
+  icon: 'check',
+  variant: 'primary',
+  locations: ['record_header'],     // where the button shows
+  confirmText: 'Approve this invoice?',
+  successMessage: 'Invoice approved',
+  refreshAfter: true,
+
+  // collect input before running
+  params: [
+    { name: 'note', label: 'Approval note', type: 'textarea' },
+  ],
+
+  // only show the button when the record is still pending
+  visible: 'record.status == "pending"',
+
+  // what it does — a sandboxed script body
+  type: 'script',
+  body: {
+    language: 'js',
+    source: `
+      await ctx.data.update('invoice', input.id, {
+        status: 'approved',
+        approved_by: ctx.user.id,
+        approved_at: now(),
+        approval_note: input.note,
+      });
+    `,
+  },
+});
+```
+
+`os dev` による再コンパイル後:
+
+- `POST /api/v1/actions/invoice/approve_invoice` が機能する
+- Console の Invoice レコードページに **Approve Invoice** ボタンが表示される
+- フローに `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }` を含められる
+- AI アシスタントは、スキルが許可していれば `action_approve_invoice` を呼び出せる
+
+## アクションの種類
+
+`type` フィールドがアクションの動作を決定します。
+
+| `type` | 実行される内容 | 用途 |
+|---|---|---|
+| `script` | `body` — L1 の formula 式、またはサンドボックス化された L2 の JavaScript | ほとんどのケース — サーバーサイドのロジック、監査可能かつ AI から呼び出し可能 |
+| `api` | `target` エンドポイントへの HTTP 呼び出し（`method`、`bodyExtra`） | data-API またはプラットフォームのエンドポイントの再利用 |
+| `flow` | `target` で指定した名前のフローを実行 | 複数ステップのビジネスプロセス |
+| `url` | `target` の URL へ遷移 | ディープリンク、リダイレクト形式のアクション |
+| `modal` | `target` で指定した名前のページ/モーダルを開く | カスタムダイアログ |
+| `form` | `target` で指定した名前の FormView を開く | ガイド付きのデータ入力 |
+
+```ts
+// api type — reuse a data-API endpoint
+Action.create({
+  name: 'archive_order',
+  objectName: 'order',
+  label: 'Archive',
+  locations: ['list_item'],
+  type: 'api',
+  method: 'PATCH',
+  target: '/api/v1/data/order/{id}',
+  bodyExtra: { archived: true },
+});
+```
+
+`script` 以外の種類には `target` が必要です。どの種類であっても、アクションは
+すべてのサーフェスで同じファーストクラスの存在です。
+
+## アクションを呼び出す
+
+### REST
+
+```bash
+# the record id can go in the body, or in the path
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice/inv_123 \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"note": "LGTM"}'
+```
+
+パラメータはリクエストボディにフラットな形で送信されます。レコード id は、
+末尾のパスセグメント（`.../approve_invoice/:recordId`）として、またはボディで
+渡せます。レスポンスはスクリプトボディの戻り値（または `api` 種類のアクションでは
+呼び出し結果）です。
+
+### Console
+
+デフォルトでは、Console はアクションをレコード詳細ページのボタンとして表示し、
+アクションの `visible` 述語でフィルタリングします。配置を上書きするには、
+ビュー設定で指定します。
+
+```ts
+defineView({
+  name: 'invoice_detail',
+  object: 'invoice',
+  actions: ['approve_invoice', 'reject_invoice', 'send_to_customer'],
+});
+```
+
+### フローから
+
+```ts
+{
+  type: 'action',
+  action: 'approve_invoice',
+  inputs: { note: 'Auto-approved by SLA flow' },
+  record: '{!trigger.record.id}',
+}
+```
+
+### AI Agent から
+
+`approve_invoice` がエージェントの持ついずれかのスキルに含まれていれば、LLM は
+それを呼び出せます。入力は会話から取得され、権限はユーザーが直接呼び出した場合と
+同じように適用されます。
+
+> *「INV-2042 の請求書を、メモ『電話で確認済み』を付けて承認して。」*
+
+## 権限
+
+アクションは呼び出したユーザーの権限で実行されます。プラットフォームは次を
+チェックします。
+
+1. **オブジェクト権限** — ユーザーの[権限セット](/docs/configure/permissions/permission-sets)が、
+   アクションに必要なオブジェクトレベルのアクセス（例: update）を付与している必要があります。
+2. **フィールド権限** — アクションが書き込む任意のフィールドについて、ユーザーは
+   書き込みアクセス（FLS）を持っている必要があります。
+3. **UI ゲーティング** — `visible` と `disabled` の述語（CEL、`record`、`os.user`、
+   およびパラメータに対して評価される）が、Console でボタンを描画するか、
+   グレーアウトするかを制御します。
+
+権限チェックに失敗すると、`PERMISSION_DENIED` エラーとともに `403` を返します。
+
+## 組み込みアクション
+
+すべてのオブジェクトには、これらが標準で備わっています。
+
+| アクション | 動作 |
+|---|---|
+| `create` | レコードを挿入 |
+| `update` | レコードを更新 |
+| `delete` | レコードを削除（またはソフト削除） |
+| `restore` | ソフト削除を取り消し |
+| `clone` | レコードをディープコピー |
+| `share` | ユーザー / ロールと直接共有 |
+
+これらを再宣言しないでください — これらはオブジェクトの[ライフサイクルと機能フラグ](/docs/build/data-model)に従います。
+
+## 監査
+
+プラットフォームのイベントは、次のフィールドを含む不変の証跡である
+`sys_audit_log` に記録されます。
+
+- `user_id` — 発生元のユーザー
+- `action` — アクション名
+- `object_name` と `record_id` — 操作対象
+- `old_value` / `new_value` — 変更内容
+- `ip_address` / `user_agent` — リクエストの発信元
+- `created_at` — 発生日時
+
+これは*「誰がボタンを押したのか?」*という疑問の最初の手がかりです。
+
+## AI Builder でアクションを生成する
+
+> *「`support_ticket` に `escalate_ticket` というアクションを作成し、優先度を
+> urgent に設定して、オンコールのエンジニアに割り当てて。」*
+
+[AI Builder](/docs/build/ai-builder) はアクションのメタデータを生成し、その変更を
+承認待ちのキューに入れます。承認後、アクションは REST、Console、フロー、そして
+再帰的に AI 自身からも呼び出せるようになります。
+
+## 次に読むもの
+
+- [フロー](/docs/build/flows) — 複数のアクションを組み合わせてビジネスロジックを構成する
+- [Agents](/docs/build/agents) — アクションを AI ツールとして公開する
+- [API アクセス](/docs/configure/api-access) — 外部システムからアクションを呼び出す
+- [権限](/docs/configure/permissions) — 誰が何を呼び出せるかを制御する

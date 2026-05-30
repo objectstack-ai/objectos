@@ -20,16 +20,25 @@ An offline release bundle should contain:
 | Environment template | Required secrets and runtime variables |
 | Operations checklist | Upgrade, rollback, backup, and diagnostics |
 
+The container image and artifact mount follow the same conventions as a
+standard [Docker deployment](/docs/deploy/docker); only the network
+posture differs.
+
 ## Runtime mode
 
-Use file-backed mode:
+Use file-backed mode: point ObjectOS at a local artifact and a
+customer-managed business database, and leave the cloud control plane
+unset.
 
 ```bash
 OS_ARTIFACT_FILE=/artifacts/objectstack.json
+OS_BUSINESS_DB_URL=file:/var/lib/objectos/data.db
+# Leave OS_CLOUD_URL unset to run fully offline
 ```
 
 ObjectOS resolves every request to the packaged project and loads the
-artifact from disk.
+artifact from disk. With `OS_CLOUD_URL` unset, no calls are made to a
+hosted control plane.
 
 ## Network expectations
 
@@ -56,3 +65,6 @@ Treat artifacts as immutable:
 3. Update the mount or environment variable to point at the new artifact.
 4. Restart ObjectOS.
 5. Roll back by restoring the previous image tag or artifact path.
+
+See [Upgrade](/docs/operate/upgrade) and [Backup](/docs/operate/backup)
+for the full procedures these steps summarize.

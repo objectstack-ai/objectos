@@ -1,0 +1,207 @@
+---
+title: Servicio de IA
+description: LLMs, generadores de embeddings, RAG y MCP — conectables entre proveedores, intercambiables en tiempo de ejecución.
+---
+
+# Servicio de IA
+
+ObjectOS trata la IA como una capacidad de primera clase con **tres capas
+conectables**:
+
+| Capa | Paquete | Qué hace |
+|---|---|---|
+| **Chat / generación** | `@objectstack/service-ai` | Conversaciones, llamadas a herramientas, streaming |
+| **Embeddings** | `@objectstack/embedder-openai` (compatible con OpenAI) | Texto → vectores para búsqueda semántica y RAG |
+| **Conocimiento / RAG** | `@objectstack/service-knowledge` + adaptador | Documentos → bases de conocimiento indexadas |
+
+Las tres son opcionales, las tres son independientes del proveedor y las
+tres pueden reconfigurarse en tiempo de ejecución desde **Console →
+Configuration** sin necesidad de reiniciar.
+
+## Chat / generación
+
+Impulsado por el [Vercel AI SDK](https://ai-sdk.dev). Instala el o los
+proveedores que quieras como peer deps:
+
+```bash
+pnpm add @ai-sdk/openai          # OpenAI
+pnpm add @ai-sdk/anthropic       # Claude
+pnpm add @ai-sdk/google          # Gemini
+pnpm add @ai-sdk/gateway         # AI gateway / OpenRouter / proxies
+```
+
+Luego registra el plugin del servicio de IA con un adaptador del Vercel-SDK:
+
+```ts
+import { AIServicePlugin, VercelLLMAdapter } from '@objectstack/service-ai';
+import { openai } from '@ai-sdk/openai';
+
+kernel.use(new AIServicePlugin({
+  adapter: new VercelLLMAdapter({ model: openai('gpt-4o') }),
+  models: [
+    { id: 'fast',  provider: 'openai', model: 'gpt-4o-mini' },
+    { id: 'smart', provider: 'openai', model: 'gpt-4o' },
+  ],
+  defaultModelId: 'fast',
+}));
+```
+
+La lista `models` alimenta el registro de modelos en tiempo de ejecución —
+impulsa la resolución del modelo predeterminado y la atribución de costos
+en las trazas. De forma predeterminada, el plugin también se vincula al
+espacio de nombres de configuración `ai` y reconstruye el adaptador en vivo
+cuando un operador edita el proveedor/credenciales/modelo en Console, por lo
+que no se necesita reiniciar.
+
+Las claves de API de cada proveedor provienen de las variables de entorno
+habituales de cada SDK:
+
+| Proveedor | Variable de entorno |
+|---|---|
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| AI Gateway | `AI_GATEWAY_API_KEY` |
+
+En Console puedes pegarlas como ajustes en tiempo de ejecución en su lugar —
+pasan por la misma precedencia (env > settings), pero la edición en vivo
+significa que no hay reinicio.
+
+### Uso del servicio de IA desde el código
+
+```ts
+const ai = kernel.getService<IAIService>('ai');
+
+// One-shot chat
+const result = await ai.chat(
+  [{ role: 'user', content: 'Summarize ObjectStack in two sentences.' }],
+  { model: 'smart' },
+);
+
+// Structured output
+const { object } = await ai.generateObject(
+  [{ role: 'user', content: 'Classify this ticket: ...' }],
+  { schema, model: 'fast' },
+);
+```
+
+El servicio también expone `complete()`, `streamChat()`, `embed()` y
+`listModels()`. Las conversaciones se persisten como registros
+`ai_conversations` / `ai_messages` y se gestionan a través de la API REST
+(`POST /api/v1/ai/chat`, `POST /api/v1/ai/conversations`).
+
+### Uso desde agents y flows
+
+Para IA declarativa — agents, skills y herramientas — consulta
+[AI Agents](/docs/build/agents). Los flows pueden invocar cualquier acción
+registrada (incluidas las acciones que envuelven una llamada a
+`ai.chat()` / `ai.generateObject()`) como un nodo `action`; consulta
+[Flows & Automation](/docs/build/flows) para el contexto que lo rodea.
+
+## Embedders
+
+El embedder convierte texto en vectores densos. Un único adaptador
+compatible con OpenAI, `@objectstack/embedder-openai`, cubre OpenAI más
+cualquier proveedor que exponga un endpoint `/v1/embeddings` compatible con
+OpenAI — elige uno con un **preset** (que establece la URL base por ti) o
+apunta `baseUrl` a un endpoint personalizado.
+
+| Proveedor | `preset` | Notas |
+|---|---|---|
+| OpenAI | `openai` | `text-embedding-3-small`/`-large` |
+| Azure OpenAI | `azure` | Proporciona la URL de despliegue completa mediante `baseUrl` |
+| 阿里通义 DashScope | `dashscope` | `text-embedding-v3` |
+| 智谱 GLM | `zhipu` | `embedding-2` |
+| 硅基流动 SiliconFlow | `siliconflow` | Agregador de modelos OSS |
+| 火山 Doubao | `doubao` | ByteDance |
+| MiniMax | `minimax` | — |
+| Ollama (autoalojado) | `ollama` | Apto para entornos aislados (`http://localhost:11434/v1`) |
+| Personalizado | _(omítelo; establece `baseUrl`)_ | Usa tu propio endpoint compatible con OpenAI |
+
+Configurar en código:
+
+```ts
+import { createOpenAIEmbedder } from '@objectstack/embedder-openai';
+
+const embedder = createOpenAIEmbedder({
+  preset: 'openai',
+  model: 'text-embedding-3-small',
+  // apiKey from OPENAI_API_KEY env if omitted
+});
+```
+
+O elige en tiempo de ejecución desde **Console → Configuration → AI →
+Embedder**. Cambia de proveedor sin reiniciar; los vectores existentes
+siguen siendo consultables (puedes reindexar en segundo plano).
+
+## Conocimiento / RAG
+
+El servicio de conocimiento orquesta la ingesta de documentos, el chunking,
+la generación de embeddings (a través del servicio de embedder) y la
+recuperación. El backend real de almacenamiento y búsqueda es conectable:
+
+| Adaptador | Backend | Adecuado para |
+|---|---|---|
+| `@objectstack/knowledge-memory` | En proceso | Desarrollo, demos, KBs pequeñas |
+| `@objectstack/knowledge-ragflow` | [RAGFlow](https://github.com/infiniflow/ragflow) | RAG OSS de alta calidad con chunking + reranking |
+
+```ts
+import { KnowledgeServicePlugin } from '@objectstack/service-knowledge';
+import { KnowledgeRagflowPlugin } from '@objectstack/knowledge-ragflow';
+
+kernel.use(new KnowledgeServicePlugin({ defaultTopK: 10 }));
+kernel.use(new KnowledgeRagflowPlugin({
+  endpoint: process.env.RAGFLOW_ENDPOINT, // e.g. http://localhost:9380
+  apiKey:   process.env.RAGFLOW_API_KEY,
+}));
+```
+
+Las bases de conocimiento indexadas se convierten en objetos de primera
+clase — consúltalas desde flows, muéstralas en Console, adjúntalas a
+asistentes de IA como contexto de recuperación.
+
+## MCP — Model Context Protocol
+
+ObjectOS puede exponerse a sí mismo como un servidor de herramientas para
+agentes de IA (Claude Desktop, IDEs, agentes personalizados) a través del
+[Model Context Protocol](https://modelcontextprotocol.io) abierto.
+
+```ts
+import { MCPServerPlugin } from '@objectstack/plugin-mcp-server';
+
+kernel.use(new MCPServerPlugin({
+  transport: 'stdio', // or 'http'
+  autoStart: true,
+}));
+```
+
+Los agentes descubren e invocan las herramientas de ObjectOS a través de MCP
+— sujeto a los permisos del usuario que las llama. El servidor conecta el
+registro de herramientas del servicio de IA, incluidas herramientas
+universales como `list_objects`, `describe_object`, `query_records`,
+`get_record` y `aggregate_data`.
+
+## Garantías operativas
+
+- **Sin dependencia obligatoria de la nube.** Usa Ollama para chat + el
+  embedder de Ollama + conocimiento en memoria — totalmente aislado.
+- **Intercambiable en vivo.** Cambia de proveedor en Console; las nuevas
+  solicitudes usan el nuevo proveedor en la siguiente llamada. Sin reinicio.
+- **Configuración por tenant.** Cada Environment tiene sus propios ajustes
+  de IA. Tenant A en OpenAI, tenant B en Anthropic — el mismo runtime.
+- **Entradas en el registro de auditoría.** Cada conversación, llamada a
+  herramienta y solicitud al embedder puede auditarse
+  (`@objectstack/plugin-audit`).
+- **Consciente del costo.** Los recuentos de tokens y los IDs de proveedor
+  fluyen hacia el registro de auditoría para el chargeback / análisis de
+  costos.
+
+## Adónde ir después
+
+- [AI Agents](/docs/build/agents) — agents, skills y herramientas declarativos
+- [Flows & Automation](/docs/build/flows) — invoca la IA desde lógica de negocio declarativa
+- [Marketplace](/docs/build/marketplace) — aplicaciones impulsadas por IA en el catálogo predeterminado
+- [Security & Compliance](/docs/reference/security) — cómo se aíslan los flujos de datos de IA
+- [Código fuente de `@objectstack/service-ai`](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-ai)
+- [Código fuente de `@objectstack/embedder-openai`](https://github.com/objectstack-ai/framework/tree/main/packages/plugins/embedder-openai)
+- [Código fuente de `@objectstack/service-knowledge`](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-knowledge)

@@ -1,0 +1,106 @@
+---
+title: Kubernetes
+description: Kubernetes 環境に ObjectOS をデプロイします。
+---
+
+# Kubernetes
+
+マネージドシークレット、Ingress、プローブ、ローリングアップグレード、
+顧客管理データベースを必要とする本番デプロイには Kubernetes を使用します。
+
+ObjectOS はまだパッケージ化された Helm チャートを提供していないため、
+以下のガイダンスでは公開コンテナイメージの周囲に構成するマニフェストについて説明します。
+
+## デプロイメント構成
+
+本番の ObjectOS デプロイメントには通常、次のものが含まれます。
+
+| コンポーネント | 推奨事項 |
+|---|---|
+| Deployment | ObjectOS コンテナイメージ 1 つ |
+| Service | HTTP トラフィック用の ClusterIP サービス |
+| Ingress | TLS 終端と顧客ホスト名のルーティング |
+| Secret | `OS_AUTH_SECRET`、コントロールプレーントークン、データベース認証情報 |
+| ConfigMap | シークレット以外のランタイム構成 |
+| 永続ストレージ | ローカルファイルのアーティファクトまたは SQLite 評価データを使用する場合のみ |
+| 外部データベース | 本番の業務データには推奨 |
+
+## 必須の構成
+
+最低限、次の構成を行います。
+
+```yaml
+env:
+  - name: PORT
+    value: "3000"
+  - name: OS_AUTH_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: auth-secret
+```
+
+クラウド接続モードの場合:
+
+```yaml
+env:
+  - name: OS_CLOUD_URL
+    value: "https://cloud.example.com"
+  - name: OS_CLOUD_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: cloud-api-key
+```
+
+ファイルバックモードの場合は、アーティファクトをマウントして次を設定します。
+
+```yaml
+env:
+  - name: OS_ARTIFACT_FILE
+    value: "/artifacts/objectstack.json"
+```
+
+## プローブ
+
+ObjectOS はプロジェクトカーネルが完全に解決される前に応答する組み込みの
+`GET /health` エンドポイントを公開しており、これは liveness と readiness の
+両方のプローブのターゲットとして適しています。
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 20
+```
+
+より厳密な readiness チェックを行うには、追加のプローブをアプリケーション固有の
+生成された API ルートに向けてください。これにより、アーティファクトが読み込まれ、
+カーネルがリクエストを処理していることを確認できます。
+
+## Ingress と CORS
+
+エッジまたは Ingress で TLS を終端します。顧客が使用するフロントエンドの
+オリジンに対して CORS を明示的に構成します。ワイルドカードのオリジンと
+認証情報付きのリクエストを組み合わせないでください。
+
+ObjectOS をプロキシの背後で実行する場合は、プロキシが独自の値を設定する前に
+クライアントから提供された `X-Forwarded-For` 値を取り除くようにしてください。
+レート制限と監査証跡は、信頼できる呼び出し元の識別情報に依存します。
+
+## ローリングアップグレード
+
+ObjectOS のイメージバージョンとアプリケーションアーティファクトのバージョンは
+別個のものです。それぞれ独立してロールアウトします。
+
+- ObjectOS イメージ: コンテナタグを変更してアップグレードします。
+- アプリケーションアーティファクト: 新しいイミュータブルなアーティファクトを公開またはマウントします。
+- ロールバック: 以前のイメージタグまたはアーティファクトのポインタを復元します。

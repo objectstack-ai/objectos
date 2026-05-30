@@ -1,0 +1,157 @@
+---
+title: CEL 式
+description: 数式、述語、スケジュール、テンプレート文字列に使用される式言語 — 5 つのタグ付きテンプレートを通じて提供されます。
+---
+
+# CEL 式
+
+ObjectOS は、小さく安全でサンドボックス化された式が必要なあらゆる場所で [CEL](https://github.com/google/cel-spec)（Common
+Expression Language）を使用します。対象は、数式フィールド、検証ルール、表示述語、共有条件、フロー
+ガード、スケジュール、テンプレート文字列です。
+
+オーサリングは `@objectstack/spec` からインポートする **5 つのタグ付きテンプレート** を通じて行います。これらはいずれも、ランタイムが解析する小さな JSON オブジェクトを生成します。
+
+```ts
+{ dialect: 'cel' | 'template' | 'cron', source: string }
+```
+
+スキーマソース:
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts)。
+
+## 5 つのタグ付きテンプレート
+
+| テンプレート | Dialect | 用途 | 例 |
+|:--|:--|:--|:--|
+| `` F`...` `` | `cel` | **数式フィールド** — レコードと共に保存される派生値 | `` F`record.amount * 0.1` `` |
+| `` P`...` `` | `cel` | **述語** — 検証 / 共有 / 表示 / 条件のためのブール値 | `` P`record.status == "open"` `` |
+| `` cel`...` `` | `cel` | **汎用 CEL** — F でも P でも合わない場合（例: パラメータ値） | `` cel`now() + duration("P30D")` `` |
+| `` tmpl`...` `` | `template` | `{{var}}` 補間を伴う **文字列テンプレート** | `` tmpl`Order from {{record.customer.name}}` `` |
+| `` cron`...` `` | `cron` | **スケジュール** — 標準の 5 フィールド cron 構文 | `` cron`0 9 * * 1-5` `` |
+
+`F`、`P`、`cel` は評価時には機能的な違いはありません — いずれも CEL を実行します。この区別は、スキーマ（および AI エージェント）が式の役割を把握し、エディタが型チェックを行えるようにするために存在します（数式は値を返さなければならず、述語はブール値を返さなければなりません）。
+
+### インポート
+
+```ts
+import { F, P, cel, tmpl, cron } from '@objectstack/spec'
+```
+
+## それぞれの使用場所
+
+| spec 上のフィールド | タグ | 使用場所の例 |
+|:--|:--|:--|
+| `Field.expression`（formula 型） | `F` | `*.object.ts` の数式フィールド |
+| `Field.conditionalRequired` | `P` | オブジェクトフィールド |
+| `Validation.predicate` | `P` | オブジェクト検証 |
+| `SharingRule.condition` | `P` | 共有ルール |
+| `View.conditionalFormatting[].condition` | `P` | ビュー |
+| `Flow.step.when` / `Flow.transition.when` | `P` | フロー |
+| `Action.guard` | `P` | アクション |
+| 通知の件名 / メッセージ本文 | `tmpl` | 通知 |
+| `Schedule.cron` | `cron` | スケジュール実行されるフロー / レポート |
+| 任意の値パラメータ | `cel` | フローステップの入力 |
+
+## 変数スコープ
+
+CEL 式は、次のトップレベル変数を持つコンテキスト内で評価されます。
+
+| 変数 | 利用可能なタイミング | 内容 |
+|:--|:--|:--|
+| `record` | ほぼ常時 | 評価中の現在のレコード |
+| `previous` | 更新フック / 変更検出時 | レコードの変更前の状態（または `null`） |
+| `input` | アクション、フローステップ | ユーザーが指定した入力ペイロード |
+| `os.user` | 常時 | `{ id, roles: string[], permissions: string[] }` |
+| `os.org` | 常時 | 組織 / テナントのコンテキスト |
+| `os.env` | 常時 | 式に公開される環境変数 |
+
+> レガシーの `OLD` / `NEW` 変数は M9.5 で削除されました。`previous`
+> と `record` を使用してください。
+
+## 標準ライブラリ
+
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts)
+に登録されています。
+最もよく使われる組み込み関数:
+
+### 時刻
+
+| 関数 | 戻り値 | 備考 |
+|:--|:--|:--|
+| `now()` | `Timestamp` | 評価コンテキストに固定される — 1 つのクエリ内では安定 |
+| `today()` | `Timestamp` | UTC の日の開始時刻 |
+| `daysFromNow(int)` | `Timestamp` | 未来の日付 |
+| `daysAgo(int)` | `Timestamp` | 過去の日付 |
+
+CEL にはネイティブの `timestamp(...)`、`duration(...)`、
+`date.getDayOfWeek()` なども含まれます — 
+[CEL spec](https://github.com/google/cel-spec/blob/master/doc/langdef.md#standard-definitions) を参照してください。
+
+### ユーティリティ
+
+| 関数 | 目的 |
+|:--|:--|
+| `isBlank(x)` | `null`、`undefined`、`""`、または空リストの場合に `true` |
+| `coalesce(a, b)` | 最初の非 null 値 |
+| `trim(s)` | 空白を除去 |
+| `joinNonEmpty(list, sep)` | 空でないエントリを連結 |
+
+ネイティブの CEL 文字列ヘルパー（`.contains(...)`、`.startsWith(...)`、
+`.matches(...)`、`.size()`）は常に利用可能です。
+
+## 例
+
+**数式フィールド** — 明細項目の合計:
+
+```ts
+{ name: 'subtotal', type: 'formula', expression: F`record.quantity * record.unit_price` }
+```
+
+**検証** — 完了日は今日より後でなければならない:
+
+```ts
+{ message: 'Close date must be in the future', predicate: P`record.close_date > today()` }
+```
+
+**表示** — マネージャーにのみフィールドを表示する:
+
+```ts
+{ visibleIf: P`'manager' in os.user.roles` }
+```
+
+**フローガード** — 金額が小さい場合はステップをスキップする:
+
+```ts
+{ when: P`record.amount >= 1000` }
+```
+
+**スケジュール** — 平日の午前 9 時:
+
+```ts
+{ schedule: cron`0 9 * * 1-5` }
+```
+
+**テンプレート** — 通知の件名:
+
+```ts
+{ subject: tmpl`[{{record.priority}}] {{record.subject}}` }
+```
+
+## エラー
+
+式はロード時にコンパイルされます。失敗はソースの場所とともに
+`VALIDATION_ERROR` として表示されます。
+
+```json
+{ "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
+```
+
+ランタイムでの評価失敗は、数式フィールドでは `null`、述語では `false`
+として扱われ、あわせて監査ログにエントリが記録されます。
+
+## 関連項目
+
+- [Field types](./field-types) — 数式フィールドと条件付き必須フィールド
+- [Build → Data model](/docs/build/data-model) — 検証と述語
+- [Build → Flows](/docs/build/flows) — ガードとスケジュール
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — スキーマ
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — 組み込み関数

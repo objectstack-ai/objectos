@@ -1,0 +1,154 @@
+---
+title: Docker
+description: ObjectOS in einem Container ausführen — zur Evaluierung, für Staging oder Produktion.
+---
+
+# Docker
+
+Docker ist der Weg, den die meisten Teams in die Produktion nehmen. Er
+entspricht der Art und Weise, wie die Laufzeitumgebung betrieben werden
+soll: ein zustandsloser Container pro Instanz, eine externe Datenbank,
+ein externer Objektspeicher für Dateien, zur Laufzeit eingespeiste
+Secrets.
+
+## Das vorgefertigte Image abrufen
+
+Wir veröffentlichen das Laufzeit-Image bei jedem Push auf `main` sowie
+bei getaggten Releases in der GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/objectstack-ai/objectos:latest
+```
+
+Verfügbare Tags:
+
+| Tag | Channel |
+|---|---|
+| `latest` | Neuester Build von `main` (empfohlen für die erste Evaluierung) |
+| `main` | Identisch mit `latest`, aber explizit |
+| `sha-<short>` | Auf einen bestimmten Commit fixiert (empfohlen für die Produktion) |
+| `vX.Y.Z`, `X.Y`, `X` | Getaggte Releases |
+
+Für die Produktion fixieren Sie auf `sha-<short>` oder ein Semver-Tag —
+`latest` verschiebt sich mit der Zeit.
+
+## Mit dem mitgelieferten Beispiel ausführen
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+Öffnen Sie anschließend http://localhost:3000. Das Image enthält eine
+leere Beispiel-App, sodass Sie überprüfen können, ob die Laufzeitumgebung
+startet und Console/Account rendern, bevor Sie es auf Ihr eigenes
+Artefakt richten.
+
+`OS_AUTH_SECRET` ist zum Starten erforderlich. Eine Rotation macht
+bestehende Sitzungen ungültig.
+
+## Mit Ihrem eigenen Artefakt ausführen
+
+Ihre App-Definition ist eine einzige Datei: `dist/objectstack.json`. Sie
+wird erzeugt durch:
+
+| Quelle | Vorgehen |
+|---|---|
+| Ihr eigenes Projekt | `pnpm exec objectstack compile` nach dem Bearbeiten von `objectstack.config.ts` |
+| Eine Vorlage | Aus dem [Templates-Repo](https://github.com/objectstack-ai/templates) klonen, dann `pnpm install && pnpm exec objectstack compile` ausführen |
+| App-marketplace | Als Teil der veröffentlichten App bereitgestellt |
+
+Binden Sie die Datei unter `/artifacts/objectstack.json` ein und richten
+Sie die Laufzeitumgebung darauf aus:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
+  -v "$PWD/dist:/artifacts:ro" \
+  -v objectos-data:/var/lib/objectos \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+Das Volume `objectos-data` enthält die SQLite-Datenbank (wenn keine
+externe DB konfiguriert ist) sowie alle lokal gespeicherten
+hochgeladenen Dateien.
+
+## Postgres statt SQLite verwenden
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
+  -e OS_DATABASE_DRIVER=postgres \
+  -e OS_DATABASE_URL='postgres://user:pass@db.internal:5432/myapp' \
+  -v "$PWD/dist:/artifacts:ro" \
+  ghcr.io/objectstack-ai/objectos:latest
+```
+
+Siehe [Runtime Configuration](/docs/configure/runtime) für die
+vollständige Matrix der Treiber und Verbindungsoptionen.
+
+## Docker Compose
+
+Eine Referenz-`docker-compose.yml` liegt im Repo unter `docker/`:
+
+```bash
+git clone https://github.com/objectstack-ai/objectos.git
+cd objectos
+mkdir -p docker/artifacts
+cp /path/to/your/objectstack.json docker/artifacts/
+export OS_AUTH_SECRET="$(openssl rand -hex 32)"
+docker compose -f docker/docker-compose.yml up
+```
+
+Der Standardport ist `3000`; überschreiben Sie ihn mit `OBJECTOS_PORT=3200 docker compose ...`.
+
+## Ihr eigenes Image bauen
+
+Wenn Sie ein Artefakt, benutzerdefinierte Plugins oder Ihr eigenes
+SSL-/CA-Bundle einbetten müssen:
+
+```bash
+git clone https://github.com/objectstack-ai/objectos.git
+cd objectos
+docker build -f docker/Dockerfile -t myorg/objectos:custom .
+```
+
+Das mitgelieferte Dockerfile ist ein mehrstufiger Build, der ein
+schlankes Laufzeit-Image auf Node 20 Alpine erzeugt.
+
+## Was Sie getrennt halten müssen
+
+| Asset | Wo es liegen sollte |
+|---|---|
+| Artefakt (`objectstack.json`) | Image (unveränderlich) oder eingebundenes Volume |
+| Business-Datenbank | Extern verwaltetes Postgres / MySQL / Mongo |
+| Identität & Sitzungen | Dieselbe Datenbank |
+| Hochgeladene Dateien | Extern verwaltetes S3 / R2 / Disk-Volume |
+| Secrets (`OS_AUTH_SECRET`, DB-URL, API-Keys) | Ihr Secret-Manager, als Umgebungsvariablen eingespeist |
+| Logs | stdout — von Ihrem Log-Treiber erfasst |
+
+## Überprüfen
+
+Nach dem Start:
+
+```bash
+curl -fsS http://localhost:3000/health
+# {"status":"ok",...}
+```
+
+Melden Sie sich dann unter http://localhost:3000/_account/register an und
+bestätigen Sie, dass die API antwortet:
+
+```bash
+curl http://localhost:3000/api/v1/data/<your-object>
+```
+
+## Weiter
+
+- [Kubernetes](/docs/deploy/kubernetes) — Orchestrierung auf Produktionsniveau
+- [Air-gapped](/docs/deploy/air-gapped) — Betrieb ohne Internet-Ausgang
+- [Production Readiness](/docs/operate/production) — Pre-Flight-Checkliste
+- [Observability](/docs/operate/observability) — Logs, Metriken, Audit

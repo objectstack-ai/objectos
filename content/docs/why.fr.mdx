@@ -1,0 +1,148 @@
+---
+title: Pourquoi ObjectOS
+description: L'argumentaire honnête — quand l'utiliser, quand ne pas l'utiliser, et ce qui le rend différent.
+---
+
+# Pourquoi ObjectOS
+
+Cette page existe pour que vous n'ayez pas à lire entre les lignes de
+chaque autre page de documentation pour déterminer si ObjectOS vous
+convient.
+
+## La nature du pari
+
+ObjectOS fait un pari assumé : **l'IA écrit les métadonnées de votre
+application, vous possédez le runtime qui les exécute.**
+
+Vous n'écrivez pas à la main les objets, les champs, les vues, les flux
+et les permissions fichier par fichier. Vos utilisateurs décrivent ce
+dont ils ont besoin en langage naturel à l'[AI Builder](/docs/build/ai-builder)
+intégré à la Console ; celui-ci appelle un petit ensemble d'outils
+audités, met chaque changement en file d'attente pour approbation
+humaine, et le résultat est en production — points de terminaison REST,
+écrans de la Console, RBAC, journal d'audit, le tout généré à partir des
+mêmes métadonnées.
+
+Le runtime se trouve dans **votre** VPC, sur **votre** base de données,
+sous **votre** fork Apache-2.0. Le modèle dialogue avec une API de
+métadonnées en bac à sable, pas avec votre entrepôt de données.
+
+C'est tout l'argumentaire. Le reste de cette page indique à qui cela
+convient et à qui cela ne convient pas.
+
+## Utilisez ObjectOS si vous …
+
+- avez besoin d'un outil interne, d'un panneau d'administration ou d'une
+  application back-office, **et**
+- voulez que les personnes qui l'utilisent (ou les agents IA agissant
+  pour elles) puissent l'*étendre* sans ouvrir de ticket, **et**
+- ne pouvez (ou ne voulez) pas placer les données dans le cloud de
+  quelqu'un d'autre, **et**
+- ne voulez pas reconstruire l'authentification + RBAC + audit + envois
+  de fichiers + jobs + webhooks pour la dixième fois.
+
+Scénarios courants où cela convient :
+
+| Scénario | Pourquoi cela fonctionne |
+|---|---|
+| Remplacer une application Retool / Appsmith parce que la souveraineté des données a été soulevée lors d'une revue de sécurité | ObjectOS s'exécute dans votre VPC ; les données ne sortent jamais |
+| Construire un outil de conformité / risque / gestion des fournisseurs pour une entreprise réglementée | Le journal d'audit, le RBAC, la sécurité des champs et l'isolation au niveau des lignes sont natifs — et chaque changement piloté par l'IA est lui-même une entrée d'audit |
+| Mettre en place une administration interne pour un produit SaaS | Un seul processus Node, qui s'insère à côté de vos services existants |
+| Déploiement air-gapped ou on-prem pour un client grand compte | Cible de déploiement de premier ordre, aucune sortie internet requise (modèle local en BYO) |
+| Portail interne multi-locataire (un runtime, plusieurs petites applications) | Kernel par projet + cache LRU conçus pour cela |
+| Vous voulez que vos utilisateurs « vibe-codent » leurs propres extensions en toute sécurité | L'AI Builder + la file d'approbation HITL + le journal d'audit en sont tout l'intérêt |
+
+## N'utilisez pas ObjectOS si vous …
+
+- construisez un produit grand public à fort trafic → utilisez un
+  framework web traditionnel, vous aurez plus de contrôle.
+- avez besoin d'une interface sur mesure au pixel près pour les
+  utilisateurs finaux → la Console d'ObjectOS est destinée à un usage
+  administratif/interne ; associez-la à votre propre front-end via REST.
+- voulez un constructeur no-code en glisser-déposer pour les
+  non-ingénieurs et un cloud hébergé → utilisez Retool, Bubble ou
+  Airtable. ObjectOS est code-first, piloté par l'IA, auto-hébergé.
+- avez besoin d'une édition collaborative en temps réel (à la Figma) →
+  ce n'est pas ce que résout le plugin temps réel.
+
+## Comparé à ce que vous utilisez probablement
+
+### vs. Retool / Appsmith / Internal
+
+| | Retool | ObjectOS |
+|---|---|---|
+| Emplacement des données | Leur cloud (ou auto-hébergé sur une offre supérieure) | Votre réseau, toujours |
+| Constructeur d'UI | Glisser-déposer, très soigné | Piloté par métadonnées, généré ; moins personnalisable |
+| Tarification | Par utilisateur, montée en charge douloureuse | Auto-hébergé, Apache-2.0 |
+| Workflow / déclencheurs | Leur moteur de workflow | Flux déclaratifs + plugins |
+| Logique back-end | Limitée à leur éditeur de requêtes | TypeScript complet, tout l'écosystème Node |
+| Idéal pour | Tableaux de bord rapides au-dessus d'API existantes | Applications qui *possèdent* leurs données |
+
+### vs. Supabase / Firebase
+
+| | Supabase | ObjectOS |
+|---|---|---|
+| Temps de configuration | ~30 secondes | ~30 secondes |
+| Base de données | Postgres, la leur (auto-hébergement possible) | N'importe quel Postgres / MySQL / SQLite / Turso / Mongo, **la vôtre** |
+| Authentification | Intégrée | Intégrée |
+| API générées | PostgREST | REST généré par ObjectQL |
+| Interface d'administration | Console (basique) | Console + Account |
+| RBAC | Au niveau des lignes via le RLS de Postgres | RBAC + niveau des lignes + niveau des champs, déclaratif |
+| Journal d'audit | À faire soi-même | Natif |
+| Verrouillage fournisseur | Leur authentification + leur stockage + leur temps réel | Aucun — chaque couche est un plugin |
+| Idéal pour | Nouvelles applications voulant un BaaS | Applications qui doivent posséder le runtime |
+
+### vs. Salesforce / NetSuite / ServiceNow
+
+| | Salesforce | ObjectOS |
+|---|---|---|
+| Modèle de données | Objets + champs + relations | Identique |
+| Permissions | Profil + jeux de permissions + règles de partage + FLS | **Même vocabulaire**, TypeScript déclaratif |
+| Coût par utilisateur | 150-300 $/utilisateur/mois | 0 $ |
+| Personnalisation | Apex + Lightning + flux | TypeScript + flux |
+| Où il s'exécute | Leur cloud, un point c'est tout | Votre infrastructure |
+| Temps avant « on le possède » | Des mois de travail de consultants | Un après-midi |
+| Idéal pour | Entreprises orientées ventes prêtes à payer pour l'écosystème | Équipes qui veulent le modèle sans la taxe |
+
+### vs. tout faire soi-même (Next.js + Prisma + NextAuth)
+
+| | DIY | ObjectOS |
+|---|---|---|
+| Premier point de terminaison REST | Quelques heures | 60 secondes |
+| Authentification (e-mail + OAuth + OIDC + passkey + 2FA) | Des semaines | Incluse |
+| Interface d'administration pour chaque objet | À construire par objet | Générée |
+| Journal d'audit | À faire soi-même | Plugin, déclaratif |
+| Envoi de fichiers vers S3 avec permissions | À faire soi-même | Plugin |
+| Jobs en arrière-plan + relances + dead letter | À faire soi-même | Plugin |
+| Multi-location | À faire soi-même (et vous vous tromperez deux fois) | Intégrée |
+| Idéal pour | Application destinée au public avec une UX sur mesure | Outillage interne où la vitesse prime |
+
+## Les compromis honnêtes
+
+- **Moins de liberté d'UI que Retool.** La Console est générée à partir
+  de vos métadonnées. Vous pouvez l'associer à un front-end personnalisé
+  (l'API REST est la même que celle utilisée par la Console), mais si
+  vous avez besoin d'une interface au pixel près faite à la main,
+  construisez-la vous-même et utilisez ObjectOS comme back-end.
+- **TypeScript d'abord.** Les non-ingénieurs n'écriront pas directement
+  les objets. Les administrateurs Salesforce ont l'habitude de cliquer
+  dans un constructeur d'UI ; ici, c'est `git`.
+- **Plus récent que Salesforce.** Salesforce documente 25 ans de cas
+  limites. Nous en avons quelques centaines. Le protocole est stable ;
+  l'écosystème grandit.
+- **Apache-2.0.** Utilisez-le dans des produits commerciaux, intégrez-le,
+  modifiez-le en privé. Aucune mauvaise surprise de copyleft. Un support
+  commercial optionnel est disponible séparément.
+
+## Mise au point
+
+Le plus petit déploiement viable d'ObjectOS est un simple `pnpm dev` ou
+un seul conteneur Docker avec SQLite. Le plus grand en production
+aujourd'hui sert des dizaines de milliers d'utilisateurs internes à
+travers plusieurs régions avec Postgres + S3 + Redis. Les deux sont le
+même logiciel.
+
+Commencez avec `npx @objectstack/cli init my-app` et décidez en 5
+minutes. Si ce n'est pas pour vous, vous aurez perdu 5 minutes.
+
+[**Essayer le Quickstart →**](/docs/quickstart)

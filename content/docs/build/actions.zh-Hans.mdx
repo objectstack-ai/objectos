@@ -1,0 +1,187 @@
+---
+title: Actions
+description: 平台从单一声明出发，将命名操作同时暴露为 REST 端点、Console 按钮、流程步骤和 AI 工具。
+---
+
+# Actions
+
+**Action** 是对象上的一个命名操作。只需声明一次，它就会以以下形式出现：
+
+- 一个位于 `/api/v1/actions/<object>/<action>` 的 **REST 端点**
+- Console 记录详情中的一个**按钮**
+- 用于自动化的一个**流程步骤**（`type: 'action'`）
+- 供 Agents 和 AI Builder 使用的一个 **AI 工具**（`action_<name>`）
+
+你无需在四个界面上重复定义。一次声明，四种调用方式。
+
+## 声明一个 action
+
+```ts
+// src/actions/approve_invoice.action.ts
+import { Action } from '@objectstack/spec';
+
+export const approveInvoice = Action.create({
+  name: 'approve_invoice',          // lowercase snake_case (machine id)
+  label: 'Approve Invoice',
+  objectName: 'invoice',            // attaches to the invoice object
+  icon: 'check',
+  variant: 'primary',
+  locations: ['record_header'],     // where the button shows
+  confirmText: 'Approve this invoice?',
+  successMessage: 'Invoice approved',
+  refreshAfter: true,
+
+  // collect input before running
+  params: [
+    { name: 'note', label: 'Approval note', type: 'textarea' },
+  ],
+
+  // only show the button when the record is still pending
+  visible: 'record.status == "pending"',
+
+  // what it does — a sandboxed script body
+  type: 'script',
+  body: {
+    language: 'js',
+    source: `
+      await ctx.data.update('invoice', input.id, {
+        status: 'approved',
+        approved_by: ctx.user.id,
+        approved_at: now(),
+        approval_note: input.note,
+      });
+    `,
+  },
+});
+```
+
+在 `os dev` 重新编译之后：
+
+- `POST /api/v1/actions/invoice/approve_invoice` 可用
+- Console 中的 Invoice 记录页面会显示一个 **Approve Invoice** 按钮
+- 流程可以包含 `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }`
+- 如果 AI 助手的技能允许，它可以调用 `action_approve_invoice`
+
+## Action 类型
+
+`type` 字段决定 action 执行什么：
+
+| `type` | 执行内容 | 适用场景 |
+|---|---|---|
+| `script` | 一个 `body` —— 一个 L1 formula 表达式或沙箱化的 L2 JavaScript | 大多数场景 —— 服务端逻辑，可审计且可被 AI 调用 |
+| `api` | 对某个 `target` 端点发起的 HTTP 调用（`method`、`bodyExtra`） | 复用数据 API 或平台端点 |
+| `flow` | 运行 `target` 中指定名称的流程 | 多步骤业务流程 |
+| `url` | 跳转到 `target` URL | 深度链接、重定向式操作 |
+| `modal` | 打开 `target` 中指定名称的页面/模态框 | 自定义对话框 |
+| `form` | 打开 `target` 中指定名称的 FormView | 引导式数据录入 |
+
+```ts
+// api type — reuse a data-API endpoint
+Action.create({
+  name: 'archive_order',
+  objectName: 'order',
+  label: 'Archive',
+  locations: ['list_item'],
+  type: 'api',
+  method: 'PATCH',
+  target: '/api/v1/data/order/{id}',
+  bodyExtra: { archived: true },
+});
+```
+
+除 `script` 之外的类型都需要一个 `target`。无论哪种类型，该 action 在每个界面上都是同等的一级公民。
+
+## 调用一个 action
+
+### REST
+
+```bash
+# the record id can go in the body, or in the path
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice/inv_123 \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"note": "LGTM"}'
+```
+
+参数以扁平形式放在请求体中发送。记录 id 既可以作为路径末尾的片段提供（`.../approve_invoice/:recordId`），也可以放在请求体中。响应是你的脚本 body 的返回值（对于 `api` 类型的 action 则是调用结果）。
+
+### Console
+
+默认情况下，Console 会将 action 显示为记录详情页面上的按钮，并按 action 的 `visible` 谓词进行过滤。你可以在视图配置中覆盖其位置：
+
+```ts
+defineView({
+  name: 'invoice_detail',
+  object: 'invoice',
+  actions: ['approve_invoice', 'reject_invoice', 'send_to_customer'],
+});
+```
+
+### 来自流程
+
+```ts
+{
+  type: 'action',
+  action: 'approve_invoice',
+  inputs: { note: 'Auto-approved by SLA flow' },
+  record: '{!trigger.record.id}',
+}
+```
+
+### 来自 AI Agent
+
+如果 `approve_invoice` 包含在该 agent 拥有的任意技能中，LLM 就可以调用它。输入来自对话内容；权限的执行方式与用户直接调用时完全一致。
+
+> *"Approve invoice INV-2042 with note 'verified by phone.'"*
+
+## 权限
+
+Action 以发起调用的用户的权限运行。平台会检查：
+
+1. **对象权限** —— 用户的[权限集](/docs/configure/permissions/permission-sets)必须授予该 action 所需的对象级访问权限（例如 update）。
+2. **字段权限** —— 对于该 action 写入的任何字段，用户必须拥有写入访问权限（FLS）。
+3. **UI 控制** —— `visible` 和 `disabled` 谓词（CEL，针对 `record`、`os.user` 和参数求值）控制按钮在 Console 中是渲染还是置灰。
+
+未通过的权限检查会返回 `403`，并附带一个 `PERMISSION_DENIED` 错误。
+
+## 内置 action
+
+每个对象都会免费获得以下 action：
+
+| Action | 作用 |
+|---|---|
+| `create` | 插入一条记录 |
+| `update` | 更新一条记录 |
+| `delete` | 删除（或软删除）一条记录 |
+| `restore` | 撤销软删除 |
+| `clone` | 深拷贝一条记录 |
+| `share` | 直接与某个用户/角色共享 |
+
+不要重新声明这些 —— 它们遵循对象的[生命周期与能力标志](/docs/build/data-model)。
+
+## 审计
+
+平台事件会落入 `sys_audit_log`，这是一条不可变的轨迹，其字段包括：
+
+- `user_id` —— 发起操作的用户
+- `action` —— action 名称
+- `object_name` 和 `record_id` —— 被操作的对象
+- `old_value` / `new_value` —— 变更内容
+- `ip_address` / `user_agent` —— 请求来源
+- `created_at` —— 发生时间
+
+当你需要回答*"是谁按下了这个按钮？"*之类的问题时，这里是首选的查证之处。
+
+## 使用 AI Builder 生成 action
+
+> *"Create an action `escalate_ticket` on `support_ticket` that sets
+> priority to urgent and assigns it to the on-call engineer."*
+
+[AI Builder](/docs/build/ai-builder) 会生成该 action 的元数据，并将变更排队等待审批。审批通过后，该 action 即可从 REST、Console、流程，以及 —— 递归地 —— AI 自身进行调用。
+
+## 后续去向
+
+- [Flows](/docs/build/flows) —— 将多个 action 组合成业务逻辑
+- [Agents](/docs/build/agents) —— 将 action 暴露为 AI 工具
+- [API Access](/docs/configure/api-access) —— 从外部系统调用 action
+- [Permissions](/docs/configure/permissions) —— 控制谁可以调用什么

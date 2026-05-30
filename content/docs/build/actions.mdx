@@ -8,7 +8,7 @@ description: Named operations the platform exposes as REST endpoints, Console bu
 An **Action** is a named operation on an object. Declare it once and
 it appears as:
 
-- a **REST endpoint** at `/api/v1/data/<object>/actions/<action>`
+- a **REST endpoint** at `/api/v1/actions/<object>/<action>`
 - a **button** in Console's record detail
 - a **flow step** (`type: 'action'`) for automation
 - an **AI tool** (`action_<name>`) for Agents and the AI Builder
@@ -20,89 +20,101 @@ ways to call it.
 
 ```ts
 // src/actions/approve_invoice.action.ts
-import { defineAction, Field } from '@objectstack/spec';
+import { Action } from '@objectstack/spec';
 
-export const approveInvoice = defineAction({
-  name: 'approve_invoice',
+export const approveInvoice = Action.create({
+  name: 'approve_invoice',          // lowercase snake_case (machine id)
   label: 'Approve Invoice',
-  object: 'invoice',
-  description: 'Mark the invoice approved and stamp the approver.',
+  objectName: 'invoice',            // attaches to the invoice object
   icon: 'check',
+  variant: 'primary',
+  locations: ['record_header'],     // where the button shows
+  confirmText: 'Approve this invoice?',
+  successMessage: 'Invoice approved',
+  refreshAfter: true,
 
-  inputs: {
-    note: Field.textarea({ label: 'Approval note' }),
-  },
-
-  // who can invoke this
-  permissions: {
-    requires: ['allowEdit'],          // object-level
-    condition: 'record.status == "pending"',
-  },
-
-  // what it does — declarative, no JS required
-  steps: [
-    {
-      type: 'update',
-      record: '{!record.id}',
-      fields: {
-        status:       'approved',
-        approved_by:  '{!user.id}',
-        approved_at:  '{!now()}',
-        approval_note: '{!inputs.note}',
-      },
-    },
+  // collect input before running
+  params: [
+    { name: 'note', label: 'Approval note', type: 'textarea' },
   ],
+
+  // only show the button when the record is still pending
+  visible: 'record.status == "pending"',
+
+  // what it does — a sandboxed script body
+  type: 'script',
+  body: {
+    language: 'js',
+    source: `
+      await ctx.data.update('invoice', input.id, {
+        status: 'approved',
+        approved_by: ctx.user.id,
+        approved_at: now(),
+        approval_note: input.note,
+      });
+    `,
+  },
 });
 ```
 
-That's the whole file. After `os dev` recompiles:
+After `os dev` recompiles:
 
-- `POST /api/v1/data/invoice/actions/approve_invoice` works
+- `POST /api/v1/actions/invoice/approve_invoice` works
 - The Invoice record page in Console shows an **Approve Invoice** button
 - A flow can include `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }`
 - The AI assistant can call `action_approve_invoice` if its skills allow
 
-## Three flavors
+## Action types
 
-| Flavor | What runs | Use for |
+The `type` field decides what the action does:
+
+| `type` | What runs | Use for |
 |---|---|---|
-| **Declarative** (`steps:`) | DSL — update/create/delete/query/action/condition/foreach | Most cases — auditable + AI-callable |
-| **Script** (`script:`) | TypeScript function, executes server-side | Cross-system logic, complex transforms |
-| **External** (`webhook:`) | HTTP POST to your endpoint | Delegating to your own service |
+| `script` | A `body` — an L1 formula expression or sandboxed L2 JavaScript | Most cases — server-side logic, auditable + AI-callable |
+| `api` | An HTTP call to a `target` endpoint (`method`, `bodyExtra`) | Reusing data-API or platform endpoints |
+| `flow` | Runs the flow named in `target` | Multi-step business processes |
+| `url` | Navigates to the `target` URL | Deep links, redirect-style actions |
+| `modal` | Opens the page/modal named in `target` | Custom dialogs |
+| `form` | Opens the FormView named in `target` | Guided data entry |
 
 ```ts
-// script flavor
-defineAction({
-  name: 'archive_old_orders',
-  object: 'order',
-  script: async ({ ctx, record, inputs }) => {
-    await ctx.data.update('order', record.id, { archived_at: new Date() });
-    return { ok: true };
-  },
+// api type — reuse a data-API endpoint
+Action.create({
+  name: 'archive_order',
+  objectName: 'order',
+  label: 'Archive',
+  locations: ['list_item'],
+  type: 'api',
+  method: 'PATCH',
+  target: '/api/v1/data/order/{id}',
+  bodyExtra: { archived: true },
 });
 ```
 
-Whichever flavor, the action is the same first-class citizen on every
-surface.
+Types other than `script` require a `target`. Whichever type, the action
+is the same first-class citizen on every surface.
 
 ## Calling an action
 
 ### REST
 
 ```bash
-curl -X POST https://app.example.com/api/v1/data/invoice/actions/approve_invoice \
+# the record id can go in the body, or in the path
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice/inv_123 \
   -H 'Authorization: Bearer <token>' \
   -H 'Content-Type: application/json' \
-  -d '{"recordId": "inv_123", "inputs": {"note": "LGTM"}}'
+  -d '{"note": "LGTM"}'
 ```
 
-Returns the updated record (for declarative actions) or your handler's
-return value (for script actions).
+Params are sent flat in the request body. The record id can be supplied
+either as a trailing path segment (`.../approve_invoice/:recordId`) or in
+the body. The response is your script body's return value (or the call
+result for `api`-type actions).
 
 ### Console
 
 By default, Console shows actions as buttons on the record detail page,
-filtered by the action's `permissions.condition`. Override placement
+filtered by the action's `visible` predicate. Override placement
 in your view config:
 
 ```ts
@@ -134,18 +146,17 @@ the user invoked it directly.
 
 ## Permissions
 
-Every action runs as the calling user — never as a service account.
-The platform checks:
+Actions run with the calling user's permissions. The platform checks:
 
-1. **Object permission** — the `requires:` flags (`allowEdit`,
-   `allowCreate`, …) on the user's permission set.
-2. **Action gate** — the action's `permissions.condition` (a CEL
-   expression evaluated against the record, the user, and inputs).
-3. **Field permissions** — for any field the action writes, the user
-   must have write access.
+1. **Object permissions** — the user's [permission sets](/docs/configure/permissions/permission-sets)
+   must grant the object-level access the action needs (e.g. update).
+2. **Field permissions** — for any field the action writes, the user
+   must have write access (FLS).
+3. **UI gating** — the `visible` and `disabled` predicates (CEL,
+   evaluated against `record`, `os.user`, and params) control whether the
+   button renders or is greyed out in Console.
 
-Failed checks return `403 Forbidden` with a structured error explaining
-which check failed.
+Failed permission checks return `403` with a `PERMISSION_DENIED` error.
 
 ## Built-in actions
 
@@ -160,18 +171,19 @@ Every object gets these for free:
 | `clone` | Deep-copy a record |
 | `share` | Direct share with a user / role |
 
-Don't redeclare these — extend behavior via [hooks](/docs/build/data-model#field-types).
+Don't redeclare these — they follow the object's [lifecycle & capability flags](/docs/build/data-model).
 
 ## Auditing
 
-Every action invocation lands in `sys_audit_log` with:
+Platform events land in `sys_audit_log`, an immutable trail with fields
+including:
 
-- the originating user
-- the action name + inputs (with secret fields redacted)
-- the record id (if any)
-- success / failure + error
-- timing
-- the originating surface (`rest` / `studio` / `flow` / `ai`)
+- `user_id` — the originating user
+- `action` — the action name
+- `object_name` and `record_id` — what was touched
+- `old_value` / `new_value` — the change
+- `ip_address` / `user_agent` — request origin
+- `created_at` — when it happened
 
 This is your first stop for *"who pushed the button?"* questions.
 
@@ -180,9 +192,9 @@ This is your first stop for *"who pushed the button?"* questions.
 > *"Create an action `escalate_ticket` on `support_ticket` that sets
 > priority to urgent and assigns it to the on-call engineer."*
 
-The AI calls `create_action` (a metadata tool) and queues the change
-for approval. After approval, the action is callable from REST,
-Console, flows, and — recursively — the AI itself.
+The [AI Builder](/docs/build/ai-builder) generates the action metadata and
+queues the change for approval. After approval, the action is callable from
+REST, Console, flows, and — recursively — the AI itself.
 
 ## Where to go next
 

@@ -1,0 +1,207 @@
+---
+title: FAQ
+description: Antworten auf die Fragen, die uns am häufigsten gestellt werden.
+---
+
+# FAQ
+
+## Erste Schritte
+
+**F: Was ist der absolut schnellste Weg, ObjectOS auszuprobieren?**
+A: `npm i -g @objectstack/cli && os start` — und dann
+http://localhost:3000 öffnen. Siehe [Quickstart](/docs/quickstart).
+
+**F: Brauche ich Docker?**
+A: Nein. Node 20+ und die CLI reichen aus. Docker ist die empfohlene
+Form für das Produktiv-Deployment.
+
+**F: Brauche ich eine Datenbank?**
+A: Nein, nicht für den Anfang — ObjectOS verwendet standardmäßig lokales
+SQLite. Wechseln Sie zu Postgres / MySQL / Turso / Mongo, wenn Sie in
+die Produktion gehen.
+
+**F: Brauche ich ein Konto / einen Cloud-Dienst?**
+A: Nein. ObjectOS ist vollständig eigenständig. ObjectStack Cloud ist
+optional für Deployments über mehrere Umgebungen / mehrere Apps mit
+einer Control Plane.
+
+## Architektur
+
+**F: Kann ich Postgres / MySQL / MongoDB verwenden?**
+A: Ja — Postgres, MySQL, SQLite, Turso/libSQL und MongoDB sind
+unterstützte Treiber. Siehe [Runtime Configuration](/docs/configure/runtime).
+
+**F: Kann ich Console / Account deaktivieren und nur die REST-API nutzen?**
+A: Ja. Führen Sie `os start --no-ui` aus oder setzen Sie die
+entsprechenden Flags. Die REST-API ist dieselbe, egal ob die UIs
+eingebunden sind oder nicht.
+
+**F: Kann ich mein eigenes Frontend anstelle von Console verwenden?**
+A: Ja. Console verwendet dieselben `/api/v1/*`-Endpunkte, die Sie aus
+Ihrem eigenen Code aufrufen würden. Verwenden Sie das
+`@objectstack/client` SDK oder einen beliebigen HTTP-Client.
+
+**F: Unterstützt ObjectOS GraphQL?**
+A: REST ist die primäre Schnittstelle. GraphQL ist auf der Roadmap — bis
+dahin deckt die Abfragesprache ObjectQL (über REST `?filter=`/`?sort=`)
+dasselbe Terrain ab.
+
+**F: Wie wird Mandantenfähigkeit (Multi-Tenancy) gehandhabt?**
+A: Ein ObjectOS-Prozess kann viele Environments (Mandanten) bedienen.
+Die Auflösung Hostname → Environment wird in einem LRU zwischengespeichert;
+jedes Environment hat seine eigene Datenbank, Identität und sein eigenes
+Audit-Log. Cookies sind pro Hostname gescoped, sodass Sessions nicht
+zwischen Mandanten durchsickern können.
+
+**F: Kann ObjectOS in einer Serverless-/Lambda-Umgebung laufen?**
+A: Die Laufzeit ist ein langlebiger Node-Prozess — ausgelegt für
+Container oder VMs, nicht für zustandslose Funktionen. Sowohl der
+Kernel-Cache als auch das Better-Auth-Session-Modell hängen von warmem
+prozessinternem Zustand ab.
+
+**F: Skaliert es horizontal?**
+A: Ja. Führen Sie mehrere Instanzen hinter einem Load Balancer aus.
+Sessions liegen in der Datenbank (nicht im Speicher), sodass jede
+Instanz jede Anfrage bedienen kann. Verwenden Sie Redis für gemeinsames
+Rate-Limiting und Queueing, wenn Sie diese Funktionen aktivieren.
+
+## Daten & Migrationen
+
+**F: Wie werden Schema-Migrationen gehandhabt?**
+A: Der Treiber synchronisiert das Datenbankschema beim Hochfahren mit
+Ihren deklarierten Objekten. Für Postgres sind das `CREATE TABLE` /
+`ALTER TABLE`-Anweisungen. Für kontrollierte Migrationen in regulierten
+Umgebungen setzen Sie `OS_SKIP_SCHEMA_SYNC=1` und verwalten das DDL
+selbst.
+
+**F: Was passiert mit Daten, wenn ich ein Feld umbenenne?**
+A: Eine Umbenennung ist auf der Datenebene eine destruktive Änderung
+(sie sieht aus wie „alte Spalte löschen, neue Spalte hinzufügen").
+Verwenden Sie `os diff`, um dies zu erkennen, und fügen Sie einen
+Migrationsschritt hinzu (Spalte in der DB umbenennen, bevor das neue
+Artefakt deployt wird).
+
+**F: Kann ich Daten aus CSV / Excel / Salesforce importieren?**
+A: CSV: ja, per `os data create` in einer Schleife oder über den
+Bulk-Upload in der Console. Salesforce: Der beste Weg heute ist der
+Export nach CSV und der anschließende Import. Native Konnektoren sind
+auf der Roadmap.
+
+**F: Gehen beim Upgrade von ObjectOS meine Daten verloren?**
+A: Nein. Patch- und Minor-Upgrades sind nicht-destruktiv. Major-Upgrades
+(z. B. 4 → 5) dokumentieren erforderliche Migrationen ausdrücklich.
+Erstellen Sie zuerst ein Backup — [Backup & DR](/docs/operate/backup).
+
+## Berechtigungen & Mandantenfähigkeit
+
+**F: Wie realisiere ich Sicherheit auf Zeilenebene (Row-Level Security)?**
+A: Deklarieren Sie eine Sharing-Regel (deklarativ, wie bei Salesforce)
+oder ein CEL-Prädikat in der `recordAccess`-Konfiguration eines Objekts.
+Das Security-Plugin fügt bei jeder Abfrage den entsprechenden Filter
+ein. Siehe [Permissions](/docs/configure/permissions).
+
+**F: Kann ich bestimmte Felder für bestimmte Benutzer unsichtbar machen?**
+A: Ja — Sicherheit auf Feldebene in Permission Sets. Verbergen oder
+schreibgeschützt, pro Feld pro Permission Set. Wird einheitlich über
+REST, ObjectQL und Console durchgesetzt. Siehe
+[Permission Sets](/docs/configure/permissions/permission-sets).
+
+**F: Wie integriere ich Okta / Entra / Keycloak?**
+A: OIDC. Konfigurieren Sie die Discovery-URL + Client-ID/-Secret unter
+**Console → Authentication** (oder per Env). Die Callback-URL des
+Providers ist `/api/v1/auth/oauth2/callback/<provider-id>`. Siehe
+[Authentication](/docs/configure/authentication).
+
+## Integrationen
+
+**F: Kann ich Webhooks senden?**
+A: Ja — aktivieren Sie `webhooks` in `requires`. ObjectOS verwendet
+eine persistente Outbox mit HMAC-SHA256-Signierung. Siehe
+[Webhooks](/docs/configure/webhooks).
+
+**F: Kann ich mit Zapier / Make / n8n integrieren?**
+A: Ja — Webhooks für ausgehende und die REST-API + API-Keys für
+eingehende Kommunikation. Native Konnektoren für gängige iPaaS-Tools
+sind auf der Roadmap.
+
+**F: Können KI-Agenten mein ObjectOS aufrufen?**
+A: Ja, über MCP (`@objectstack/plugin-mcp-server`) — stellt Objekte
+und Aktionen als MCP-Tools bereit, die Claude Desktop, IDEs oder andere
+MCP-Clients verwenden können. Siehe [AI Service](/docs/configure/ai).
+
+## Anpassung
+
+**F: Kann ich eigene Plugins schreiben?**
+A: Ja — Plugins folgen einem einfachen DI- + Lifecycle-Muster
+(`init → start → destroy`). Beispiele finden Sie in den
+`@objectstack/plugin-*`-Paketen auf GitHub.
+
+**F: Kann ich das Erscheinungsbild von Console anpassen?**
+A: Branding (Logo, Akzentfarbe, Standard-Theme) befindet sich unter
+**Console → System Settings**. Tiefgreifende UI-Anpassung bedeutet, das
+`@objectstack/client-react` zu forken oder Ihr eigenes Frontend gegen
+die REST-API zu bauen.
+
+**F: Kann ich andere Sprachen als Englisch hinzufügen?**
+A: Ja — i18n ist erstklassig integriert. Verwenden Sie
+`os i18n extract` / `os i18n check` und liefern Sie ein
+Übersetzungs-Bundle aus.
+
+## Betrieb
+
+**F: Was ist das empfohlene Produktiv-Deployment?**
+A: Docker (oder Kubernetes für mehrere Pods) + verwaltetes Postgres + S3
+oder R2 für Dateien + Ihr Secret-Manager für `OS_AUTH_SECRET`. Siehe
+[Production Readiness](/docs/operate/production).
+
+**F: Hat ObjectOS eine Statusseite?**
+A: Für Ihr selbst gehostetes Deployment ist der Status Ihre Angelegenheit
+— verbinden Sie `/health` mit Ihrem Monitor. Für gehostete Dienste siehe
+[status.objectstack.ai](https://status.objectstack.ai).
+
+**F: Welche Metriken sollte ich überwachen?**
+A: 5xx-Rate, p95-Latenz, Auth-Fehlerrate, Kernel-Cache-Miss-Rate,
+Queue-Tiefe. Ein minimales Prometheus-Beispiel finden Sie in
+[Observability](/docs/operate/observability).
+
+**F: Wie erstelle ich ein Backup?**
+A: Sichern Sie die **Datenbank** und den **Storage-Bucket** — diese
+enthalten alle Kundendaten. ObjectOS selbst ist zustandslos. Siehe
+[Backup](/docs/operate/backup).
+
+## Preise & Rechtliches
+
+**F: Ist ObjectOS wirklich kostenlos?**
+A: Ja. Apache-2.0. Keine Sitze, keine Nutzungsstufe, kein Lizenzserver.
+
+**F: Kann ich ObjectOS in einem kommerziellen Produkt verwenden, das ich verkaufe?**
+A: Ja. Apache-2.0 erlaubt die kommerzielle Nutzung. Siehe
+[License](/docs/resources/license).
+
+**F: Erfassen Sie Telemetrie?**
+A: Nein. Null ausgehende Aufrufe, sofern Sie sie nicht konfigurieren
+(OIDC, E-Mail, AI, Webhooks). Siehe
+[Security & Compliance](/docs/reference/security#data-residency).
+
+**F: Ist ObjectOS SOC 2 / ISO 27001 / HIPAA / GDPR-konform?**
+A: ObjectOS stellt die **Primitive** bereit, die jedes Framework
+benötigt (RBAC, Audit, verschlüsselungsbereit, Residenz). Eine
+Zertifizierung ist eine Eigenschaft Ihres **Deployments**, nicht der
+Binärdatei. Viele ObjectOS-Deployments sind zertifiziert. Siehe
+[Security & Compliance](/docs/reference/security#compliance-frameworks).
+
+## Wenn Sie nicht weiterkommen
+
+**F: Etwas ist kaputt — wo fange ich an?**
+A: `os doctor`. Das erkennt 80 % der Fehlkonfigurationen von selbst.
+Danach [Troubleshooting](/docs/operate/troubleshooting).
+
+**F: Wo melde ich einen Fehler?**
+A: [GitHub Issues](https://github.com/objectstack-ai/objectos/issues).
+Fügen Sie die Ausgabe von `os doctor` bei. Sicherheitsprobleme:
+**security@objectstack.ai**.
+
+**F: Wo bekomme ich Hilfe von echten Menschen?**
+A: [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions),
+der Community-Discord oder **sales@objectstack.ai** für kommerziellen
+Support.

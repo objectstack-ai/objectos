@@ -1,0 +1,213 @@
+---
+title: フローと自動化
+description: 宣言的なビジネスロジック — AI に記述してもらうか TypeScript で記述するかにかかわらず、ランタイムはどちらの場合も同じアーティファクトを実行します。
+---
+
+# フローと自動化
+
+フローは、サーバーを書くことなくビジネスロジックを表現する方法です。
+すべてのフローは、ランタイムが実行する宣言的なメタデータであり、これはオブジェクトやビューと同じです。つまり、フローは `os diff`、監査ログ、Console のフロービルダー、そして [AI Builder](/docs/build/ai-builder) のすべてに一度に表示されます。
+
+ほとんどのお客様は、AI に依頼してフローを作成します。
+
+> *「優先度の高いチケットが 30 分間「new」のままになっていたら、Slack でマネージャーに通知して。」*
+
+AI は以下のフローを生成します。このページでは、その構造を読んで編集できるように説明します。
+
+スタックでこの機能を有効にします。
+
+```ts
+export default defineStack({
+  // ...
+  requires: ['automation'],
+});
+```
+
+## 3 つのフロータイプ
+
+| タイプ | トリガー元 | 用途 |
+|---|---|---|
+| **Autolaunched** | レコードの変更（挿入/更新/削除） | 「ユーザー登録時にウェルカムメールを送信する」 |
+| **Scheduled** | Cron 式または間隔 | 「毎晩 2 時に古いタスクをマークする」 |
+| **Manual** | ユーザーが Console でボタンをクリック、または API 呼び出し | 「請求書を承認する」アクション |
+
+## Autolaunched: レコードの変更に反応する
+
+```ts
+// src/flows/welcome_email.ts
+import { defineFlow } from '@objectstack/spec';
+
+export const welcomeEmail = defineFlow({
+  name: 'welcome_email',
+  type: 'autolaunched',
+  trigger: {
+    object: 'sys_user',
+    when: 'after_insert',
+  },
+  steps: [
+    {
+      type: 'action',
+      action: 'send_email',
+      inputs: {
+        to:      '{!trigger.record.email}',
+        subject: 'Welcome to {!org.name}',
+        body:    'Hi {!trigger.record.name}, welcome aboard.',
+      },
+    },
+  ],
+});
+```
+
+変数の補間: `{!trigger.record.<field>}`、`{!org.<field>}`、
+`{!user.<field>}`、`{!step.<step-name>.output}`。`condition:` ブロックでは CEL 式を使用します。
+
+トリガーのタイミング:
+
+| `when` | 発火 |
+|---|---|
+| `before_insert` | 書き込みトランザクション内、INSERT の前 |
+| `after_insert` | コミット後 |
+| `before_update` | 書き込みトランザクション内、UPDATE の前 |
+| `after_update` | コミット後 |
+| `before_delete` | 書き込みトランザクション内、DELETE の前 |
+| `after_delete` | コミット後 |
+
+`before_*` フローは、書き込まれるレコードを変更できます（フィールドの計算、データの正規化）。`after_*` フローは非同期で実行され、低速な外部サービスを呼び出すことができます。
+
+## Scheduled: 時刻に従って実行する
+
+```ts
+export const nightlyCleanup = defineFlow({
+  name: 'nightly_cleanup',
+  type: 'scheduled',
+  schedule: { cron: '0 2 * * *', timezone: 'America/New_York' },
+  steps: [
+    {
+      type: 'query',
+      query: { object: 'task', filter: 'status:open AND due_lt:now()' },
+      output: 'stale',
+    },
+    {
+      type: 'foreach',
+      items: '{!step.stale}',
+      do: [
+        { type: 'update', record: '{!item.id}', fields: { status: 'overdue' } },
+      ],
+    },
+  ],
+});
+```
+
+`@objectstack/service-job` 機能に支えられています。詳しくは [Runtime Capabilities](/docs/reference/runtime-capabilities) を参照してください。
+
+## Manual: アクションと承認
+
+```ts
+export const approveInvoice = defineFlow({
+  name: 'approve_invoice',
+  type: 'manual',
+  inputs: {
+    invoice_id: { type: 'lookup', reference: 'invoice', required: true },
+    note:       { type: 'textarea' },
+  },
+  steps: [
+    {
+      type: 'update',
+      record: '{!inputs.invoice_id}',
+      fields: { status: 'approved', approved_by: '{!user.id}' },
+    },
+  ],
+});
+```
+
+Console で Invoice ビューのボタンとして表示するか、REST 経由で呼び出します。
+
+```bash
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"inputs": {"invoice_id": "inv_123", "note": "OK"}}'
+```
+
+## ステップタイプ
+
+| ステップ | 目的 |
+|---|---|
+| `query` | ObjectQL でレコードを読み取る |
+| `create` / `update` / `delete` | オブジェクトに書き込む |
+| `action` | 組み込みアクションまたはプラグイン登録アクションを呼び出す（メール、Webhook、AI 呼び出し、…） |
+| `condition` | CEL 式で分岐する |
+| `foreach` | コレクションを反復処理する |
+| `parallel` | サブステップを並行して実行する |
+| `wait` | 一定時間 / タイムスタンプまで / 条件が満たされるまで一時停止する |
+| `subflow` | 別のフローを呼び出す |
+| `approval` | ユーザーが承認するまでブロックする（`@objectstack/plugin-approvals` が必要） |
+
+## 条件と分岐
+
+```ts
+{
+  type: 'condition',
+  when: 'trigger.record.amount > 10000',
+  then: [
+    { type: 'action', action: 'send_slack', inputs: { /* ... */ } },
+  ],
+  else: [
+    { type: 'update', record: '{!trigger.record.id}', fields: { status: 'auto_approved' } },
+  ],
+}
+```
+
+## エラー処理
+
+各ステップは以下を受け付けます。
+
+```ts
+{
+  type: 'action',
+  action: 'send_email',
+  inputs: { /* ... */ },
+  retry: { attempts: 3, backoffMs: 1000, multiplier: 2 },
+  onError: 'continue' | 'fail' | 'rollback',
+}
+```
+
+autolaunched の `before_*` フローでは、`onError: 'fail'`（デフォルト）は元の書き込みトランザクションを中止します。`after_*` フローでは、元の書き込みはすでにコミットされており、失敗したフロー実行はジョブの再試行キューに入ります。
+
+## 数式と式（CEL）
+
+条件、動的なフィールド値、フィルター式はすべて **CEL**（Common Expression Language）を受け付けます。これは、安全な式評価のための Google の言語です。
+
+```ts
+'amount > 10000 && account.tier == "enterprise"'
+'duration(now() - created_at) > duration("30d")'
+'has(record.notes) && record.notes != ""'
+```
+
+CEL はサンドボックス化されており（副作用なし、I/O なし）、サーバー側で評価され、フロービルダーで監査可能です。
+
+## ビジュアルビルダー
+
+Console には、宣言的なメタデータとラウンドトリップするビジュアルフロービルダーが付属しています。エンジニアでない人でもフローを編集でき、手作業で記述する TypeScript と同じ構造にシリアライズされます。
+
+## フローのテスト
+
+```bash
+os test --scenario "welcome email fires on signup"
+```
+
+## 制限とベストプラクティス
+
+- **before フックは小さく保ちます。** 書き込みトランザクションをブロックします。
+- **長時間実行されるステップの代わりに `wait` を使用します。** スリープするフローはワーカーをブロックしますが、`wait until` はワーカーをプールに返します。
+- **独立したステップには `parallel` を使用します。** デフォルトは順次実行です。
+- **冪等性が重要です。** 再試行では同じステップが 2 回実行されることがあります。外部の副作用は重複排除する必要があります（フロー実行 ID をキーとして使用します）。
+- **監査が必要なアクション。** 権限を変更したりレコードを削除したりするフローは、それ自体を `sys_audit_log` に記録する必要があります。
+
+## 次のステップ
+
+- [Webhooks](/docs/configure/webhooks) — アウトバウンド通知。多くの場合フローからトリガーされます
+- [Email](/docs/configure/email) — `send_email` アクションのトランスポート
+- [AI Service](/docs/configure/ai) — LLM ステップ用の `ai_call` アクション
+- [API Access](/docs/configure/api-access) — 外部システムから手動フローを呼び出す
+- [@objectstack/service-automation](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-automation)
+  — 実行エンジンのソース

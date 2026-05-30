@@ -1,0 +1,94 @@
+---
+title: Fehlerbehebung
+description: Diagnostizieren Sie Probleme bei Start, Artefakten, Authentifizierung, Berechtigungen und Deployment.
+---
+
+# Fehlerbehebung
+
+Beginnen Sie mit dem Symptom und prüfen Sie dann zuerst die kleinste Abgrenzung.
+
+## ObjectOS startet nicht
+
+Prüfen Sie:
+
+1. Container-Logs.
+2. Node-Version und Paketinstallation.
+3. `PORT`-Konflikt.
+4. Fehlendes Artefakt.
+5. Fehlendes `OS_AUTH_SECRET`, wenn Auth-Endpunkte erwartet werden.
+
+Für Docker:
+
+```bash
+docker compose -f docker/docker-compose.yml logs objectos
+```
+
+## Artefakt kann nicht geladen werden
+
+Prüfen Sie:
+
+- `OS_ARTIFACT_FILE` zeigt auf die eingehängte Datei;
+- die Datei existiert innerhalb des Containers;
+- die Datei ist gültiges JSON;
+- das Artefakt ist ein kompiliertes ObjectStack-Artefakt, keine Quell-Metadaten;
+- die Dateiberechtigungen erlauben Lesezugriff.
+
+Innerhalb eines Containers:
+
+```bash
+ls -l /artifacts/objectstack.json
+```
+
+## Anmeldung schlägt fehl
+
+Prüfen Sie:
+
+- `OS_AUTH_SECRET` ist konfiguriert;
+- öffentliche URL und Callback-URL stimmen überein;
+- die OIDC-Discovery-URL ist von ObjectOS aus erreichbar;
+- die vertrauenswürdigen Origins enthalten die öffentliche Domain;
+- Cookies sind auf den korrekten Projekt-Hostnamen begrenzt;
+- der Projekt-Kernel hat die Authentifizierung aktiviert.
+
+## Benutzer kann keine Datensätze sehen
+
+Prüfen Sie:
+
+1. Korrekter Projekt-Hostname.
+2. Der Benutzer gehört zur erwarteten Organisation.
+3. Objekt-Berechtigung `read`.
+4. Sicherheit auf Zeilenebene.
+5. Freigaberegeln oder Datensatzfreigaben.
+6. Feldsicherheit, wenn nur einige Felder fehlen.
+
+## Einstellungen sind nicht bearbeitbar
+
+Eine Einstellung kann durch eine Umgebungsüberschreibung gesperrt sein. Effektive Einstellungen
+werden in dieser Reihenfolge aufgelöst:
+
+```text
+Environment -> Tenant -> User -> Default
+```
+
+Wenn die Umgebung einen Wert bereitstellt, sollten Laufzeitänderungen abgelehnt werden,
+anstatt ihn stillschweigend zu überschreiben.
+
+## Webhooks oder Jobs werden nicht ausgeführt
+
+Prüfen Sie:
+
+- die `requires`-Liste des Artefakts enthält die benötigte Capability;
+- das ObjectOS-Image enthält das optionale Service-Paket;
+- die Konfiguration des Queue-/Job-Service ist verfügbar;
+- ausgehender Netzwerkzugriff auf das Ziel ist erlaubt;
+- Zustelllogs oder Job-Läufe sind in der Console-Diagnose sichtbar.
+
+## Datenbankfehler
+
+Prüfen Sie:
+
+- Datenbank-URL und Treibertyp;
+- Netzwerkzugriff von ObjectOS auf die Datenbank;
+- Anmeldedaten und TLS-Optionen;
+- Logs zur Schema-Synchronisierung/-Migration;
+- Speicherpersistenz bei Verwendung von lokalem SQLite.

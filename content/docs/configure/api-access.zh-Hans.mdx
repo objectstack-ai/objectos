@@ -1,0 +1,85 @@
+---
+title: API 访问
+description: 用于集成的自动生成 REST API、身份验证和 API 密钥。
+---
+
+# API 访问
+
+artifact 中声明的每个对象都会通过自动生成的 REST API 对外暴露。同一套端点同时驱动 UI、集成和客户的 ETL 脚本——无需另外维护一套“集成 API”。
+
+## Base URL
+
+```text
+https://<project-domain>/api/v1
+```
+
+主要入口：
+
+| Path | 用途 |
+|---|---|
+| `/api/v1/data/<object>` | 每个对象自动生成的 CRUD（例如 `/api/v1/data/account`） |
+| `/api/v1/data/<object>/{id}` | 读取/更新/删除单条记录 |
+| `/api/v1/actions/<object>/<action>` | 调用声明式 action（POST） |
+| `/api/v1/auth/*` | 身份验证（登录、会话、OAuth、OIDC） |
+| `/api/v1/meta/*` | 元数据 API（对象、字段、视图），在启用时可用 |
+| `/api/v1/health` | 存活/就绪探针（无需身份验证） |
+
+前缀默认为 `/api/v1`（即 API 的 `basePath` `/api` 加上 `version` `v1`），并且可在 ObjectOS stack 上配置。
+
+## 身份验证方式
+
+调用方可以通过三种方式进行身份验证：
+
+| 方式 | 适用场景 | 做法 |
+|---|---|---|
+| Session cookie | 浏览器/UI 流量 | 通过 `/api/v1/auth/*` 登录；cookie 的作用域限定在项目主机名 |
+| Bearer 访问令牌 | 移动端、SPA、短时服务端任务 | 在 `/api/v1/auth/sign-in/email` 用凭据换取令牌，并以 `Authorization: Bearer <token>` 传递 |
+| API 密钥 | 服务器到服务器、ETL、长期存续的集成 | 创建一条 `sys_api_key` 记录，作为 bearer 令牌使用 |
+
+这三种方式都会经过同一个 `AuthPlugin`，并最终解析为 `sys_user` 上下文，由 `SecurityPlugin` 据此评估权限和记录访问。
+
+## API 密钥
+
+API 密钥是一等公民 `sys_api_key` 记录。密钥值本身以哈希形式存储——只有 `prefix` 和元数据保持可查询，因此即便密钥泄露也无法从数据库中还原。
+
+签发一个密钥：
+
+1. 以管理员身份登录 **Console → API Keys**。
+2. 选择所属用户（API 调用会继承该用户的权限和记录访问）。
+3. 可选地设置过期日期。
+4. **仅这一次**复制显示出的密钥——之后不会再显示。
+
+将密钥作为 bearer 令牌使用：
+
+```bash
+curl https://app.example.com/api/v1/data/account \
+  -H "Authorization: Bearer os_pk_live_…"
+```
+
+要撤销某个密钥，请在对应的 `sys_api_key` 记录上运行 `revoke_api_key` action（Console UI 中也提供）。撤销会在下一次请求时立即生效。
+
+## 分页、过滤与排序
+
+自动生成的列表端点接受标准的 ObjectStack 查询参数：
+
+| 参数 | 含义 |
+|---|---|
+| `?limit=` | 页大小（受服务端上限约束） |
+| `?offset=` 或 `?cursor=` | 分页 |
+| `?filter=` | 使用 ObjectQL 过滤语法进行服务端过滤 |
+| `?sort=` | 排序表达式（例如 `-created_at`） |
+| `?fields=` | 稀疏字段选择 |
+
+完整的过滤语法请参阅框架文档——运行时语法才是权威依据。
+
+## 限流
+
+使用框架的 `RateLimiter` 原语（或 ingress / API 网关）应用按 IP 和按身份的限制。推荐的初始配额桶参见 [Production readiness](/docs/operate/production)。
+
+## CORS
+
+如果调用方在不同源的浏览器上运行，请在 ingress 或运行时中间件中配置 CORS。**不要**将通配符 origin 与携带凭据的请求结合使用。
+
+## OpenAPI / 发现
+
+当镜像中包含相应能力时，运行时可以为自动生成的 REST API 提供 OpenAPI 文档。客户的集成应基于每个部署的 OpenAPI 文档生成客户端，而不是手写 URL，因为对象名称和生成的路由会跟随已部署的 artifact 而变化。

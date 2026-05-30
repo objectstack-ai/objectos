@@ -1,0 +1,204 @@
+---
+title: Actions
+description: Benannte Operationen, die die Plattform als REST-Endpunkte, Console-Schaltflächen, Flow-Schritte und AI-Tools bereitstellt — aus einer einzigen Deklaration.
+---
+
+# Actions
+
+Eine **Action** ist eine benannte Operation auf einem Objekt. Deklarieren Sie sie einmal und
+sie erscheint als:
+
+- ein **REST-Endpunkt** unter `/api/v1/actions/<object>/<action>`
+- eine **Schaltfläche** in der Datensatzdetailansicht der Console
+- ein **Flow-Schritt** (`type: 'action'`) für die Automatisierung
+- ein **AI-Tool** (`action_<name>`) für Agents und den AI Builder
+
+Sie wiederholen sich nicht über vier Oberflächen hinweg. Eine Deklaration; vier
+Möglichkeiten zum Aufruf.
+
+## Eine Action deklarieren
+
+```ts
+// src/actions/approve_invoice.action.ts
+import { Action } from '@objectstack/spec';
+
+export const approveInvoice = Action.create({
+  name: 'approve_invoice',          // lowercase snake_case (machine id)
+  label: 'Approve Invoice',
+  objectName: 'invoice',            // attaches to the invoice object
+  icon: 'check',
+  variant: 'primary',
+  locations: ['record_header'],     // where the button shows
+  confirmText: 'Approve this invoice?',
+  successMessage: 'Invoice approved',
+  refreshAfter: true,
+
+  // collect input before running
+  params: [
+    { name: 'note', label: 'Approval note', type: 'textarea' },
+  ],
+
+  // only show the button when the record is still pending
+  visible: 'record.status == "pending"',
+
+  // what it does — a sandboxed script body
+  type: 'script',
+  body: {
+    language: 'js',
+    source: `
+      await ctx.data.update('invoice', input.id, {
+        status: 'approved',
+        approved_by: ctx.user.id,
+        approved_at: now(),
+        approval_note: input.note,
+      });
+    `,
+  },
+});
+```
+
+Nach der erneuten Kompilierung durch `os dev`:
+
+- `POST /api/v1/actions/invoice/approve_invoice` funktioniert
+- Die Invoice-Datensatzseite in der Console zeigt eine **Approve Invoice**-Schaltfläche
+- Ein Flow kann `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }` enthalten
+- Der AI-Assistent kann `action_approve_invoice` aufrufen, wenn seine Skills es erlauben
+
+## Action-Typen
+
+Das Feld `type` entscheidet, was die Action tut:
+
+| `type` | Was ausgeführt wird | Verwendung für |
+|---|---|---|
+| `script` | Ein `body` — ein L1-Formelausdruck oder Sandbox-L2-JavaScript | Die meisten Fälle — serverseitige Logik, auditierbar + AI-aufrufbar |
+| `api` | Ein HTTP-Aufruf an einen `target`-Endpunkt (`method`, `bodyExtra`) | Wiederverwendung von Daten-API- oder Plattform-Endpunkten |
+| `flow` | Führt den in `target` benannten Flow aus | Mehrstufige Geschäftsprozesse |
+| `url` | Navigiert zur `target`-URL | Deep Links, Weiterleitungs-Actions |
+| `modal` | Öffnet die in `target` benannte Seite/das Modal | Benutzerdefinierte Dialoge |
+| `form` | Öffnet die in `target` benannte FormView | Geführte Dateneingabe |
+
+```ts
+// api type — reuse a data-API endpoint
+Action.create({
+  name: 'archive_order',
+  objectName: 'order',
+  label: 'Archive',
+  locations: ['list_item'],
+  type: 'api',
+  method: 'PATCH',
+  target: '/api/v1/data/order/{id}',
+  bodyExtra: { archived: true },
+});
+```
+
+Andere Typen als `script` erfordern ein `target`. Welchen Typ auch immer, die Action
+ist auf jeder Oberfläche derselbe vollwertige Bürger.
+
+## Eine Action aufrufen
+
+### REST
+
+```bash
+# the record id can go in the body, or in the path
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice/inv_123 \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"note": "LGTM"}'
+```
+
+Params werden flach im Anfragetext gesendet. Die Datensatz-ID kann
+entweder als abschließendes Pfadsegment (`.../approve_invoice/:recordId`) oder im
+Anfragetext angegeben werden. Die Antwort ist der Rückgabewert Ihres Skript-Bodys (oder das Aufrufergebnis
+bei Actions vom Typ `api`).
+
+### Console
+
+Standardmäßig zeigt die Console Actions als Schaltflächen auf der Datensatzdetailseite an,
+gefiltert durch das `visible`-Prädikat der Action. Überschreiben Sie die Platzierung
+in Ihrer View-Konfiguration:
+
+```ts
+defineView({
+  name: 'invoice_detail',
+  object: 'invoice',
+  actions: ['approve_invoice', 'reject_invoice', 'send_to_customer'],
+});
+```
+
+### Aus einem Flow
+
+```ts
+{
+  type: 'action',
+  action: 'approve_invoice',
+  inputs: { note: 'Auto-approved by SLA flow' },
+  record: '{!trigger.record.id}',
+}
+```
+
+### Von einem AI-Agent
+
+Wenn `approve_invoice` in einem Skill enthalten ist, das der Agent besitzt, kann das LLM es
+aufrufen. Die Eingaben stammen aus der Konversation; die Berechtigungen werden so durchgesetzt, als ob
+der Benutzer sie direkt aufgerufen hätte.
+
+> *"Approve invoice INV-2042 with note 'verified by phone.'"*
+
+## Berechtigungen
+
+Actions laufen mit den Berechtigungen des aufrufenden Benutzers. Die Plattform prüft:
+
+1. **Objektberechtigungen** — die [Berechtigungssätze](/docs/configure/permissions/permission-sets) des Benutzers
+   müssen den objektbezogenen Zugriff gewähren, den die Action benötigt (z. B. Aktualisieren).
+2. **Feldberechtigungen** — für jedes Feld, das die Action schreibt, muss der Benutzer
+   über Schreibzugriff verfügen (FLS).
+3. **UI-Gating** — die Prädikate `visible` und `disabled` (CEL,
+   ausgewertet gegen `record`, `os.user` und Params) steuern, ob die
+   Schaltfläche in der Console gerendert oder ausgegraut wird.
+
+Fehlgeschlagene Berechtigungsprüfungen geben `403` mit einem `PERMISSION_DENIED`-Fehler zurück.
+
+## Integrierte Actions
+
+Jedes Objekt erhält diese kostenlos:
+
+| Action | Was sie tut |
+|---|---|
+| `create` | Einen Datensatz einfügen |
+| `update` | Einen Datensatz aktualisieren |
+| `delete` | Einen Datensatz löschen (oder soft-löschen) |
+| `restore` | Ein Soft-Delete rückgängig machen |
+| `clone` | Einen Datensatz tief kopieren |
+| `share` | Direkt mit einem Benutzer / einer Rolle teilen |
+
+Deklarieren Sie diese nicht erneut — sie folgen den [Lebenszyklus- & Capability-Flags](/docs/build/data-model) des Objekts.
+
+## Auditing
+
+Plattformereignisse landen in `sys_audit_log`, einem unveränderlichen Verlauf mit Feldern
+wie unter anderem:
+
+- `user_id` — der auslösende Benutzer
+- `action` — der Name der Action
+- `object_name` und `record_id` — was berührt wurde
+- `old_value` / `new_value` — die Änderung
+- `ip_address` / `user_agent` — Ursprung der Anfrage
+- `created_at` — wann es geschah
+
+Dies ist Ihre erste Anlaufstelle für Fragen wie *"Wer hat die Schaltfläche gedrückt?"*.
+
+## Actions mit dem AI Builder generieren
+
+> *"Create an action `escalate_ticket` on `support_ticket` that sets
+> priority to urgent and assigns it to the on-call engineer."*
+
+Der [AI Builder](/docs/build/ai-builder) generiert die Action-Metadaten und
+stellt die Änderung zur Genehmigung in die Warteschlange. Nach der Genehmigung ist die Action aufrufbar über
+REST, Console, Flows und — rekursiv — die AI selbst.
+
+## Wie es weitergeht
+
+- [Flows](/docs/build/flows) — mehrere Actions zu Geschäftslogik zusammensetzen
+- [Agents](/docs/build/agents) — Actions als AI-Tools bereitstellen
+- [API Access](/docs/configure/api-access) — Actions aus externen Systemen aufrufen
+- [Permissions](/docs/configure/permissions) — steuern, wer was aufrufen darf

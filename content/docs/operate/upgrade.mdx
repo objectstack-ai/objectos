@@ -43,13 +43,12 @@ Cloud-connected mode:
 
 ## Rollback
 
-Rollback ObjectOS:
+Rollback ObjectOS: pin the previous image tag in your Compose file (or
+deployment manifest), then re-apply it.
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d objectos
 ```
-
-with the previous image tag.
 
 Rollback artifact:
 

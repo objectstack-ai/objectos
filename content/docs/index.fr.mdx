@@ -1,0 +1,97 @@
+---
+title: ObjectOS
+description: Le runtime des outils internes qui reste dans votre réseau. Une seule commande pour démarrer, votre base de données, votre authentification, vos données — jamais les nôtres.
+---
+
+# ObjectOS
+
+**ObjectOS est un runtime auto-hébergé pour créer des outils internes, des
+panneaux d'administration et des applications de back-office sans renoncer
+à vos données.** Décrivez ce dont vous avez besoin à l'AI Builder intégré à
+la Console — ou forkez un template — et obtenez des API REST, une interface
+d'administration générée, l'authentification, le RBAC, des journaux d'audit,
+le stockage de fichiers, des tâches en arrière-plan, des webhooks et
+l'intégration de l'IA. Le tout s'exécutant dans votre réseau, sur votre base
+de données.
+
+C'est ce que vous obtiendriez si Retool, Supabase et Salesforce avaient un
+enfant qui s'exécutait à l'intérieur de votre pare-feu — avec une IA qui
+construit les applications pour vous.
+
+## Opérationnel en 60 secondes
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+Ouvrez **http://localhost:3000** et vous disposez d'un ObjectOS fonctionnel
+avec la Console et l'Account, un journal d'audit et une base de données
+SQLite — zéro configuration, zéro échafaudage.
+
+Ensuite, au choix :
+
+- **Parlez à l'AI Builder** — *« J'ai besoin de suivre des tickets de support
+  avec une priorité et un destinataire assigné »* — et observez la génération
+  des métadonnées. Voir [Build → AI Builder](/docs/build/ai-builder).
+- **Installez un template** depuis le marketplace intégré à la Console (Todo,
+  Contracts, Helpdesk, …) et obtenez une vraie application en un clic.
+- **Forkez un [template](/docs/build/templates)** si vous voulez du code source
+  TypeScript sous votre contrôle.
+
+## Pourquoi ObjectOS plutôt que …
+
+| Vous utilisez | Point de friction | Ce qu'ObjectOS vous apporte |
+|---|---|---|
+| **Retool / Appsmith** | Le générateur d'interface est excellent, mais vos données résident dans leur cloud et leur tarification augmente avec le nombre d'utilisateurs | Vos données ne quittent jamais votre réseau ; Apache-2.0, sans taxe par siège |
+| **Supabase / Firebase** | Le backend-as-a-service est rapide mais soumis au verrouillage fournisseur ; SaaS multi-tenant par conception | Même expérience développeur (API automatiques, authentification, stockage), mais vous possédez le runtime et la base de données |
+| **Salesforce / NetSuite** | Plateforme puissante, personnalisation pénible, coût par siège exorbitant | Même modèle piloté par métadonnées (objets, champs, rôles, règles de partage), auto-hébergé, sans taxe par siège |
+| **Tout reconstruire soi-même (Next + Prisma + NextAuth)** | Vous reconstruisez le RBAC, l'audit, le téléversement de fichiers, les paramètres, les webhooks et les tâches à chaque fois | Livrez la véritable logique métier ; la plomberie de la plateforme est déjà là |
+
+## Ce que vous obtenez d'emblée
+
+| Surface | De quoi il s'agit |
+|---|---|
+| **API REST automatique** | Chaque objet que vous déclarez obtient `/api/v1/data/<object>` avec filtrage/tri/pagination |
+| **Console** (`/_console/`) | Interface d'administration générée : parcourir et modifier les enregistrements, gérer les utilisateurs/rôles/ensembles de permissions, consulter le journal d'audit, les sessions, les clés API, les paramètres |
+| **Account** (`/_account/`) | Connexion, inscription, réinitialisation du mot de passe, OAuth, OIDC/SSO, passkeys, 2FA |
+| **Plus de 20 plugins** | RBAC + sécurité au niveau des lignes, audit, stockage de fichiers, files d'attente, tâches, e-mail, IA, webhooks — déclaratifs, à la demande |
+
+## Ce dont vous gardez le contrôle
+
+| Ressource | Où elle réside |
+|---|---|
+| Données métier | **Votre** base de données (Postgres, SQLite, MySQL, MongoDB) |
+| Identités et sessions des utilisateurs | **Votre** base de données |
+| Journal d'audit | **Votre** base de données |
+| Fichiers | **Votre** stockage (disque local, S3 ou compatible S3 comme R2/MinIO) |
+| Secrets | **Votre** gestionnaire de secrets |
+| Le runtime lui-même | **Vos** serveurs, conteneurs ou ordinateur portable |
+
+ObjectOS ne communique jamais avec l'extérieur. Aucune télémétrie. Aucun
+serveur de licence. Les réseaux isolés (air-gapped) sont une cible de
+déploiement de premier ordre — voir [Air-gapped](/docs/deploy/air-gapped).
+
+## Où aller ensuite
+
+| Si vous voulez … | Lire |
+|---|---|
+| Le voir fonctionner concrètement | [Quickstart](/docs/quickstart) |
+| Comprendre ce qu'il y a dans la boîte | [Architecture](/docs/architecture) |
+| L'exécuter dans Docker | [Docker](/docs/deploy/docker) |
+| Le déployer sur Kubernetes | [Kubernetes](/docs/deploy/kubernetes) |
+| Le connecter à Postgres / votre base de données | [Runtime Configuration](/docs/configure/runtime) |
+| Configurer le SSO | [Authentication](/docs/configure/authentication) |
+| Verrouiller qui voit quoi | [Permissions](/docs/configure/permissions) |
+| L'appeler depuis un autre service | [API Access](/docs/configure/api-access) |
+| Envoyer des événements vers d'autres systèmes | [Webhooks](/docs/configure/webhooks) |
+| Passer en production | [Production Readiness](/docs/operate/production) |
+
+## Licence et tarification
+
+Le runtime ObjectOS est sous **Apache-2.0** — la licence open source la plus
+permissive et la plus largement utilisée. Utilisez-le dans des produits
+commerciaux, intégrez-le, redistribuez-le, gardez vos modifications privées.
+Aucun frais par siège, aucun serveur de licence, aucun « à partir de
+50 000 $/an ». Un support commercial et un hébergement managé optionnels sont
+disponibles séparément — voir [License](/docs/resources/license).

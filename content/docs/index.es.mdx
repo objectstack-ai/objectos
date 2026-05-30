@@ -1,0 +1,99 @@
+---
+title: ObjectOS
+description: El runtime para herramientas internas que permanece en tu red. Un solo comando para empezar; tu base de datos, tu autenticación, tus datos — nunca los nuestros.
+---
+
+# ObjectOS
+
+**ObjectOS es un runtime autoalojado para crear herramientas internas,
+paneles de administración y aplicaciones de back-office sin renunciar a
+tus datos.** Describe lo que necesitas al AI Builder integrado en la
+Console — o haz un fork de una plantilla — y obtén APIs REST, una UI de
+administración generada, autenticación, RBAC, registros de auditoría,
+almacenamiento de archivos, trabajos en segundo plano, webhooks e
+integración con IA. Todo ejecutándose en tu red, sobre tu base de datos.
+
+Es lo que obtendrías si Retool, Supabase y Salesforce tuvieran un hijo
+que se ejecutara dentro de tu firewall — con una IA que crea las
+aplicaciones por ti.
+
+## Ponlo en marcha en 60 segundos
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+Abre **http://localhost:3000** y tendrás un ObjectOS funcional con
+Console y Account, un registro de auditoría y una base de datos SQLite —
+sin configuración, sin scaffolding.
+
+Luego, puedes:
+
+- **Hablar con el AI Builder** — *"Necesito hacer seguimiento de tickets
+  de soporte con prioridad y responsable asignado"* — y ver cómo se
+  generan los metadatos. Consulta
+  [Build → AI Builder](/docs/build/ai-builder).
+- **Instalar una plantilla** desde el marketplace integrado en la Console
+  (Todo, Contracts, Helpdesk, …) y tener una aplicación real con un solo
+  clic.
+- **Hacer un fork de una [plantilla](/docs/build/templates)** si quieres
+  el código fuente en TypeScript bajo tu control.
+
+## Por qué ObjectOS en lugar de …
+
+| Lo que usas | Punto de dolor | Lo que te ofrece ObjectOS |
+|---|---|---|
+| **Retool / Appsmith** | El constructor de UI es excelente, pero tus datos viven en su nube y sus precios escalan con los usuarios | Tus datos nunca salen de tu red; Apache-2.0, sin coste por asiento |
+| **Supabase / Firebase** | El backend-as-a-service es rápido pero genera dependencia del proveedor; SaaS multitenant por diseño | La misma DX (APIs automáticas, autenticación, almacenamiento), pero tú eres dueño del runtime y la base de datos |
+| **Salesforce / NetSuite** | Plataforma potente, personalización dolorosa, coste por asiento exorbitante | El mismo modelo orientado a metadatos (objetos, campos, roles, reglas de compartición), autoalojado, sin coste por asiento |
+| **Construirlo tú mismo (Next + Prisma + NextAuth)** | Reconstruyes RBAC, auditoría, subida de archivos, ajustes, webhooks y trabajos cada vez | Despliega la lógica de negocio real; la infraestructura de la plataforma ya está lista |
+
+## Lo que obtienes de fábrica
+
+| Superficie | Qué es |
+|---|---|
+| **API REST automática** | Cada objeto que declaras obtiene `/api/v1/data/<object>` con filtrado/ordenación/paginación |
+| **Console** (`/_console/`) | UI de administración generada: explora y edita registros, gestiona usuarios/roles/conjuntos de permisos, consulta el registro de auditoría, sesiones, claves de API y ajustes |
+| **Account** (`/_account/`) | Inicio de sesión, registro, restablecimiento de contraseña, OAuth, OIDC/SSO, passkeys, 2FA |
+| **Más de 20 plugins** | RBAC + seguridad a nivel de fila, auditoría, almacenamiento de archivos, colas, trabajos, correo, IA, webhooks — declarativos y bajo demanda |
+
+## Sobre lo que mantienes el control
+
+| Activo | Dónde reside |
+|---|---|
+| Datos de negocio | **Tu** base de datos (Postgres, SQLite, MySQL, MongoDB) |
+| Identidades de usuario y sesiones | **Tu** base de datos |
+| Registro de auditoría | **Tu** base de datos |
+| Archivos | **Tu** almacenamiento (disco local, S3 o compatible con S3 como R2/MinIO) |
+| Secretos | **Tu** gestor de secretos |
+| El runtime en sí | **Tus** servidores, contenedores o portátil |
+
+ObjectOS nunca se comunica con el exterior. Sin telemetría. Sin servidor
+de licencias. Las redes aisladas (air-gapped) son un objetivo de
+despliegue de primera clase — consulta
+[Air-gapped](/docs/deploy/air-gapped).
+
+## A dónde ir a continuación
+
+| Si quieres … | Lee |
+|---|---|
+| Verlo funcionar de verdad | [Quickstart](/docs/quickstart) |
+| Entender qué hay dentro | [Architecture](/docs/architecture) |
+| Ejecutarlo en Docker | [Docker](/docs/deploy/docker) |
+| Desplegarlo en Kubernetes | [Kubernetes](/docs/deploy/kubernetes) |
+| Conectarlo a Postgres / tu BD | [Runtime Configuration](/docs/configure/runtime) |
+| Configurar SSO | [Authentication](/docs/configure/authentication) |
+| Restringir quién ve qué | [Permissions](/docs/configure/permissions) |
+| Llamarlo desde otro servicio | [API Access](/docs/configure/api-access) |
+| Enviar eventos a otros sistemas | [Webhooks](/docs/configure/webhooks) |
+| Pasar a producción | [Production Readiness](/docs/operate/production) |
+
+## Licencia y precios
+
+El runtime de ObjectOS es **Apache-2.0** — la licencia OSS de uso
+extendido más permisiva. Úsalo en productos comerciales, incrústalo,
+redistribúyelo, mantén tus modificaciones privadas. Sin tarifa por
+asiento, sin servidor de licencias, sin "desde 50.000 $/año". Hay
+soporte comercial y alojamiento gestionado opcionales disponibles por
+separado — consulta [License](/docs/resources/license).

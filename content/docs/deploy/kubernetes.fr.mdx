@@ -1,0 +1,111 @@
+---
+title: Kubernetes
+description: Déployez ObjectOS dans un environnement Kubernetes.
+---
+
+# Kubernetes
+
+Utilisez Kubernetes pour les déploiements en production qui nécessitent
+la gestion des secrets, l'ingress, les sondes (probes), les mises à
+niveau progressives et des bases de données gérées par le client.
+
+ObjectOS ne fournit pas encore de chart Helm packagé ; les conseils
+ci-dessous décrivent donc les manifests à assembler autour de l'image de
+conteneur publiée.
+
+## Forme du déploiement
+
+Un déploiement ObjectOS en production comprend normalement :
+
+| Composant | Recommandation |
+|---|---|
+| Deployment | Une image de conteneur ObjectOS |
+| Service | Service ClusterIP pour le trafic HTTP |
+| Ingress | Terminaison TLS et routage par nom d'hôte du client |
+| Secret | `OS_AUTH_SECRET`, jeton du plan de contrôle, identifiants de base de données |
+| ConfigMap | Configuration d'exécution non secrète |
+| Stockage persistant | Uniquement avec des artefacts de fichiers locaux ou des données d'évaluation SQLite |
+| Base de données externe | Recommandée pour les données métier en production |
+
+## Configuration requise
+
+Configurez au minimum :
+
+```yaml
+env:
+  - name: PORT
+    value: "3000"
+  - name: OS_AUTH_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: auth-secret
+```
+
+Pour le mode connecté au cloud :
+
+```yaml
+env:
+  - name: OS_CLOUD_URL
+    value: "https://cloud.example.com"
+  - name: OS_CLOUD_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: objectos-secrets
+        key: cloud-api-key
+```
+
+Pour le mode basé sur un fichier, montez l'artefact et définissez :
+
+```yaml
+env:
+  - name: OS_ARTIFACT_FILE
+    value: "/artifacts/objectstack.json"
+```
+
+## Sondes (probes)
+
+ObjectOS expose un point de terminaison `GET /health` intégré qui répond
+avant que le noyau du projet ne soit entièrement résolu, ce qui en fait
+la cible idéale pour les sondes de liveness et de readiness :
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 20
+```
+
+Pour des vérifications de readiness plus strictes, dirigez une sonde
+supplémentaire vers une route d'API générée spécifique à l'application —
+cela confirme que l'artefact est chargé et que le noyau répond aux
+requêtes.
+
+## Ingress et CORS
+
+Terminez le TLS en périphérie ou au niveau de l'ingress. Configurez CORS
+explicitement pour les origines front-end utilisées par le client. Ne
+combinez pas les origines génériques (wildcard) avec des requêtes
+authentifiées (credentialed).
+
+Lorsque ObjectOS s'exécute derrière un proxy, assurez-vous que le proxy
+supprime les valeurs `X-Forwarded-For` fournies par le client avant de
+définir les siennes. La limitation de débit (rate limiting) et les
+pistes d'audit dépendent d'une identité d'appelant fiable.
+
+## Mises à niveau progressives
+
+Les versions de l'image ObjectOS et les versions de l'artefact
+applicatif sont distinctes. Déployez-les indépendamment :
+
+- Image ObjectOS : mettez à niveau en changeant le tag du conteneur.
+- Artefact applicatif : publiez ou montez un nouvel artefact immuable.
+- Rollback : restaurez le tag d'image précédent ou le pointeur d'artefact.

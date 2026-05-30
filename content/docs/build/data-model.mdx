@@ -51,7 +51,7 @@ export const Task = ObjectSchema.create({
       ],
     }),
     due:         Field.date({ label: 'Due' }),
-    assignee:    Field.lookup({ label: 'Assignee', reference: 'sys_user' }),
+    assignee:    Field.lookup('sys_user', { label: 'Assignee' }),
   },
 
   enable: {

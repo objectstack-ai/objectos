@@ -11,7 +11,7 @@ the data and actions you've already defined; you don't write new code,
 you compose existing primitives into a persona.
 
 Three-tier architecture, aligned with Salesforce Agentforce, Microsoft
-Copilot Console, and ServiceNow Now Assist:
+Copilot Studio, and ServiceNow Now Assist:
 
 ```text
 Agent  ──→  Skill  ──→  Tool
@@ -44,8 +44,8 @@ export const tier1Support = defineAgent({
     topics:  ['faq', 'policies'],
     indexes: ['support_docs'],
   },
-  model: 'smart',           // resolved against the AI service's model map
-  memory: { strategy: 'rolling', maxMessages: 30 },
+  model: { provider: 'openai', model: 'gpt-4o', temperature: 0.3 },
+  memory: { shortTerm: { maxMessages: 30 } },
 });
 ```
 
@@ -106,25 +106,28 @@ You can also expose:
 ## Ambient assistant pattern
 
 If you want **one chat box for the whole app** (Claude Code /
-Agentforce style) instead of forcing the user to pick an agent, use
-the assistant endpoints:
+Agentforce style) instead of forcing the user to pick an agent,
+declare a `defaultAgent` on the App metadata and call the ambient
+chat endpoint with the app context:
 
 ```text
-GET  /api/v1/ai/assistant         resolve the default agent for the current context
-GET  /api/v1/ai/assistant/skills  list skills active for the current context
-POST /api/v1/ai/assistant/chat    send a message — the LLM picks the tool
+POST /api/v1/ai/chat   { context: { appName: 'crm' }, ... }
 ```
 
-Console's built-in AI panel uses these. The runtime resolves:
+When `context.appName` resolves to an app that declares a
+`defaultAgent`, the runtime auto-selects that agent — the user never
+picks from a list. Console's built-in AI panel uses this. The runtime
+resolves:
 
-1. The **default agent** for the active app (declared on the App
-   metadata), or the first agent the user has access to.
-2. The **active skills** — filtered by user permission set, current
-   object/record context, and the agent's `skills:` list.
+1. The **default agent** for the active app (the app's `defaultAgent`),
+   or the first agent the user has access to.
+2. The **active skills** — the agent's `skills:` list loaded from the
+   Skill Registry, filtered by user permission set and the current
+   object/record context.
 3. The **knowledge** attached to the agent.
 
-You don't have to wire which agent is shown where. Declare an app,
-mark one of its agents as default, and it appears.
+You don't have to wire which agent is shown where. Declare an app, set
+its `defaultAgent`, and it appears.
 
 ## Permissions
 
@@ -140,14 +143,21 @@ chat history unless they have a delegated grant.
 
 ## Memory and conversation state
 
-| Strategy | What it does |
-|---|---|
-| `rolling` (default) | Keep last N messages in the prompt |
-| `summary` | Summarize older turns into a system note |
-| `none` | Stateless — every turn starts fresh |
-| `custom` | Provide your own memory plugin |
+The agent's `memory` block has two tiers:
 
-Conversation rows live in `sys_ai_conversation`. Tool-call results
+| Field | What it does |
+|---|---|
+| `shortTerm.maxMessages` | Recent messages kept in working memory (default `50`) |
+| `shortTerm.maxTokens` | Optional token budget for the short-term context window |
+| `longTerm.enabled` | Persist memory across sessions (default `false`) |
+| `longTerm.store` | Backend for persisted memory: `vector` (default), `database`, or `redis` |
+| `reflectionInterval` | Reflect every N interactions to refine behavior |
+
+Pruning of the live context window is governed by the conversation's
+token-budget strategy — `sliding_window` (default), `fifo`,
+`importance`, `semantic`, or `summary`.
+
+Conversation rows live in `ai_conversations`. Tool-call results
 and pending actions cross-reference back to the originating
 conversation for audit.
 

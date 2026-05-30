@@ -1,0 +1,17 @@
+{
+  "title": "Construire",
+  "defaultOpen": false,
+  "pages": [
+    "index",
+    "ai-builder",
+    "ai-skills",
+    "packages",
+    "data-model",
+    "views",
+    "actions",
+    "flows",
+    "agents",
+    "templates",
+    "marketplace"
+  ]
+}

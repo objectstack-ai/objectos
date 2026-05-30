@@ -29,7 +29,7 @@ Match the strategy to the driver:
 | Driver | Recommended approach |
 |---|---|
 | PostgreSQL | Continuous WAL archiving + base backup; point-in-time restore |
-| Turso / libSQL | Use the platform's backup feature; export to SQLite locally for cold copy |
+| MySQL | Binary-log archiving + full dump; point-in-time restore |
 | MongoDB | Replica-set snapshots; oplog for PITR |
 | SQLite (single-node / desktop) | WAL mode + hot snapshots via `VACUUM INTO` or the Online Backup API; optionally Litestream for continuous replication — see [SQLite deployments](#sqlite-deployments) below |
 
@@ -137,7 +137,7 @@ replicas).
   surfaces a clear 503 and that probes correctly mark pods unhealthy.
 - **Artifact regression.** Roll back the artifact pointer; data is
   unaffected.
-- **Secret rotation.** Rotating `OS_AUTH_SECRET` invalidates every
+- **Secret rotation.** Rotating `AUTH_SECRET` invalidates every
   session. Run during a maintenance window or stagger across replicas.
 - **Region outage.** If the customer requires region failover, the
   business database, secret manager, and ingress all need to be

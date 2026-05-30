@@ -1,0 +1,237 @@
+---
+title: Flows & Automatisierung
+description: Deklarative Geschäftslogik — der KI beschrieben oder in TypeScript geschrieben, die Runtime führt in beiden Fällen dasselbe Artefakt aus.
+---
+
+# Flows & Automatisierung
+
+Flows sind die Art, wie Sie Geschäftslogik ausdrücken, ohne einen Server zu schreiben.
+Jeder Flow ist deklarative Metadaten, die die Runtime ausführt — genau so
+wie Objekte und Views. Das bedeutet, dass Flows in `os diff`, im
+Audit-Log, im Flow-Builder der Console und im [AI Builder](/docs/build/ai-builder)
+gleichzeitig erscheinen.
+
+Die meisten Kunden erstellen Flows, indem sie die KI fragen:
+
+> *„Wenn ein Ticket mit hoher Priorität 30 Minuten lang im Status ‚new‘
+> bleibt, benachrichtige den Manager auf Slack."*
+
+Die KI generiert den unten stehenden Flow. Diese Seite beschreibt die Struktur, damit Sie
+ihn lesen und bearbeiten können.
+
+Aktivieren Sie die Funktion in Ihrem Stack:
+
+```ts
+export default defineStack({
+  // ...
+  requires: ['automation'],
+});
+```
+
+## Drei Flow-Typen
+
+| Typ | Ausgelöst durch | Verwendung für |
+|---|---|---|
+| **Autolaunched** | Eine Datensatzänderung (insert/update/delete) | „Willkommens-E-Mail senden, wenn sich ein Benutzer registriert" |
+| **Scheduled** | Cron-Ausdruck oder Intervall | „Veraltete Aufgaben jede Nacht um 2 Uhr markieren" |
+| **Manual** | Benutzer klickt einen Button in der Console oder einen API-Aufruf | „Rechnung genehmigen"-Aktionen |
+
+## Autolaunched: auf eine Datensatzänderung reagieren
+
+```ts
+// src/flows/welcome_email.ts
+import { defineFlow } from '@objectstack/spec';
+
+export const welcomeEmail = defineFlow({
+  name: 'welcome_email',
+  type: 'autolaunched',
+  trigger: {
+    object: 'sys_user',
+    when: 'after_insert',
+  },
+  steps: [
+    {
+      type: 'action',
+      action: 'send_email',
+      inputs: {
+        to:      '{!trigger.record.email}',
+        subject: 'Welcome to {!org.name}',
+        body:    'Hi {!trigger.record.name}, welcome aboard.',
+      },
+    },
+  ],
+});
+```
+
+Variableninterpolation: `{!trigger.record.<field>}`, `{!org.<field>}`,
+`{!user.<field>}`, `{!step.<step-name>.output}`. Verwenden Sie CEL-Ausdrücke in
+`condition:`-Blöcken.
+
+Trigger-Zeitpunkt:
+
+| `when` | Wird ausgelöst |
+|---|---|
+| `before_insert` | Innerhalb der Schreibtransaktion, vor INSERT |
+| `after_insert` | Nach dem Commit |
+| `before_update` | Innerhalb der Schreibtransaktion, vor UPDATE |
+| `after_update` | Nach dem Commit |
+| `before_delete` | Innerhalb der Schreibtransaktion, vor DELETE |
+| `after_delete` | Nach dem Commit |
+
+`before_*`-Flows können den zu schreibenden Datensatz verändern (Felder berechnen,
+Daten normalisieren). `after_*`-Flows laufen asynchron und können langsame externe
+Dienste aufrufen.
+
+## Scheduled: nach der Uhr ausführen
+
+```ts
+export const nightlyCleanup = defineFlow({
+  name: 'nightly_cleanup',
+  type: 'scheduled',
+  schedule: { cron: '0 2 * * *', timezone: 'America/New_York' },
+  steps: [
+    {
+      type: 'query',
+      query: { object: 'task', filter: 'status:open AND due_lt:now()' },
+      output: 'stale',
+    },
+    {
+      type: 'foreach',
+      items: '{!step.stale}',
+      do: [
+        { type: 'update', record: '{!item.id}', fields: { status: 'overdue' } },
+      ],
+    },
+  ],
+});
+```
+
+Unterstützt durch die `@objectstack/service-job`-Funktion — siehe
+[Runtime Capabilities](/docs/reference/runtime-capabilities).
+
+## Manual: Aktionen und Genehmigungen
+
+```ts
+export const approveInvoice = defineFlow({
+  name: 'approve_invoice',
+  type: 'manual',
+  inputs: {
+    invoice_id: { type: 'lookup', reference: 'invoice', required: true },
+    note:       { type: 'textarea' },
+  },
+  steps: [
+    {
+      type: 'update',
+      record: '{!inputs.invoice_id}',
+      fields: { status: 'approved', approved_by: '{!user.id}' },
+    },
+  ],
+});
+```
+
+Stellen Sie ihn in der Console als Button in der Invoice-View bereit oder rufen Sie ihn per
+REST auf:
+
+```bash
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"inputs": {"invoice_id": "inv_123", "note": "OK"}}'
+```
+
+## Step-Typen
+
+| Step | Zweck |
+|---|---|
+| `query` | Datensätze über ObjectQL lesen |
+| `create` / `update` / `delete` | In Objekte schreiben |
+| `action` | Eine integrierte oder über ein Plugin registrierte Aktion aufrufen (E-Mail, Webhook, KI-Aufruf, …) |
+| `condition` | Anhand eines CEL-Ausdrucks verzweigen |
+| `foreach` | Über eine Sammlung iterieren |
+| `parallel` | Sub-Steps gleichzeitig ausführen |
+| `wait` | Pausieren für eine Dauer / bis zu einem Zeitstempel / bis eine Bedingung erfüllt ist |
+| `subflow` | Einen anderen Flow aufrufen |
+| `approval` | Blockieren, bis ein Benutzer genehmigt (erfordert `@objectstack/plugin-approvals`) |
+
+## Bedingungen und Verzweigungen
+
+```ts
+{
+  type: 'condition',
+  when: 'trigger.record.amount > 10000',
+  then: [
+    { type: 'action', action: 'send_slack', inputs: { /* ... */ } },
+  ],
+  else: [
+    { type: 'update', record: '{!trigger.record.id}', fields: { status: 'auto_approved' } },
+  ],
+}
+```
+
+## Fehlerbehandlung
+
+Jeder Step akzeptiert:
+
+```ts
+{
+  type: 'action',
+  action: 'send_email',
+  inputs: { /* ... */ },
+  retry: { attempts: 3, backoffMs: 1000, multiplier: 2 },
+  onError: 'continue' | 'fail' | 'rollback',
+}
+```
+
+Bei autolaunched `before_*`-Flows bricht `onError: 'fail'` (Standard) die
+ursprüngliche Schreibtransaktion ab. Bei `after_*`-Flows ist der ursprüngliche
+Schreibvorgang bereits committet; fehlgeschlagene Flow-Läufe landen in der Job-Retry-
+Warteschlange.
+
+## Formeln und Ausdrücke (CEL)
+
+Bedingungen, dynamische Feldwerte und Filterausdrücke akzeptieren alle
+**CEL** (Common Expression Language) — Googles Sprache für die sichere
+Auswertung von Ausdrücken:
+
+```ts
+'amount > 10000 && account.tier == "enterprise"'
+'duration(now() - created_at) > duration("30d")'
+'has(record.notes) && record.notes != ""'
+```
+
+CEL ist sandboxed (keine Seiteneffekte, kein I/O), wird serverseitig ausgewertet und
+ist im Flow-Builder auditierbar.
+
+## Visueller Builder
+
+Die Console bringt einen visuellen Flow-Builder mit, der sich verlustfrei mit den
+deklarativen Metadaten austauscht — Nicht-Ingenieure können einen Flow bearbeiten, und er serialisiert
+sich zurück in dieselbe Struktur wie das TypeScript, das Sie von Hand schreiben würden.
+
+## Flows testen
+
+```bash
+os test --scenario "welcome email fires on signup"
+```
+
+## Grenzen & Best Practices
+
+- **Halten Sie Before-Hooks klein.** Sie blockieren die Schreibtransaktion.
+- **Verwenden Sie `wait` statt langlaufender Steps.** Ein Flow, der schläft,
+  blockiert einen Worker; ein `wait until` gibt den Worker an den Pool zurück.
+- **Verwenden Sie `parallel` für unabhängige Steps.** Die sequentielle Ausführung ist
+  der Standard.
+- **Idempotenz ist wichtig.** Retries können denselben Step zweimal ausführen;
+  externe Seiteneffekte sollten dedupliziert werden (verwenden Sie die Flow-Run-ID als Schlüssel).
+- **Audit-sensible Aktionen.** Flows, die Berechtigungen ändern oder
+  Datensätze löschen, sollten selbst in `sys_audit_log` protokollieren.
+
+## Wie es weitergeht
+
+- [Webhooks](/docs/configure/webhooks) — ausgehende Benachrichtigungen, oft
+  von Flows ausgelöst
+- [Email](/docs/configure/email) — das Transportmittel der `send_email`-Aktion
+- [AI Service](/docs/configure/ai) — `ai_call`-Aktion für LLM-Steps
+- [API Access](/docs/configure/api-access) — manuelle Flows von
+  externen Systemen aufrufen
+- [@objectstack/service-automation](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-automation)
+  — Quellcode der Ausführungs-Engine

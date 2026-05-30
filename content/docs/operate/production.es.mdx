@@ -1,0 +1,82 @@
+---
+title: Preparación para producción
+description: Lista de verificación para ejecutar ObjectOS de forma segura en producción.
+---
+
+# Preparación para producción
+
+Usa esta lista de verificación antes de exponer ObjectOS al tráfico de producción.
+
+## Endurecimiento de HTTP
+
+El runtime de ObjectStack proporciona cabeceras de seguridad conservadoras para las
+rutas del dispatcher. Los despliegues de producción deben verificar:
+
+- `Content-Security-Policy`;
+- `X-Content-Type-Options`;
+- `X-Frame-Options`;
+- `Referrer-Policy`;
+- `Permissions-Policy`;
+- `Cross-Origin-Resource-Policy`;
+- HSTS una vez confirmado el TLS.
+
+Si un proxy inverso gestiona las cabeceras, verifica la respuesta final con:
+
+```bash
+curl -I https://app.example.com
+```
+
+## Secretos
+
+Almacena estos valores en un gestor de secretos:
+
+| Secreto | Propósito |
+|---|---|
+| `OS_AUTH_SECRET` | Secreto base para la firma de sesiones |
+| `OS_CLOUD_API_KEY` | Acceso a la Artifact API del plano de control |
+| Credenciales de base de datos | Acceso a la base de datos de negocio |
+| Secreto de cliente OIDC | SSO empresarial |
+| Claves de API de proveedores | Correo electrónico, almacenamiento, IA, integraciones |
+
+Nunca incrustes secretos en artefactos ni en imágenes.
+
+## Limitación de tasa
+
+El framework expone un limitador de tasa de tipo token-bucket. Configura la limitación
+de tasa en la capa de adaptador, ingress o gateway, donde la IP del llamante y la
+identidad autenticada sean fiables.
+
+Buckets recomendados:
+
+| Tráfico | Límite de ejemplo |
+|---|---:|
+| Endpoints de autenticación | 10/min/IP |
+| Solicitudes de escritura | 60/min/IP |
+| Solicitudes de lectura | 600/min/IP |
+
+Usa un backend compartido como Redis para despliegues con múltiples pods.
+
+## CORS
+
+Configura orígenes explícitos:
+
+```text
+https://app.example.com
+https://admin.example.com
+```
+
+No uses orígenes comodín con solicitudes que incluyan credenciales.
+
+## Lista de verificación para la puesta en marcha
+
+- [ ] El TLS se termina en el edge o en el ingress.
+- [ ] Las cabeceras de seguridad están presentes.
+- [ ] HSTS está habilitado tras la validación del TLS.
+- [ ] Los orígenes de CORS son explícitos.
+- [ ] Los límites de tasa protegen los endpoints de autenticación y escritura.
+- [ ] `OS_AUTH_SECRET` es robusto y se almacena como secreto.
+- [ ] Las URL de callback de OIDC coinciden con el dominio público.
+- [ ] La copia de seguridad y la restauración de la base de datos de negocio están probadas.
+- [ ] Los registros de auditoría se conservan según la política del cliente.
+- [ ] Las pruebas negativas de acceso entre organizaciones pasan.
+- [ ] El plan de reversión cubre tanto la imagen de ObjectOS como la versión del artefacto.

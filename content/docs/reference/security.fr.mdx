@@ -1,0 +1,276 @@
+---
+title: Sécurité et conformité
+description: Ce qui est protégé, comment, qui est responsable — pour la revue de sécurité.
+---
+
+# Sécurité et conformité
+
+Cette page s'adresse aux examinateurs de sécurité, aux administrateurs IT et à toute personne qui doit
+répondre à la question « est-il sûr de l'adopter ? »
+
+## Le modèle de menace en une phrase
+
+ObjectOS s'exécute comme un unique processus Node.js à l'intérieur de **votre** réseau,
+communique avec **votre** base de données et ne rappelle jamais sa base. Le rayon d'impact d'une
+compromission se limite aux données de la base de données à laquelle il se connecte — rien de
+plus.
+
+## Résidence des données
+
+| Classe de données | Réside dans | Quitte votre réseau ? |
+|---|---|---|
+| Enregistrements métier | Votre base de données | **Non** |
+| Comptes utilisateurs, sessions, jetons OAuth | Votre base de données | **Non** |
+| Journal d'audit | Votre base de données | **Non** |
+| Paramètres, clés API | Votre base de données / votre gestionnaire de secrets | **Non** |
+| Fichiers téléversés | Votre disque ou bucket compatible S3 | **Non** |
+| Télémétrie / données d'usage | — | **Aucune collecte** |
+
+ObjectOS effectue **zéro appel sortant** sauf si vous les configurez explicitement
+(découverte OIDC, fournisseur d'e-mail, fournisseur d'IA, cibles de webhook,
+stockage externe). Il ne rappelle pas sa base, ne contacte pas un serveur de
+licence, ne sonde pas pour des mises à jour.
+
+## Chiffrement
+
+| Couche | Mécanisme | Responsabilité |
+|---|---|---|
+| En transit (navigateur ↔ ObjectOS) | TLS, terminé au niveau de votre edge / ingress | Vous |
+| En transit (ObjectOS ↔ base de données) | TLS au niveau du pilote (Postgres `sslmode=require`, MongoDB `tls=true`, …) | Vous — définissez la chaîne de connexion |
+| Au repos (données métier) | Natif à la base de données (par ex. Postgres TDE, chiffrement RDS) | Vous |
+| Au repos (fichiers téléversés) | Natif au stockage (S3 SSE, R2 par défaut, FDE au niveau du disque) | Vous |
+| Secrets en base (paramètres, secret client OIDC) | Chiffrés par le service de paramètres | ObjectOS |
+| Cookies / jetons de session | Signés par HMAC avec `OS_AUTH_SECRET` | ObjectOS |
+| Valeurs des clés API | **Hachées** en base — une ligne de base fuitée ne permet pas de reconstruire la clé | ObjectOS |
+
+## Authentification
+
+Intégrée (via `@objectstack/plugin-auth`, propulsée par Better Auth) :
+
+- e-mail/mot de passe avec vérification + réinitialisation
+- gestion des sessions avec révocation
+- OAuth social (Google, GitHub, Microsoft, Apple, …)
+- OIDC/SSO d'entreprise (Okta, Entra ID, Keycloak, Ping)
+- double authentification (TOTP)
+- passkeys / WebAuthn
+- liens magiques
+- flux d'appareil CLI/navigateur
+- clés API (hachées, expirables, révocables, liées à un utilisateur)
+
+Voir [Authentication](/docs/configure/authentication).
+
+## Autorisation
+
+Application en couches (via `@objectstack/plugin-security`) :
+
+1. **Permissions sur les objets** — CRUD par objet par jeu de permissions
+2. **Sécurité au niveau des lignes** — expressions de politique déclaratives injectées dans
+   les requêtes ; non optionnelle
+3. **Sécurité au niveau des champs** — champs retirés des réponses /
+   rejetés en écriture
+4. **Cloisonnement par organisation** — isolation multi-locataire ; le contournement requiert
+   un `viewAllRecords` explicite
+
+Les opérations en contexte système contournent les vérifications afin que les tâches internes / migrations
+puissent s'exécuter — ces chemins sont auditables.
+
+Voir [Permissions](/docs/configure/permissions).
+
+## Audit et preuves
+
+Lorsque la capacité d'audit est chargée (`@objectstack/plugin-audit`) :
+
+- Chaque opération CRUD sur chaque objet → ligne d'audit.
+- Valeurs avant/après pour les modifications de champs.
+- Événements d'authentification, d'attribution de permissions, de révocation de session.
+- Les lignes d'audit sont **immuables** : elles ne peuvent être modifiées, seulement archivées.
+- La rétention est configurable ; à coupler avec la politique d'archivage de votre base de données.
+
+C'est la base de preuves pour SOC 2 CC6/CC7, ISO 27001 A.12.4, HIPAA
+§164.312(b) et l'article 30 du RGPD.
+
+## Cadres de conformité
+
+ObjectOS fournit les **primitives techniques** que chaque cadre courant
+demande. La certification est une propriété du déploiement, pas du
+logiciel — mais les contrôles s'y rattachent proprement :
+
+| Cadre | Ce qu'ObjectOS vous apporte |
+|---|---|
+| **SOC 2** | Contrôle d'accès (CC6), gestion des changements (journal d'audit), chiffrement (déploiement), surveillance (observabilité), sauvegarde (operate/backup) |
+| **ISO 27001** | A.5 politiques (RBAC), A.8 gestion des actifs (catalogue d'objets), A.9 contrôle d'accès, A.12 exploitation, A.18 conformité |
+| **HIPAA** | Contrôles d'accès (§164.312(a)), contrôles d'audit (§164.312(b)), intégrité (audit immuable), sécurité de la transmission (TLS) |
+| **RGPD** | Article 30 registres de traitement (audit), Article 32 sécurité du traitement, Article 17 droit à l'effacement (suppression douce + définitive prises en charge), résidence des données (vous choisissez la région) |
+| **CCPA / China DSL / Russia 152-FZ** | L'auto-hébergement dans la bonne région satisfait la résidence ; les contrôles d'accès + l'audit couvrent la plupart des obligations de déclaration |
+
+ObjectOS lui-même n'est **pas certifié** car la certification porte sur un
+déploiement en exécution, et non sur un binaire. Votre déploiement peut être certifié —
+beaucoup le sont déjà.
+
+## Gestion des secrets
+
+| Secret | Où le placer |
+|---|---|
+| `OS_AUTH_SECRET` | Votre gestionnaire de secrets (Vault, AWS Secrets Manager, k8s Secret) ; injecté comme variable d'environnement |
+| URL de base de données avec identifiants | Idem |
+| Secret client OIDC | Idem |
+| Secrets de fournisseur OAuth | Idem |
+| Clés de fournisseur API (e-mail, stockage, IA) | Idem |
+| Paramètres stockés en base | Chiffrés au repos par le service de paramètres |
+
+**N'intégrez jamais** de secrets dans l'artefact (`objectstack.json`), l'
+image Docker, le fichier compose ou Git. L'interface de paramètres dans Console
+affiche les valeurs gérées par variables d'environnement comme verrouillées, de sorte que les opérateurs ne puissent pas accidentellement
+les remplacer.
+
+## Modèle réseau
+
+Entrant requis :
+- HTTPS depuis votre ingress / répartiteur de charge vers ObjectOS sur `:3000` (par défaut).
+
+Sortant requis (uniquement si vous configurez ces fonctionnalités) :
+- Votre base de données (Postgres / Mongo / Turso / …).
+- Stockage compatible S3 (si la capacité `storage` est activée avec l'adaptateur S3).
+- URL de découverte OIDC (si le SSO est activé).
+- API de fournisseur d'e-mail (Resend / Postmark).
+- API de fournisseur d'IA (OpenAI / Anthropic / Google / …).
+- Cibles de webhook.
+
+Voilà toute la surface de sortie. Voir [Air-gapped](/docs/deploy/air-gapped)
+pour des déploiements qui en retranchent encore davantage.
+
+## IA : outils, approbations, isolation
+
+L'AI Builder est la surface la plus sensible en matière de sécurité que vous exposerez,
+il dispose donc de sa propre couche d'application en plus de tout ce qui précède.
+
+### Comment l'IA peut modifier l'état
+
+Le modèle **ne peut pas écrire directement** dans votre base de données. La seule façon dont
+l'état change est en émettant un appel d'outil structuré que le service d'IA
+reçoit, valide et met en file d'attente. La chaîne :
+
+```text
+user prompt
+  → model emits tool call (e.g. add_field { object: 'ticket', name: 'severity', type: 'select' })
+  → AI service validates payload against the tool's Zod schema
+  → if the tool is "mutating": queue as pending action (no state change yet)
+  → human reviewer approves → mutation applied → audit row written
+  → if the tool is "read-only": run immediately, response returned to model
+```
+
+Il existe 11 outils de métadonnées de première partie
+([voir Build → AI Builder](/docs/build/ai-builder)) plus un
+outil `action_<name>` par action déclarée. Chaque outil — de première partie ou
+personnalisé — suit le même cycle de vie.
+
+### Clés de permission
+
+| Clé | Octroie |
+|:--|:--|
+| `ai:chat` | Tenir une conversation ; consommer des modèles ; laisser l'agent appeler des outils en lecture seule |
+| `ai:complete` | Point de terminaison de complétion brute (sans boucle d'agent) |
+| `ai:conversations` | Lister / inspecter / supprimer des conversations (les siennes ou toutes, selon la portée RBAC) |
+| `ai:agents` | Gérer les métadonnées d'agent (avec `ai:chat` pour les invoquer) |
+| `ai:tools` | Lister le catalogue d'outils |
+| `ai:execute` | Invoquer un outil directement via REST (avancé — normalement, seuls les agents ambiants en ont besoin) |
+| `ai:read` | Lire la file des actions en attente et la liste des modèles |
+| `ai:approve` | Approuver / rejeter les mutations en file d'attente |
+| `ai:admin` | Administration complète du service d'IA |
+
+La distinction critique est **`ai:chat` ≠ `ai:approve`**. Accordez `ai:chat` à la
+plupart des utilisateurs pour que l'assistant fonctionne ; réservez `ai:approve` aux
+administrateurs / propriétaires d'applications qui doivent examiner les changements structurels. Les utilisateurs
+finaux peuvent ainsi « construire à l'instinct » en toute sécurité — au pire, ils peuvent
+mettre en file d'attente un mauvais changement que quelqu'un d'autre doit accepter.
+
+### Isolation des locataires
+
+- Les agents, conversations, bases de connaissances et actions en attente sont
+  cloisonnés à un seul **Environment** (locataire). Le locataire A ne peut pas voir les
+  conversations, les outils proposés par l'IA ou les corpus de connaissances du locataire B —
+  même si la même définition d'agent a été installée depuis le même
+  package du marketplace.
+- Les outils de métadonnées (`create_object`, `add_field`, …) opèrent sur le
+  **package actif** dans le locataire de l'appelant. Ils ne peuvent pas en sortir.
+- Les entrées d'outils sont validées par CEL et le moteur refuse les références aux
+  packages système réservés (`sys.*`) ou aux noms d'objets d'autres locataires.
+
+### Événements d'audit
+
+Lorsque la capacité d'audit est chargée :
+
+- `ai.chat.message` — chaque message utilisateur / assistant, avec le modèle + le décompte de jetons
+- `ai.tool.call` — nom de l'outil, entrée validée, sortie complète (ou erreur)
+- `ai.pending_action.queued` — mutation proposée, diff complet
+- `ai.pending_action.approved` / `.rejected` — qui a décidé, quand, pourquoi
+- `ai.metadata.applied` — écriture effective dans le magasin de métadonnées, avec diff
+
+Ces lignes sont immuables et peuvent être exportées pour une revue de sécurité ou
+une refacturation. Les décomptes de jetons par (fournisseur, modèle, utilisateur) alimentent l'attribution
+des coûts.
+
+### Posture face à l'injection de prompt
+
+L'injection de prompt indirecte (par ex. un contenu malveillant dans un document que
+l'agent récupère) est un risque réel ; ObjectOS réduit le rayon d'impact par
+conception :
+
+- L'IA **ne peut pas contourner la validation des outils** — même si on la convainc d'
+  émettre une charge utile malveillante, le schéma Zod rejette les entrées mal formées
+  avant qu'elles n'atteignent le moteur.
+- Les outils mutants sont toujours mis en file d'attente. Un prompt injecté ne peut pas écrire
+  silencieusement dans la base de données.
+- Les appels d'outils héritent des **permissions de l'utilisateur final**, et non des
+  permissions de compte de service du modèle. Un utilisateur ne peut jamais utiliser l'IA pour faire
+  quelque chose qu'il ne pourrait pas faire lui-même via Console ou REST.
+- Les AI Skills chargées dans les agents sont versionnées et explicites — voir
+  [Build → IDE Skills](/docs/build/ai-skills) et
+  [Build → AI Builder](/docs/build/ai-builder).
+
+### Flux de données vers un fournisseur d'IA externe
+
+Lorsque vous configurez un fournisseur (OpenAI, Anthropic, …), seuls les
+éléments suivants quittent votre réseau :
+
+- L'historique de conversation dont le modèle a besoin (sous réserve de la configuration `redact`
+  de votre service d'IA — voir [Configure → AI](/docs/configure/ai))
+- Les définitions d'outils (noms, schémas JSON — aucune donnée d'enregistrement)
+- Les sorties d'outils dont le modèle a besoin pour continuer (par ex. un résultat de requête
+  que l'utilisateur a explicitement demandé)
+
+Pour les déploiements isolés (air-gapped), pointez le service d'IA vers un point de terminaison local Ollama /
+vLLM / TGI et le même flux reste à l'intérieur de votre périmètre.
+
+## Divulgation des vulnérabilités
+
+Signalez les problèmes de sécurité de manière privée à
+**security@objectstack.ai**. Nous répondons sous 1 jour ouvré. Ne
+créez pas d'issues GitHub publiques pour les problèmes de sécurité.
+
+## Chaîne d'approvisionnement
+
+- Images préconstruites publiées depuis [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos)
+  avec une provenance de build reproductible.
+- Tous les packages `@objectstack/*` ont leur source publiée sur GitHub —
+  Apache-2.0, sans obfuscation.
+- Utilisez des tags d'image épinglés par SHA (`sha-<short>`) en production pour éviter la
+  dérive ; voir [Docker](/docs/deploy/docker).
+
+## Liste de durcissement suggérée
+
+- [ ] TLS terminé en périphérie avec un certificat réel.
+- [ ] `OS_AUTH_SECRET` fait 32 octets aléatoires ou plus, dans un gestionnaire de secrets.
+- [ ] La connexion à la base de données utilise TLS.
+- [ ] HSTS activé après validation du TLS.
+- [ ] Origines CORS explicites (jamais `*` avec des identifiants).
+- [ ] Limitation de débit sur les points de terminaison d'authentification (`10/min/IP` recommandé).
+- [ ] La rétention d'audit correspond à la politique.
+- [ ] OIDC pour les comptes humains ; clés API pour les comptes machines.
+- [ ] Exercice de sauvegarde + restauration exécuté et chronométré.
+- [ ] Tests négatifs : accès inter-organisations refusé, sécurité des champs tenue, session expirée rejetée.
+- [ ] Image épinglée à un tag `sha-<short>` ou semver.
+- [ ] `os doctor` propre en CI avant chaque release.
+
+Voir [Production Readiness](/docs/operate/production) pour la liste complète
+de mise en production.

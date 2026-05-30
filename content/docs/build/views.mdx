@@ -60,9 +60,9 @@ view: {
 |:--|:--|:--|
 | `grid` | Data table (default) | `columns` |
 | `kanban` | Board with columns | `kanban: { groupByField }` |
-| `gallery` | Card deck | `gallery: { imageField, titleField }` |
+| `gallery` | Card deck | `gallery: { coverField, titleField }` |
 | `calendar` | Month / week / day | `calendar: { startDateField, titleField }` |
-| `timeline` | Chronological feed | `timeline: { dateField, titleField }` |
+| `timeline` | Chronological feed | `timeline: { startDateField, titleField }` |
 | `gantt` | Project timeline + dependencies | `gantt: { startDateField, endDateField, titleField }` |
 | `map` | Geospatial pins | `map: { locationField }` |
 | `chart` | Embedded chart | `chart: { chartType, xAxisField, yAxisFields }` |
@@ -74,10 +74,9 @@ view: {
   type: 'grid',
   columns: ['subject','status','priority','assignee','created_at'],
 
-  filter: [ { field: 'archived', operator: '$eq', value: false } ],
+  filter: [ { field: 'archived', operator: 'equals', value: false } ],
   sort:   [ { field: 'created_at', order: 'desc' } ],
-  pagination: { pageSize: 25, mode: 'cursor' },         // 'cursor' | 'offset'
-  expand: ['assignee'],
+  pagination: { pageSize: 25 },
   searchableFields:   ['subject','description'],
   filterableFields:   ['status','priority','assignee'],
 
@@ -104,20 +103,18 @@ view: {
 ```ts
 {
   type: 'kanban',
-  columns: ['subject','priority','assignee'],
   kanban: {
-    groupByField: 'status',                  // discrete field — usually a select
+    groupByField:   'status',                // discrete field — usually a select
     summarizeField: 'amount',                // optional total per column
-    columns: [                               // explicit order + colour
-      { value: 'new',      label: 'New',      color: '#3b82f6' },
-      { value: 'open',     label: 'Open',     color: '#f59e0b' },
-      { value: 'resolved', label: 'Resolved', color: '#10b981' }
-    ]
+    columns: ['subject', 'priority', 'assignee']  // fields shown on each card
   }
 }
 ```
 
-Drag-drop between columns issues an `UPDATE` setting the grouped
+The board's columns come from the `groupByField`'s values; their order
+and colour are taken from that field's `select` option definitions.
+
+Drag-drop between columns issues an update setting the grouped
 field — same permission rules as a manual edit.
 
 ### Calendar
@@ -164,8 +161,8 @@ field — same permission rules as a manual edit.
 }
 ```
 
-For full reports use the [Reports](/docs/build/reports) surface — chart
-views are for inline dashboards on an object.
+Chart views are for inline dashboards on a single object — for richer,
+cross-object analytics use the dedicated reports surface.
 
 ## Form view types
 
@@ -199,8 +196,8 @@ Forms can be made anonymous-accessible:
   type: 'simple',
   sections: [ { fields: ['name','email','message'] } ],
   sharing: {
-    type: 'collaborative',
-    publicSlug: 'contact-us',
+    enabled: true,
+    publicLink: 'contact-us',                // slug under /forms/
     allowAnonymous: true
   },
   submitBehavior: { kind: 'thank-you' }
@@ -208,16 +205,17 @@ Forms can be made anonymous-accessible:
 ```
 
 This automatically exposes `GET /api/v1/forms/contact-us` and
-`POST /api/v1/forms/contact-us/submit` — the only two REST routes that
+`POST /api/v1/forms/contact-us/submit` — public form routes that
 don't require authentication. See [REST API → Public forms](/docs/reference/rest-api#public-forms).
 
 ## Visibility, ARIA, theming
 
-Every view supports:
-
-- `visibleIf: P\`...\`` — hide the view based on user / record / env
+- `visibleOn: P\`...\`` — on form **sections** and **fields**, hide them
+  based on user / record / env (CEL predicate)
 - `aria: { label, description, ... }` — ARIA attributes for screen readers
-- `appearance: { showDescription, allowedVisualizations: [...] }` — restrict which list types end users can flip to
+  (list and form views)
+- `appearance: { showDescription, allowedVisualizations: [...] }` — on list
+  views, restrict which list types end users can flip to
 
 ## Build by chat
 
@@ -235,5 +233,5 @@ view shows up in Console. See [AI Builder](./ai-builder).
 - [Data model](./data-model) — the objects views read from
 - [Actions](./actions) — what `rowActions` / `bulkActions` reference
 - [ObjectQL](/docs/reference/objectql) — what `filter` / `sort` compile to
-- [CEL](/docs/reference/cel) — `conditionalFormatting`, `visibleIf`
+- [CEL](/docs/reference/cel) — `conditionalFormatting`, `visibleOn`
 - [`@objectstack/spec/ui/view.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/ui/view.zod.ts) — schema

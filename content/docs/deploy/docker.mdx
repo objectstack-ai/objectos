@@ -78,8 +78,8 @@ DB is configured) and any locally-stored uploaded files.
 docker run --rm -p 3000:3000 \
   -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
   -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
-  -e OS_DATA_DRIVER=postgres \
-  -e OS_DATA_URL='postgres://user:pass@db.internal:5432/myapp' \
+  -e OS_DATABASE_DRIVER=postgres \
+  -e OS_DATABASE_URL='postgres://user:pass@db.internal:5432/myapp' \
   -v "$PWD/dist:/artifacts:ro" \
   ghcr.io/objectstack-ai/objectos:latest
 ```
@@ -114,7 +114,7 @@ docker build -f docker/Dockerfile -t myorg/objectos:custom .
 ```
 
 The shipped Dockerfile is a multi-stage build that produces a slim
-runtime image (~150 MB) on Node 22 Alpine.
+runtime image on Node 20 Alpine.
 
 ## What you need to keep separate
 

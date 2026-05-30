@@ -1,0 +1,185 @@
+---
+title: AI Builder
+description: Der Chat in der Console, der Anforderungen in einfacher Sprache in laufende Metadaten verwandelt.
+---
+
+# AI Builder
+
+Der AI Builder ist die **primäre Methode, mit der Kunden ObjectOS erweitern**. Öffne
+die Console, sprich mit dem Assistenten in einfacher Sprache, und er erstellt die
+Metadaten für dich — Pakete, Objekte, Felder, Aktionen, Flows. Jede
+Änderung wird in einer Human-in-the-Loop (HITL) Genehmigungsliste eingereiht, bevor sie
+live geht.
+
+## Probiere es in 30 Sekunden
+
+```
+You: I need to track customer support tickets.
+     Each ticket has a subject, description, priority (low/medium/high/urgent),
+     status (new/open/pending/resolved/closed), and assignee.
+
+AI:  I'll create that for you. Here's the plan:
+     • Create package `com.you.support` (v0.1.0)
+     • Create object `support_ticket` with 5 fields
+     • Add a kanban view grouped by status
+     • Add 3 permission sets: agent, manager, viewer
+
+     Approve? [Yes] [Modify] [Cancel]
+
+You: [Yes]
+
+AI:  ✓ Package created
+     ✓ Object created with 5 fields and 12 indexes
+     ✓ Kanban view registered
+     ✓ Permission sets created
+     Done. Try it: /support_ticket
+```
+
+Du hast jetzt eine funktionierende Ticketing-App — REST-Endpunkte, Console-Ansichten,
+Audit-Log-Einträge, Berechtigungskontrollen, alles inklusive. Es wurde keine Datei
+bearbeitet; es fand kein Neustart statt.
+
+## Was die AI kann
+
+Der Assistent hat Zugriff auf eine Reihe **integrierter Metadaten-Tools**, die alle
+mit Namespace versehen und gegen `@objectstack/spec` validiert sind:
+
+| Kategorie | Tool | Was es tut |
+|---|---|---|
+| **Pakete** | `create_package` | Neuer Container mit Manifest + Version |
+| | `list_packages` | Vorhandene Pakete durchsuchen |
+| | `get_package` / `get_active_package` | Inhalte inspizieren |
+| | `set_active_package` | Das Arbeitspaket für die Konversation auswählen |
+| **Objekte** | `create_object` | Neues Objekt mit anfänglichen Feldern |
+| | `list_objects` | Objekte im aktiven Paket durchsuchen |
+| | `describe_object` | Schema, Felder, Beziehungen ausgeben |
+| **Felder** | `add_field` | Ein typisiertes Feld hinzufügen (gängige [Feldtypen](/docs/reference/field-types)) |
+| | `modify_field` | Label, Picklist-Optionen, Validierung ändern |
+| | `delete_field` | Ein Feld entfernen (mit Sicherheitsprüfung) |
+| **Daten** | `query_data` | Datensätze über ObjectQL lesen |
+| **Aktionen / Wissen** | `action_<name>`, `search_knowledge` | Aktionen aufrufen, RAG über Dokumente |
+
+Hinzu kommen Action-Tools, die aus jedem deklarierten `*.action.ts` materialisiert werden —
+benannt `action_<name>` — sodass die AI eine Aktion, sobald sie im Paket existiert,
+wie jedes integrierte Tool aufrufen kann.
+
+Den vollständigen Tool-Katalog zur Laufzeit ansehen: `GET /api/v1/ai/tools`.
+
+## Human-in-the-Loop Genehmigung
+
+Tool-Aufrufe, die **Metadaten verändern**, werden über eine Warteschlange für
+ausstehende Aktionen geleitet. Genehmigende Operatoren sehen den vorgeschlagenen Änderungs-Diff,
+bevor sie auf *Genehmigen* klicken.
+
+| Endpunkt | Zweck |
+|---|---|
+| `GET  /api/v1/ai/pending-actions` | Eingereihte Aktionen auflisten (nach Status filtern) |
+| `GET  /api/v1/ai/pending-actions/:id` | Diff für eine einzelne vorgeschlagene Aktion |
+| `POST /api/v1/ai/pending-actions/:id/approve` | Die Änderung anwenden |
+| `POST /api/v1/ai/pending-actions/:id/reject` | Mit Begründung verwerfen |
+
+Erforderliche Berechtigungen:
+
+| Aktion | Berechtigung |
+|---|---|
+| Warteschlange lesen | `ai:read` |
+| Genehmigen / ablehnen | `ai:approve` |
+
+Standard: Nur Mitglieder von **Setup Administrator** haben `ai:approve`.
+Du kannst feiner unterteilen in [Permission Sets](/docs/configure/permissions/permission-sets) — z. B.
+„Product Owner können in `com.acme.crm` genehmigen, sonst niemand.“
+
+Die Warteschlange ist auditierbar: Jede Genehmigung/Ablehnung landet in
+`sys_audit_log` mit der ID der ursprünglichen Konversation.
+
+## Konversationen und Kontext
+
+Jeder Chat ist ein `ai_conversations`-Datensatz. Die Plattform verfolgt:
+
+- **Aktives Paket** — gesetzt durch `set_active_package`. Neue Objekte /
+  Felder landen hier.
+- **Skills** — der Ausschnitt der Tools, die für den aktuellen Kontext verfügbar sind
+  (z. B. innerhalb der `support_ticket`-Detailseite kann die AI
+  `support_ticket`-bezogene Skills aktiviert haben).
+- **Wissen** — RAG-Themen + Indizes, die der Konversation angehängt sind.
+
+```text
+POST /api/v1/ai/assistant/chat
+{
+  "messages": [{ "role": "user", "content": "Add a tags field to support_ticket" }],
+  "context":  { "objectName": "support_ticket", "recordId": "tkt_123" }
+}
+```
+
+Die Plattform ermittelt den Standard-Agent für die aktive Anwendung,
+filtert die Skill-Menge nach Kontext und lässt das LLM auswählen, welches Tool
+aufgerufen werden soll. Du verdrahtest Agents nicht vorab fest in bestimmte UIs — der Agent hängt
+sich basierend auf den Metadaten selbst an.
+
+## Was du anfragen kannst
+
+Verifizierte Muster, mit Einzeiler-Prompts:
+
+| Ziel | Prompt |
+|---|---|
+| Neues Objekt | *„Erstelle ein `product`-Objekt mit name, sku, price, category.“* |
+| Feld hinzufügen | *„Füge `order` ein `discount` Dezimalfeld hinzu, max 50.“* |
+| Picklist ändern | *„Füge bei `task.status` 'blocked' zwischen 'open' und 'done' ein.“* |
+| Index | *„Indiziere `order` nach status + created_at für das Dashboard.“* |
+| Beziehung | *„Mache `order_line` zu Master-Detail von `order`.“* |
+| Validierung | *„Bei `invoice` darf der Rabatt die Zwischensumme nicht überschreiten.“* |
+| Flow | *„Wenn ein Ticket mit hoher Priorität 30 Minuten in 'new' verbleibt, benachrichtige den Manager.“* |
+| Aktion | *„Erstelle eine Aktion `approve_invoice`, die den Status auf approved setzt.“* |
+| Permission Set | *„Erstelle ein `agent` Permission Set mit read/create/edit auf support_ticket und read auf customer.“* |
+| Übersetzung | *„Übersetze die support_ticket-Labels und Picklists ins Spanische.“* |
+
+Wenn die AI etwas nicht kann, sagt sie es — und verweist dich auf den manuellen Weg
+(meist eine 30-zeilige `*.ts`-Datei oder ein Console-Formular).
+
+## Live-Vorschau
+
+Nach jeder genehmigten Änderung rendert die Console die betroffenen Ansichten an
+Ort und Stelle neu. Kein Neuladen erforderlich. Der Kernel-Cache invalidiert das berührte
+Paket; nachfolgende Anfragen verwenden die neuen Metadaten.
+
+## Zurückrollen
+
+Datensätze ausstehender Aktionen behalten den **Vorher-Zustand**. Wenn eine Änderung
+schiefgeht, lehne alle laufenden Elemente ab und frage die AI:
+
+```
+You: Roll back the last 3 changes to support_ticket.
+AI:  Found 3 mutations from conversation conv_abc (3 minutes ago).
+     Restoring 'support_ticket' to its state at 13:42:11.
+     Approve? [Yes]
+```
+
+Für größere Rollbacks verwende [`os diff`](/docs/reference/cli) gegen
+dein letztes als funktionierend bekanntes Artefakt und wende den umgekehrten Diff an.
+
+## Einschränkungen (heute)
+
+- **Der Datenzugriff folgt den eigenen Berechtigungen des Operators.** Der
+  Assistent läuft als der angemeldete Benutzer, sodass er nur Datensätze lesen oder schreiben
+  kann, die dieser Benutzer bereits bearbeiten darf. Die meisten Teams halten den
+  Assistenten auf Metadaten fokussiert und lassen ihn Kundendaten abfragen — nicht
+  verändern.
+- **Paketübergreifende Mutationen erfordern eine ausdrückliche Bestätigung.** Die AI zu
+  bitten, ein Systempaket (`sys_*`) zu modifizieren, gibt eine Ablehnungs-
+  meldung zurück — die Plattform verweigert dies aus Prinzip.
+- **Langlaufende mehrstufige Pläne** (z. B. „eine komplette HR-App von
+  Grund auf bauen“) funktionieren, werden aber am besten als eine Reihe kleinerer
+  Konversationen durchgeführt, von denen jede ein oder zwei Objekte umsetzt.
+
+## Über die Build-Time-AI hinaus
+
+Dieselbe AI-Infrastruktur betreibt **Runtime-Agents** für deine Endbenutzer —
+Support-Assistenten, Sales-Co-Piloten, interne Q&A-Bots — aufgebaut auf
+derselben Agent → Skill → Tool Architektur. Siehe [Agents](/docs/build/agents).
+
+## Wie es weitergeht
+
+- [Agents](/docs/build/agents) — Endbenutzer-Assistenten auf Basis deiner Daten
+- [Data Model](/docs/build/data-model) — was die AI tatsächlich generiert
+- [Actions](/docs/build/actions) — die Einheit, die die AI als Runtime-Tools bereitstellt
+- [AI Service](/docs/configure/ai) — Provider-Konfiguration (OpenAI / Anthropic / Doubao / …)

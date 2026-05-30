@@ -1,0 +1,167 @@
+---
+title: Copias de seguridad y recuperación ante desastres
+description: Qué respaldar, cómo restaurar y cómo planificar ante fallos.
+---
+
+# Copias de seguridad y recuperación ante desastres
+
+ObjectOS en sí mismo es stateless: el runtime puede reconstruirse a partir
+de la imagen del contenedor. **Las copias de seguridad tratan sobre los
+datos de los que ObjectOS depende, no sobre ObjectOS en sí.** Planifica la
+recuperación en torno a esos conjuntos de datos.
+
+## Qué respaldar
+
+| Activo | Propiedad de | Estrategia de copia de seguridad |
+|---|---|---|
+| Base de datos de negocio | Cliente | Copia de seguridad nativa de la base de datos (PITR para servicios gestionados); prueba la restauración trimestralmente |
+| Artefacto compilado (`objectstack.json`) | Equipo de aplicación/release | Almacena cada artefacto publicado en almacenamiento inmutable; nunca lo sobrescribas |
+| Línea base de secretos | Gestor de secretos del cliente | Copia de seguridad nativa del proveedor; cadencia de rotación según la política |
+| Almacenamiento de objetos/archivos (cuando la capacidad `storage` está habilitada) | Cliente | Versionado de buckets + replicación entre regiones si es necesario |
+| Proveedor de identidad gestionado por el cliente | Proveedor del IdP | Nativo del proveedor |
+
+ObjectOS **no** requiere una copia de seguridad separada del sistema de
+archivos de su contenedor. Los directorios de caché (`OS_CACHE_DIR`) se
+pueden reconstruir.
+
+## Copias de seguridad de la base de datos
+
+Adapta la estrategia al driver:
+
+| Driver | Enfoque recomendado |
+|---|---|
+| PostgreSQL | Archivado continuo de WAL + base backup; restauración point-in-time |
+| MySQL | Archivado de binary-log + volcado completo; restauración point-in-time |
+| MongoDB | Snapshots del replica-set; oplog para PITR |
+| SQLite (nodo único / escritorio) | Modo WAL + snapshots en caliente mediante `VACUUM INTO` o la Online Backup API; opcionalmente Litestream para replicación continua — consulta [Despliegues de SQLite](#sqlite-deployments) más abajo |
+
+Sea cual sea el driver, valida que:
+
+- las copias de seguridad se completen dentro del RPO del cliente;
+- una base de datos nueva pueda arrancar ObjectOS desde el mismo artefacto
+  y atender tráfico;
+- las pruebas de restauración se ejerciten de extremo a extremo al menos
+  una vez por trimestre.
+
+## Despliegues de SQLite
+
+SQLite es el driver por defecto y es una elección de producción legítima
+para ObjectOS de **nodo único**: aplicaciones de escritorio, herramientas
+internas para un equipo pequeño, dispositivos edge / on-prem, entornos de
+evaluación. La contrapartida es estructural: SQLite es de un único escritor,
+por lo que no encaja con ObjectOS multinodo, alto rendimiento de escritura
+concurrente ni despliegues de base de datos compartida. Para esos casos,
+usa PostgreSQL.
+
+Cuando ejecutes SQLite en producción, la configuración que lo hace seguro y
+la receta de copia de seguridad van de la mano:
+
+**Configuración del runtime**
+
+- Habilita WAL: `PRAGMA journal_mode=WAL` (los lectores no bloquean al
+  escritor; resistente a fallos).
+- `PRAGMA synchronous=NORMAL` es el valor por defecto habitual en
+  escritorio/nodo único: seguro con WAL, mucho más rápido que `FULL`.
+- Mantén el archivo de la base de datos en **disco local**. **No** lo
+  pongas en NFS, SMB ni dentro de una carpeta sincronizada por Dropbox /
+  OneDrive / iCloud mientras el runtime está en ejecución: el bloqueo de
+  SQLite es poco fiable en esos casos y esta es la forma más común en que
+  los despliegues de SQLite se corrompen.
+
+**Snapshot en caliente (sin tiempo de inactividad)**
+
+El runtime sigue atendiendo tráfico mientras tomas un snapshot usando la
+Online Backup API de SQLite o `VACUUM INTO`:
+
+```sql
+VACUUM INTO '/var/backups/objectos/db-2026-05-27T13-00Z.sqlite';
+```
+
+Prográmalo (cron, systemd timer o el planificador in-process) a una
+cadencia acorde con tu RPO. Etiqueta cada snapshot con la versión del
+artefacto que lo produjo para poder revertir la base de datos + el
+artefacto juntos (consulta [Versionado de artefactos](#artifact-versioning)
+más abajo).
+
+**Copia externa**
+
+Un snapshot local no sobrevive a la pérdida del disco. Envía cada snapshot
+a almacenamiento duradero:
+
+- Servidor / VM: envíalo a S3 o a cualquier bucket compatible con S3
+  (probablemente ya tengas uno configurado para la capacidad `storage`).
+- Aplicación de escritorio: escribe el snapshot en una carpeta de
+  sincronización controlada por el usuario (OneDrive / iCloud / Google
+  Drive) — aceptable aquí porque el archivo de snapshot está **cerrado e
+  inmutable**, a diferencia de la base de datos en vivo.
+
+**Replicación continua (RPO más bajo)**
+
+Para un RPO inferior al minuto sin renunciar a SQLite, ejecuta
+[Litestream](https://litestream.io) junto al proceso de ObjectOS. Transmite
+el WAL a almacenamiento compatible con S3 y admite restauración
+point-in-time. Esta es la vía recomendada cuando un despliegue de SQLite de
+nodo único necesita una pérdida de datos casi nula.
+
+**Restauración**
+
+Detén el runtime, reemplaza el archivo de la base de datos por el snapshot
+elegido (o ejecuta `litestream restore`), e inicia el runtime contra la
+misma versión de artefacto que produjo el snapshot.
+
+## Versionado de artefactos
+
+Trata los artefactos publicados como inmutables. Etiqueta cada artefacto
+con el id de release usado para compilarlo (p. ej.
+`objectstack-2026-05-24.json`). Recuperar un estado de negocio conocido y
+correcto suele implicar:
+
+1. Restaurar la base de datos al punto en el tiempo elegido.
+2. Reapuntar ObjectOS al artefacto que estaba en vivo en ese momento.
+3. Reiniciar el runtime.
+
+Si sobrescribes los artefactos en su sitio, pierdes la capacidad de revertir
+limpiamente incluso cuando la copia de seguridad de la base de datos es
+perfecta.
+
+## Planificación de RPO/RTO
+
+Un objetivo de partida viable para los despliegues de clientes:
+
+| Clase | RPO | RTO | Notas |
+|---|---|---|---|
+| Evaluación / demo | mejor esfuerzo | mejor esfuerzo | Un snapshot de SQLite es suficiente |
+| Aplicación de escritorio / nodo único de equipo pequeño | ≤ 1 hora (snapshots) o ≤ segundos (Litestream) | minutos | SQLite + WAL + `VACUUM INTO` programado + copia externa |
+| Producción de un solo inquilino | ≤ 15 min | ≤ 1 hora | PostgreSQL gestionado con PITR + imagen en caliente |
+| Multiinquilino / regulado | ≤ 5 min | ≤ 30 min | Base de datos HA + ObjectOS multi-AZ + runbook probado |
+
+Objetivos más estrictos requieren cambios de plataforma que están fuera del
+propio contenedor de ObjectOS (base de datos HA, ingress multi-AZ, réplicas
+en caliente).
+
+## Modos de fallo que vale la pena ensayar
+
+- **Base de datos no disponible durante una ventana prolongada.** Confirma
+  que el runtime expone un 503 claro y que las probes marcan correctamente
+  los pods como no saludables.
+- **Regresión del artefacto.** Revierte el puntero del artefacto; los datos
+  no se ven afectados.
+- **Rotación de secretos.** Rotar `AUTH_SECRET` invalida todas las
+  sesiones. Hazlo durante una ventana de mantenimiento o escalónalo entre
+  réplicas.
+- **Caída de región.** Si el cliente requiere failover de región, la base
+  de datos de negocio, el gestor de secretos y el ingress deben ser todos
+  multirregión. ObjectOS en sí puede ejecutarse en cualquier lugar donde la
+  imagen esté disponible.
+
+## Qué documentar en el runbook
+
+- Calendario de copias de seguridad, retención y contacto de guardia para
+  cada conjunto de datos.
+- Procedimiento de restauración paso a paso (primero la base de datos,
+  luego el artefacto, luego iniciar ObjectOS).
+- Consultas de verificación para confirmar que la base de datos restaurada
+  es consistente.
+- Plan de reversión tanto para la imagen de ObjectOS como para la versión
+  del artefacto (consulta [Actualización y reversión](/docs/operate/upgrade)).
+- Plantilla de comunicación para incidentes visibles al cliente.
