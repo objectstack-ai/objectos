@@ -1,0 +1,165 @@
+---
+title: AI 서비스
+description: LLM, 임베더, RAG, MCP — 여러 공급자 간에 교체 가능하며 런타임에 전환할 수 있습니다.
+---
+
+# AI 서비스
+
+ObjectOS는 AI를 **세 가지 교체 가능한 계층**으로 구성된 일급 기능으로 취급합니다:
+
+| 계층 | 패키지 | 역할 |
+|---|---|---|
+| **채팅 / 생성** | `@objectstack/service-ai` | 대화, 도구 호출, 스트리밍 |
+| **임베딩** | `@objectstack/embedder-openai` (OpenAI 호환) | 텍스트 → 벡터, 시맨틱 검색 및 RAG용 |
+| **지식 / RAG** | `@objectstack/service-knowledge` + 어댑터 | 문서 → 인덱싱된 지식 베이스 |
+
+세 계층 모두 선택 사항이며, 모두 공급자에 종속되지 않고, 모두 **Console → Configuration**에서 재시작 없이 런타임에 재구성할 수 있습니다.
+
+## 채팅 / 생성
+
+[Vercel AI SDK](https://ai-sdk.dev)로 구동됩니다. 원하는 공급자를 peer 의존성으로 설치하세요:
+
+```bash
+pnpm add @ai-sdk/openai          # OpenAI
+pnpm add @ai-sdk/anthropic       # Claude
+pnpm add @ai-sdk/google          # Gemini
+pnpm add @ai-sdk/gateway         # AI gateway / OpenRouter / proxies
+```
+
+그런 다음 Vercel-SDK 어댑터와 함께 AI 서비스 플러그인을 등록합니다:
+
+```ts
+import { AIServicePlugin, VercelLLMAdapter } from '@objectstack/service-ai';
+import { openai } from '@ai-sdk/openai';
+
+kernel.use(new AIServicePlugin({
+  adapter: new VercelLLMAdapter({ model: openai('gpt-4o') }),
+  models: [
+    { id: 'fast',  provider: 'openai', model: 'gpt-4o-mini' },
+    { id: 'smart', provider: 'openai', model: 'gpt-4o' },
+  ],
+  defaultModelId: 'fast',
+}));
+```
+
+`models` 목록은 런타임 모델 레지스트리에 입력됩니다 — 이는 기본 모델 해석과 트레이스 내 비용 귀속을 주도합니다. 기본적으로 플러그인은 `ai` 설정 네임스페이스에도 바인딩되며, 운영자가 Console에서 공급자/자격 증명/모델을 편집하면 어댑터를 실시간으로 다시 빌드하므로 재시작이 필요하지 않습니다.
+
+공급자 API 키는 각 SDK의 일반 환경 변수에서 가져옵니다:
+
+| 공급자 | 환경 변수 |
+|---|---|
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| AI Gateway | `AI_GATEWAY_API_KEY` |
+
+Console에서는 이 값들을 런타임 설정으로 붙여넣을 수도 있습니다 — 동일한 우선순위(env > settings)를 따르지만, 실시간 편집이 가능하므로 재시작이 필요 없습니다.
+
+### 코드에서 AI 서비스 사용하기
+
+```ts
+const ai = kernel.getService<IAIService>('ai');
+
+// One-shot chat
+const result = await ai.chat(
+  [{ role: 'user', content: 'Summarize ObjectStack in two sentences.' }],
+  { model: 'smart' },
+);
+
+// Structured output
+const { object } = await ai.generateObject(
+  [{ role: 'user', content: 'Classify this ticket: ...' }],
+  { schema, model: 'fast' },
+);
+```
+
+이 서비스는 `complete()`, `streamChat()`, `embed()`, `listModels()`도 노출합니다. 대화는 `ai_conversations` / `ai_messages` 레코드로 영속화되며 REST API(`POST /api/v1/ai/chat`, `POST /api/v1/ai/conversations`)를 통해 관리됩니다.
+
+### 에이전트와 플로우에서 사용하기
+
+선언적 AI — 에이전트, 스킬, 도구 — 에 대해서는 [AI Agents](/docs/build/agents)를 참고하세요. 플로우는 등록된 모든 액션(`ai.chat()` / `ai.generateObject()` 호출을 감싸는 액션 포함)을 `action` 노드로 호출할 수 있습니다. 주변 맥락은 [Flows & Automation](/docs/build/flows)을 참고하세요.
+
+## 임베더
+
+임베더는 텍스트를 밀집 벡터로 변환합니다. 단일 OpenAI 호환 어댑터인 `@objectstack/embedder-openai`는 OpenAI는 물론 OpenAI 호환 `/v1/embeddings` 엔드포인트를 노출하는 모든 공급자를 지원합니다 — **preset**으로 하나를 선택하거나(이 경우 base URL이 자동 설정됨), `baseUrl`을 사용자 정의 엔드포인트로 지정하세요.
+
+| 공급자 | `preset` | 비고 |
+|---|---|---|
+| OpenAI | `openai` | `text-embedding-3-small`/`-large` |
+| Azure OpenAI | `azure` | `baseUrl`로 전체 배포 URL 제공 |
+| 阿里通义 DashScope | `dashscope` | `text-embedding-v3` |
+| 智谱 GLM | `zhipu` | `embedding-2` |
+| 硅基流动 SiliconFlow | `siliconflow` | OSS 모델 애그리게이터 |
+| 火山 Doubao | `doubao` | ByteDance |
+| MiniMax | `minimax` | — |
+| Ollama (자체 호스팅) | `ollama` | 오프라인(air-gapped) 환경에 적합 (`http://localhost:11434/v1`) |
+| 사용자 정의 | _(생략; `baseUrl` 설정)_ | 자체 OpenAI 호환 엔드포인트 사용 |
+
+코드에서 구성:
+
+```ts
+import { createOpenAIEmbedder } from '@objectstack/embedder-openai';
+
+const embedder = createOpenAIEmbedder({
+  preset: 'openai',
+  model: 'text-embedding-3-small',
+  // apiKey from OPENAI_API_KEY env if omitted
+});
+```
+
+또는 **Console → Configuration → AI → Embedder**에서 런타임에 선택하세요. 재시작 없이 공급자를 전환할 수 있으며, 기존 벡터는 계속 검색 가능합니다(백그라운드에서 다시 인덱싱할 수 있습니다).
+
+## 지식 / RAG
+
+지식 서비스는 문서 수집, 청킹, 임베딩(임베더 서비스 경유), 검색을 오케스트레이션합니다. 실제 저장 및 검색 백엔드는 교체 가능합니다:
+
+| 어댑터 | 백엔드 | 적합한 용도 |
+|---|---|---|
+| `@objectstack/knowledge-memory` | 인프로세스 | 개발, 데모, 소규모 KB |
+| `@objectstack/knowledge-ragflow` | [RAGFlow](https://github.com/infiniflow/ragflow) | 청킹 + 리랭킹을 갖춘 고품질 OSS RAG |
+
+```ts
+import { KnowledgeServicePlugin } from '@objectstack/service-knowledge';
+import { KnowledgeRagflowPlugin } from '@objectstack/knowledge-ragflow';
+
+kernel.use(new KnowledgeServicePlugin({ defaultTopK: 10 }));
+kernel.use(new KnowledgeRagflowPlugin({
+  endpoint: process.env.RAGFLOW_ENDPOINT, // e.g. http://localhost:9380
+  apiKey:   process.env.RAGFLOW_API_KEY,
+}));
+```
+
+인덱싱된 지식 베이스는 일급 객체가 됩니다 — 플로우에서 쿼리하고, Console에 노출하고, 검색 컨텍스트로 AI 어시스턴트에 연결할 수 있습니다.
+
+## MCP — Model Context Protocol
+
+ObjectOS는 개방형 [Model Context Protocol](https://modelcontextprotocol.io)을 통해 자신을 AI 에이전트(Claude Desktop, IDE, 사용자 정의 에이전트)에 대한 도구 서버로 노출할 수 있습니다.
+
+```ts
+import { MCPServerPlugin } from '@objectstack/plugin-mcp-server';
+
+kernel.use(new MCPServerPlugin({
+  transport: 'stdio', // or 'http'
+  autoStart: true,
+}));
+```
+
+에이전트는 MCP를 통해 ObjectOS 도구를 발견하고 호출합니다 — 호출하는 사용자의 권한이 적용됩니다. 서버는 `list_objects`, `describe_object`, `query_records`, `get_record`, `aggregate_data`와 같은 범용 도구를 포함하여 AI 서비스의 도구 레지스트리를 브리지합니다.
+
+## 운영 보장
+
+- **필수 클라우드 의존성 없음.** 채팅에 Ollama + Ollama 임베더 + 메모리 지식을 사용하면 완전히 오프라인(air-gapped)으로 동작합니다.
+- **실시간 교체 가능.** Console에서 공급자를 변경하면 새 요청은 다음 호출부터 새 공급자를 사용합니다. 재시작이 필요 없습니다.
+- **테넌트별 구성.** 각 Environment는 자체 AI 설정을 가집니다. 테넌트 A는 OpenAI, 테넌트 B는 Anthropic — 동일한 런타임에서 동작합니다.
+- **감사 로그 기록.** 모든 대화, 도구 호출, 임베더 요청을 감사할 수 있습니다(`@objectstack/plugin-audit`).
+- **비용 인식.** 토큰 수와 공급자 ID가 감사 로그로 전달되어 비용 청구/비용 분석에 활용됩니다.
+
+## 다음으로 갈 곳
+
+- [AI Agents](/docs/build/agents) — 선언적 에이전트, 스킬, 도구
+- [Flows & Automation](/docs/build/flows) — 선언적 비즈니스 로직에서 AI 호출하기
+- [Marketplace](/docs/build/marketplace) — 기본 카탈로그의 AI 기반 앱
+- [Security & Compliance](/docs/reference/security) — AI 데이터 흐름이 격리되는 방식
+- [`@objectstack/service-ai` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-ai)
+- [`@objectstack/embedder-openai` source](https://github.com/objectstack-ai/framework/tree/main/packages/plugins/embedder-openai)
+- [`@objectstack/service-knowledge` source](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-knowledge)

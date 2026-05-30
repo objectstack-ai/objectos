@@ -1,0 +1,162 @@
+---
+title: CEL 표현식
+description: 수식, 술어, 스케줄, 템플릿 문자열에 사용되는 표현식 언어 — 다섯 가지 태그드 템플릿으로 제공됩니다.
+---
+
+# CEL 표현식
+
+ObjectOS는 작고 안전하며 샌드박스화된 표현식이 필요한 모든 곳에서
+[CEL](https://github.com/google/cel-spec)(Common Expression Language)을
+사용합니다. 수식 필드, 검증 규칙, 가시성 술어, 공유 조건, 플로우 가드,
+스케줄, 템플릿 문자열 등이 여기에 해당합니다.
+
+작성은 `@objectstack/spec`에서 가져오는 **다섯 가지 태그드 템플릿**을 통해
+이루어집니다. 이들은 모두 런타임이 파싱하는 작은 JSON 객체를 생성합니다:
+
+```ts
+{ dialect: 'cel' | 'template' | 'cron', source: string }
+```
+
+스키마 소스:
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts).
+
+## 다섯 가지 태그드 템플릿
+
+| 템플릿 | Dialect | 용도 | 예시 |
+|:--|:--|:--|:--|
+| `` F`...` `` | `cel` | **수식 필드** — 레코드와 함께 저장되는 파생 값 | `` F`record.amount * 0.1` `` |
+| `` P`...` `` | `cel` | **술어** — 검증 / 공유 / 가시성 / 조건을 위한 불리언 | `` P`record.status == "open"` `` |
+| `` cel`...` `` | `cel` | **일반 CEL** — F나 P가 적합하지 않을 때(예: 파라미터 값) | `` cel`now() + duration("P30D")` `` |
+| `` tmpl`...` `` | `template` | `{{var}}` 보간을 사용하는 **문자열 템플릿** | `` tmpl`Order from {{record.customer.name}}` `` |
+| `` cron`...` `` | `cron` | **스케줄** — 표준 5필드 cron 구문 | `` cron`0 9 * * 1-5` `` |
+
+평가 시점에서 `F`, `P`, `cel` 사이에는 기능적 차이가 없습니다 — 모두 CEL을
+실행합니다. 이렇게 나눈 이유는 스키마(및 AI 에이전트)가 표현식이 담당하는
+역할을 알 수 있도록 하고, 에디터가 타입 검사를 할 수 있도록 하기
+위함입니다(수식은 값을 반환해야 하고, 술어는 불리언을 반환해야 합니다).
+
+### Import
+
+```ts
+import { F, P, cel, tmpl, cron } from '@objectstack/spec'
+```
+
+## 각각의 사용 위치
+
+| 스펙의 필드 | 태그 | 예시 위치 |
+|:--|:--|:--|
+| `Field.expression` (formula 타입) | `F` | `*.object.ts` 수식 필드 |
+| `Field.conditionalRequired` | `P` | object 필드 |
+| `Validation.predicate` | `P` | object 검증 |
+| `SharingRule.condition` | `P` | 공유 규칙 |
+| `View.conditionalFormatting[].condition` | `P` | 뷰 |
+| `Flow.step.when` / `Flow.transition.when` | `P` | 플로우 |
+| `Action.guard` | `P` | 액션 |
+| 알림 제목 / 메시지 본문 | `tmpl` | 알림 |
+| `Schedule.cron` | `cron` | 예약된 플로우 / 리포트 |
+| 임의의 값 파라미터 | `cel` | 플로우 단계 입력 |
+
+## 변수 스코프
+
+CEL 표현식은 다음과 같은 최상위 변수를 가진 컨텍스트에서 평가됩니다:
+
+| 변수 | 사용 가능한 경우 | 내용 |
+|:--|:--|:--|
+| `record` | 거의 항상 | 현재 평가 중인 레코드 |
+| `previous` | 업데이트 훅 / 변경 감지 시 | 레코드의 변경 전 상태(또는 `null`) |
+| `input` | 액션, 플로우 단계 | 사용자가 제공한 입력 페이로드 |
+| `os.user` | 항상 | `{ id, roles: string[], permissions: string[] }` |
+| `os.org` | 항상 | 조직 / 테넌트 컨텍스트 |
+| `os.env` | 항상 | 표현식에 노출되는 환경 변수 |
+
+> 레거시 `OLD` / `NEW` 변수는 M9.5에서 제거되었습니다. `previous`와
+> `record`를 사용하세요.
+
+## 표준 라이브러리
+
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts)에
+등록되어 있습니다. 가장 많이 사용되는 빌트인:
+
+### 시간
+
+| 함수 | 반환 | 비고 |
+|:--|:--|:--|
+| `now()` | `Timestamp` | 평가 컨텍스트에 고정됨 — 단일 쿼리 내에서 안정적 |
+| `today()` | `Timestamp` | UTC 날짜의 시작 |
+| `daysFromNow(int)` | `Timestamp` | 미래 날짜 |
+| `daysAgo(int)` | `Timestamp` | 과거 날짜 |
+
+CEL은 네이티브 `timestamp(...)`, `duration(...)`,
+`date.getDayOfWeek()` 등도 포함합니다 —
+[CEL 스펙](https://github.com/google/cel-spec/blob/master/doc/langdef.md#standard-definitions)을
+참고하세요.
+
+### 유틸리티
+
+| 함수 | 목적 |
+|:--|:--|
+| `isBlank(x)` | `null`, `undefined`, `""`, 또는 빈 리스트이면 `true` |
+| `coalesce(a, b)` | 첫 번째 non-null 값 |
+| `trim(s)` | 공백 제거 |
+| `joinNonEmpty(list, sep)` | 비어 있지 않은 항목들을 연결 |
+
+네이티브 CEL 문자열 헬퍼(`.contains(...)`, `.startsWith(...)`,
+`.matches(...)`, `.size()`)는 항상 사용할 수 있습니다.
+
+## 예시
+
+**수식 필드** — 라인 항목 합계:
+
+```ts
+{ name: 'subtotal', type: 'formula', expression: F`record.quantity * record.unit_price` }
+```
+
+**검증** — 마감일은 오늘 이후여야 함:
+
+```ts
+{ message: 'Close date must be in the future', predicate: P`record.close_date > today()` }
+```
+
+**가시성** — 매니저에게만 필드 표시:
+
+```ts
+{ visibleIf: P`'manager' in os.user.roles` }
+```
+
+**플로우 가드** — 금액이 작을 때 단계 건너뛰기:
+
+```ts
+{ when: P`record.amount >= 1000` }
+```
+
+**스케줄** — 평일 오전 9시:
+
+```ts
+{ schedule: cron`0 9 * * 1-5` }
+```
+
+**템플릿** — 알림 제목:
+
+```ts
+{ subject: tmpl`[{{record.priority}}] {{record.subject}}` }
+```
+
+## 오류
+
+표현식은 로드 시점에 컴파일됩니다. 실패는 소스 위치와 함께
+`VALIDATION_ERROR`로 나타납니다:
+
+```json
+{ "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
+```
+
+런타임에서 평가가 실패하면 수식 필드의 경우 `null`로, 술어의 경우
+`false`로 처리되며, 감사 로그에 항목이 추가됩니다.
+
+## 참고
+
+- [필드 타입](./field-types) — 수식 및 조건부 필수 필드
+- [Build → 데이터 모델](/docs/build/data-model) — 검증 및 술어
+- [Build → 플로우](/docs/build/flows) — 가드 및 스케줄
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — 스키마
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — 빌트인

@@ -14,6 +14,7 @@ const NAV_LABELS: Record<string, { docs: string; download: string; changelog: st
   de: { docs: 'Dokumentation', download: 'Download', changelog: 'Änderungen' },
   es: { docs: 'Documentación', download: 'Descargar', changelog: 'Cambios' },
   fr: { docs: 'Documentation', download: 'Télécharger', changelog: 'Journal' },
+  ko: { docs: '문서', download: '다운로드', changelog: '변경 내역' },
 };
 
 const RELEASES_URL = 'https://github.com/objectstack-ai/objectos/releases';

@@ -1,0 +1,11 @@
+{
+  "title": "운영",
+  "defaultOpen": false,
+  "pages": [
+    "production",
+    "observability",
+    "backup",
+    "upgrade",
+    "troubleshooting"
+  ]
+}
