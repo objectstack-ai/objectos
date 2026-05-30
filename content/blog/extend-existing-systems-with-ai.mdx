@@ -1,6 +1,6 @@
 ---
 title: Make Your Existing Business System AI-Native — Without a Migration
-description: Connect ObjectOS to the database you already run, model the tables as objects, and let AI query and act on real data — under your permissions, on your servers.
+description: Connect ObjectOS to the database you already run, let a coding agent model the tables as objects, and put AI on real data — under your permissions, on your servers, with the original system untouched.
 author: ObjectStack Team
 date: 2026-05-30
 tags:
@@ -10,74 +10,149 @@ tags:
 ---
 
 Most "add AI to your business" pitches quietly assume a rebuild: lift the
-data into a new platform, re-implement the workflows, re-train the team.
-That's the part nobody wants. The system of record — the CRM, the ERP,
-the ticketing tool, the homegrown back office — already works, and it's
-already where the data lives.
+data into a new platform, re-implement the workflows, re-train the team,
+and pray the migration lands. That's the part nobody wants. The system of
+record — the CRM, the ERP, the ticketing tool, the homegrown back office —
+already works, and it's already where the data lives.
 
 ObjectOS takes the opposite stance. **You don't migrate. You connect.**
 
 ## The idea in one sentence
 
 Point ObjectOS at your existing database, describe the tables you care
-about as objects, and every AI agent, flow, and dashboard immediately
-works on that data — routed automatically to the right system, governed
-by the same permissions your users already have.
+about as objects, and every AI agent, flow, API, and dashboard immediately
+works on that data — routed automatically to the right system, governed by
+the same permissions your users already have.
 
 The original application doesn't change. The rows don't move. ObjectOS
-becomes the AI-native, permission-aware surface on top of what you
-already run.
+becomes the AI-native, permission-aware surface on top of what you already
+run.
+
+## A concrete picture
+
+Say you run a sales team on a 40-table Postgres CRM. Accounts, contacts,
+opportunities, line items, activities — years of real data, a production
+app your reps use every day. Leadership wants two things: let people *ask
+questions* of that data in plain language ("which enterprise deals slipped
+out of Q2, and who owns them?"), and let automations act on it safely.
+
+The rebuild answer is a six-month project. The ObjectOS answer is an
+afternoon:
+
+1. Connect the CRM database as a **read-only** datasource.
+2. Have a coding agent model the dozen tables you actually care about as
+   objects.
+3. Ask your data questions, and wire up the first automation.
+
+Nobody touches the CRM. The reps never notice. You get an AI-native layer
+on top of the exact same rows.
 
 ## How it works today
 
-There are four steps, and none of them is "rebuild your app":
+There are four steps, and none of them is "rebuild your app."
 
-1. **Connect the database as a datasource.** A datasource is a named
-   connection — Postgres, MySQL, MongoDB, SQLite. Credentials come from
-   the environment, and the connection can be read-only if you only want
-   to analyze first.
+### 1. Connect the database as a datasource
 
-   ```ts
-   import type { Datasource } from '@objectstack/spec';
+A datasource is a named connection — Postgres, MySQL, MongoDB, SQLite.
+Credentials come from the environment, never inlined in source. If you only
+want to analyze first, point it at a read replica or a read-only DB user
+and writes simply can't happen.
 
-   export const BusinessDb: Datasource = {
-     name: 'business_primary',
-     label: 'Business System (Postgres)',
-     driver: 'postgres',
-     config: {
-       connection: {
-         host: process.env.BIZ_DB_HOST,
-         user: process.env.BIZ_DB_USER,
-         password: process.env.BIZ_DB_PASSWORD,
-         database: process.env.BIZ_DB_NAME,
-       },
-     },
-     active: true,
-   };
-   ```
+```ts
+import type { Datasource } from '@objectstack/spec';
 
-2. **Model the tables as objects** — and you don't have to type them by
-   hand. Point a coding agent like Claude Code at the connected schema and
-   ask it to generate one source-level object file per table. Our
-   [`hotcrm`](https://github.com/objectstack-ai/hotcrm) reference app
-   shows the exact shape that output takes: an `ObjectSchema.create({ … })`
-   with typed `Field.*` definitions and `Field.lookup(...)` for foreign
-   keys. You review and refine; you own the result.
+export const BusinessDb: Datasource = {
+  name: 'business_primary',
+  label: 'Business System (Postgres)',
+  driver: 'postgres',
+  config: {
+    connection: {
+      host: process.env.BIZ_DB_HOST,
+      user: process.env.BIZ_DB_USER,
+      password: process.env.BIZ_DB_PASSWORD,
+      database: process.env.BIZ_DB_NAME,
+    },
+  },
+  pool: { min: 1, max: 10 },
+  active: true,
+};
+```
 
-3. **Bind objects to the datasource** — per object, or with a routing
-   rule for a whole namespace:
+### 2. Model the tables as objects — with a coding agent
 
-   ```ts
-   datasourceMapping: [
-     { namespace: 'biz', datasource: 'business_primary' },
-     { default: true,    datasource: 'default' },
-   ]
-   ```
+This is the step people expect to be slow, and it isn't. You don't
+hand-type an object per table. You point a coding agent like **Claude
+Code** at the connected schema and let it do the introspection and the
+first draft. A prompt as plain as:
 
-4. **Let AI work.** The moment a table is an object, the AI layer works
-   on it for free. Agents query through ObjectQL, which routes each object
-   to its database — and every query runs as the **signed-in user**,
-   obeying object-, record-, and field-level permissions.
+> "Connect to the `business_primary` datasource. For each of these tables —
+> `accounts`, `contacts`, `opportunities`, `line_items` — generate one
+> `src/objects/<name>.object.ts` file using `ObjectSchema.create`. Map SQL
+> columns to the right `Field.*` types, turn foreign keys into
+> `Field.lookup(...)`, and set `datasource: 'business_primary'` on each."
+
+The agent reads the real columns, types, and foreign keys and writes
+source-level object files. Our
+[`hotcrm`](https://github.com/objectstack-ai/hotcrm) reference app shows
+the exact shape that output takes:
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Opportunity = ObjectSchema.create({
+  name: 'biz_opportunity',
+  label: 'Opportunity',
+  datasource: 'business_primary',
+  fields: {
+    name:      Field.text({ label: 'Name', required: true }),
+    account:   Field.lookup({ label: 'Account', reference_to: 'biz_account' }),
+    amount:    Field.currency({ label: 'Amount' }),
+    stage:     Field.select({ label: 'Stage', options: [/* … */] }),
+    close_date: Field.date({ label: 'Close Date' }),
+  },
+});
+```
+
+Because the output is **ordinary source you own and commit**, you stay in
+control: keep the columns that matter, drop the ones you don't want
+exposed, and layer on labels, validations, and permissions. The agent gets
+you to a reviewable draft in minutes; you make it production-grade.
+
+### 3. Bind objects to the datasource
+
+Each object carries a `datasource`. Set it per object, or declare a routing
+rule once for a whole namespace and let every object under it inherit:
+
+```ts
+datasourceMapping: [
+  { namespace: 'biz', datasource: 'business_primary' },
+  { default: true,    datasource: 'default' },
+]
+```
+
+Rules match by namespace, package, or object-name glob; first match wins.
+Data-residency decisions live in one place instead of scattered across
+files.
+
+### 4. Let AI work
+
+The moment a table is an object, the AI layer works on it for free.
+ObjectOS's agents and tools — `list_objects`, `describe_object`,
+`query_records`, `aggregate_data`, and the data-chat agent — all go through
+**ObjectQL**, which routes each object to its bound datasource and pushes
+filters, sorts, and aggregations *down into the database* when the driver
+supports them.
+
+So when a user asks:
+
+> "Which enterprise opportunities slipped out of Q2, and who owns them?"
+
+the agent doesn't slurp the whole table into a prompt. It compiles that
+into an ObjectQL query against `biz_opportunity` — a `WHERE` on stage and
+close-date, a join to the owner — runs it as `SELECT … WHERE …` on your
+Postgres, and answers from the real, current rows. And critically, it runs
+that query **as the signed-in user**: if a rep can't see another region's
+deals in the CRM, the agent can't either.
 
 ## Why this is safe
 
@@ -85,21 +160,45 @@ The objection to "AI on our business data" is always governance, and
 that's exactly where the runtime does the work:
 
 - **AI acts as the user, never above them.** An agent sees precisely what
-  the person behind it is allowed to see — enforced in the runtime, not
-  the prompt.
+  the person behind it is allowed to see — object-, record-, and
+  field-level permissions enforced in the runtime, not in the prompt.
 - **Read-only by default if you want it.** Bind objects to a read-only
   connection or DB user. Analyze production safely; enable writes
-  deliberately.
+  deliberately, one object at a time.
 - **Everything audited.** Every read, write, and escalation — human or
   agent — is recorded with who, what, when, and why.
 - **Your data stays in your network.** ObjectOS runs in your environment.
   Business data and prompts never leave your perimeter.
 
+## Rebuild vs. connect
+
+| | Rebuild onto a new platform | Connect with ObjectOS |
+|---|---|---|
+| **Time to first value** | Months | An afternoon |
+| **Risk to the system of record** | High — data migration, dual-writes, cutover | None — the source app is untouched |
+| **Where the data lives** | Moved | Stays exactly where it is |
+| **Modeling effort** | Re-implement every entity by hand | Coding agent drafts objects from the live schema |
+| **Permissions** | Re-built and re-audited | Inherited; AI obeys the same model |
+| **Reversibility** | Hard to undo | Disconnect the datasource — nothing changed |
+
+## What you get on day one
+
+Once a handful of tables are modeled and bound:
+
+- **Natural-language analysis** over live records, computed through
+  ObjectQL — not a stale export.
+- **Governed automation.** Flows and actions read and (where allowed) write
+  the same data, every step audited.
+- **A generated API and Console.** REST/GraphQL endpoints and admin screens
+  come from the same metadata — no extra integration layer to build.
+- **One permission model.** The boundary that applies to humans applies
+  identically to AI traffic.
+
 ## What's shipped vs. what's coming
 
 The flow above works **today** with shipped building blocks: datasources,
 per-object routing, capability-aware ObjectQL pushdown, and the AI agent
-layer. The object generation is done with a coding agent against your
+layer. The object modeling is done with a coding agent against your
 connected schema — the same way the `hotcrm` objects were authored.
 
 A richer, **turn-key federation** experience — one-step schema import,
@@ -107,7 +206,24 @@ binding to externally owned schemas, and built-in write-safety gates — is
 in active design under
 [ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
 (status: *Proposed*). We'll write more as it lands. Until then, the
-documented path is the supported one.
+documented path — connect, model, bind, query — is the supported one.
+
+## Frequently asked
+
+**Do I have to model every table?** No. Model only the tables you want AI
+and automation to touch. The rest of the database is ignored.
+
+**Will this write to my production database?** Only if you let it. Bind to a
+read-only connection or DB user and writes are impossible; enable them
+deliberately, per object, when you're ready.
+
+**Does my data go to a model provider?** ObjectOS runs in your environment,
+and queries run against your database. You control which AI provider is
+configured and what it's allowed to see.
+
+**What if my schema changes?** Re-run the coding agent against the updated
+schema to regenerate or diff the affected objects — they're just source
+files in your repo.
 
 ## Try it
 
