@@ -3,7 +3,7 @@ import Image from 'next/image';
 
 export const gitConfig = {
   user: 'objectstack-ai',
-  repo: 'spec',
+  repo: 'objectos',
   branch: 'main',
 };
 

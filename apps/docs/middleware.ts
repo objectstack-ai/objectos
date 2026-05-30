@@ -157,7 +157,16 @@ export default function middleware(request: NextRequest) {
     const url = new URL(request.url);
     // Handle root path specially to avoid double slashes
     url.pathname = pathname === '/' ? `/${i18n.defaultLanguage}` : `/${i18n.defaultLanguage}${pathname}`;
-    return NextResponse.rewrite(url);
+    const response = NextResponse.rewrite(url);
+    // This is a locale-negotiated response for a prefix-less path (e.g. "/").
+    // The underlying page is statically cached with a long s-maxage, but the
+    // *result here depends on the visitor's language* — so it must never be
+    // stored in a shared cache, or the CDN would serve this (default-locale)
+    // HTML to every visitor and non-English browsers would stop being
+    // redirected to their localized path. Mark it private so the edge skips it
+    // and middleware re-runs language detection on every request.
+    response.headers.set('Cache-Control', 'private, no-cache, must-revalidate');
+    return response;
   }
 
   // For non-default languages, redirect to the localized path
