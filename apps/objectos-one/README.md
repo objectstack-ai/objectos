@@ -53,7 +53,7 @@ Commonly used keys:
 
 | Key             | Default          | Notes                                                            |
 |-----------------|------------------|------------------------------------------------------------------|
-| `PORT`          | auto (3000+)     | Fixed port. If in use, falls back to auto with a log line.       |
+| `PORT`          | auto (8787+)     | Fixed port. If in use, falls back to auto with a log line.       |
 | `HOST`          | `127.0.0.1`      | `0.0.0.0` exposes the server to the LAN. **Set up auth first.**  |
 | `OBJECTOS_HOME` | `~/.objectstack` | Data directory. Absolute path.                                   |
 | `LOG_LEVEL`     | —                | Forwarded to the Node server.                                    |

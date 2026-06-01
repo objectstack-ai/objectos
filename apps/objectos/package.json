@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "objectstack dev",
     "build": "objectstack compile",
-    "start": "objectstack serve --port ${PORT:-3000}",
+    "start": "objectstack serve --port ${PORT:-8787}",
     "one": "node one.mjs",
     "type-check": "tsc --noEmit"
   },

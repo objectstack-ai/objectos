@@ -28,6 +28,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const APP_NAME = 'ObjectOS';
 
+// Default port to start from when PORT isn't pinned. Deliberately off 3000 —
+// that range collides with Next.js/Vite/CRA and most local dev servers, so a
+// quieter default means a stable, predictable URL across launches.
+const DEFAULT_PORT = 8787;
+
 function userDataDir() {
   if (process.env.OBJECTOS_HOME) return process.env.OBJECTOS_HOME;
   return join(homedir(), '.objectstack');
@@ -50,19 +55,53 @@ function ensureDir(p) {
   return p;
 }
 
+function isPortFree(port) {
+  return new Promise((resolveTry) => {
+    const srv = createServer();
+    srv.once('error', () => resolveTry(false));
+    srv.once('listening', () => srv.close(() => resolveTry(true)));
+    srv.listen(port, '127.0.0.1');
+  });
+}
+
 async function findFreePort(preferred) {
-  const tryPort = (port) =>
-    new Promise((resolveTry) => {
-      const srv = createServer();
-      srv.once('error', () => resolveTry(false));
-      srv.once('listening', () => srv.close(() => resolveTry(true)));
-      srv.listen(port, '127.0.0.1');
-    });
-  if (await tryPort(preferred)) return preferred;
+  if (await isPortFree(preferred)) return preferred;
   for (let p = preferred + 1; p < preferred + 50; p++) {
-    if (await tryPort(p)) return p;
+    if (await isPortFree(p)) return p;
   }
   return 0;
+}
+
+/**
+ * Resolve the port to serve on.
+ *
+ * Two modes:
+ *   - Managed (OBJECTOS_MANAGED=1): the ObjectOS One shell already picked a
+ *     free port, set PORT, and is probing/navigating to *that exact* port.
+ *     We must honor it verbatim — re-selecting our own would strand the UI on
+ *     a port nobody serves. If it was taken in the race window since the shell
+ *     checked it, exit so the shell's supervisor respawns us with a fresh one.
+ *   - Standalone (plain `node one.mjs`): pick a free port ourselves, falling
+ *     forward from the preferred/default if it's busy.
+ */
+async function resolvePort() {
+  const preferred = Number(process.env.PORT ?? DEFAULT_PORT);
+  if (process.env.OBJECTOS_MANAGED === '1') {
+    if (await isPortFree(preferred)) return preferred;
+    console.error(
+      `[one] managed port ${preferred} no longer free; exiting for supervisor restart`,
+    );
+    process.exit(75); // EX_TEMPFAIL — supervised restart will pick a new port
+  }
+  const port = await findFreePort(preferred);
+  if (!port) {
+    console.error('[one] no free port available');
+    process.exit(1);
+  }
+  if (port !== preferred) {
+    console.log(`[one] port ${preferred} busy → using ${port}`);
+  }
+  return port;
 }
 
 function openBrowser(url) {
@@ -118,15 +157,7 @@ async function main() {
     }
   }
 
-  const preferredPort = Number(process.env.PORT ?? 3000);
-  const port = await findFreePort(preferredPort);
-  if (!port) {
-    console.error('[one] no free port available');
-    process.exit(1);
-  }
-  if (port !== preferredPort) {
-    console.log(`[one] port ${preferredPort} busy → using ${port}`);
-  }
+  const port = await resolvePort();
   process.env.PORT = String(port);
 
   const url = `http://localhost:${port}`;

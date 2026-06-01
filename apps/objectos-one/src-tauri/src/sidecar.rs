@@ -47,6 +47,13 @@ const MAX_CRASH_RESTARTS: u32 = 5;
 /// Sidecar considered "healthy" after this much uptime; resets crash count.
 const STABLE_AFTER: Duration = Duration::from_secs(60);
 
+/// Default port to start scanning from when the user hasn't pinned `PORT`.
+/// Deliberately *not* 3000 — that range collides with Next.js, Vite, CRA and
+/// most other local dev servers, which both causes frequent fallback churn
+/// (a different port every launch) and widens the window for the
+/// pick-a-port / bind-a-port race the Node launcher used to have.
+const DEFAULT_PORT: u16 = 8787;
+
 pub fn kill_current(app: &AppHandle) {
     let state: tauri::State<Sidecar> = app.state();
     let taken = state.0.lock().unwrap().take();
@@ -146,9 +153,9 @@ fn spawn_sidecar(app: &AppHandle) -> Result<Child, String> {
                 "WARN",
                 &format!("PORT {fixed} on {host} in use; auto-selecting"),
             );
-            pick_free_port(&host, 3000)
+            pick_free_port(&host, DEFAULT_PORT)
         }
-        None => pick_free_port(&host, 3000),
+        None => pick_free_port(&host, DEFAULT_PORT),
     };
     if port == 0 {
         return Err("no free port available".into());
@@ -166,7 +173,12 @@ fn spawn_sidecar(app: &AppHandle) -> Result<Child, String> {
     cmd.env("OBJECTOS_HOME", &data_dir)
         .env("PORT", port.to_string())
         .env("HOST", &host)
-        .env("OBJECTOS_NO_OPEN", "1");
+        .env("OBJECTOS_NO_OPEN", "1")
+        // We already picked a free port above and the readiness probe below
+        // watches *this exact* port. Tell the launcher not to re-select its
+        // own port: if it bound a different one, the probe would wait out its
+        // full deadline on a dead port and the UI would hang on the splash.
+        .env("OBJECTOS_MANAGED", "1");
 
     let mut child = cmd.spawn().map_err(|e| format!("spawn node: {e}"))?;
 
