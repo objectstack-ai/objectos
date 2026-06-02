@@ -179,6 +179,14 @@ jobs:
           # with the same Developer ID, hardened runtime, and a secure
           # timestamp. Tauri's own codesign pass doesn't deep-sign embedded
           # Node native binaries, so we sign them here before Tauri bundles.
+          #
+          # CRITICAL: the Node binary runs V8, which maps executable (JIT)
+          # memory at startup. Under hardened runtime that is blocked unless
+          # the binary carries the JIT entitlements below — otherwise macOS
+          # kills node with SIGTRAP (exit 133) the instant it launches, which
+          # surfaces as the bundled runtime crash-looping on every start
+          # ("sidecar exited; restarting"). Always pass --entitlements.
+          ENTITLEMENTS="apps/objectos-one/src-tauri/runtime-entitlements.plist"
           echo "Scanning $RUNTIME for Mach-O binaries..."
           find "$RUNTIME" -type f \
             \( -name '*.node' -o -name '*.dylib' -o -name '*.so' \
@@ -188,7 +196,8 @@ jobs:
                 if file -b "$f" | grep -qE 'Mach-O'; then
                   echo "  signing $f"
                   codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
-                    --timestamp --options runtime "$f"
+                    --timestamp --options runtime \
+                    --entitlements "$ENTITLEMENTS" "$f"
                 fi
               done
 
@@ -196,6 +205,21 @@ jobs:
           find "$RUNTIME" -type f -name '*.node' | head -1 | while read -r f; do
             codesign -dv --verbose=2 "$f" 2>&1 | head -10 || true
           done
+
+          # Guard against the JIT-entitlement regression: the node binary MUST
+          # carry com.apple.security.cs.allow-jit or the runtime crash-loops at
+          # launch. Fail the build loudly here rather than shipping a brick.
+          NODE_BIN="$RUNTIME/node"
+          if [ -f "$NODE_BIN" ]; then
+            echo "Verifying node JIT entitlement:"
+            if codesign -d --entitlements - --xml "$NODE_BIN" 2>/dev/null \
+                 | tr -d '\0' | grep -q 'com.apple.security.cs.allow-jit'; then
+              echo "  ✓ allow-jit present on node"
+            else
+              echo "  ✗ allow-jit MISSING on node — runtime would crash-loop." >&2
+              exit 1
+            fi
+          fi
 
       - name: Build Tauri bundle
         env:
