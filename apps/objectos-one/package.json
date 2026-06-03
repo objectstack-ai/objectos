@@ -1,6 +1,6 @@
 {
   "name": "@objectos/one",
-  "version": "7.6.0",
+  "version": "7.7.0",
   "private": true,
   "license": "Apache-2.0",
   "description": "ObjectOS One — all-in-one local distribution (Tauri shell + bundled Node runtime + DB).",
