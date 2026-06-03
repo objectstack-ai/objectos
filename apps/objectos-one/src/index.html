@@ -129,6 +129,11 @@
           updInstall.disabled = true;
           updLater.disabled = true;
         });
+        event.listen('objectos://update-progress', (e) => {
+          const p = e.payload || {};
+          updStatus.textContent =
+            p.pct != null ? 'Downloading ' + p.pct + '%…' : 'Downloading…';
+        });
         updInstall.addEventListener('click', async () => {
           updStatus.textContent = 'Starting update…';
           updInstall.disabled = true;

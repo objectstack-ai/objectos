@@ -4,6 +4,11 @@
 //! reads the first submenu as the "application menu", so that's where the
 //! standard About / Settings / Quit items live.
 
+use std::{
+    sync::Mutex,
+    time::{Duration, Instant},
+};
+
 use tauri::{
     menu::{AboutMetadataBuilder, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -13,8 +18,30 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::{logger, paths, sidecar, updater, windows};
 
+/// A single menu click is delivered to BOTH the tray's own `on_menu_event` and
+/// the global app `on_menu_event`, so every action would otherwise run twice —
+/// popping two dialogs, opening two Finder windows, etc. Track the last event
+/// and drop a repeat of the same id within a short window.
+static LAST_MENU_EVENT: Mutex<Option<(String, Instant)>> = Mutex::new(None);
+const MENU_DEDUP_WINDOW: Duration = Duration::from_millis(400);
+
+fn is_duplicate_event(id: &str) -> bool {
+    let now = Instant::now();
+    let mut guard = LAST_MENU_EVENT.lock().unwrap();
+    if let Some((last_id, last_at)) = guard.as_ref() {
+        if last_id == id && now.duration_since(*last_at) < MENU_DEDUP_WINDOW {
+            return true;
+        }
+    }
+    *guard = Some((id.to_string(), now));
+    false
+}
+
 /// Central dispatch for both menus.
 pub fn handle_menu_id(app: &AppHandle, id: &str) {
+    if is_duplicate_event(id) {
+        return;
+    }
     match id {
         "open" => windows::focus_main(app),
         "reload" => windows::reload_main(app),

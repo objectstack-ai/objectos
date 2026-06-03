@@ -27,6 +27,12 @@ dirs = "5"
 tokio = { version = "1", features = ["time"] }
 url = "2"
 
+[target.'cfg(unix)'.dependencies]
+# Used to signal the whole sidecar process group (launcher + grandchild
+# `objectstack serve`) so a graceful SIGTERM reaches the real server instead
+# of only SIGKILLing the launcher and orphaning the server.
+libc = "0.2"
+
 [profile.release]
 panic = "abort"
 codegen-units = 1

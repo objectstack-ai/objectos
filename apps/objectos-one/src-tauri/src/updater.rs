@@ -13,7 +13,10 @@
 //!     which WebView is currently loaded in the main window.
 
 use std::{
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 
@@ -26,6 +29,36 @@ use tauri_plugin_updater::UpdaterExt;
 use crate::{logger::log_line, sidecar};
 
 pub static UPDATE_PENDING: AtomicBool = AtomicBool::new(false);
+
+/// True while an update check is running. Guards against a second click (or a
+/// background check) starting an overlapping check — which is what let the
+/// "Check for updates…" item fire repeatedly with no feedback.
+static CHECKING: AtomicBool = AtomicBool::new(false);
+
+/// True while a download+install is running. This is the guard that makes it
+/// impossible to launch two installs at once (the cause of multiple installer
+/// windows on a slow network).
+static INSTALLING: AtomicBool = AtomicBool::new(false);
+
+/// RAII guard over an atomic flag: acquires it via compare-exchange and clears
+/// it on drop, so any early return / error path releases it for a later retry.
+struct FlagGuard(&'static AtomicBool);
+
+impl FlagGuard {
+    /// `Some(guard)` only if we flipped the flag false→true; `None` if it was
+    /// already held (i.e. an operation is already in flight).
+    fn acquire(flag: &'static AtomicBool) -> Option<FlagGuard> {
+        flag.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()
+            .map(|_| FlagGuard(flag))
+    }
+}
+
+impl Drop for FlagGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
 
 #[derive(Serialize, Clone)]
 pub struct UpdateInfo {
@@ -48,17 +81,34 @@ pub fn schedule_update_check(app: AppHandle) {
 /// so we always show a native dialog with the outcome. The background check
 /// (verbose=false) stays silent on the no-news path.
 pub async fn check_for_update(app: &AppHandle, verbose: bool) {
+    // Only one check at a time. A second click (or a background check racing a
+    // manual one) is ignored rather than stacking another network call + dialog.
+    let Some(_check_guard) = FlagGuard::acquire(&CHECKING) else {
+        log_line("INFO", "update check already running; ignoring duplicate request");
+        return;
+    };
+    // Give the user immediate feedback that the click registered.
+    if verbose {
+        let _ = app.emit("objectos://update-checking", true);
+    }
+
     let updater = match app.updater() {
         Ok(u) => u,
         Err(e) => {
             log_line("WARN", &format!("updater unavailable: {e}"));
             if verbose {
+                let _ = app.emit("objectos://update-checking", false);
                 show_error(app, &e.to_string());
             }
             return;
         }
     };
-    match updater.check().await {
+    let outcome = updater.check().await;
+    // Clear the "checking" indicator before surfacing the result.
+    if verbose {
+        let _ = app.emit("objectos://update-checking", false);
+    }
+    match outcome {
         Ok(Some(update)) => {
             UPDATE_PENDING.store(true, Ordering::SeqCst);
             let info = UpdateInfo {
@@ -192,6 +242,14 @@ pub async fn install_update(app: AppHandle) -> Result<(), String> {
 /// Shared install path used by both the IPC command (called from the
 /// splash UI) and the verbose-check confirm dialog.
 async fn run_install(app: &AppHandle) -> Result<(), String> {
+    // Single install ever. A second invocation (double-click, or both the
+    // splash card and the injected banner firing) is a no-op while one runs —
+    // this is what prevents two downloads / two installer windows.
+    let Some(_install_guard) = FlagGuard::acquire(&INSTALLING) else {
+        log_line("INFO", "install already in progress; ignoring duplicate request");
+        return Ok(());
+    };
+
     let updater = app.updater().map_err(|e| e.to_string())?;
     let update = updater
         .check()
@@ -199,8 +257,24 @@ async fn run_install(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "no update available".to_string())?;
     let _ = app.emit("objectos://update-installing", &update.version);
+
+    // Stream download progress to the UI so the user can see it's working and
+    // doesn't click again.
+    let app_progress = app.clone();
+    let downloaded = Arc::new(AtomicU64::new(0));
+    let counter = downloaded.clone();
     update
-        .download_and_install(|_, _| {}, || {})
+        .download_and_install(
+            move |chunk, total| {
+                let so_far = counter.fetch_add(chunk as u64, Ordering::SeqCst) + chunk as u64;
+                let pct = total.map(|t| if t > 0 { ((so_far * 100) / t).min(100) } else { 0 });
+                let _ = app_progress.emit(
+                    "objectos://update-progress",
+                    serde_json::json!({ "downloaded": so_far, "total": total, "pct": pct }),
+                );
+            },
+            || {},
+        )
         .await
         .map_err(|e| e.to_string())?;
     // Make sure the sidecar is gone before the relaunch swaps the binary.

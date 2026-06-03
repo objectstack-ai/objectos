@@ -54,11 +54,54 @@ const STABLE_AFTER: Duration = Duration::from_secs(60);
 /// pick-a-port / bind-a-port race the Node launcher used to have.
 const DEFAULT_PORT: u16 = 8787;
 
+/// Max time we wait for a graceful shutdown before force-killing.
+const SHUTDOWN_GRACE: Duration = Duration::from_millis(3000);
+
 pub fn kill_current(app: &AppHandle) {
     let state: tauri::State<Sidecar> = app.state();
     let taken = state.0.lock().unwrap().take();
     if let Some(mut child) = taken {
-        let _ = child.kill();
+        let pid = child.id();
+        terminate_tree(pid, &mut child);
+    }
+}
+
+/// Terminate the sidecar *process tree*.
+///
+/// The thing we spawn (`node one.mjs`) is only a launcher — it spawns the real
+/// `objectstack serve` as a grandchild. A plain `Child::kill()` sends SIGKILL,
+/// which the launcher can't catch or forward, so the server is orphaned and
+/// keeps holding the port and the SQLite DB. Instead we signal the whole
+/// process group (we spawn the launcher as a group leader, so pgid == pid):
+/// SIGTERM first so the launcher forwards a clean shutdown to the server and
+/// it releases its resources, then SIGKILL as a fallback if it doesn't exit.
+fn terminate_tree(pid: u32, child: &mut Child) {
+    #[cfg(unix)]
+    {
+        // Negative pid targets the entire process group.
+        unsafe { libc::kill(-(pid as i32), libc::SIGTERM) };
+        let deadline = Instant::now() + SHUTDOWN_GRACE;
+        loop {
+            match child.try_wait() {
+                Ok(Some(_)) => return, // exited cleanly
+                Ok(None) if Instant::now() < deadline => {
+                    thread::sleep(Duration::from_millis(100));
+                }
+                _ => break,
+            }
+        }
+        // Didn't exit in time — force-kill the whole group, then reap.
+        unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
+        let _ = child.wait();
+    }
+    #[cfg(windows)]
+    {
+        // No process groups here; taskkill /T terminates the whole tree.
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
         let _ = child.wait();
     }
 }
@@ -179,6 +222,15 @@ fn spawn_sidecar(app: &AppHandle) -> Result<Child, String> {
         // own port: if it bound a different one, the probe would wait out its
         // full deadline on a dead port and the UI would hang on the splash.
         .env("OBJECTOS_MANAGED", "1");
+
+    // Run the launcher in its own process group (pgid == its pid) so shutdown
+    // can signal the whole tree — launcher + the `objectstack serve`
+    // grandchild — at once instead of orphaning the server. See terminate_tree.
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
 
     let mut child = cmd.spawn().map_err(|e| format!("spawn node: {e}"))?;
 
