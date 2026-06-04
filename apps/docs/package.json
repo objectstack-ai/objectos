@@ -37,8 +37,7 @@
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.7.0",
-    "wrangler": "^4.50.0",
-    "zod": "4.4.3"
+    "wrangler": "^4.50.0"
   },
   "engines": {
     "node": ">=20.0.0"

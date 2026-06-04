@@ -7,17 +7,18 @@ export const gitConfig = {
   branch: 'main',
 };
 
-const NAV_LABELS: Record<string, { docs: string; blog: string; download: string; changelog: string }> = {
-  en: { docs: 'Docs', blog: 'Blog', download: 'Download', changelog: 'Changelog' },
-  'zh-Hans': { docs: '文档', blog: '博客', download: '下载', changelog: '更新日志' },
-  ja: { docs: 'ドキュメント', blog: 'ブログ', download: 'ダウンロード', changelog: '変更履歴' },
-  de: { docs: 'Dokumentation', blog: 'Blog', download: 'Download', changelog: 'Änderungen' },
-  es: { docs: 'Documentación', blog: 'Blog', download: 'Descargar', changelog: 'Cambios' },
-  fr: { docs: 'Documentation', blog: 'Blog', download: 'Télécharger', changelog: 'Journal' },
-  ko: { docs: '문서', blog: '블로그', download: '다운로드', changelog: '변경 내역' },
+const NAV_LABELS: Record<string, { website: string; docs: string; download: string; changelog: string }> = {
+  en: { website: 'Website', docs: 'Docs', download: 'Download', changelog: 'Changelog' },
+  'zh-Hans': { website: '官网', docs: '文档', download: '下载', changelog: '更新日志' },
+  ja: { website: '公式サイト', docs: 'ドキュメント', download: 'ダウンロード', changelog: '変更履歴' },
+  de: { website: 'Website', docs: 'Dokumentation', download: 'Download', changelog: 'Änderungen' },
+  es: { website: 'Sitio web', docs: 'Documentación', download: 'Descargar', changelog: 'Cambios' },
+  fr: { website: 'Site web', docs: 'Documentation', download: 'Télécharger', changelog: 'Journal' },
+  ko: { website: '웹사이트', docs: '문서', download: '다운로드', changelog: '변경 내역' },
 };
 
 const RELEASES_URL = 'https://github.com/objectstack-ai/objectos/releases';
+const WEBSITE_URL = 'https://www.objectos.ai';
 
 function localePrefix(lang: string): string {
   return lang === 'en' ? '' : `/${lang}`;
@@ -29,6 +30,7 @@ export function baseOptions(lang: string = 'en'): BaseLayoutProps {
 
   return {
     nav: {
+      url: WEBSITE_URL,
       title: (
         <div className="flex items-center gap-2 font-bold">
           <Image
@@ -45,13 +47,13 @@ export function baseOptions(lang: string = 'en'): BaseLayoutProps {
     },
     links: [
       {
-        text: labels.docs,
-        url: `${prefix}/docs`,
-        active: 'nested-url',
+        text: labels.website,
+        url: WEBSITE_URL,
+        external: true,
       },
       {
-        text: labels.blog,
-        url: `${prefix}/blog`,
+        text: labels.docs,
+        url: `${prefix}/docs`,
         active: 'nested-url',
       },
       {
