@@ -36,7 +36,7 @@
     "negotiator": "^1.0.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
-    "typescript": "^5.7.0",
+    "typescript": "^6.0.3",
     "wrangler": "^4.50.0"
   },
   "engines": {
