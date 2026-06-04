@@ -101,12 +101,12 @@ function getPreferredLanguage(request: NextRequest): string {
  * - Stores language preference as a cookie
  */
 export default function middleware(request: NextRequest) {
-  // Canonical domain redirect: www.objectos.app -> www.objectos.ai (permanent).
+  // Canonical domain redirect: legacy hosts -> docs.objectos.ai (permanent).
   const host = request.headers.get('host');
-  if (host === 'www.objectos.app') {
+  if (host === 'www.objectos.ai' || host === 'www.objectos.app') {
     const target = new URL(request.url);
     target.protocol = 'https:';
-    target.host = 'www.objectos.ai';
+    target.host = 'docs.objectos.ai';
     target.port = '';
     return NextResponse.redirect(target, 308);
   }
