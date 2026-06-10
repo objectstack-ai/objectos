@@ -112,12 +112,21 @@ the compiled `dist/objectstack.json` directly to the target install
 
 ## Installing
 
+Installing is an **in-environment** action — distinct from publishing. You
+publish a package once (to the catalog), then install it from *inside* the
+target environment, where the install is confirmed and authorized by your
+environment login. You never need to know an environment id to install.
+
 | Path | How |
 |---|---|
-| CLI (cloud-managed) | `os package publish --env <id> --install [--seed-sample-data]` — publish a version and install it into a cloud environment in one step |
-| Console | Marketplace tab → pick package → Install |
+| Console (recommended) | Sign in to the environment → **Marketplace** → pick the package → **Install**. Installs into the current environment. |
 | REST | `POST /api/v1/marketplace/install-local` (body: `{ packageId, versionId? }`) |
 | Air-gapped | Mount the compiled `dist/objectstack.json` artifact (see [Air-gapped](/docs/deploy/air-gapped)) |
+
+> **CI shortcut.** Pipelines that deploy to a *known* environment can publish
+> and install in one step: `os package publish --env <id> --install
+> [--seed-sample-data]`. This is a convenience for automation, not the path a
+> person uses — interactive installs happen in the environment's Marketplace.
 
 Install merges the package's metadata into the live kernel, registers
 its objects with ObjectQL, and seeds initial data on first install —
