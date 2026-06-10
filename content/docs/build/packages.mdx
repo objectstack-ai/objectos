@@ -98,20 +98,23 @@ audit, identity, etc.
 ## Publishing
 
 ```bash
+os cloud login                 # once: stores a cloud token in ~/.objectstack/cloud.json
 os compile                     # → dist/objectstack.json
 os package publish             # → ObjectStack cloud catalog
 ```
 
 `os package publish` uploads the compiled manifest to the cloud
-control plane configured by `OS_CLOUD_URL`, authenticated with
-`OS_CLOUD_API_KEY`. For private / air-gapped distribution, skip
-publishing and hand the compiled `dist/objectstack.json` directly to
-the target install (see Installing below). See [Marketplace](/docs/build/marketplace).
+control plane configured by `OS_CLOUD_URL`. Authentication comes from
+`os cloud login` (interactive) or, for CI, an `OS_CLOUD_API_KEY` bearer
+token. For private / air-gapped distribution, skip publishing and hand
+the compiled `dist/objectstack.json` directly to the target install
+(see Installing below). See [Marketplace](/docs/build/marketplace).
 
 ## Installing
 
 | Path | How |
 |---|---|
+| CLI (cloud-managed) | `os package publish --env <id> --install [--seed-sample-data]` — publish a version and install it into a cloud environment in one step |
 | Console | Marketplace tab → pick package → Install |
 | REST | `POST /api/v1/marketplace/install-local` (body: `{ packageId, versionId? }`) |
 | Air-gapped | Mount the compiled `dist/objectstack.json` artifact (see [Air-gapped](/docs/deploy/air-gapped)) |
