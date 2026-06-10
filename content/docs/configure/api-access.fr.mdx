@@ -25,6 +25,8 @@ Surfaces notables :
 | `/api/v1/actions/<object>/<action>` | Invoquer une action déclarative (POST) |
 | `/api/v1/auth/*` | Authentification (connexion, sessions, OAuth, OIDC) |
 | `/api/v1/meta/*` | API de métadonnées (objets, champs, vues) lorsqu'elles sont activées |
+| `/api/v1/keys` | Génère une `sys_api_key` affichée une seule fois pour l'utilisateur appelant (POST) |
+| `/api/v1/mcp` | Serveur Model Context Protocol via Streamable HTTP, lorsque `OS_MCP_SERVER_ENABLED=true` |
 | `/api/v1/health` | Sonde de vivacité/disponibilité (sans authentification) |
 
 Le préfixe est `/api/v1` par défaut (le `basePath` de l'API `/api` plus la
@@ -51,20 +53,34 @@ valeur de la clé elle-même est stockée hachée — seuls le `prefix` et les
 métadonnées restent interrogeables, de sorte qu'une clé divulguée ne peut
 pas être reconstituée à partir de la base de données.
 
-Pour émettre une clé :
+Émettez une clé de deux façons :
 
-1. Connectez-vous à **Console → API Keys** en tant qu'administrateur.
-2. Choisissez l'utilisateur propriétaire (l'appel API hérite des
-   permissions et de l'accès aux enregistrements de cet utilisateur).
-3. Définissez éventuellement une date d'expiration.
-4. Copiez le secret affiché **une seule fois** — il n'est plus affiché par
-   la suite.
+- **Console** — connectez-vous à **Console → API Keys** en tant
+  qu'administrateur, choisissez l'utilisateur propriétaire, définissez
+  éventuellement une date d'expiration et copiez le secret affiché **une seule
+  fois**.
+- **Endpoint en libre-service** — `POST /api/v1/keys` génère une clé pour
+  l'appelant authentifié et renvoie le secret brut exactement une fois. La clé
+  est rattachée au propre utilisateur de l'appelant et ne peut donc pas servir
+  à usurper une autre identité :
 
-Utilisez la clé comme jeton bearer :
+  ```bash
+  curl -X POST https://app.example.com/api/v1/keys \
+    -H "Authorization: Bearer <session-or-access-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "etl-pipeline"}'
+  # → { "id": "...", "name": "etl-pipeline", "prefix": "os_pk_…", "key": "os_pk_live_…" }
+  ```
+
+Passez la clé sur les requêtes suivantes comme jeton bearer, comme en-tête
+`x-api-key` ou comme `Authorization: ApiKey`. Les API REST de données et de
+métadonnées l'authentifient via le même vérificateur que MCP, sous les
+permissions et la sécurité au niveau des enregistrements du propriétaire de la
+clé :
 
 ```bash
 curl https://app.example.com/api/v1/data/account \
-  -H "Authorization: Bearer os_pk_live_…"
+  -H "x-api-key: os_pk_live_…"
 ```
 
 Pour révoquer une clé, exécutez l'action `revoke_api_key` sur

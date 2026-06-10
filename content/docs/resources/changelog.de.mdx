@@ -51,30 +51,44 @@ Abonnieren Sie Releases auf GitHub, um benachrichtigt zu werden.
 
 ## Aktuelle Highlights
 
-### 4.0.x — aktueller Release-Zug
+### 8.0.x — aktueller Release-Zug
 
-- **42 Pakete** auf npm unter `@objectstack/*` veröffentlicht.
-- Console erhielt vollständige Konfigurationsseiten für Einstellungen (AI, Storage,
-  Knowledge).
-- Embedder-Dienst: 10 Anbieter (`openai`, `azure`, 阿里通义,
-  智谱, 硅基流动, 火山, MiniMax, Ollama, benutzerdefiniert).
-- Live-Einstellungen → Runtime-Bridge — wechseln Sie den Anbieter in Console, mit
-  In-Process-Austausch ohne Neustart.
+ObjectOS One und der gebündelte Server laufen jetzt auf `@objectstack` **8.0.1**.
 
-### 5.0 (kommend) — Umbenennung `project` → `environment`
+- **MCP über Streamable HTTP** — jede Bereitstellung kann als netzwerkerreichbarer
+  [Model-Context-Protocol](https://modelcontextprotocol.io)-Server fungieren.
+  Aktivierung über `OS_MCP_SERVER_ENABLED=true`; der Endpunkt liegt unter
+  `/api/v1/mcp` mit fail-closed-Authentifizierung (anonyme Anfragen werden
+  abgelehnt). Das Plugin wurde von `@objectstack/plugin-mcp-server` zu
+  `@objectstack/mcp` umbenannt.
+- **Self-Service-API-Keys** — `POST /api/v1/keys` erzeugt einen nur einmal
+  angezeigten `sys_api_key`. Die REST-Daten- und Metadaten-APIs (`/api/v1/data`,
+  `/api/v1/meta`) authentifizieren API-Keys jetzt über denselben Verifier wie MCP
+  und laufen mit den Berechtigungen und der Datensatz-Sicherheit des
+  Key-Inhabers.
+- **Feldbezogene Bedingungsregeln** — `visibleWhen`, `readonlyWhen` und
+  `requiredWhen` werden serverseitig von ObjectQL durchgesetzt, nicht nur in der
+  Formular-UI.
+- **Wiederverwendbarer RLS-Lesefilter** — `security.getReadFilter(object, context)`
+  stellt den Datensatzzugriffs-Lesebereich bereit; Analytics-Datasets, Dashboards
+  und Berichte greifen darauf zu und schließen fail-closed, wenn der Bereich nicht
+  sicher angewendet werden kann.
+- **Standalone-Host-Stack** — die Runtime liefert einen single-tenant
+  `createStandaloneStack`-Host; der cloud-verbundene, hostname-geroutete
+  `createObjectOSStack`-Wrapper aus 7.x wurde entfernt. Eine Cloud-Bereitstellung
+  verweist `OS_ARTIFACT_FILE` jetzt auf eine veröffentlichte Artifact-URL.
 
-Das Runtime-Konzept, das früher *Project* hieß, wird durchgängig in *Environment*
-umbenannt. Betroffen sind:
+### 5.0 — Umbenennung `project` → `environment` (veröffentlicht)
+
+Das Runtime-Konzept, das früher *Project* hieß, wurde durchgängig in *Environment*
+umbenannt. Betroffen waren:
 
 - CLI-Flags: `--environment` / `-e`
 - HTTP-Pfade: `/api/v1/environments/:environmentId/...`
 - Header: `X-Environment-Id`
-- Umgebungsvariablen: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` bleibt als Alias in 4.x erhalten, entfernt in 5.0)
+- Umgebungsvariablen: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` bleibt als veralteter Alias erhalten)
 - DB-Spalten: `environment_id`
 - JSON-Schemas: `EnvironmentArtifact`
-
-Keine Aliase oder Deprecation-Shims. Planen Sie das Upgrade sorgfältig — siehe den
-5.0-Migrationsleitfaden zum Release.
 
 ## Upgrade
 

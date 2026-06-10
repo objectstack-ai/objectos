@@ -25,6 +25,8 @@ Superficies destacadas:
 | `/api/v1/actions/<object>/<action>` | Invocar una acción declarativa (POST) |
 | `/api/v1/auth/*` | Autenticación (inicio de sesión, sesiones, OAuth, OIDC) |
 | `/api/v1/meta/*` | APIs de metadatos (objetos, campos, vistas) cuando está habilitado |
+| `/api/v1/keys` | Genera un `sys_api_key` de un solo uso para el usuario que llama (POST) |
+| `/api/v1/mcp` | Servidor Model Context Protocol sobre Streamable HTTP, cuando `OS_MCP_SERVER_ENABLED=true` |
 | `/api/v1/health` | Sonda de liveness/readiness (sin autenticación) |
 
 El prefijo es `/api/v1` de forma predeterminada (el `basePath` de la API,
@@ -51,19 +53,32 @@ de la clave en sí se almacena cifrado (hash) — solo el `prefix` y los
 metadatos permanecen consultables, de modo que una clave filtrada no puede
 reconstruirse a partir de la base de datos.
 
-Para emitir una clave:
+Emite una clave de dos maneras:
 
-1. Inicia sesión en **Console → API Keys** como administrador.
-2. Elige el usuario propietario (la llamada a la API hereda los permisos
-   y el acceso a registros de ese usuario).
-3. Opcionalmente, establece una fecha de expiración.
-4. Copia el secreto mostrado **una sola vez** — no se vuelve a mostrar.
+- **Console** — inicia sesión en **Console → API Keys** como administrador,
+  elige el usuario propietario, opcionalmente establece una fecha de
+  expiración y copia el secreto mostrado **una sola vez**.
+- **Endpoint de autoservicio** — `POST /api/v1/keys` genera una clave para el
+  llamante autenticado y devuelve el secreto en bruto exactamente una vez. La
+  clave queda fijada al propio usuario del llamante, por lo que no puede usarse
+  para suplantar otra identidad:
 
-Usa la clave como token bearer:
+  ```bash
+  curl -X POST https://app.example.com/api/v1/keys \
+    -H "Authorization: Bearer <session-or-access-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "etl-pipeline"}'
+  # → { "id": "...", "name": "etl-pipeline", "prefix": "os_pk_…", "key": "os_pk_live_…" }
+  ```
+
+Pasa la clave en las solicitudes posteriores como token bearer, como cabecera
+`x-api-key` o como `Authorization: ApiKey`. Las API REST de datos y metadatos
+la autentican con el mismo verificador que MCP, bajo los permisos y la
+seguridad a nivel de registro del propietario de la clave:
 
 ```bash
 curl https://app.example.com/api/v1/data/account \
-  -H "Authorization: Bearer os_pk_live_…"
+  -H "x-api-key: os_pk_live_…"
 ```
 
 Para revocar una clave, ejecuta la acción `revoke_api_key` en el registro

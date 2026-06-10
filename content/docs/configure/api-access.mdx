@@ -24,6 +24,8 @@ Notable surfaces:
 | `/api/v1/actions/<object>/<action>` | Invoke a declarative action (POST) |
 | `/api/v1/auth/*` | Authentication (sign-in, sessions, OAuth, OIDC) |
 | `/api/v1/meta/*` | Metadata APIs (objects, fields, views) when enabled |
+| `/api/v1/keys` | Mint a show-once `sys_api_key` for the calling user (POST) |
+| `/api/v1/mcp` | Model Context Protocol server over Streamable HTTP, when `OS_MCP_SERVER_ENABLED=true` |
 | `/api/v1/health` | Liveness/readiness probe (no auth) |
 
 The prefix defaults to `/api/v1` (the API `basePath` of `/api` plus the
@@ -49,19 +51,32 @@ API keys are first-class `sys_api_key` records. The key value itself is
 stored hashed — only the `prefix` and metadata remain queryable, so a
 leaked key cannot be reconstructed from the database.
 
-To issue a key:
+Issue a key in either of two ways:
 
-1. Sign in to **Console → API Keys** as an administrator.
-2. Choose the owning user (the API call inherits that user's
-   permissions and record access).
-3. Optionally set an expiration date.
-4. Copy the displayed secret **once** — it is not shown again.
+- **Console** — sign in to **Console → API Keys** as an administrator,
+  choose the owning user, optionally set an expiration date, and copy the
+  displayed secret **once**.
+- **Self-serve endpoint** — `POST /api/v1/keys` mints a key for the
+  authenticated caller and returns the raw secret exactly once. The key is
+  pinned to the caller's own user, so it cannot be used to impersonate
+  another identity:
 
-Use the key as a bearer token:
+  ```bash
+  curl -X POST https://app.example.com/api/v1/keys \
+    -H "Authorization: Bearer <session-or-access-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "etl-pipeline"}'
+  # → { "id": "...", "name": "etl-pipeline", "prefix": "os_pk_…", "key": "os_pk_live_…" }
+  ```
+
+Pass the key on subsequent requests as a bearer token, an `x-api-key`
+header, or `Authorization: ApiKey`. The REST data and metadata APIs all
+authenticate it through the same verifier as MCP, under the key owner's
+permissions and record-level security:
 
 ```bash
 curl https://app.example.com/api/v1/data/account \
-  -H "Authorization: Bearer os_pk_live_…"
+  -H "x-api-key: os_pk_live_…"
 ```
 
 To revoke a key, run the `revoke_api_key` action on the corresponding

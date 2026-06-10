@@ -24,16 +24,19 @@ Verwenden Sie Systemeinstellungen für anwendungsbezogene Konfiguration, die von
 
 | Variable | Erforderlich | Beschreibung |
 |---|---:|---|
-| `OS_ARTIFACT_FILE` | Dateimodus | Pfad zu einer lokal kompilierten `objectstack.json`. Wird vom ObjectOS-App-Wrapper gelesen und als `fileConfig.artifactPath` weitergeleitet. |
-| `OS_ARTIFACT_PATH` | Alternative | Framework-Name für denselben Pfad oder eine `http(s)://`-URL. Wird direkt von `@objectstack/runtime` berücksichtigt (CLI `dev`/`start`, Standalone-Modus). |
-| `OS_PROJECT_ID` | Optional | Veralteter Alias für `OS_ENVIRONMENT_ID`, der vom ObjectOS-Wrapper aus Gründen der Abwärtskompatibilität akzeptiert wird. Bevorzugen Sie `OS_ENVIRONMENT_ID` in neuen Deployments. |
-| `OS_ENVIRONMENT_ID` | Optional | Umgebungs-ID für den Standalone-/dateibasierten Modus (Standard `proj_local`). Wird auch zur Ableitung des projektspezifischen Auth-Geheimnisses verwendet. Der ObjectOS-Wrapper akzeptiert außerdem den veralteten Alias `OS_PROJECT_ID`. |
+| `OS_ARTIFACT_FILE` | Dateimodus | Pfad oder `http(s)://`-URL zu einer kompilierten `objectstack.json`. Wird von der ObjectOS-Konfiguration gelesen und als `artifactPath` an `createStandaloneStack` übergeben. Für cloud-verbundene Deployments auf eine veröffentlichte Artifact-URL zeigen lassen. |
+| `OS_ARTIFACT_PATH` | Alternative | Framework-Name für denselben Pfad oder dieselbe URL, direkt von `@objectstack/runtime` berücksichtigt (CLI `dev`/`start`). Standard: `<cwd>/dist/objectstack.json`. |
+| `OS_PROJECT_ID` | Optional | Veralteter Alias für `OS_ENVIRONMENT_ID`, der von der ObjectOS-Konfiguration aus Gründen der Abwärtskompatibilität akzeptiert wird. Bevorzugen Sie `OS_ENVIRONMENT_ID` in neuen Deployments. |
+| `OS_ENVIRONMENT_ID` | Optional | Umgebungs-ID für den Standalone-Stack (Standard `proj_local`). Wird auch zur Ableitung des projektspezifischen Auth-Geheimnisses verwendet. Die ObjectOS-Konfiguration akzeptiert außerdem den veralteten Alias `OS_PROJECT_ID`. |
 | `OS_ORGANIZATION_ID` | Optional | Standard-Organisations-ID für den dateibasierten Modus (Standard `org_local`). |
-| `OS_WATCH_ARTIFACT` | Nein | Auf `1` setzen, um das lokale Artefakt bei Änderungen neu zu laden. Nur in der Entwicklung verwenden. |
-| `OS_CLOUD_URL` | Cloud-Modus | Basis-URL der Steuerungsebene für die Hostnamenauflösung und den Artefaktabruf. Auf `off` oder `local` setzen, um cloud-verbundenes Verhalten abzuwählen. |
-| `OS_CLOUD_API_KEY` | Optional | Bearer-Token für den Zugriff auf die private Artefakt-API der Steuerungsebene. |
+| `OS_MCP_SERVER_ENABLED` | Nein | Auf `true` setzen, um den Model-Context-Protocol-Server über Streamable HTTP unter `/api/v1/mcp` bereitzustellen (8.0+). Standardmäßig aus — der Endpunkt gibt `404` zurück, bis er aktiviert ist, und erfordert dann einen authentifizierten Principal. |
+| `OS_CLOUD_URL` | Optional | Basis-URL der Steuerungsebene für den Marketplace-Proxy und die lokale Paketinstallation. Auf `off` oder `local` setzen, um Marketplace-Funktionen zu deaktivieren. Wird in der Standalone-Distribution nicht mehr für das Hostname-Routing des Host-Stacks verwendet. |
 | `OS_MULTI_ORG_ENABLED` | Nein | Auf `true` setzen, um Multi-Mandanten-Routing / Organisationswechsel zu aktivieren (Standard `false`). Veralteter Alias: `OS_MULTI_TENANT`. |
 | `OS_RUNTIME_PORT` | Nur Dev | Localhost-Port, der zum Aufbau von Plattform-SSO-Callback-URLs bei der Entwicklung auf `http://localhost:<port>` verwendet wird. |
+
+> **Artefakt-Hot-Reload.** Der Standalone-Stack lädt das lokale Artefakt außerhalb
+> der Produktion automatisch neu (gesteuert durch `NODE_ENV`); das explizite
+> `OS_WATCH_ARTIFACT=1`-Flag aus 7.x ist nicht mehr erforderlich.
 
 ## Cache
 
