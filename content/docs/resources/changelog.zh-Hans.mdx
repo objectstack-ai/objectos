@@ -51,31 +51,40 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 ## 近期亮点
 
-### 4.0.x —— 当前发布列车
+### 8.0.x —— 当前发布列车
 
-- 已向 npm 发布 **42 个包**，命名空间为 `@objectstack/*`。
-- Console 增加了完整的 Configuration 设置页面（AI、Storage、
-  Knowledge）。
-- Embedder 服务：10 个 provider（`openai`、`azure`、阿里通义、
-  智谱、硅基流动、火山、MiniMax、Ollama、自定义）。
-- 在线设置 → 运行时桥接 —— 在 Console 中切换 provider，进程内
-  原地替换，无需重启。
+ObjectOS One 与捆绑的 server 现已基于 `@objectstack` **8.0.1**。
 
-### 5.0（即将发布）—— `project` → `environment` 重命名
+- **MCP over Streamable HTTP** —— 每个部署都可作为网络可达的
+  [Model Context Protocol](https://modelcontextprotocol.io) 服务器。
+  通过 `OS_MCP_SERVER_ENABLED=true` 开启；端点位于 `/api/v1/mcp`，采用
+  fail-closed 鉴权（匿名请求被拒绝）。插件已从
+  `@objectstack/plugin-mcp-server` 重命名为 `@objectstack/mcp`。
+- **自助 API key** —— `POST /api/v1/keys` 生成只显示一次的
+  `sys_api_key`。REST 数据与元数据 API（`/api/v1/data`、`/api/v1/meta`）
+  现在通过与 MCP 相同的校验器认证 API key，并以 key 所有者的权限与
+  记录级安全运行。
+- **字段级条件规则** —— `visibleWhen`、`readonlyWhen`、`requiredWhen`
+  由 ObjectQL 在服务端强制执行，而不仅在表单 UI 中生效。
+- **可复用的 RLS 读取过滤器** —— `security.getReadFilter(object, context)`
+  暴露记录访问的读取范围；分析数据集、仪表盘与报表均桥接到它，无法安全
+  应用范围时 fail closed。
+- **Standalone host stack** —— 运行时改为单租户的
+  `createStandaloneStack` host;7.x 那种按 hostname 路由的云连接
+  `createObjectOSStack` 封装已移除。云部署改为让 `OS_ARTIFACT_FILE`
+  指向已发布的 artifact URL。
 
-运行时中原称 *Project* 的概念将在全栈范围内重命名为 *Environment*。
+### 5.0 —— `project` → `environment` 重命名（已发布）
+
+运行时中原称 *Project* 的概念已在全栈范围内重命名为 *Environment*。
 影响范围：
 
 - CLI 参数：`--environment` / `-e`
 - HTTP 路径：`/api/v1/environments/:environmentId/...`
 - 请求头：`X-Environment-Id`
-- 环境变量：`OS_ENVIRONMENT_ID`（4.x 中保留 `OS_PROJECT_ID` 作为
-  别名，5.0 中移除）
+- 环境变量：`OS_ENVIRONMENT_ID`（`OS_PROJECT_ID` 保留为已弃用的别名）
 - 数据库列名：`environment_id`
 - JSON schema：`EnvironmentArtifact`
-
-不会保留别名或弃用 shim。请谨慎计划升级 —— 详见发布时的 5.0 迁移
-指南。
 
 ## 升级
 

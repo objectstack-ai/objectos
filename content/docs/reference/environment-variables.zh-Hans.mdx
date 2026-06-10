@@ -21,16 +21,18 @@ description: ObjectOS 运行时环境变量参考。
 
 | 变量 | 是否必需 | 说明 |
 |---|---:|---|
-| `OS_ARTIFACT_FILE` | 文件模式 | 本地已编译 `objectstack.json` 的路径。由 ObjectOS 应用 wrapper 读取并转发为 `fileConfig.artifactPath`。 |
-| `OS_ARTIFACT_PATH` | 备选 | 同一路径或 `http(s)://` URL 的框架级名称。`@objectstack/runtime` 直接识别（CLI `dev`/`start`、独立模式）。 |
-| `OS_PROJECT_ID` | 可选 | `OS_ENVIRONMENT_ID` 的旧别名,ObjectOS wrapper 为向后兼容接受。新部署中优先使用 `OS_ENVIRONMENT_ID`。 |
-| `OS_ENVIRONMENT_ID` | 可选 | 独立/文件支持模式下的环境 id（默认 `proj_local`）。也用于派生项目级 auth 密钥。ObjectOS wrapper 也接受旧别名 `OS_PROJECT_ID`。 |
+| `OS_ARTIFACT_FILE` | 文件模式 | 已编译 `objectstack.json` 的路径或 `http(s)://` URL。由 ObjectOS 配置读取,并作为 `artifactPath` 传给 `createStandaloneStack`。云连接部署可将其指向已发布的云端 artifact URL。 |
+| `OS_ARTIFACT_PATH` | 备选 | 同一路径或 URL 的框架级名称,由 `@objectstack/runtime` 直接识别（CLI `dev`/`start`）。默认 `<cwd>/dist/objectstack.json`。 |
+| `OS_PROJECT_ID` | 可选 | `OS_ENVIRONMENT_ID` 的旧别名,ObjectOS 配置为向后兼容接受。新部署中优先使用 `OS_ENVIRONMENT_ID`。 |
+| `OS_ENVIRONMENT_ID` | 可选 | standalone stack 的环境 id（默认 `proj_local`）。也用于派生项目级 auth 密钥。ObjectOS 配置也接受旧别名 `OS_PROJECT_ID`。 |
 | `OS_ORGANIZATION_ID` | 可选 | 文件支持模式下的默认组织 id（默认 `org_local`）。 |
-| `OS_WATCH_ARTIFACT` | 否 | 设为 `1` 时在本地 artifact 变更时重载。仅用于开发。 |
-| `OS_CLOUD_URL` | Cloud 模式 | 用于主机名解析和 artifact 拉取的控制平面基础 URL。设为 `off` 或 `local` 退出云端联动行为。 |
-| `OS_CLOUD_API_KEY` | 可选 | 用于私有控制平面 Artifact API 访问的 Bearer token。 |
+| `OS_MCP_SERVER_ENABLED` | 否 | 设为 `true` 以通过 Streamable HTTP 在 `/api/v1/mcp` 暴露 Model Context Protocol 服务器（8.0+）。默认关闭——开启前端点返回 `404`,开启后需要已认证的主体。 |
+| `OS_CLOUD_URL` | 可选 | marketplace 代理与本地 package 安装的控制平面基础 URL。设为 `off` 或 `local` 可禁用 marketplace 功能。在 standalone 分发中不再用于 host stack 的主机名路由。 |
 | `OS_MULTI_ORG_ENABLED` | 否 | 设为 `true` 以启用多租户路由/组织切换（默认 `false`）。旧别名:`OS_MULTI_TENANT`。 |
 | `OS_RUNTIME_PORT` | 仅开发 | 当在 `http://localhost:<port>` 开发时,用于构建平台 SSO 回调 URL 的本地端口。 |
+
+> **Artifact 热重载。** standalone stack 在非生产环境下（由 `NODE_ENV` 控制）
+> 自动重载本地 artifact;不再需要 7.x 的显式 `OS_WATCH_ARTIFACT=1` 标志。
 
 ## 缓存
 

@@ -49,25 +49,39 @@ GitHub でリリースを購読すると、通知を受け取れます。
 
 ## 最近のハイライト
 
-### 4.0.x — 現行リリーストレイン
+### 8.0.x — 現行リリーストレイン
 
-- **42 個のパッケージ** を `@objectstack/*` 配下で npm に公開。
-- Console に完全な Configuration 設定ページ(AI、Storage、Knowledge)を追加。
-- Embedder サービス: 10 のプロバイダー(`openai`、`azure`、阿里通義、智谱、硅基流动、火山、MiniMax、Ollama、custom)。
-- ライブ設定 → ランタイムのブリッジ — Console でプロバイダーを変更すると、再起動なしでプロセス内で切り替わります。
+ObjectOS One とバンドル版サーバーは `@objectstack` **8.0.1** 上で動作します。
 
-### 5.0(予定) — `project` → `environment` への名称変更
+- **MCP over Streamable HTTP** — すべてのデプロイがネットワーク到達可能な
+  [Model Context Protocol](https://modelcontextprotocol.io) サーバーとして機能できます。
+  `OS_MCP_SERVER_ENABLED=true` で有効化すると、エンドポイントは `/api/v1/mcp` で提供され、
+  fail-closed 認証(匿名リクエストは拒否)が適用されます。プラグインは
+  `@objectstack/plugin-mcp-server` から `@objectstack/mcp` に名称変更されました。
+- **セルフサービス API キー** — `POST /api/v1/keys` は一度だけ表示される
+  `sys_api_key` を発行します。REST のデータ/メタデータ API(`/api/v1/data`、
+  `/api/v1/meta`)は MCP と同じ検証器で API キーを認証し、キー所有者の権限と
+  レコードレベルセキュリティの下で実行されます。
+- **フィールド単位の条件ルール** — `visibleWhen`、`readonlyWhen`、`requiredWhen` は
+  フォーム UI だけでなく、ObjectQL によってサーバー側で強制されます。
+- **再利用可能な RLS 読み取りフィルター** — `security.getReadFilter(object, context)` が
+  レコードアクセスの読み取り範囲を公開します。分析データセット、ダッシュボード、レポートは
+  これにブリッジし、範囲を安全に適用できない場合は fail closed になります。
+- **スタンドアロン host スタック** — ランタイムはシングルテナントの
+  `createStandaloneStack` host を提供します。7.x のクラウド接続・ホスト名ルーティング型の
+  `createObjectOSStack` ラッパーは削除されました。クラウドデプロイでは
+  `OS_ARTIFACT_FILE` を公開済みの artifact URL に向けます。
 
-これまで *Project* と呼ばれていたランタイムの概念が、全体を通して *Environment* に名称変更されます。影響範囲:
+### 5.0 — `project` → `environment` への名称変更(リリース済み)
+
+これまで *Project* と呼ばれていたランタイムの概念が、全体を通して *Environment* に名称変更されました。影響範囲:
 
 - CLI フラグ: `--environment` / `-e`
 - HTTP パス: `/api/v1/environments/:environmentId/...`
 - ヘッダー: `X-Environment-Id`
-- 環境変数: `OS_ENVIRONMENT_ID`(`OS_PROJECT_ID` は 4.x ではエイリアスとして維持され、5.0 で削除)
+- 環境変数: `OS_ENVIRONMENT_ID`(`OS_PROJECT_ID` は非推奨のエイリアスとして維持)
 - DB カラム: `environment_id`
 - JSON スキーマ: `EnvironmentArtifact`
-
-エイリアスや非推奨用のシムはありません。慎重にアップグレードを計画してください。リリース時の 5.0 移行ガイドを参照してください。
 
 ## アップグレード
 

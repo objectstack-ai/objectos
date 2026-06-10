@@ -24,16 +24,19 @@ description: ObjectOS ランタイムの環境変数リファレンス。
 
 | 変数 | 必須 | 説明 |
 |---|---:|---|
-| `OS_ARTIFACT_FILE` | ファイルモード | ローカルでコンパイルされた `objectstack.json` へのパス。ObjectOS アプリラッパーによって読み取られ、`fileConfig.artifactPath` として転送されます。 |
-| `OS_ARTIFACT_PATH` | 代替 | 同じパスまたは `http(s)://` URL に対するフレームワークレベルの名前。`@objectstack/runtime` によって直接処理されます（CLI `dev`/`start`、スタンドアロンモード）。 |
-| `OS_PROJECT_ID` | 任意 | `OS_ENVIRONMENT_ID` のレガシーエイリアスで、後方互換性のために ObjectOS ラッパーが受け付けます。新しいデプロイメントでは `OS_ENVIRONMENT_ID` を優先してください。 |
-| `OS_ENVIRONMENT_ID` | 任意 | スタンドアロン／ファイルバックモード用の環境 id（デフォルト `proj_local`）。プロジェクトごとの認証シークレットの導出にも使用されます。ObjectOS ラッパーはレガシーエイリアス `OS_PROJECT_ID` も受け付けます。 |
+| `OS_ARTIFACT_FILE` | ファイルモード | コンパイル済み `objectstack.json` へのパスまたは `http(s)://` URL。ObjectOS の設定によって読み取られ、`artifactPath` として `createStandaloneStack` に渡されます。クラウド接続デプロイでは公開済みのクラウド artifact URL を指定します。 |
+| `OS_ARTIFACT_PATH` | 代替 | 同じパスまたは URL に対するフレームワークレベルの名前。`@objectstack/runtime` によって直接処理されます（CLI `dev`/`start`）。デフォルトは `<cwd>/dist/objectstack.json`。 |
+| `OS_PROJECT_ID` | 任意 | `OS_ENVIRONMENT_ID` のレガシーエイリアスで、後方互換性のために ObjectOS の設定が受け付けます。新しいデプロイメントでは `OS_ENVIRONMENT_ID` を優先してください。 |
+| `OS_ENVIRONMENT_ID` | 任意 | standalone stack の環境 id（デフォルト `proj_local`）。プロジェクトごとの認証シークレットの導出にも使用されます。ObjectOS の設定はレガシーエイリアス `OS_PROJECT_ID` も受け付けます。 |
 | `OS_ORGANIZATION_ID` | 任意 | ファイルバックモードのデフォルト組織 id（デフォルト `org_local`）。 |
-| `OS_WATCH_ARTIFACT` | いいえ | `1` に設定すると、ローカルアーティファクトが変更されたときに再読み込みします。開発時のみ使用してください。 |
-| `OS_CLOUD_URL` | クラウドモード | ホスト名解決とアーティファクト取得のためのコントロールプレーンのベース URL。クラウド接続動作をオプトアウトするには `off` または `local` に設定します。 |
-| `OS_CLOUD_API_KEY` | 任意 | プライベートコントロールプレーンの Artifact API アクセス用のベアラートークン。 |
+| `OS_MCP_SERVER_ENABLED` | いいえ | `true` に設定すると、Model Context Protocol サーバーを Streamable HTTP 経由で `/api/v1/mcp` に公開します（8.0+）。デフォルトはオフ——有効化するまでエンドポイントは `404` を返し、有効化後は認証済みプリンシパルが必要です。 |
+| `OS_CLOUD_URL` | 任意 | marketplace プロキシとローカルパッケージインストールのためのコントロールプレーンのベース URL。`off` または `local` に設定すると marketplace 機能を無効化できます。standalone ディストリビューションでは host stack のホスト名ルーティングには使用されなくなりました。 |
 | `OS_MULTI_ORG_ENABLED` | いいえ | マルチテナントルーティング／組織切り替えを有効にするには `true` に設定します（デフォルト `false`）。レガシーエイリアス: `OS_MULTI_TENANT`。 |
 | `OS_RUNTIME_PORT` | 開発のみ | `http://localhost:<port>` で開発する際にプラットフォーム SSO のコールバック URL を構築するために使用するローカルホストポート。 |
+
+> **Artifact のホットリロード。** standalone stack は本番以外（`NODE_ENV` で制御）で
+> ローカル artifact を自動的に再読み込みします。7.x の明示的な
+> `OS_WATCH_ARTIFACT=1` フラグは不要になりました。
 
 ## キャッシュ
 

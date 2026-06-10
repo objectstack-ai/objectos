@@ -24,16 +24,19 @@ Use system settings for tenant/user-editable application configuration.
 
 | Variable | Required | Description |
 |---|---:|---|
-| `OS_ARTIFACT_FILE` | File mode | Path to a local compiled `objectstack.json`. Read by the ObjectOS app wrapper and forwarded as `fileConfig.artifactPath`. |
-| `OS_ARTIFACT_PATH` | Alternative | Framework-level name for the same path or `http(s)://` URL. Honoured by `@objectstack/runtime` directly (CLI `dev`/`start`, standalone mode). |
-| `OS_PROJECT_ID` | Optional | Legacy alias for `OS_ENVIRONMENT_ID`, accepted by the ObjectOS wrapper for backward compatibility. Prefer `OS_ENVIRONMENT_ID` in new deployments. |
-| `OS_ENVIRONMENT_ID` | Optional | Environment id for standalone/file-backed mode (default `proj_local`). Also used to derive the per-project auth secret. The ObjectOS wrapper also accepts the legacy alias `OS_PROJECT_ID`. |
+| `OS_ARTIFACT_FILE` | File mode | Path or `http(s)://` URL to a compiled `objectstack.json`. Read by the ObjectOS config and passed as `artifactPath` to `createStandaloneStack`. Point this at a published cloud artifact URL for cloud-connected deployments. |
+| `OS_ARTIFACT_PATH` | Alternative | Framework-level name for the same path or URL, honoured by `@objectstack/runtime` directly (CLI `dev`/`start`). Defaults to `<cwd>/dist/objectstack.json`. |
+| `OS_PROJECT_ID` | Optional | Legacy alias for `OS_ENVIRONMENT_ID`, accepted by the ObjectOS config for backward compatibility. Prefer `OS_ENVIRONMENT_ID` in new deployments. |
+| `OS_ENVIRONMENT_ID` | Optional | Environment id for the standalone stack (default `proj_local`). Also used to derive the per-project auth secret. The ObjectOS config also accepts the legacy alias `OS_PROJECT_ID`. |
 | `OS_ORGANIZATION_ID` | Optional | Default organization id for file-backed mode (default `org_local`). |
-| `OS_WATCH_ARTIFACT` | No | Set to `1` to reload the local artifact when it changes. Use only in development. |
-| `OS_CLOUD_URL` | Cloud mode | Control-plane base URL for hostname resolution and artifact fetch. Set to `off` or `local` to opt out of cloud-connected behaviour. |
-| `OS_CLOUD_API_KEY` | Optional | Bearer token for private control-plane Artifact API access. |
+| `OS_MCP_SERVER_ENABLED` | No | Set to `true` to expose the Model Context Protocol server over Streamable HTTP at `/api/v1/mcp` (8.0+). Off by default — the endpoint returns `404` until enabled, and requires an authenticated principal once on. |
+| `OS_CLOUD_URL` | Optional | Control-plane base URL for the marketplace proxy and local package install. Set to `off` or `local` to disable marketplace features. No longer used for host-stack hostname routing in the standalone distribution. |
 | `OS_MULTI_ORG_ENABLED` | No | Set to `true` to enable multi-tenant routing / organization switching (default `false`). Legacy alias: `OS_MULTI_TENANT`. |
 | `OS_RUNTIME_PORT` | Dev only | Localhost port used to build platform-SSO callback URLs when developing on `http://localhost:<port>`. |
+
+> **Artifact hot-reload.** The standalone stack reloads the local artifact
+> automatically outside production (gated by `NODE_ENV`); the explicit
+> `OS_WATCH_ARTIFACT=1` flag from 7.x is no longer required.
 
 ## Cache
 

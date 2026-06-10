@@ -25,6 +25,8 @@ Wichtige Schnittstellen:
 | `/api/v1/actions/<object>/<action>` | Eine deklarative Aktion aufrufen (POST) |
 | `/api/v1/auth/*` | Authentifizierung (Anmeldung, Sitzungen, OAuth, OIDC) |
 | `/api/v1/meta/*` | Metadaten-APIs (Objekte, Felder, Ansichten), sofern aktiviert |
+| `/api/v1/keys` | Erzeugt einen nur einmal angezeigten `sys_api_key` für den aufrufenden Benutzer (POST) |
+| `/api/v1/mcp` | Model-Context-Protocol-Server über Streamable HTTP, wenn `OS_MCP_SERVER_ENABLED=true` |
 | `/api/v1/health` | Liveness-/Readiness-Probe (keine Authentifizierung) |
 
 Das Präfix lautet standardmäßig `/api/v1` (der API-`basePath` von `/api` plus
@@ -51,20 +53,32 @@ selbst wird gehasht gespeichert — nur das `prefix` und Metadaten bleiben
 abfragbar, sodass ein durchgesickerter Schlüssel nicht aus der Datenbank
 rekonstruiert werden kann.
 
-So stellen Sie einen Schlüssel aus:
+Es gibt zwei Wege, einen Schlüssel auszustellen:
 
-1. Melden Sie sich als Administrator bei **Console → API Keys** an.
-2. Wählen Sie den besitzenden Benutzer (der API-Aufruf erbt die
-   Berechtigungen und den Datensatzzugriff dieses Benutzers).
-3. Legen Sie optional ein Ablaufdatum fest.
-4. Kopieren Sie das angezeigte Geheimnis **einmalig** — es wird nicht erneut
-   angezeigt.
+- **Console** — melden Sie sich als Administrator bei **Console → API Keys**
+  an, wählen Sie den besitzenden Benutzer, legen Sie optional ein Ablaufdatum
+  fest und kopieren Sie das angezeigte Geheimnis **einmalig**.
+- **Self-Service-Endpunkt** — `POST /api/v1/keys` erzeugt einen Schlüssel für
+  den authentifizierten Aufrufer und gibt das rohe Geheimnis genau einmal
+  zurück. Der Schlüssel ist an den eigenen Benutzer des Aufrufers gebunden und
+  kann daher nicht zur Identitätsübernahme verwendet werden:
 
-Verwenden Sie den Schlüssel als Bearer-Token:
+  ```bash
+  curl -X POST https://app.example.com/api/v1/keys \
+    -H "Authorization: Bearer <session-or-access-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "etl-pipeline"}'
+  # → { "id": "...", "name": "etl-pipeline", "prefix": "os_pk_…", "key": "os_pk_live_…" }
+  ```
+
+Übergeben Sie den Schlüssel bei nachfolgenden Anfragen als Bearer-Token, als
+`x-api-key`-Header oder als `Authorization: ApiKey`. Die REST-Daten- und
+Metadaten-APIs authentifizieren ihn über denselben Verifier wie MCP, unter den
+Berechtigungen und der Datensatz-Sicherheit des Schlüsselinhabers:
 
 ```bash
 curl https://app.example.com/api/v1/data/account \
-  -H "Authorization: Bearer os_pk_live_…"
+  -H "x-api-key: os_pk_live_…"
 ```
 
 Um einen Schlüssel zu widerrufen, führen Sie die Aktion `revoke_api_key` für

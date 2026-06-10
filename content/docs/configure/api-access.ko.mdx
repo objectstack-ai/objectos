@@ -24,6 +24,8 @@ https://<project-domain>/api/v1
 | `/api/v1/actions/<object>/<action>` | 선언적 액션 호출 (POST) |
 | `/api/v1/auth/*` | 인증 (로그인, 세션, OAuth, OIDC) |
 | `/api/v1/meta/*` | 활성화된 경우 메타데이터 API (오브젝트, 필드, 뷰) |
+| `/api/v1/keys` | 호출 사용자를 위해 한 번만 표시되는 `sys_api_key` 발급 (POST) |
+| `/api/v1/mcp` | `OS_MCP_SERVER_ENABLED=true`일 때 Streamable HTTP를 통한 Model Context Protocol 서버 |
 | `/api/v1/health` | 활성/준비 상태 프로브 (인증 없음) |
 
 접두사는 기본적으로 `/api/v1`(API `basePath`인 `/api`에 `version`인 `v1`을
@@ -48,19 +50,30 @@ API 키는 일급 `sys_api_key` 레코드입니다. 키 값 자체는 해시되�
 저장되며 `prefix`와 메타데이터만 쿼리할 수 있으므로, 유출된 키를
 데이터베이스에서 재구성할 수 없습니다.
 
-키를 발급하려면:
+키는 두 가지 방법으로 발급할 수 있습니다:
 
-1. 관리자 권한으로 **Console → API Keys**에 로그인합니다.
-2. 소유 사용자를 선택합니다(API 호출은 해당 사용자의 권한 및 레코드
-   액세스를 상속합니다).
-3. 선택적으로 만료일을 설정합니다.
-4. 표시된 비밀 키를 **한 번** 복사합니다 — 다시 표시되지 않습니다.
+- **Console** — 관리자 권한으로 **Console → API Keys**에 로그인하고, 소유
+  사용자를 선택하고, 선택적으로 만료일을 설정한 다음, 표시된 비밀 키를 **한 번**
+  복사합니다.
+- **셀프 서비스 엔드포인트** — `POST /api/v1/keys`는 인증된 호출자를 위해 키를
+  발급하고 원본 비밀 키를 정확히 한 번 반환합니다. 키는 호출자 본인의 사용자에
+  고정되므로 다른 ID를 사칭하는 데 사용할 수 없습니다:
 
-키를 bearer 토큰으로 사용합니다:
+  ```bash
+  curl -X POST https://app.example.com/api/v1/keys \
+    -H "Authorization: Bearer <session-or-access-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "etl-pipeline"}'
+  # → { "id": "...", "name": "etl-pipeline", "prefix": "os_pk_…", "key": "os_pk_live_…" }
+  ```
+
+이후 요청에서는 키를 bearer 토큰, `x-api-key` 헤더 또는 `Authorization: ApiKey`로
+전달합니다. REST 데이터 및 메타데이터 API는 모두 MCP와 동일한 검증기로 이를
+인증하며, 키 소유자의 권한과 레코드 수준 보안 아래에서 실행됩니다:
 
 ```bash
 curl https://app.example.com/api/v1/data/account \
-  -H "Authorization: Bearer os_pk_live_…"
+  -H "x-api-key: os_pk_live_…"
 ```
 
 키를 취소하려면 해당 `sys_api_key` 레코드에서 `revoke_api_key` 액션을

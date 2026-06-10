@@ -22,6 +22,8 @@ https://<project-domain>/api/v1
 | `/api/v1/actions/<object>/<action>` | 调用声明式 action（POST） |
 | `/api/v1/auth/*` | 身份验证（登录、会话、OAuth、OIDC） |
 | `/api/v1/meta/*` | 元数据 API（对象、字段、视图），在启用时可用 |
+| `/api/v1/keys` | 为当前调用用户生成只显示一次的 `sys_api_key`（POST） |
+| `/api/v1/mcp` | 当 `OS_MCP_SERVER_ENABLED=true` 时，通过 Streamable HTTP 提供的 Model Context Protocol 服务器 |
 | `/api/v1/health` | 存活/就绪探针（无需身份验证） |
 
 前缀默认为 `/api/v1`（即 API 的 `basePath` `/api` 加上 `version` `v1`），并且可在 ObjectOS stack 上配置。
@@ -42,18 +44,28 @@ https://<project-domain>/api/v1
 
 API 密钥是一等公民 `sys_api_key` 记录。密钥值本身以哈希形式存储——只有 `prefix` 和元数据保持可查询，因此即便密钥泄露也无法从数据库中还原。
 
-签发一个密钥：
+签发密钥有两种方式：
 
-1. 以管理员身份登录 **Console → API Keys**。
-2. 选择所属用户（API 调用会继承该用户的权限和记录访问）。
-3. 可选地设置过期日期。
-4. **仅这一次**复制显示出的密钥——之后不会再显示。
+- **Console**——以管理员身份登录 **Console → API Keys**，选择所属用户，
+  可选地设置过期日期，并**仅这一次**复制显示出的密钥。
+- **自助端点**——`POST /api/v1/keys` 为已认证的调用方生成密钥，并只返回一次
+  原始密钥。该密钥绑定到调用方自身的用户，因此无法用于冒充其他身份：
 
-将密钥作为 bearer 令牌使用：
+  ```bash
+  curl -X POST https://app.example.com/api/v1/keys \
+    -H "Authorization: Bearer <session-or-access-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "etl-pipeline"}'
+  # → { "id": "...", "name": "etl-pipeline", "prefix": "os_pk_…", "key": "os_pk_live_…" }
+  ```
+
+在后续请求中，可将密钥作为 bearer 令牌、`x-api-key` 请求头或
+`Authorization: ApiKey` 传递。REST 数据与元数据 API 都通过与 MCP 相同的校验器
+对其认证，并以密钥所有者的权限与记录级安全运行：
 
 ```bash
 curl https://app.example.com/api/v1/data/account \
-  -H "Authorization: Bearer os_pk_live_…"
+  -H "x-api-key: os_pk_live_…"
 ```
 
 要撤销某个密钥，请在对应的 `sys_api_key` 记录上运行 `revoke_api_key` action（Console UI 中也提供）。撤销会在下一次请求时立即生效。

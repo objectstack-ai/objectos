@@ -6,34 +6,38 @@
  * `@objectstack/*` packages on npm; this repository deliberately
  * contains no protocol code of its own.
  *
- * Boot mode is governed by environment variables:
+ * As of @objectstack 8.0 the runtime ships a single-tenant *standalone*
+ * stack (`createStandaloneStack`); the 7.x cloud-connected, hostname-routed
+ * multi-tenant wrapper (`createObjectOSStack`) has been removed from the
+ * public runtime API. A cloud deployment now points `OS_ARTIFACT_FILE` at a
+ * published artifact URL — `artifactPath` accepts `http(s)://` sources and
+ * is fetched lazily by the loader.
  *
- *   OS_CLOUD_URL        — Artifact API base URL (cloud-connected mode)
- *   OS_ENVIRONMENT_ID   — Environment/project to serve (legacy: OS_PROJECT_ID)
- *   OS_ARTIFACT_FILE    — Path to a local dist/objectstack.json (offline mode)
- *   OS_BUSINESS_DB_URL  — Per-project business database
- *   OS_CACHE_DIR        — Local artifact cache (default: /var/cache/objectos)
+ * Boot is governed by environment variables (all optional — sensible
+ * defaults are applied by `createStandaloneStack`):
  *
- * If OS_CLOUD_URL is absent, ObjectOS defaults to local file-backed mode.
- * Enterprise plugins live in ../../packages/* and can be appended to the
- * default plugin manifest below.
+ *   OS_ARTIFACT_FILE    — Path or URL to a compiled `dist/objectstack.json`
+ *                         (default: <cwd>/dist/objectstack.json)
+ *   OS_ENVIRONMENT_ID   — Environment/project to serve (legacy: OS_PROJECT_ID;
+ *                         default: proj_local)
+ *   OS_BUSINESS_DB_URL  — Per-project business database (legacy: OS_DATABASE_URL;
+ *                         default: file-backed sqlite under the ObjectStack home)
+ *
+ * Artifact hot-reload follows `NODE_ENV` (on outside production). Enterprise
+ * plugins live in ../../packages/* and can be appended to the returned
+ * plugin manifest below.
  */
 
-import { createObjectOSStack } from '@objectstack/runtime';
+import { createStandaloneStack } from '@objectstack/runtime';
 
-const cloudUrl = process.env.OS_CLOUD_URL;
 const artifactFile = process.env.OS_ARTIFACT_FILE;
 const environmentId =
   process.env.OS_ENVIRONMENT_ID ?? process.env.OS_PROJECT_ID;
+const databaseUrl =
+  process.env.OS_BUSINESS_DB_URL ?? process.env.OS_DATABASE_URL;
 
-export default await createObjectOSStack({
-  controlPlaneUrl: cloudUrl ?? 'file',
-  controlPlaneApiKey: process.env.OS_CLOUD_API_KEY,
-  fileConfig: artifactFile
-    ? {
-        artifactPath: artifactFile,
-        environmentId,
-        watch: process.env.OS_WATCH_ARTIFACT === '1',
-      }
-    : undefined,
+export default await createStandaloneStack({
+  artifactPath: artifactFile,
+  environmentId,
+  databaseUrl,
 });

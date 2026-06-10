@@ -24,16 +24,19 @@ description: ObjectOS 런타임 환경 변수 참조.
 
 | 변수 | 필수 | 설명 |
 |---|---:|---|
-| `OS_ARTIFACT_FILE` | 파일 모드 | 로컬에서 컴파일된 `objectstack.json`의 경로. ObjectOS 앱 래퍼가 읽어 `fileConfig.artifactPath`로 전달합니다. |
-| `OS_ARTIFACT_PATH` | 대안 | 동일한 경로 또는 `http(s)://` URL에 대한 프레임워크 수준의 이름. `@objectstack/runtime`이 직접 처리합니다(CLI `dev`/`start`, 독립 실행형 모드). |
-| `OS_PROJECT_ID` | 선택 | `OS_ENVIRONMENT_ID`의 레거시 별칭으로, 하위 호환성을 위해 ObjectOS 래퍼에서 허용됩니다. 새 배포에서는 `OS_ENVIRONMENT_ID`를 사용하는 것이 좋습니다. |
-| `OS_ENVIRONMENT_ID` | 선택 | 독립 실행형/파일 기반 모드의 환경 id(기본값 `proj_local`). 프로젝트별 인증 시크릿을 파생하는 데에도 사용됩니다. ObjectOS 래퍼는 레거시 별칭 `OS_PROJECT_ID`도 허용합니다. |
+| `OS_ARTIFACT_FILE` | 파일 모드 | 컴파일된 `objectstack.json`의 경로 또는 `http(s)://` URL. ObjectOS 구성이 읽어 `artifactPath`로 `createStandaloneStack`에 전달합니다. 클라우드 연결 배포에서는 게시된 클라우드 artifact URL을 가리키게 하세요. |
+| `OS_ARTIFACT_PATH` | 대안 | 동일한 경로 또는 URL에 대한 프레임워크 수준의 이름으로, `@objectstack/runtime`이 직접 처리합니다(CLI `dev`/`start`). 기본값 `<cwd>/dist/objectstack.json`. |
+| `OS_PROJECT_ID` | 선택 | `OS_ENVIRONMENT_ID`의 레거시 별칭으로, 하위 호환성을 위해 ObjectOS 구성에서 허용됩니다. 새 배포에서는 `OS_ENVIRONMENT_ID`를 사용하는 것이 좋습니다. |
+| `OS_ENVIRONMENT_ID` | 선택 | standalone stack의 환경 id(기본값 `proj_local`). 프로젝트별 인증 시크릿을 파생하는 데에도 사용됩니다. ObjectOS 구성은 레거시 별칭 `OS_PROJECT_ID`도 허용합니다. |
 | `OS_ORGANIZATION_ID` | 선택 | 파일 기반 모드의 기본 조직 id(기본값 `org_local`). |
-| `OS_WATCH_ARTIFACT` | 아니오 | 로컬 아티팩트가 변경될 때 다시 로드하려면 `1`로 설정합니다. 개발 환경에서만 사용하세요. |
-| `OS_CLOUD_URL` | 클라우드 모드 | 호스트명 확인 및 아티팩트 가져오기를 위한 컨트롤 플레인 기본 URL. 클라우드 연결 동작을 사용하지 않으려면 `off` 또는 `local`로 설정합니다. |
-| `OS_CLOUD_API_KEY` | 선택 | 비공개 컨트롤 플레인 Artifact API 접근을 위한 Bearer 토큰. |
+| `OS_MCP_SERVER_ENABLED` | 아니오 | `true`로 설정하면 Model Context Protocol 서버를 Streamable HTTP로 `/api/v1/mcp`에 노출합니다(8.0+). 기본값은 꺼짐 — 활성화하기 전에는 엔드포인트가 `404`를 반환하며, 활성화 후에는 인증된 주체가 필요합니다. |
+| `OS_CLOUD_URL` | 선택 | marketplace 프록시 및 로컬 패키지 설치를 위한 컨트롤 플레인 기본 URL. `off` 또는 `local`로 설정하면 marketplace 기능을 비활성화합니다. standalone 배포판에서는 더 이상 host stack의 호스트명 라우팅에 사용되지 않습니다. |
 | `OS_MULTI_ORG_ENABLED` | 아니오 | 멀티 테넌트 라우팅/조직 전환을 활성화하려면 `true`로 설정합니다(기본값 `false`). 레거시 별칭: `OS_MULTI_TENANT`. |
 | `OS_RUNTIME_PORT` | 개발 전용 | `http://localhost:<port>`에서 개발할 때 플랫폼 SSO 콜백 URL을 구성하는 데 사용되는 localhost 포트. |
+
+> **Artifact 핫 리로드.** standalone stack은 프로덕션이 아닌 환경에서(`NODE_ENV`로 제어)
+> 로컬 artifact를 자동으로 다시 로드합니다. 7.x의 명시적 `OS_WATCH_ARTIFACT=1`
+> 플래그는 더 이상 필요하지 않습니다.
 
 ## 캐시
 

@@ -51,30 +51,40 @@ Subscribe to releases on GitHub to get notified.
 
 ## Recent highlights
 
-### 4.0.x — current release train
+### 8.0.x — current release train
 
-- **42 packages** published to npm under `@objectstack/*`.
-- Console gained complete Configuration settings pages (AI, Storage,
-  Knowledge).
-- Embedder service: 10 providers (`openai`, `azure`, 阿里通义,
-  智谱, 硅基流动, 火山, MiniMax, Ollama, custom).
-- Live settings → runtime bridge — change provider in Console, in-process
-  swap without restart.
+ObjectOS One and the bundled server now ship on `@objectstack` **8.0.1**.
 
-### 5.0 (upcoming) — `project` → `environment` rename
+- **MCP over Streamable HTTP** — every deployment can act as a
+  network-reachable [Model Context Protocol](https://modelcontextprotocol.io)
+  server. Opt in with `OS_MCP_SERVER_ENABLED=true`; the endpoint is served at
+  `/api/v1/mcp` with fail-closed auth (anonymous requests are rejected). The
+  plugin was renamed `@objectstack/plugin-mcp-server` → `@objectstack/mcp`.
+- **Self-serve API keys** — `POST /api/v1/keys` mints a show-once
+  `sys_api_key`. The REST data and metadata APIs (`/api/v1/data`,
+  `/api/v1/meta`) now authenticate API keys through the same verifier as MCP,
+  running under the key owner's permissions and record-level security.
+- **Field-level conditional rules** — `visibleWhen`, `readonlyWhen`, and
+  `requiredWhen` are enforced server-side by ObjectQL, not just in the form UI.
+- **Reusable RLS read filter** — `security.getReadFilter(object, context)`
+  exposes the record-access read scope; analytics datasets, dashboards, and
+  reports bridge to it and fail closed when the scope cannot be applied.
+- **Standalone host stack** — the runtime ships a single-tenant
+  `createStandaloneStack` host; the 7.x cloud-connected, hostname-routed
+  `createObjectOSStack` wrapper was removed. A cloud deployment now points
+  `OS_ARTIFACT_FILE` at a published artifact URL.
 
-The runtime concept formerly called *Project* is renamed to *Environment*
-throughout. Affects:
+### 5.0 — `project` → `environment` rename (shipped)
+
+The runtime concept formerly called *Project* was renamed to *Environment*
+throughout. Affected:
 
 - CLI flags: `--environment` / `-e`
 - HTTP paths: `/api/v1/environments/:environmentId/...`
 - Headers: `X-Environment-Id`
-- Env vars: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` kept as alias on 4.x, removed in 5.0)
+- Env vars: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` kept as a deprecated alias)
 - DB columns: `environment_id`
 - JSON schemas: `EnvironmentArtifact`
-
-No aliases or deprecation shims. Plan to upgrade carefully — see the
-5.0 migration guide on release.
 
 ## Upgrading
 

@@ -24,6 +24,8 @@ https://<project-domain>/api/v1
 | `/api/v1/actions/<object>/<action>` | 宣言的アクションの呼び出し（POST） |
 | `/api/v1/auth/*` | 認証（サインイン、セッション、OAuth、OIDC） |
 | `/api/v1/meta/*` | 有効化されている場合のメタデータ API（オブジェクト、フィールド、ビュー） |
+| `/api/v1/keys` | 呼び出しユーザー向けに一度だけ表示される `sys_api_key` を発行（POST） |
+| `/api/v1/mcp` | `OS_MCP_SERVER_ENABLED=true` のとき、Streamable HTTP 経由の Model Context Protocol サーバー |
 | `/api/v1/health` | 死活／準備状態のプローブ（認証不要） |
 
 プレフィックスのデフォルトは `/api/v1`（API の `basePath` である `/api` と
@@ -48,19 +50,32 @@ API キーはファーストクラスの `sys_api_key` レコードです。キ�
 ハッシュ化して保存され、クエリ可能なのは `prefix` とメタデータのみです。
 そのため、漏洩したキーをデータベースから復元することはできません。
 
-キーを発行するには:
+キーは次の 2 つの方法で発行できます:
 
-1. 管理者として **Console → API Keys** にサインインします。
-2. 所有ユーザーを選択します（API 呼び出しはそのユーザーの権限と
-   レコードアクセスを継承します）。
-3. 必要に応じて有効期限を設定します。
-4. 表示されたシークレットを**一度だけ**コピーします。再表示はされません。
+- **Console** — 管理者として **Console → API Keys** にサインインし、所有
+  ユーザーを選択し、必要に応じて有効期限を設定して、表示されたシークレットを
+  **一度だけ**コピーします。
+- **セルフサービスエンドポイント** — `POST /api/v1/keys` は認証済みの呼び出し元
+  に対してキーを発行し、生のシークレットをちょうど一度だけ返します。キーは
+  呼び出し元自身のユーザーに固定されるため、別の ID へのなりすましには使用
+  できません:
 
-キーは bearer トークンとして使用します:
+  ```bash
+  curl -X POST https://app.example.com/api/v1/keys \
+    -H "Authorization: Bearer <session-or-access-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "etl-pipeline"}'
+  # → { "id": "...", "name": "etl-pipeline", "prefix": "os_pk_…", "key": "os_pk_live_…" }
+  ```
+
+以降のリクエストでは、キーを bearer トークン、`x-api-key` ヘッダー、または
+`Authorization: ApiKey` として渡します。REST のデータ／メタデータ API はいずれも
+MCP と同じ検証器で認証し、キー所有者の権限とレコードレベルセキュリティの下で
+実行されます:
 
 ```bash
 curl https://app.example.com/api/v1/data/account \
-  -H "Authorization: Bearer os_pk_live_…"
+  -H "x-api-key: os_pk_live_…"
 ```
 
 キーを失効させるには、対応する `sys_api_key` レコードに対して
