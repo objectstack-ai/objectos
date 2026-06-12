@@ -11,10 +11,38 @@ fastest way to put real software in front of users on day one.
 
 ## How it works
 
-Every ObjectOS runtime ships with the `MarketplaceProxy` and
-`MarketplaceInstallLocal` plugins enabled by default. When you open
-Console (`/_console/`), the marketplace tab queries the configured app
-catalog and shows installable apps.
+The marketplace client is the open-source `@objectstack/cloud-connection`
+package. Cloud-managed environments and the self-hosted ObjectOS image
+ship it wired up out of the box; a stack you assemble yourself enables
+it with a few lines of config:
+
+```ts
+import {
+  MarketplaceProxyPlugin,
+  MarketplaceInstallLocalPlugin,
+  RuntimeConfigPlugin,
+  resolveCloudUrl,
+} from '@objectstack/cloud-connection';
+
+const catalogUrl = resolveCloudUrl(); // OS_CLOUD_URL; 'off' disables
+
+plugins: [
+  ...(catalogUrl ? [
+    new MarketplaceProxyPlugin({ controlPlaneUrl: catalogUrl }),
+    new MarketplaceInstallLocalPlugin({ controlPlaneUrl: catalogUrl }),
+  ] : []),
+  new RuntimeConfigPlugin({ controlPlaneUrl: '', singleEnvironment: true, installLocal: true }),
+]
+```
+
+The browse/install *mechanism* is open; the catalog *service* (org
+catalogs, review, paid distribution) is provided by whichever control
+plane `OS_CLOUD_URL` points at. Once an app is installed it lives in
+your runtime's own kernel — nothing at runtime depends on the catalog
+staying reachable.
+
+When you open Console (`/_console/`), the marketplace tab queries the
+configured app catalog and shows installable apps.
 
 ```text
 You ─→ Console ─→ Marketplace tab ─→ pick app ─→ Install
@@ -100,6 +128,24 @@ Every published app is immutable. Updates produce a new version. The
 runtime tracks installed version + available updates per app. Users see
 an "Update available" badge in Console when a new version is published
 to a catalog they're tracking.
+
+## Installing from the CLI
+
+Console is the primary install surface, but the same install-local
+endpoint is scriptable for CI and air-gapped operations:
+
+```bash
+# Catalog mode — the runtime resolves the package from its configured catalog
+os package install com.acme.crm --runtime http://localhost:3000 \
+  --email admin@example.com --password …
+
+# Air-gapped mode — send a compiled artifact inline, no catalog round-trip
+os package install ./dist/objectstack.json --runtime http://localhost:3000 \
+  --email admin@example.com --password …
+```
+
+The credentials are an account on the **target runtime** (not your
+cloud login) — the same authorization Console install uses.
 
 ## Permissions
 

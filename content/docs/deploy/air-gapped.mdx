@@ -56,6 +56,20 @@ If the customer uses OIDC/SSO, the identity provider must be reachable
 from the air-gapped network. If not, use local email/password auth or an
 identity provider hosted inside the same network.
 
+## Installing additional packages
+
+A running air-gapped instance can take additional packages without any
+catalog connectivity — hand the compiled artifact to the install CLI
+and it is sent inline and merged into the live kernel (no restart):
+
+```bash
+os package install ./dist/objectstack.json --runtime https://os.internal.example \
+  --email admin@example.com --password …
+```
+
+The manifest is cached on the runtime host under
+`.objectstack/installed-packages/` and re-registers on every boot.
+
 ## Upgrade process
 
 Treat artifacts as immutable:
