@@ -120,8 +120,13 @@ environment login. You never need to know an environment id to install.
 | Path | How |
 |---|---|
 | Console (recommended) | Sign in to the environment → **Marketplace** → pick the package → **Install**. Installs into the current environment. |
-| REST | `POST /api/v1/marketplace/install-local` (body: `{ packageId, versionId? }`) |
-| Air-gapped | Mount the compiled `dist/objectstack.json` artifact (see [Air-gapped](/docs/deploy/air-gapped)) |
+| CLI → running runtime | `os package install com.acme.crm --runtime <url>` — the runtime resolves the package from its configured catalog and merges it into its own kernel |
+| CLI air-gapped | `os package install ./dist/objectstack.json --runtime <url>` — compiled artifact sent inline, no catalog round-trip |
+| REST | `POST /api/v1/marketplace/install-local` (body: `{ packageId, versionId? }` or `{ manifest }`) |
+| Air-gapped (boot-time) | Mount the compiled `dist/objectstack.json` artifact (see [Air-gapped](/docs/deploy/air-gapped)) |
+
+Package ids in install commands are the stable manifest id
+(`com.acme.crm`) — you never need the internal `pkg_…` row id.
 
 > **CI shortcut.** Pipelines that deploy to a *known* environment can publish
 > and install in one step: `os package publish --env <id> --install
