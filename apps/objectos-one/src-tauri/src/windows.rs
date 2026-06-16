@@ -19,15 +19,23 @@ use crate::{logger::log_line, sidecar};
 /// otherwise discard the splash page's listeners).
 const UPDATE_BANNER_JS: &str = include_str!("../assets/update-banner.js");
 
+/// Mirrors the Console's in-app inbox to native OS notifications when the
+/// window is backgrounded (and keeps the dock badge in sync). Injected into
+/// every page; it no-ops outside the Console and outside Tauri.
+const NOTIFICATION_BRIDGE_JS: &str = include_str!("../assets/notification-bridge.js");
+
 pub fn build_main(app: &AppHandle) -> tauri::Result<()> {
     let app_handle = app.clone();
+    // Combine the injected bootstrap scripts into one so both reliably run on
+    // every page the webview loads.
+    let bootstrap = format!("{UPDATE_BANNER_JS}\n{NOTIFICATION_BRIDGE_JS}");
     let _win = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("ObjectOS")
         .inner_size(1280.0, 820.0)
         .min_inner_size(960.0, 600.0)
         .resizable(true)
         .center()
-        .initialization_script(UPDATE_BANNER_JS)
+        .initialization_script(bootstrap.as_str())
         .on_navigation(move |url| {
             if is_external_link(url) {
                 use tauri_plugin_opener::OpenerExt;
