@@ -5,7 +5,7 @@ description: Jeder Feldtyp, den du auf einem Objekt deklarieren kannst — was e
 
 # Feldtypen
 
-53 integrierte Feldtypen, gruppiert nach Familie. Das vollständige Zod-Schema befindet sich in
+48 integrierte Feldtypen, gruppiert nach Familie. Das vollständige Zod-Schema befindet sich in
 [`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — diese Seite ist eine praktische Zusammenfassung.
 
 ## Kerneigenschaften (jedes Feld)
@@ -166,8 +166,7 @@ fileAttachmentConfig: {
 | `rating` | 1–N Sterne — `max`, `icon` |
 | `slider` | begrenzte Zahl mit Schieberegler-UI |
 | `signature` | gezeichnete Unterschrift, als Bild gespeichert |
-| `qrcode` | rendert den Wert als QR-Code — `qrErrorCorrection: 'L' \| 'M' \| 'Q' \| 'H'` |
-| `barcode` | EAN/UPC/Code128 — `barcodeFormat` |
+| `qrcode` | rendert den Wert als QR-Code oder Barcode (EAN / UPC / Code128) |
 | `progress` | abgeleiteter Prozentwert als Balken dargestellt |
 | `tags` | frei wählbares Tag-Array mit Autovervollständigung |
 | `vector` | Embedding-Spalte — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |

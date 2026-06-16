@@ -5,7 +5,7 @@ description: Chaque type de champ que vous pouvez déclarer sur un objet — ce 
 
 # Types de champ
 
-53 types de champ intégrés, regroupés par famille. Le schéma Zod complet se trouve dans
+48 types de champ intégrés, regroupés par famille. Le schéma Zod complet se trouve dans
 [`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — cette page en est un résumé pratique.
 
 ## Propriétés fondamentales (chaque champ)
@@ -166,8 +166,7 @@ fileAttachmentConfig: {
 | `rating` | 1–N étoiles — `max`, `icon` |
 | `slider` | nombre borné avec interface à curseur |
 | `signature` | signature dessinée, stockée sous forme d'image |
-| `qrcode` | affiche la valeur sous forme de QR — `qrErrorCorrection: 'L' \| 'M' \| 'Q' \| 'H'` |
-| `barcode` | EAN/UPC/Code128 — `barcodeFormat` |
+| `qrcode` | affiche la valeur sous forme de QR ou code-barres (EAN / UPC / Code128) |
 | `progress` | pourcentage dérivé affiché sous forme de barre |
 | `tags` | tableau de tags libres avec autocomplétion |
 | `vector` | colonne d'embedding — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |

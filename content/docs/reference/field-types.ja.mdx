@@ -5,7 +5,7 @@ description: オブジェクトに宣言できるすべてのフィールドタ�
 
 # フィールドタイプ
 
-53 個の組み込みフィールドタイプを、ファミリーごとに分類しています。完全な Zod スキーマは
+48 個の組み込みフィールドタイプを、ファミリーごとに分類しています。完全な Zod スキーマは
 [`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) にあります — このページは実用的なサマリーです。
 
 ## コアプロパティ（すべてのフィールド）
@@ -166,8 +166,7 @@ fileAttachmentConfig: {
 | `rating` | 1〜N 個の星 — `max`, `icon` |
 | `slider` | スライダー UI を持つ範囲付き数値 |
 | `signature` | 手書き署名。画像として格納 |
-| `qrcode` | 値を QR としてレンダリング — `qrErrorCorrection: 'L' \| 'M' \| 'Q' \| 'H'` |
-| `barcode` | EAN/UPC/Code128 — `barcodeFormat` |
+| `qrcode` | 値を QR またはバーコード（EAN / UPC / Code128）としてレンダリング |
 | `progress` | 導出されたパーセントをバーとして表示 |
 | `tags` | オートコンプリート付きの自由形式タグ配列 |
 | `vector` | 埋め込みカラム — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |

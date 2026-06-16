@@ -5,7 +5,7 @@ description: 객체에 선언할 수 있는 모든 필드 타입 — 저장하�
 
 # 필드 타입
 
-패밀리별로 분류된 53가지 기본 제공 필드 타입. 전체 Zod 스키마는
+패밀리별로 분류된 48가지 기본 제공 필드 타입. 전체 Zod 스키마는
 [`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts)에 있으며, 이 페이지는 실용적인 요약입니다.
 
 ## 핵심 속성 (모든 필드)
@@ -166,8 +166,7 @@ fileAttachmentConfig: {
 | `rating` | 1–N 별점 — `max`, `icon` |
 | `slider` | 슬라이더 UI를 갖춘 범위 제한 숫자 |
 | `signature` | 그려진 서명, 이미지로 저장 |
-| `qrcode` | 값을 QR로 렌더링 — `qrErrorCorrection: 'L' \| 'M' \| 'Q' \| 'H'` |
-| `barcode` | EAN/UPC/Code128 — `barcodeFormat` |
+| `qrcode` | 값을 QR 또는 바코드(EAN / UPC / Code128)로 렌더링 |
 | `progress` | 막대로 렌더링되는 파생 백분율 |
 | `tags` | 자동 완성이 있는 자유 형식 태그 배열 |
 | `vector` | 임베딩 컬럼 — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
