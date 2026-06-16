@@ -30,8 +30,42 @@ seguridad a nivel de fila + seguridad a nivel de campo dentro del motor de datos
 | Ruta | Método | Propósito |
 |:--|:--|:--|
 | `/api/v1` | GET | Descubrimiento de servicios — lista todas las rutas registradas, la versión y el modo de delimitación |
+| `/api/v1/discovery` | GET | Alias explícito del documento de descubrimiento anterior |
 | `/api/v1/openapi.json` | GET | Especificación OpenAPI 3.0 de cada endpoint del runtime en ejecución |
 | `/api/v1/search` | GET | Búsqueda de texto completo en los campos indexables de todos los objetos |
+
+## Restringir la superficie de la API
+
+Los endpoints autogenerados se gobiernan por objeto, de modo que puedes retirar
+un objeto de la API o hacerlo de solo lectura sin escribir código de rutas:
+
+- **`apiEnabled`** (boolean, **por defecto `true`**): establécelo en `false`
+  para omitir el objeto de la superficie REST por completo. Las solicitudes a
+  sus rutas devuelven 404.
+- **`apiMethods`** (lista blanca opcional): cuando se establece, solo son
+  accesibles las operaciones listadas; cualquier otra operación se rechaza en la
+  capa REST. Valores permitidos: `get`, `list`, `create`, `update`, `delete`,
+  `upsert`, `bulk`, `aggregate`, `history`, `search`, `restore`, `purge`,
+  `import`, `export`.
+
+```ts
+// Un objeto de referencia de solo lectura, nunca escribible por la API:
+defineObject({
+  name: 'exchange_rate',
+  apiMethods: ['get', 'list'],
+  // ...fields
+})
+
+// Un objeto interno que la API nunca expone:
+defineObject({
+  name: 'sync_cursor',
+  apiEnabled: false,
+  // ...fields
+})
+```
+
+Ambos se aplican ahora en la capa REST (ADR-0049): las versiones anteriores
+analizaban estas propiedades pero no las aplicaban.
 
 ## Datos — `/api/v1/data/*`
 

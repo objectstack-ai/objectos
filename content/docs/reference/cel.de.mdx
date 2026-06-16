@@ -154,9 +154,14 @@ Ausdrücke werden zur Ladezeit kompiliert. Fehler erscheinen als
 { "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
 ```
 
-Eine fehlgeschlagene Auswertung zur Laufzeit wird für Formelfelder als
-`null` und für Prädikate als `false` behandelt, zusätzlich zu einem
-Eintrag im Audit-Log.
+Ungültige Ausdrücke **scheitern nicht stillschweigend**. Ein fehlerhafter
+Ausdruck oder einer mit unbekanntem Feld lässt `os compile` mit der oben
+gezeigten lokalisierten Meldung fehlschlagen (einschließlich eines
+„Meinten Sie"-Hinweises bei einem falsch geschriebenen Feld). Zur Laufzeit
+**wirft** ein fehlerhafter Ausdruck einen zugeordneten Fehler, anstatt
+stillschweigend zu `null` oder `false` ausgewertet zu werden, sodass der
+Fehler in den Logs und im Audit-Trail sichtbar ist, statt einen Formelwert
+oder eine Guard-Entscheidung unbemerkt zu beschädigen.
 
 ## Siehe auch
 

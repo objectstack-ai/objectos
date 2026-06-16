@@ -31,6 +31,19 @@ https://<project-domain>/api/v1
 접두사는 기본적으로 `/api/v1`(API `basePath`인 `/api`에 `version`인 `v1`을
 더한 값)이며 ObjectOS 스택에서 구성할 수 있습니다.
 
+## 노출 대상 제어
+
+API 노출은 게이트웨이가 아니라 아티팩트 안에서 객체 단위로 제어됩니다:
+
+- 객체에 `apiEnabled: false`를 설정하면 REST 표면에서 완전히 제외됩니다(해당
+  라우트는 404).
+- `apiMethods` 화이트리스트(예: `['get', 'list']`)를 설정하면 객체를 읽기 전용으로
+  만들거나 도달 가능한 작업을 그 밖의 방식으로 제한할 수 있습니다.
+
+이 둘은 REST 계층에서 강제됩니다 —
+[REST API → Restricting the API surface](/docs/reference/rest-api#restricting-the-api-surface)을
+참조하세요.
+
 ## 인증 옵션
 
 호출자는 세 가지 방식으로 인증할 수 있습니다.

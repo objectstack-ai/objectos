@@ -18,7 +18,7 @@ habilitado de forma predeterminada en los arranques standalone y de proyecto.
 |---|---|
 | Campos de archivo/imagen de Console | El navegador carga directamente al almacenamiento mediante URLs prefirmadas |
 | REST `/api/v1/storage/*` | Endpoints de carga/descarga programáticos |
-| Campos `attachment` / `image` de objetos | Se renderizan como widgets de carga; los metadatos persisten en `sys_file` |
+| Campos `file` / `image` de objetos | Se renderizan como widgets de carga; los metadatos persisten en `sys_file` |
 
 Los archivos se rastrean en el objeto de sistema `sys_file` — nunca como rutas
 sin procesar en tus registros. Eso desacopla tu modelo de datos del

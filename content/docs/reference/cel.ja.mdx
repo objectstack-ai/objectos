@@ -145,8 +145,11 @@ CEL にはネイティブの `timestamp(...)`、`duration(...)`、
 { "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
 ```
 
-ランタイムでの評価失敗は、数式フィールドでは `null`、述語では `false`
-として扱われ、あわせて監査ログにエントリが記録されます。
+無効な式は**暗黙的に失敗しません**。不正な式や未知のフィールドを参照する式は、
+上記の場所特定済みメッセージ(誤記したフィールドに対する did-you-mean ヒントを含む)とともに
+`os compile` を失敗させます。ランタイムでは、不正な式は暗黙的に `null` や `false` に
+評価されるのではなく、帰属情報付きのエラーを**スロー**します。そのため、数式の値や
+ガードの判定を静かに破壊する代わりに、ログと監査証跡で失敗を確認できます。
 
 ## 関連項目
 

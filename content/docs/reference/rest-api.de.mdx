@@ -33,8 +33,43 @@ durchgesetzt.
 | Pfad | Methode | Zweck |
 |:--|:--|:--|
 | `/api/v1` | GET | Service Discovery — listet alle registrierten Routen, die Version und den Scoping-Modus auf |
+| `/api/v1/discovery` | GET | Expliziter Alias für das obige Discovery-Dokument |
 | `/api/v1/openapi.json` | GET | OpenAPI-3.0-Spezifikation für jeden Endpunkt im laufenden Runtime |
 | `/api/v1/search` | GET | Volltextsuche über durchsuchbare Felder aller Objekte |
+
+## API-Oberfläche einschränken
+
+Die automatisch generierten Endpunkte werden pro Objekt gesteuert, sodass du
+ein Objekt von der API nehmen oder schreibgeschützt machen kannst, ohne
+Routen-Code zu schreiben:
+
+- **`apiEnabled`** (boolean, **Standard `true`**) — auf `false` setzen, um das
+  Objekt vollständig von der REST-Oberfläche auszuschließen. Anfragen an seine
+  Routen liefern 404.
+- **`apiMethods`** (optionale Whitelist) — wenn gesetzt, sind nur die
+  aufgeführten Operationen erreichbar; jede andere Operation wird auf der
+  REST-Ebene abgelehnt. Erlaubte Werte: `get`, `list`, `create`, `update`,
+  `delete`, `upsert`, `bulk`, `aggregate`, `history`, `search`, `restore`,
+  `purge`, `import`, `export`.
+
+```ts
+// Ein schreibgeschütztes Referenzobjekt, niemals über die API beschreibbar:
+defineObject({
+  name: 'exchange_rate',
+  apiMethods: ['get', 'list'],
+  // ...fields
+})
+
+// Ein internes Objekt, das die API niemals offenlegt:
+defineObject({
+  name: 'sync_cursor',
+  apiEnabled: false,
+  // ...fields
+})
+```
+
+Beide werden jetzt auf der REST-Ebene durchgesetzt (ADR-0049) — frühere
+Versionen parsten diese Eigenschaften, wendeten sie aber nicht an.
 
 ## Data — `/api/v1/data/*`
 

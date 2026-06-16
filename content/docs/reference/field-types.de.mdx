@@ -28,9 +28,7 @@ description: Jeder Feldtyp, den du auf einem Objekt deklarieren kannst — was e
 | `externalId` | boolean | `false` | Für Upsert über externen Schlüssel geeignet |
 | `inlineHelpText` | string | — | Tooltip / Hilfetext |
 | `conditionalRequired` | `P`-Prädikat | — | Erforderlich, wenn CEL wahr ist |
-| `auditTrail` | boolean | `false` | Jede Änderung im Audit-Log verfolgen |
-| `encryptionConfig` | object | — | Verschlüsselung auf Feldebene (siehe [Security](./security)) |
-| `maskingRule` | string | — | PII-Maskierungsmuster |
+| `trackHistory` | boolean | `false` | Wertänderungen als menschenlesbare Einträge auf der Aktivitäts-Timeline des Datensatzes darstellen (ADR-0052) |
 
 ## Text-Familie
 
@@ -41,7 +39,8 @@ description: Jeder Feldtyp, den du auf einem Objekt deklarieren kannst — was e
 | `email` | E-Mail | formatvalidiert; kleingeschrieben |
 | `url` | URL | formatvalidiert |
 | `phone` | Telefon | E.164 |
-| `password` | Geheimnisse | gehasht; nie von GET zurückgegeben |
+| `password` | einseitige Geheimnisse | vom Auth-Subsystem gehasht; nie von GET zurückgegeben |
+| `secret` | umkehrbare Geheimnisse (API-Schlüssel, Token, DB-Passwörter) | im Ruhezustand über den Krypto-Provider verschlüsselt, als opake Referenz gespeichert, beim Lesen maskiert. Fail-closed — ohne konfigurierten Provider werfen Schreibvorgänge einen Fehler, statt Klartext zu speichern |
 | `markdown` | Markdown-Inhalt | in Console-Vorschau gerendert |
 | `html` | bereinigtes HTML | DOMPurify beim Schreiben |
 | `richtext` | WYSIWYG | Console-Editor + serialisiertes JSON |
@@ -196,7 +195,7 @@ Diese deklarierst du nicht — deaktiviere sie pro Objekt mit
    ├─► REST: validated on POST/PATCH, exposed on GET
    ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
-   └─► Audit: change-tracked if `auditTrail: true`
+   └─► Audit: change-tracked if `trackHistory: true`
 ```
 
 ## Siehe auch

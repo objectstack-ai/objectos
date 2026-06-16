@@ -117,16 +117,16 @@ ObjectStack ships ~25 field types. The most-used ones:
 
 | Type | What it stores |
 |---|---|
-| `attachment` | One file via the storage service |
-| `image` | Image attachment with preview |
+| `file` | One file via the storage service |
+| `image` | Image file with preview |
 
 ### Computed / derived
 
 | Type | Behavior |
 |---|---|
 | `formula` | Computed at read time from a CEL expression |
-| `rollup` | Aggregate of related records (sum/count/avg) |
-| `autoNumber` | Sequence (`INV-{000001}`) |
+| `summary` | Aggregate of related records (sum/count/avg) |
+| `autonumber` | Sequence (`INV-{000001}`) |
 | `created`, `lastModified` | System-maintained timestamps |
 | `createdBy`, `lastModifiedBy` | System-maintained user refs |
 

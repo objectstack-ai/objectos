@@ -8,10 +8,10 @@ description: ObjectOS 런타임 환경 변수 참조.
 배포 수준 구성 및 시크릿에는 환경 변수를 사용하세요.
 테넌트/사용자가 편집 가능한 애플리케이션 구성에는 시스템 설정을 사용하세요.
 
-> **명명 규칙.** 다음 릴리스부터 모든 ObjectStack 소유 변수는
-> `OS_` 접두사를 사용합니다. 1.0 이전의 접두사 없는 이름(`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`,
-> …)도 여전히 동작하지만 일회성 사용 중단 경고를 출력합니다. 새 배포에서는 표준
-> `OS_*` 이름을 사용하는 것이 좋습니다. [레거시 별칭](#legacy-aliases)을 참조하세요.
+> **명명 규칙.** 모든 ObjectStack 소유 변수는 `OS_` 접두사를 사용합니다. 1.0 이전의
+> 접두사 없는 이름(`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`, …)도 여전히 동작하지만
+> 일회성 사용 중단 경고를 출력합니다. 새 배포에서는 표준 `OS_*` 이름을 사용하는 것이
+> 좋습니다. [레거시 별칭](#legacy-aliases)을 참조하세요.
 
 ## 핵심
 
@@ -76,6 +76,32 @@ description: ObjectOS 런타임 환경 변수 참조.
 ObjectOS 고객 배포의 경우 컨테이너 로컬 기본값에 의존하기보다는
 명시적인 컨트롤 플레인 런타임 구성 또는 아티팩트 데이터소스 구성을
 사용하는 것이 좋습니다.
+
+## Observability
+
+추적 및 메트릭 내보내기는 옵트인입니다. 익스포터의 기본값은 `noop`이므로 배포는
+하나를 선택하기 전까지 아무것도 내보내지 않습니다 — 엔드포인트만 설정해서는
+아무 일도 일어나지 않습니다.
+
+| 변수 | 기본값 | 설명 |
+|---|---:|---|
+| `OS_OBS_EXPORTER` | `noop` | 텔레메트리 익스포터: `noop` \| `console` \| `json` \| `otlp`. 로컬 디버깅에는 `console`/`json`을, 컬렉터에는 `otlp`를 사용하세요. |
+| `OS_OTLP_ENDPOINT` | — | OTLP/HTTP 루트 URL(예: `https://otlp.grafana.net/otlp`). `OS_OBS_EXPORTER=otlp`일 때 필수이며, 비어 있으면 런타임이 경고하고 `noop`으로 폴백합니다. |
+| `OS_OTLP_HEADERS` | — | 추가 OTLP 헤더(예: 인증)를 쉼표로 구분된 `key=value` 쌍으로 지정합니다. |
+| `OS_OBS_SERVICE_NAME` | — | 내보낸 스팬/메트릭의 `service.name` 리소스 속성. |
+| `OS_OBS_DEPLOYMENT_ENV` | `production` | `deployment.environment` 리소스 속성. |
+| `OS_OTLP_FLUSH_MS` | — | OTLP 익스포터의 플러시 간격(밀리초). |
+
+## Settings 네임스페이스 재정의
+
+시스템 설정(테넌트/사용자 편집 가능한 `ai`, `email`, `feature_flags`, … 네임스페이스)은
+`OS_<NAMESPACE>_<KEY>` 형식의 환경 변수로 배포 수준에서 고정할 수 있습니다 — 대문자로
+바꾸고 `.`과 `-`를 `_`로 치환합니다. 예를 들어 `ai.openai_base_url` →
+`OS_AI_OPENAI_BASE_URL`, `feature_flags.ai_enabled` → `OS_FEATURE_FLAGS_AI_ENABLED`.
+9.0부터 접두사 없는 별칭은 제거되었습니다 — `OS_` 접두사 형식만 읽습니다.
+
+Google 로그인(**Setup → Authentication**에서 구성)도 배포 수준에서 `GOOGLE_CLIENT_ID`와
+`GOOGLE_CLIENT_SECRET`을 읽습니다.
 
 ## 레거시 별칭
 

@@ -84,9 +84,14 @@ groups:
           summary: "Frequent project kernel cold starts — consider raising OS_KERNEL_CACHE_SIZE"
 ```
 
-Pour OpenTelemetry, définissez `OTEL_EXPORTER_OTLP_ENDPOINT` et ObjectOS
-émettra les traces et les métriques au format OTLP. La forme des spans
-correspond au [flux de requête](/docs/architecture#how-a-request-is-served).
+Pour OpenTelemetry, définissez `OS_OBS_EXPORTER=otlp` **et** `OS_OTLP_ENDPOINT`
+(par ex. `https://<collector>/otlp`) et ObjectOS émettra les traces et les
+métriques au format OTLP. L'exporteur a pour valeur par défaut `noop` (coût
+d'exécution nul), de sorte que l'export OTLP est opt-in — définir un endpoint
+sans `OS_OBS_EXPORTER=otlp` n'émet rien. Utilisez `OS_OBS_EXPORTER=console` ou
+`json` pour le débogage local, et `OS_OBS_DEPLOYMENT_ENV` pour étiqueter le
+déploiement (par défaut `production`). La forme des spans correspond au
+[flux de requête](/docs/architecture#how-a-request-is-served).
 
 ## Journaux d'audit
 

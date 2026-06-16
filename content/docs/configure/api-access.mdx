@@ -31,6 +31,18 @@ Notable surfaces:
 The prefix defaults to `/api/v1` (the API `basePath` of `/api` plus the
 `version` of `v1`) and is configurable on the ObjectOS stack.
 
+## Controlling what's exposed
+
+API exposure is governed per object in the artifact, not at the gateway:
+
+- Set `apiEnabled: false` on an object to keep it off the REST surface
+  entirely (its routes 404).
+- Set an `apiMethods` whitelist (e.g. `['get', 'list']`) to make an object
+  read-only or otherwise restrict which operations are reachable.
+
+Both are enforced at the REST layer — see
+[REST API → Restricting the API surface](/docs/reference/rest-api#restricting-the-api-surface).
+
 ## Authentication options
 
 Callers can authenticate in three ways:

@@ -28,9 +28,7 @@ description: Every field type you can declare on an object — what it stores, w
 | `externalId` | boolean | `false` | Eligible for upsert via external key |
 | `inlineHelpText` | string | — | Tooltip / helper text |
 | `conditionalRequired` | `P` predicate | — | Required when CEL is true |
-| `auditTrail` | boolean | `false` | Track every change in audit log |
-| `encryptionConfig` | object | — | Field-level encryption (see [Security](./security)) |
-| `maskingRule` | string | — | PII masking pattern |
+| `trackHistory` | boolean | `false` | Render value changes as human-readable entries on the record activity timeline (ADR-0052) |
 
 ## Text family
 
@@ -41,7 +39,8 @@ description: Every field type you can declare on an object — what it stores, w
 | `email` | email | format-validated; lowercased |
 | `url` | URL | format-validated |
 | `phone` | phone | E.164 |
-| `password` | secrets | hashed; never returned by GET |
+| `password` | one-way secrets | hashed by the auth subsystem; never returned by GET |
+| `secret` | reversible secrets (API keys, tokens, DB passwords) | encrypted at rest via the crypto provider, stored as an opaque ref, masked on read. Fail-closed — with no provider configured, writes throw rather than persist cleartext |
 | `markdown` | markdown body | rendered in Console preview |
 | `html` | sanitised HTML | DOMPurify on write |
 | `richtext` | WYSIWYG | Console editor + serialised JSON |
@@ -196,7 +195,7 @@ You don't declare these — opt out per object with
    ├─► REST: validated on POST/PATCH, exposed on GET
    ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
-   └─► Audit: change-tracked if `auditTrail: true`
+   └─► Audit: change-tracked if `trackHistory: true`
 ```
 
 ## See also

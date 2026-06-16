@@ -21,8 +21,34 @@ ObjectOS 使用 [Better Auth](https://www.better-auth.com/)。`/api/v1` 下所�
 | 路径 | 方法 | 用途 |
 |:--|:--|:--|
 | `/api/v1` | GET | 服务发现 —— 列出所有已注册路由、版本、作用域模式 |
+| `/api/v1/discovery` | GET | 上述发现文档的显式别名 |
 | `/api/v1/openapi.json` | GET | 运行时中每个端点的 OpenAPI 3.0 spec |
 | `/api/v1/search` | GET | 对所有对象上 searchable 字段的全文搜索 |
+
+## 限制 API 暴露面
+
+自动生成的端点按对象逐个治理,因此你无需编写任何路由代码就能将某个对象移出 API 或将其设为只读:
+
+- **`apiEnabled`**（boolean,**默认 `true`**）—— 设为 `false` 可将该对象完全从 REST 面移除。对其路由的请求返回 404。
+- **`apiMethods`**（可选白名单）—— 设置后,仅列出的操作可达;其他任何操作都在 REST 层被拒绝。允许的取值:`get`、`list`、`create`、`update`、`delete`、`upsert`、`bulk`、`aggregate`、`history`、`search`、`restore`、`purge`、`import`、`export`。
+
+```ts
+// 一个只读的参考对象,永远不可通过 API 写入:
+defineObject({
+  name: 'exchange_rate',
+  apiMethods: ['get', 'list'],
+  // ...fields
+})
+
+// 一个 API 永不暴露的内部对象:
+defineObject({
+  name: 'sync_cursor',
+  apiEnabled: false,
+  // ...fields
+})
+```
+
+两者现在都在 REST 层强制执行（ADR-0049）—— 早期版本会解析这些属性但并不应用它们。
 
 ## 数据 —— `/api/v1/data/*`
 

@@ -153,8 +153,12 @@ Expressions are compiled at load time. Failures show up as
 { "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
 ```
 
-A failed evaluation at runtime is treated as `null` for formula fields
-and `false` for predicates, plus an entry in the audit log.
+Invalid expressions **do not fail silently**. A malformed or unknown-field
+expression fails `os compile` with the located message above (including a
+did-you-mean hint for a misspelled field). At runtime, a bad expression
+**throws** an attributed error rather than silently evaluating to `null` or
+`false`, so the failure is visible in logs and the audit trail instead of
+quietly corrupting a formula value or a guard decision.
 
 ## See also
 

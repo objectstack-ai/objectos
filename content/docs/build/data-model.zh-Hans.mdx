@@ -109,16 +109,16 @@ ObjectStack 自带约 25 种字段类型。最常用的：
 
 | 类型 | 存什么 |
 |---|---|
-| `attachment` | 通过存储服务保存的一个文件 |
-| `image` | 带预览的图片附件 |
+| `file` | 通过存储服务保存的一个文件 |
+| `image` | 带预览的图片文件 |
 
 ### 计算 / 派生
 
 | 类型 | 行为 |
 |---|---|
 | `formula` | 读时按 CEL 表达式计算 |
-| `rollup` | 关联记录的聚合(sum/count/avg) |
-| `autoNumber` | 序列号(`INV-{000001}`) |
+| `summary` | 关联记录的聚合(sum/count/avg) |
+| `autonumber` | 序列号(`INV-{000001}`) |
 | `created`、`lastModified` | 系统维护的时间戳 |
 | `createdBy`、`lastModifiedBy` | 系统维护的用户引用 |
 

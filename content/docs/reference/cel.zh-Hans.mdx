@@ -139,7 +139,7 @@ CEL 还包含原生 `timestamp(...)`、`duration(...)`、`date.getDayOfWeek()` �
 { "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
 ```
 
-运行时求值失败：公式字段视为 `null`,谓词视为 `false`,并在审计日志中写入一条记录。
+无效表达式**不会静默失败**。畸形或引用未知字段的表达式会让 `os compile` 失败,并给出上面那条带定位的消息(对拼错的字段还包含 did-you-mean 提示)。运行时遇到坏表达式会**抛出**一个带归属信息的错误,而不是静默求值为 `null` 或 `false`,因此该失败会在日志和审计轨迹中可见,而不会悄悄污染一个公式值或一个守卫判定。
 
 ## 参见
 

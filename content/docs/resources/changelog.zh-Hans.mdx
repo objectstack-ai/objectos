@@ -11,9 +11,9 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 | 版本号变化 | 含义 | 应对方式 |
 |---|---|---|
-| **Patch**（`4.0.1 → 4.0.2`） | 修 bug，不改变行为 | 直接升级，无需改动应用 |
-| **Minor**（`4.0 → 4.1`） | 新增功能，向后兼容 | 直接升级，可选采用新功能 |
-| **Major**（`4 → 5`） | 破坏性变更，发版说明会列出 | 升级前阅读迁移指南 |
+| **Patch**（`9.7.0 → 9.7.1`） | 修 bug，不改变行为 | 直接升级，无需改动应用 |
+| **Minor**（`9.6 → 9.7`） | 新增功能，向后兼容 | 直接升级，可选采用新功能 |
+| **Major**（`8 → 9`） | 破坏性变更，发版说明会列出 | 升级前阅读迁移指南 |
 
 所有 `@objectstack/*` 包按同步的版本号一起发布 —— 作为矩阵一同测试，
 而不是各自独立。
@@ -22,7 +22,7 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 | 组件 | 兼容性规则 |
 |---|---|
-| ObjectOS 镜像 ↔ 编译产物 | 同一 minor 版本。4.0.x 镜像运行 4.0.x 产物;4.1 产物可能使用 4.0 镜像不具备的功能。 |
+| ObjectOS 镜像 ↔ 编译产物 | 同一 minor 版本。9.7.x 镜像运行 9.7.x 产物;9.7 产物可能使用 9.6 镜像不具备的功能。 |
 | ObjectOS ↔ CLI | 建议使用同一 minor 版本。`npm i -g` 安装的 CLI 生成的脚手架会固定为其自身版本。 |
 | ObjectOS ↔ 数据库驱动 | 驱动版本由镜像构建固定;请确认 Postgres ≥ 13 / MongoDB ≥ 5 / Turso（当前版本）。 |
 | Node.js | **20 LTS 或更新**。新部署推荐 22 LTS。 |
@@ -31,9 +31,9 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 | 分支 | 状态 | 截止 |
 |---|---|---|
-| **4.x**（当前） | 活跃开发;新功能与修复 | 至少到 5.0 发布后 12 个月 |
-| **3.x** | 仅安全修复 | 5.0 发布时 EOL |
-| **≤ 2.x** | 不再支持 | 已 EOL |
+| **9.x**（当前） | 活跃开发;新功能与修复 | 至少到 10.0 发布后 12 个月 |
+| **8.x** | 仅安全修复 | 10.0 发布时 EOL |
+| **≤ 7.x** | 不再支持 | 已 EOL |
 
 关键安全修复会反向移植到当前 major 与上一个 major;其他变更只进
 `main`。
@@ -51,9 +51,57 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 ## 近期亮点
 
-### 8.0.x —— 当前发布列车
+### 9.x —— 当前发布列车
 
-ObjectOS One 与捆绑的 server 现已基于 `@objectstack` **8.0.1**。
+ObjectOS One 与捆绑的 server 现已基于 `@objectstack` **9.7.0**。运行时的
+启动契约相较 8.0 没有变化 —— `createStandaloneStack` 仍然接收同样的
+artifact、环境与数据库设置 —— 因此 8.0 部署可无配置改动直接升级。变动
+集中在面向作者的层面：
+
+- **分析数据集成为唯一的作者层面入口**（9.0，破坏性）—— 仪表盘组件、
+  报表与列表图表现在绑定一个语义化的 `dataset`（`defineDataset(...)`），
+  并**按名称**选择维度/度量。旧的内联查询字段（组件上的
+  `object`/`valueField`/`aggregate`、报表上的
+  `objectName`/`columns`/`groupingsDown`、列表图表上的
+  `xAxisField`/`yAxisFields`）已被移除。迁移方式：把内联查询移入一个
+  `defineDataset` 并按名称引用它。`ChartTypeSchema` 也去掉了 8 个仅以其
+  基础类型渲染的变体类型（`stacked-bar`→`bar`、`spline`→`line`、
+  `bubble`→`scatter`、…）。
+- **更严格的构建期校验**（9.6–9.7）—— `os compile` 现在会在遇到裸字段
+  引用（用 `amount` 而非 `record.amount`）、未知的 CEL 函数、以及错误的
+  flow-value 插值语法时**失败**，并各自给出 did-you-mean 提示。一个以往
+  「能构建但默默出错」的栈现在会显式报错 —— 升级后请重新运行
+  `os compile` 并修复它指出的问题。
+- **数字字段公式可计算混合算术**（9.7）—— `record.amount / 100` 和
+  `record.price * 2` 现在会求值,而不再默默地得到 `null`;不再需要
+  `/ 100.0` 这种浮点字面量的变通写法。
+- **对象级 REST 门控,现已强制执行**（ADR-0049）—— 对象的
+  `apiEnabled: false` 会将其从 REST 面移除,`apiMethods` 白名单则限制
+  哪些操作可达。此前只解析而不强制执行。
+- **包文档作为元数据 + `book` 导航**（9.3–9.6）—— `src/docs/*.md` 注册为
+  `doc` 元数据;`book` 元素（ADR-0046）声明一条派生成员关系的导航主线,
+  通过 `GET /api/v1/meta/book/:name/tree` 提供,并带受众门控。
+- **`os package install`**（9.3）—— 从目录 id 或内联的隔离网（air-gapped）
+  artifact 将一个包安装进运行中的 runtime,使用 `--email` / `--password`
+  进行认证。
+- **审批**（9.3）—— 退回修订（`maxRevisions`,默认 3）、由 jobs 支撑的
+  SLA 自动升级、列表搜索/分页,以及无会话的双语批准/拒绝确认链接。
+- **入站 webhook 流程触发器**（9.3）—— 一个 `type: 'api'` 流程会挂载一个
+  经 HMAC 校验的 `POST /api/v1/automation/hooks/:flowName/:hookId` 端点,
+  采用幂等、队列支撑的摄入。
+- **通知保留默认开启**（9.5）—— 通知历史在 **90 天**自动清理;将消息设置
+  的 `retentionDays: 0` 设为该值可永久保留历史。
+- **CLI 捆绑 AI 提供方 SDK**（9.0）—— 兼容 OpenAI 的提供方（DeepSeek、
+  DashScope、SiliconFlow、OpenRouter、Cloudflare）在全局安装的 CLI 上
+  开箱即用。
+
+有一项流程编写行为变化需要注意:`create_record` 节点的 `outputVariable`
+现在保存**创建出的记录对象**(此前是裸 id),因此把原本期望得到 id 的
+`{var}` 引用改为 `{var.id}`。
+
+### 8.0.x
+
+ObjectOS One 与捆绑的 server 此前基于 `@objectstack` **8.0.1**。
 
 - **MCP over Streamable HTTP** —— 每个部署都可作为网络可达的
   [Model Context Protocol](https://modelcontextprotocol.io) 服务器。

@@ -32,6 +32,20 @@ Surfaces notables :
 Le préfixe est `/api/v1` par défaut (le `basePath` de l'API `/api` plus la
 `version` `v1`) et il est configurable sur la stack ObjectOS.
 
+## Contrôler ce qui est exposé
+
+L'exposition de l'API est gouvernée par objet dans l'artefact, et non au niveau
+de la passerelle :
+
+- Définissez `apiEnabled: false` sur un objet pour le garder entièrement hors de
+  la surface REST (ses routes renvoient 404).
+- Définissez une liste blanche `apiMethods` (par ex. `['get', 'list']`) pour
+  rendre un objet en lecture seule ou restreindre autrement les opérations
+  accessibles.
+
+Les deux sont appliqués au niveau de la couche REST — voir
+[API REST → Restreindre la surface d'API](/docs/reference/rest-api#restricting-the-api-surface).
+
 ## Options d'authentification
 
 Les appelants peuvent s'authentifier de trois façons :

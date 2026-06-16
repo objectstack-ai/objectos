@@ -31,6 +31,18 @@ https://<project-domain>/api/v1
 プレフィックスのデフォルトは `/api/v1`（API の `basePath` である `/api` と
 `version` である `v1` の組み合わせ）で、ObjectOS スタック上で構成可能です。
 
+## 公開範囲の制御
+
+API の公開はゲートウェイではなく、アーティファクト内のオブジェクト単位で制御されます:
+
+- オブジェクトに `apiEnabled: false` を設定すると、REST 表面から完全に外れます
+  （そのルートは 404 になります）。
+- `apiMethods` ホワイトリスト（例: `['get', 'list']`）を設定すると、オブジェクトを
+  読み取り専用にしたり、到達可能な操作を制限したりできます。
+
+どちらも REST レイヤーで強制適用されます。
+[REST API → API 表面の制限](/docs/reference/rest-api#restricting-the-api-surface) を参照してください。
+
 ## 認証オプション
 
 呼び出し元は次の 3 つの方法で認証できます:

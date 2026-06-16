@@ -28,9 +28,7 @@ description: 你可以在对象上声明的所有字段类型 —— 存储什�
 | `externalId` | boolean | `false` | 可用作外部键 upsert |
 | `inlineHelpText` | string | — | 提示/帮助文本 |
 | `conditionalRequired` | `P` 谓词 | — | CEL 为真时必填 |
-| `auditTrail` | boolean | `false` | 在审计日志中追踪每次变更 |
-| `encryptionConfig` | object | — | 字段级加密（见[安全](./security)） |
-| `maskingRule` | string | — | PII 脱敏模式 |
+| `trackHistory` | boolean | `false` | 将值变更渲染为记录活动时间线上可读的条目（ADR-0052） |
 
 ## 文本家族
 
@@ -41,7 +39,8 @@ description: 你可以在对象上声明的所有字段类型 —— 存储什�
 | `email` | 邮箱 | 格式校验;小写化 |
 | `url` | URL | 格式校验 |
 | `phone` | 电话 | E.164 |
-| `password` | 密钥 | 哈希;GET 永不返回 |
+| `password` | 单向密钥 | 由 auth 子系统哈希;GET 永不返回 |
+| `secret` | 可逆密钥（API key、token、数据库密码） | 通过加密提供方在静态时加密,存为不透明引用,读取时脱敏。Fail-closed —— 未配置提供方时,写入会抛错而非以明文持久化 |
 | `markdown` | markdown 正文 | 在 Console 预览中渲染 |
 | `html` | 清洗后的 HTML | 写入时经 DOMPurify |
 | `richtext` | 所见即所得 | Console 编辑器 + 序列化 JSON |
@@ -194,7 +193,7 @@ fileAttachmentConfig: {
    ├─► REST: validated on POST/PATCH, exposed on GET
    ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
-   └─► Audit: change-tracked if `auditTrail: true`
+   └─► Audit: change-tracked if `trackHistory: true`
 ```
 
 ## 参见

@@ -8,9 +8,9 @@ description: ObjectOS ランタイムの環境変数リファレンス。
 デプロイメントレベルの設定とシークレットには環境変数を使用します。
 テナント／ユーザーが編集可能なアプリケーション設定にはシステム設定を使用します。
 
-> **命名規則。** 次のリリースから、ObjectStack が所有するすべての変数は
-> `OS_` プレフィックスを使用します。1.0 以前のプレフィックスなしの名前（`PORT`、`AUTH_SECRET`、`OS_MULTI_TENANT`、
-> …）も引き続き動作しますが、一度限りの非推奨警告を出力します。新しいデプロイメントでは正規の
+> **命名規則。** ObjectStack が所有するすべての変数は `OS_` プレフィックスを使用します。
+> 1.0 以前のプレフィックスなしの名前（`PORT`、`AUTH_SECRET`、`OS_MULTI_TENANT`、…）も引き続き
+> 動作しますが、一度限りの非推奨警告を出力します。新しいデプロイメントでは正規の
 > `OS_*` 名を優先してください。[レガシーエイリアス](#legacy-aliases)を参照してください。
 
 ## コア
@@ -76,6 +76,32 @@ ObjectOS はアーティファクトからデータソース宣言を読み取�
 ObjectOS の顧客デプロイメントでは、コンテナローカルのデフォルトに依存するよりも、
 明示的なコントロールプレーンのランタイム設定またはアーティファクトのデータソース設定を
 優先してください。
+
+## オブザーバビリティ
+
+トレースとメトリクスのエクスポートはオプトインです。エクスポーターのデフォルトは `noop` のため、
+いずれかを選択するまでデプロイメントは何も出力しません——エンドポイントを設定するだけでは
+何も起こりません。
+
+| 変数 | デフォルト | 説明 |
+|---|---:|---|
+| `OS_OBS_EXPORTER` | `noop` | テレメトリエクスポーター: `noop` \| `console` \| `json` \| `otlp`。ローカルデバッグには `console`/`json`、コレクターには `otlp` を使用します。 |
+| `OS_OTLP_ENDPOINT` | — | OTLP/HTTP のルート URL（例: `https://otlp.grafana.net/otlp`）。`OS_OBS_EXPORTER=otlp` の場合に必須。空の場合、ランタイムは警告を出して `noop` にフォールバックします。 |
+| `OS_OTLP_HEADERS` | — | 追加の OTLP ヘッダー（例: 認証）を、カンマ区切りの `key=value` ペアで指定します。 |
+| `OS_OBS_SERVICE_NAME` | — | 出力されるスパン/メトリクスに付与する `service.name` リソース属性。 |
+| `OS_OBS_DEPLOYMENT_ENV` | `production` | `deployment.environment` リソース属性。 |
+| `OS_OTLP_FLUSH_MS` | — | OTLP エクスポーターのフラッシュ間隔（ミリ秒）。 |
+
+## 設定ネームスペースの上書き
+
+システム設定（テナント/ユーザーが編集可能な `ai`、`email`、`feature_flags`、… の各ネームスペース）は、
+`OS_<NAMESPACE>_<KEY>` という名前の環境変数でデプロイメントレベルに固定できます——大文字化し、
+`.` と `-` を `_` に置き換えます。たとえば `ai.openai_base_url` → `OS_AI_OPENAI_BASE_URL`、
+`feature_flags.ai_enabled` → `OS_FEATURE_FLAGS_AI_ENABLED` です。9.0 以降、プレフィックスなしの
+エイリアスは削除され、`OS_` プレフィックス付きの形式のみが読み取られます。
+
+Google サインイン（**Setup → Authentication** で設定可能）も、デプロイメントレベルで
+`GOOGLE_CLIENT_ID` と `GOOGLE_CLIENT_SECRET` を読み取ります。
 
 ## レガシーエイリアス
 

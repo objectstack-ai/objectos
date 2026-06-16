@@ -11,9 +11,9 @@ ObjectOS folgt **[Semantic Versioning](https://semver.org/)**: `MAJOR.MINOR.PATC
 
 | Versionssprung | Was es bedeutet | Was zu tun ist |
 |---|---|---|
-| **Patch** (`4.0.1 → 4.0.2`) | Fehlerbehebungen, keine Verhaltensänderung | Aktualisieren, keine App-Änderungen nötig |
-| **Minor** (`4.0 → 4.1`) | Neue Funktionen, abwärtskompatibel | Aktualisieren, optional neue Funktionen übernehmen |
-| **Major** (`4 → 5`) | Breaking Changes, in den Release Notes dokumentiert | Lesen Sie den Migrationsleitfaden vor dem Upgrade |
+| **Patch** (`9.7.0 → 9.7.1`) | Fehlerbehebungen, keine Verhaltensänderung | Aktualisieren, keine App-Änderungen nötig |
+| **Minor** (`9.6 → 9.7`) | Neue Funktionen, abwärtskompatibel | Aktualisieren, optional neue Funktionen übernehmen |
+| **Major** (`8 → 9`) | Breaking Changes, in den Release Notes dokumentiert | Lesen Sie den Migrationsleitfaden vor dem Upgrade |
 
 Alle `@objectstack/*`-Pakete werden gemeinsam mit einer synchronisierten
 Versionsnummer veröffentlicht — sie werden als Matrix getestet, nicht einzeln.
@@ -22,7 +22,7 @@ Versionsnummer veröffentlicht — sie werden als Matrix getestet, nicht einzeln
 
 | Komponente | Kompatibilitätsregel |
 |---|---|
-| ObjectOS-Image ↔ kompiliertes Artefakt | Gleiche Minor-Version. Ein 4.0.x-Image führt ein 4.0.x-Artefakt aus; ein 4.1-Artefakt kann Funktionen nutzen, die in einem 4.0-Image nicht verfügbar sind. |
+| ObjectOS-Image ↔ kompiliertes Artefakt | Gleiche Minor-Version. Ein 9.7.x-Image führt ein 9.7.x-Artefakt aus; ein 9.7-Artefakt kann Funktionen nutzen, die in einem 9.6-Image nicht verfügbar sind. |
 | ObjectOS ↔ CLI | Gleiche Minor-Version empfohlen. Die per `npm i -g` installierte CLI erzeugt Scaffolds, die auf ihre eigene Version gepinnt sind. |
 | ObjectOS ↔ Datenbanktreiber | Treiber durch den Image-Build gepinnt; prüfen Sie Postgres ≥ 13 / MongoDB ≥ 5 / Turso (jede aktuelle Version). |
 | Node.js | **20 LTS oder neuer**. 22 LTS empfohlen für neue Deployments. |
@@ -31,9 +31,9 @@ Versionsnummer veröffentlicht — sie werden als Matrix getestet, nicht einzeln
 
 | Branch | Status | Bis |
 |---|---|---|
-| **4.x** (aktuell) | Aktive Entwicklung; neue Funktionen und Fixes | Mindestens 12 Monate nach dem Erscheinen von 5.0 |
-| **3.x** | Nur Sicherheitsfixes | EOL mit dem Release von 5.0 |
-| **≤ 2.x** | Nicht unterstützt | Bereits EOL |
+| **9.x** (aktuell) | Aktive Entwicklung; neue Funktionen und Fixes | Mindestens 12 Monate nach dem Erscheinen von 10.0 |
+| **8.x** | Nur Sicherheitsfixes | EOL mit dem Release von 10.0 |
+| **≤ 7.x** | Nicht unterstützt | Bereits EOL |
 
 Kritische Sicherheitsfixes werden auf den aktuellen und den vorherigen
 Major-Branch zurückportiert. Alles andere landet auf `main`.
@@ -51,9 +51,64 @@ Abonnieren Sie Releases auf GitHub, um benachrichtigt zu werden.
 
 ## Aktuelle Highlights
 
-### 8.0.x — aktueller Release-Zug
+### 9.x — aktueller Release-Zug
 
-ObjectOS One und der gebündelte Server laufen jetzt auf `@objectstack` **8.0.1**.
+ObjectOS One und der gebündelte Server laufen jetzt auf `@objectstack` **9.7.0**.
+Der Runtime-Boot-Vertrag ist gegenüber 8.0 unverändert — `createStandaloneStack`
+nimmt weiterhin dieselben Artefakt-, Umgebungs- und Datenbankeinstellungen entgegen —,
+sodass ein 8.0-Deployment ohne Konfigurationsänderungen weiterrollt. Was sich
+bewegt hat, ist die autorenseitige Oberfläche:
+
+- **Analytics-Datasets sind die einzige Autorenoberfläche** (9.0, Breaking) —
+  Dashboard-Widgets, Berichte und Listen-Charts binden jetzt ein semantisches
+  `dataset` (`defineDataset(...)`) und wählen Dimensionen/Maße **per Name**. Die
+  alten Inline-Abfragefelder (`object`/`valueField`/`aggregate` an Widgets,
+  `objectName`/`columns`/`groupingsDown` an Berichten, `xAxisField`/`yAxisFields`
+  an Listen-Charts) wurden entfernt. Migration: Verschieben Sie die Inline-Abfrage
+  in ein `defineDataset` und referenzieren Sie es per Name. `ChartTypeSchema` hat
+  außerdem 8 Varianttypen verworfen, die nur als ihr Basistyp gerendert wurden
+  (`stacked-bar`→`bar`, `spline`→`line`, `bubble`→`scatter`, …).
+- **Strengere Validierung zur Build-Zeit** (9.6–9.7) — `os compile` **scheitert**
+  jetzt an blanken Feldreferenzen (`amount` statt `record.amount`), unbekannten
+  CEL-Funktionen und falscher Interpolationssyntax für Flow-Werte, jeweils mit
+  einem „Meinten Sie"-Hinweis. Ein Stack, der zuvor „baute, aber stillschweigend
+  falsch war", scheitert jetzt lautstark — führen Sie `os compile` nach dem Upgrade
+  erneut aus und beheben Sie, was es bemängelt.
+- **Zahlenfeld-Formeln berechnen gemischte Arithmetik** (9.7) — `record.amount / 100`
+  und `record.price * 2` werten jetzt aus, statt stillschweigend `null` zu liefern;
+  der `/ 100.0`-Float-Literal-Workaround ist nicht mehr nötig.
+- **REST-Gating auf Objektebene, jetzt durchgesetzt** (ADR-0049) — `apiEnabled: false`
+  eines Objekts entfernt es aus der REST-Oberfläche, und eine `apiMethods`-Whitelist
+  schränkt ein, welche Operationen erreichbar sind. Zuvor geparst, aber nicht
+  durchgesetzt.
+- **Paketdokumentation als Metadaten + `book`-Navigation** (9.3–9.6) —
+  `src/docs/*.md` registrieren sich als `doc`-Metadaten; das `book`-Element
+  (ADR-0046) deklariert eine Navigationsachse mit abgeleiteter Mitgliedschaft,
+  bereitgestellt unter `GET /api/v1/meta/book/:name/tree` mit Audience-Gating.
+- **`os package install`** (9.3) — installiert ein Paket in eine laufende Runtime
+  aus einer Katalog-ID oder einem Inline-Artefakt für Air-Gap-Umgebungen,
+  authentifiziert mit `--email` / `--password`.
+- **Genehmigungen** (9.3) — Zurücksenden zur Überarbeitung (`maxRevisions`,
+  Standard 3), jobs-gestützte SLA-Auto-Eskalation, Listensuche/Paginierung und
+  sitzungsfreie zweisprachige Bestätigungslinks zum Genehmigen/Ablehnen.
+- **Eingehende Webhook-Flow-Trigger** (9.3) — ein `type: 'api'`-Flow stellt einen
+  HMAC-verifizierten `POST /api/v1/automation/hooks/:flowName/:hookId`-Endpunkt mit
+  idempotenter, queue-gestützter Aufnahme bereit.
+- **Aufbewahrung von Benachrichtigungen standardmäßig aktiv** (9.5) — der
+  Benachrichtigungsverlauf wird automatisch nach **90 Tagen** bereinigt; setzen Sie
+  die Messaging-Einstellung `retentionDays: 0`, um den Verlauf dauerhaft zu behalten.
+- **CLI bündelt AI-Provider-SDKs** (9.0) — OpenAI-kompatible Provider (DeepSeek,
+  DashScope, SiliconFlow, OpenRouter, Cloudflare) funktionieren auf einer global
+  installierten CLI sofort.
+
+Eine zu beachtende Verhaltensänderung beim Flow-Authoring: Der `outputVariable`
+eines `create_record`-Knotens hält jetzt das **erstellte Datensatzobjekt** (zuvor
+die blanke ID), aktualisieren Sie also `{var}`-Referenzen, die eine ID erwarteten,
+auf `{var.id}`.
+
+### 8.0.x
+
+ObjectOS One und der gebündelte Server liefen auf `@objectstack` **8.0.1**.
 
 - **MCP über Streamable HTTP** — jede Bereitstellung kann als netzwerkerreichbarer
   [Model-Context-Protocol](https://modelcontextprotocol.io)-Server fungieren.

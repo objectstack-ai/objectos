@@ -81,9 +81,13 @@ groups:
           summary: "Frequent project kernel cold starts — consider raising OS_KERNEL_CACHE_SIZE"
 ```
 
-OpenTelemetry의 경우 `OTEL_EXPORTER_OTLP_ENDPOINT`를 설정하면 ObjectOS가 OTLP
-형식으로 트레이스와 메트릭을 내보냅니다. 스팬의 형태는
-[요청 흐름](/docs/architecture#how-a-request-is-served)과 일치합니다.
+OpenTelemetry의 경우 `OS_OBS_EXPORTER=otlp`**와** `OS_OTLP_ENDPOINT`
+(예: `https://<collector>/otlp`)를 설정하면 ObjectOS가 OTLP 형식으로 트레이스와
+메트릭을 내보냅니다. 익스포터의 기본값은 `noop`(런타임 비용 0)이므로 OTLP
+내보내기는 옵트인입니다 — `OS_OBS_EXPORTER=otlp` 없이 엔드포인트만 설정하면 아무것도
+내보내지 않습니다. 로컬 디버깅에는 `OS_OBS_EXPORTER=console` 또는 `json`을, 배포에
+태그를 붙이려면 `OS_OBS_DEPLOYMENT_ENV`(기본값 `production`)를 사용하세요. 스팬의
+형태는 [요청 흐름](/docs/architecture#how-a-request-is-served)과 일치합니다.
 
 ## 감사 로그
 

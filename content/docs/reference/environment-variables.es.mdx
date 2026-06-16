@@ -8,10 +8,11 @@ description: Referencia de variables de entorno del entorno de ejecución de Obj
 Use variables de entorno para la configuración a nivel de despliegue y los secretos.
 Use la configuración del sistema para la configuración de la aplicación editable por inquilino/usuario.
 
-> **Nomenclatura.** A partir de la próxima versión, todas las variables propiedad de ObjectStack usan el
-> prefijo `OS_`. Los nombres sin prefijo anteriores a 1.0 (`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`,
-> …) siguen funcionando, pero emiten una advertencia de obsolescencia de una sola vez. Prefiera los nombres canónicos
-> `OS_*` en los nuevos despliegues; consulte [Alias heredados](#legacy-aliases).
+> **Nomenclatura.** Todas las variables propiedad de ObjectStack usan el prefijo
+> `OS_`. Los nombres sin prefijo anteriores a 1.0 (`PORT`, `AUTH_SECRET`,
+> `OS_MULTI_TENANT`, …) siguen funcionando, pero emiten una advertencia de
+> obsolescencia de una sola vez. Prefiera los nombres canónicos `OS_*` en los
+> nuevos despliegues; consulte [Alias heredados](#legacy-aliases).
 
 ## Núcleo
 
@@ -76,6 +77,35 @@ artefacto. Como último recurso, el framework también reconoce:
 Para los despliegues de clientes de ObjectOS, prefiera la configuración explícita del entorno de ejecución
 del plano de control o la configuración de origen de datos del artefacto en lugar de depender de los valores
 por defecto locales del contenedor.
+
+## Observabilidad
+
+La exportación de trazas y métricas es opcional. El exportador es `noop` por
+defecto, por lo que un despliegue no emite nada hasta que seleccione uno:
+establecer únicamente un endpoint no hace nada.
+
+| Variable | Por defecto | Descripción |
+|---|---:|---|
+| `OS_OBS_EXPORTER` | `noop` | Exportador de telemetría: `noop` \| `console` \| `json` \| `otlp`. Use `console`/`json` para depuración local y `otlp` para un collector. |
+| `OS_OTLP_ENDPOINT` | — | URL raíz de OTLP/HTTP (p. ej. `https://otlp.grafana.net/otlp`). Obligatoria cuando `OS_OBS_EXPORTER=otlp`; si está vacía, el entorno de ejecución advierte y vuelve a `noop`. |
+| `OS_OTLP_HEADERS` | — | Cabeceras OTLP adicionales (p. ej. autenticación) como pares `key=value` separados por comas. |
+| `OS_OBS_SERVICE_NAME` | — | Atributo de recurso `service.name` en las trazas/métricas emitidas. |
+| `OS_OBS_DEPLOYMENT_ENV` | `production` | Atributo de recurso `deployment.environment`. |
+| `OS_OTLP_FLUSH_MS` | — | Intervalo de vaciado del exportador OTLP, en milisegundos. |
+
+## Anulaciones de espacios de nombres de configuración
+
+La configuración del sistema (los espacios de nombres `ai`, `email`,
+`feature_flags`, … editables por inquilino/usuario) puede fijarse a nivel de
+despliegue con una variable de entorno llamada `OS_<NAMESPACE>_<KEY>` —en
+mayúsculas, con `.` y `-` reemplazados por `_`. Por ejemplo,
+`ai.openai_base_url` → `OS_AI_OPENAI_BASE_URL`, y
+`feature_flags.ai_enabled` → `OS_FEATURE_FLAGS_AI_ENABLED`. A partir de 9.0 se
+eliminaron los alias sin prefijo: la forma con prefijo `OS_` es la única que se
+lee.
+
+El inicio de sesión con Google (configurable en **Setup → Authentication**)
+también lee `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` a nivel de despliegue.
 
 ## Alias heredados
 

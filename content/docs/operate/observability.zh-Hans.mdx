@@ -80,8 +80,12 @@ groups:
           summary: "Frequent project kernel cold starts — consider raising OS_KERNEL_CACHE_SIZE"
 ```
 
-对于 OpenTelemetry，设置 `OTEL_EXPORTER_OTLP_ENDPOINT`，ObjectOS 会
-以 OTLP 格式发出 trace 与指标。span 的形状与
+对于 OpenTelemetry，设置 `OS_OBS_EXPORTER=otlp` **以及** `OS_OTLP_ENDPOINT`
+（例如 `https://<collector>/otlp`），ObjectOS 会以 OTLP 格式发出 trace 与
+指标。导出器默认为 `noop`（运行时零成本），因此 OTLP 导出为按需启用 ——
+仅设置端点而不设 `OS_OBS_EXPORTER=otlp` 不会发出任何数据。本地调试用
+`OS_OBS_EXPORTER=console` 或 `json`，用 `OS_OBS_DEPLOYMENT_ENV` 标记部署
+（默认 `production`）。span 的形状与
 [请求流程](/docs/architecture#how-a-request-is-served)一致。
 
 ## 审计日志
