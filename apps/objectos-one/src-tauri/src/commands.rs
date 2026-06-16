@@ -14,6 +14,7 @@ use crate::{config, logger, paths, sidecar};
 /// inbox message arrives while the window is backgrounded.
 #[tauri::command]
 pub fn notify_native(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    logger::log_line("INFO", "native notification surfaced");
     app.notification()
         .builder()
         .title(title)
