@@ -32,6 +32,20 @@ Superficies destacadas:
 El prefijo es `/api/v1` de forma predeterminada (el `basePath` de la API,
 `/api`, más la `version`, `v1`) y es configurable en el stack de ObjectOS.
 
+## Controlar qué se expone
+
+La exposición de la API se gobierna por objeto en el artefacto, no en la puerta
+de enlace:
+
+- Establece `apiEnabled: false` en un objeto para mantenerlo fuera de la
+  superficie REST por completo (sus rutas devuelven 404).
+- Establece una lista blanca `apiMethods` (p. ej. `['get', 'list']`) para hacer
+  un objeto de solo lectura o restringir de otro modo qué operaciones son
+  accesibles.
+
+Ambos se aplican en la capa REST; consulta
+[API REST → Restringir la superficie de la API](/docs/reference/rest-api#restricting-the-api-surface).
+
 ## Opciones de autenticación
 
 Los clientes pueden autenticarse de tres maneras:

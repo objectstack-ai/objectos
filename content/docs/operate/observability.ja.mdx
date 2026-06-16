@@ -84,8 +84,13 @@ groups:
           summary: "Frequent project kernel cold starts — consider raising OS_KERNEL_CACHE_SIZE"
 ```
 
-OpenTelemetry の場合は `OTEL_EXPORTER_OTLP_ENDPOINT` を設定すると、ObjectOS は
-OTLP 形式でトレースとメトリクスを送信します。スパンの形状は
+OpenTelemetry の場合は `OS_OBS_EXPORTER=otlp` **と** `OS_OTLP_ENDPOINT`
+（例: `https://<collector>/otlp`）を設定すると、ObjectOS は OTLP 形式でトレースと
+メトリクスを送信します。エクスポーターのデフォルトは `noop`(ランタイムコストはゼロ)のため、
+OTLP エクスポートはオプトインです——`OS_OBS_EXPORTER=otlp` なしでエンドポイントだけを設定しても
+何も出力されません。ローカルデバッグには `OS_OBS_EXPORTER=console` または `json` を使用し、
+デプロイメントにタグを付けるには `OS_OBS_DEPLOYMENT_ENV`(デフォルトは `production`)を使用します。
+スパンの形状は
 [リクエストフロー](/docs/architecture#how-a-request-is-served) に対応します。
 
 ## 監査ログ

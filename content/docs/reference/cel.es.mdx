@@ -153,9 +153,14 @@ Las expresiones se compilan en el momento de la carga. Los fallos aparecen como
 { "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
 ```
 
-Una evaluación fallida en tiempo de ejecución se trata como `null` para los
-campos de fórmula y como `false` para los predicados, además de generar una
-entrada en el registro de auditoría.
+Las expresiones inválidas **no fallan en silencio**. Una expresión mal formada o
+con un campo desconocido hace fallar `os compile` con el mensaje localizado de
+arriba (incluida una sugerencia «quizás quisiste decir» para un campo mal
+escrito). En tiempo de ejecución, una expresión incorrecta **lanza** un error
+atribuido en lugar de evaluarse silenciosamente a `null` o `false`, de modo que
+el fallo es visible en los logs y en el registro de auditoría en lugar de
+corromper de forma silenciosa el valor de una fórmula o la decisión de una
+guarda.
 
 ## Véase también
 

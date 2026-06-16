@@ -29,8 +29,40 @@ ObjectOS는 [Better Auth](https://www.better-auth.com/)를 사용합니다. `/ap
 | Path | Method | Purpose |
 |:--|:--|:--|
 | `/api/v1` | GET | 서비스 디스커버리 — 등록된 모든 라우트, 버전, 범위 지정 모드를 나열 |
+| `/api/v1/discovery` | GET | 위 디스커버리 문서에 대한 명시적 별칭 |
 | `/api/v1/openapi.json` | GET | 실행 중인 런타임의 모든 엔드포인트에 대한 OpenAPI 3.0 사양 |
 | `/api/v1/search` | GET | 모든 객체의 검색 가능 필드에 대한 전문(full-text) 검색 |
+
+## Restricting the API surface
+
+자동 생성된 엔드포인트는 객체 단위로 제어되므로, 라우트 코드를 작성하지 않고도
+객체를 API에서 제외하거나 읽기 전용으로 만들 수 있습니다:
+
+- **`apiEnabled`** (boolean, **기본값 `true`**) — `false`로 설정하면 객체가 REST
+  표면에서 완전히 제외됩니다. 해당 라우트로의 요청은 404를 반환합니다.
+- **`apiMethods`** (선택적 화이트리스트) — 설정하면 나열된 작업만 도달 가능하며,
+  그 외 작업은 REST 계층에서 거부됩니다. 허용 값: `get`, `list`, `create`,
+  `update`, `delete`, `upsert`, `bulk`, `aggregate`, `history`, `search`,
+  `restore`, `purge`, `import`, `export`.
+
+```ts
+// API로는 절대 쓸 수 없는 읽기 전용 참조 객체:
+defineObject({
+  name: 'exchange_rate',
+  apiMethods: ['get', 'list'],
+  // ...fields
+})
+
+// API가 절대 노출하지 않는 내부 객체:
+defineObject({
+  name: 'sync_cursor',
+  apiEnabled: false,
+  // ...fields
+})
+```
+
+이 둘은 이제 REST 계층에서 강제됩니다(ADR-0049) — 이전 버전은 이 속성들을
+파싱했지만 적용하지는 않았습니다.
 
 ## Data — `/api/v1/data/*`
 

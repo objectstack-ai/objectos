@@ -30,8 +30,40 @@ row-level security + field-level security inside the data engine.
 | Path | Method | Purpose |
 |:--|:--|:--|
 | `/api/v1` | GET | Service discovery — lists all registered routes, version, scoping mode |
+| `/api/v1/discovery` | GET | Explicit alias for the discovery document above |
 | `/api/v1/openapi.json` | GET | OpenAPI 3.0 spec for every endpoint in the running runtime |
 | `/api/v1/search` | GET | Full-text search across searchable fields on all objects |
+
+## Restricting the API surface
+
+The auto-generated endpoints are governed per object, so you can take an
+object off the API or make it read-only without writing any route code:
+
+- **`apiEnabled`** (boolean, **default `true`**) — set `false` to omit the
+  object from the REST surface entirely. Requests to its routes 404.
+- **`apiMethods`** (optional whitelist) — when set, only the listed operations
+  are reachable; any other operation is rejected at the REST layer. Allowed
+  values: `get`, `list`, `create`, `update`, `delete`, `upsert`, `bulk`,
+  `aggregate`, `history`, `search`, `restore`, `purge`, `import`, `export`.
+
+```ts
+// A read-only reference object, never writable over the API:
+defineObject({
+  name: 'exchange_rate',
+  apiMethods: ['get', 'list'],
+  // ...fields
+})
+
+// An internal object that the API never exposes:
+defineObject({
+  name: 'sync_cursor',
+  apiEnabled: false,
+  // ...fields
+})
+```
+
+Both are now enforced at the REST layer (ADR-0049) — earlier versions parsed
+these properties but did not apply them.
 
 ## Data — `/api/v1/data/*`
 

@@ -156,9 +156,14 @@ apparaissent comme `VALIDATION_ERROR` avec l'emplacement source :
 { "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
 ```
 
-Un échec d'évaluation au runtime est traité comme `null` pour les
-champs de formule et `false` pour les prédicats, avec en plus une
-entrée dans le journal d'audit.
+Les expressions invalides **n'échouent pas silencieusement**. Une
+expression mal formée ou comportant un champ inconnu fait échouer
+`os compile` avec le message localisé ci-dessus (y compris une suggestion
+« vouliez-vous dire » pour un champ mal orthographié). Au runtime, une
+mauvaise expression **lève** une erreur attribuée plutôt que de s'évaluer
+silencieusement à `null` ou `false`, de sorte que l'échec est visible dans
+les journaux et la piste d'audit au lieu de corrompre discrètement la valeur
+d'un formule ou la décision d'une garde.
 
 ## Voir aussi
 

@@ -8,10 +8,11 @@ description: Referenz der ObjectOS-Laufzeitumgebungsvariablen.
 Verwenden Sie Umgebungsvariablen für Konfiguration und Geheimnisse auf Deployment-Ebene.
 Verwenden Sie Systemeinstellungen für anwendungsbezogene Konfiguration, die von Mandanten/Benutzern bearbeitet werden kann.
 
-> **Benennung.** Ab dem nächsten Release verwenden alle ObjectStack-eigenen Variablen das
-> Präfix `OS_`. Unpräfixierte Pre-1.0-Namen (`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`,
-> …) funktionieren weiterhin, geben aber eine einmalige Verwarnung zur Veralterung aus. Bevorzugen Sie die kanonischen
-> `OS_*`-Namen in neuen Deployments; siehe [Veraltete Aliasse](#legacy-aliases).
+> **Benennung.** Alle ObjectStack-eigenen Variablen verwenden das Präfix `OS_`.
+> Unpräfixierte Pre-1.0-Namen (`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`, …)
+> funktionieren weiterhin, geben aber eine einmalige Verwarnung zur Veralterung aus.
+> Bevorzugen Sie die kanonischen `OS_*`-Namen in neuen Deployments; siehe
+> [Veraltete Aliasse](#legacy-aliases).
 
 ## Kern
 
@@ -76,6 +77,34 @@ Artefakt. Als letzten Ausweg berücksichtigt das Framework außerdem:
 Bevorzugen Sie für ObjectOS-Kundendeployments eine explizite Laufzeitkonfiguration der
 Steuerungsebene oder eine Artefakt-Datenquellenkonfiguration, anstatt sich auf
 container-lokale Standardwerte zu verlassen.
+
+## Observability
+
+Der Export von Traces und Metriken ist opt-in. Der Exporter ist standardmäßig
+`noop`, sodass ein Deployment nichts ausgibt, bis Sie einen auswählen — allein
+einen Endpunkt zu setzen, bewirkt nichts.
+
+| Variable | Standard | Beschreibung |
+|---|---:|---|
+| `OS_OBS_EXPORTER` | `noop` | Telemetrie-Exporter: `noop` \| `console` \| `json` \| `otlp`. Verwenden Sie `console`/`json` für lokales Debugging, `otlp` für einen Collector. |
+| `OS_OTLP_ENDPOINT` | — | OTLP/HTTP-Root-URL (z. B. `https://otlp.grafana.net/otlp`). Erforderlich, wenn `OS_OBS_EXPORTER=otlp`; ist sie leer, warnt die Laufzeit und fällt auf `noop` zurück. |
+| `OS_OTLP_HEADERS` | — | Zusätzliche OTLP-Header (z. B. Auth) als kommagetrennte `key=value`-Paare. |
+| `OS_OBS_SERVICE_NAME` | — | Ressourcenattribut `service.name` auf ausgegebenen Spans/Metriken. |
+| `OS_OBS_DEPLOYMENT_ENV` | `production` | Ressourcenattribut `deployment.environment`. |
+| `OS_OTLP_FLUSH_MS` | — | Flush-Intervall für den OTLP-Exporter, in Millisekunden. |
+
+## Überschreibungen von Einstellungs-Namespaces
+
+Systemeinstellungen (die von Mandanten/Benutzern bearbeitbaren Namespaces `ai`,
+`email`, `feature_flags`, …) können auf Deployment-Ebene mit einer
+Umgebungsvariablen namens `OS_<NAMESPACE>_<KEY>` festgelegt werden — in
+Großbuchstaben, wobei `.` und `-` durch `_` ersetzt werden. Zum Beispiel
+`ai.openai_base_url` → `OS_AI_OPENAI_BASE_URL` und `feature_flags.ai_enabled` →
+`OS_FEATURE_FLAGS_AI_ENABLED`. Ab 9.0 wurden die unpräfixierten Aliasse
+entfernt — die `OS_`-präfixierte Form ist die einzige, die gelesen wird.
+
+Die Google-Anmeldung (konfigurierbar unter **Setup → Authentication**) liest
+außerdem `GOOGLE_CLIENT_ID` und `GOOGLE_CLIENT_SECRET` auf Deployment-Ebene.
 
 ## Veraltete Aliasse
 

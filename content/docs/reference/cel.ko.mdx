@@ -150,8 +150,12 @@ CEL은 네이티브 `timestamp(...)`, `duration(...)`,
 { "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
 ```
 
-런타임에서 평가가 실패하면 수식 필드의 경우 `null`로, 술어의 경우
-`false`로 처리되며, 감사 로그에 항목이 추가됩니다.
+잘못된 표현식은 **조용히 실패하지 않습니다**. 형식이 잘못되었거나 알 수 없는 필드를
+참조하는 표현식은 위와 같이 위치가 표시된 메시지(철자가 틀린 필드에 대한
+did-you-mean 힌트 포함)와 함께 `os compile`에서 실패합니다. 런타임에서는 잘못된
+표현식이 조용히 `null` 또는 `false`로 평가되는 대신 출처가 명시된 오류를 **던지므로**,
+수식 값이나 가드 결정이 조용히 손상되는 대신 로그와 감사 추적에서 실패를 확인할 수
+있습니다.
 
 ## 참고
 

@@ -28,9 +28,7 @@ description: Chaque type de champ que vous pouvez déclarer sur un objet — ce 
 | `externalId` | boolean | `false` | Éligible à l'upsert via clé externe |
 | `inlineHelpText` | string | — | Infobulle / texte d'aide |
 | `conditionalRequired` | prédicat `P` | — | Requis lorsque le CEL est vrai |
-| `auditTrail` | boolean | `false` | Suivre chaque modification dans le journal d'audit |
-| `encryptionConfig` | object | — | Chiffrement au niveau du champ (voir [Sécurité](./security)) |
-| `maskingRule` | string | — | Modèle de masquage des données personnelles |
+| `trackHistory` | boolean | `false` | Affiche les changements de valeur sous forme d'entrées lisibles sur la timeline d'activité de l'enregistrement (ADR-0052) |
 
 ## Famille texte
 
@@ -41,7 +39,8 @@ description: Chaque type de champ que vous pouvez déclarer sur un objet — ce 
 | `email` | e-mail | format validé ; mis en minuscules |
 | `url` | URL | format validé |
 | `phone` | téléphone | E.164 |
-| `password` | secrets | haché ; jamais renvoyé par GET |
+| `password` | secrets à sens unique | haché par le sous-système d'authentification ; jamais renvoyé par GET |
+| `secret` | secrets réversibles (clés d'API, jetons, mots de passe de base de données) | chiffré au repos via le fournisseur de cryptographie, stocké comme référence opaque, masqué à la lecture. Fail-closed — sans fournisseur configuré, les écritures lèvent une erreur plutôt que de persister du texte en clair |
 | `markdown` | corps en markdown | rendu dans l'aperçu de la Console |
 | `html` | HTML assaini | DOMPurify à l'écriture |
 | `richtext` | WYSIWYG | éditeur Console + JSON sérialisé |
@@ -196,7 +195,7 @@ Vous ne déclarez pas ces champs — désactivez-les par objet avec
    ├─► REST: validated on POST/PATCH, exposed on GET
    ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
-   └─► Audit: change-tracked if `auditTrail: true`
+   └─► Audit: change-tracked if `trackHistory: true`
 ```
 
 ## Voir aussi

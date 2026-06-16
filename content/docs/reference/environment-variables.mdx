@@ -8,10 +8,10 @@ description: ObjectOS runtime environment variable reference.
 Use environment variables for deployment-level configuration and secrets.
 Use system settings for tenant/user-editable application configuration.
 
-> **Naming.** As of the next release, all ObjectStack-owned variables use the
-> `OS_` prefix. Pre-1.0 unprefixed names (`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`,
-> …) still work but emit a one-shot deprecation warning. Prefer the canonical
-> `OS_*` names in new deployments; see [Legacy aliases](#legacy-aliases).
+> **Naming.** All ObjectStack-owned variables use the `OS_` prefix. Pre-1.0
+> unprefixed names (`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`, …) still work but
+> emit a one-shot deprecation warning. Prefer the canonical `OS_*` names in new
+> deployments; see [Legacy aliases](#legacy-aliases).
 
 ## Core
 
@@ -76,6 +76,33 @@ artifact. As a last resort the framework also honours:
 For ObjectOS customer deployments, prefer explicit control-plane runtime
 configuration or artifact datasource configuration over relying on
 container-local defaults.
+
+## Observability
+
+Tracing and metrics export is opt-in. The exporter defaults to `noop`, so a
+deployment emits nothing until you select one — setting an endpoint alone does
+nothing.
+
+| Variable | Default | Description |
+|---|---:|---|
+| `OS_OBS_EXPORTER` | `noop` | Telemetry exporter: `noop` \| `console` \| `json` \| `otlp`. Use `console`/`json` for local debugging, `otlp` for a collector. |
+| `OS_OTLP_ENDPOINT` | — | OTLP/HTTP root URL (e.g. `https://otlp.grafana.net/otlp`). Required when `OS_OBS_EXPORTER=otlp`; if empty the runtime warns and falls back to `noop`. |
+| `OS_OTLP_HEADERS` | — | Extra OTLP headers (e.g. auth) as comma-separated `key=value` pairs. |
+| `OS_OBS_SERVICE_NAME` | — | `service.name` resource attribute on emitted spans/metrics. |
+| `OS_OBS_DEPLOYMENT_ENV` | `production` | `deployment.environment` resource attribute. |
+| `OS_OTLP_FLUSH_MS` | — | Flush interval for the OTLP exporter, in milliseconds. |
+
+## Settings namespace overrides
+
+System settings (the tenant/user-editable `ai`, `email`, `feature_flags`, …
+namespaces) can be pinned at the deployment level with an environment variable
+named `OS_<NAMESPACE>_<KEY>` — uppercased, with `.` and `-` replaced by `_`.
+For example `ai.openai_base_url` → `OS_AI_OPENAI_BASE_URL`, and
+`feature_flags.ai_enabled` → `OS_FEATURE_FLAGS_AI_ENABLED`. As of 9.0 the
+unprefixed aliases were removed — the `OS_`-prefixed form is the only one read.
+
+Google sign-in (configurable in **Setup → Authentication**) also reads
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` at the deployment level.
 
 ## Legacy aliases
 

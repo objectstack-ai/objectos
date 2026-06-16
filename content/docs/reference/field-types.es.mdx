@@ -28,9 +28,7 @@ description: Cada tipo de campo que puedes declarar en un objeto — qué almace
 | `externalId` | boolean | `false` | Apto para upsert mediante clave externa |
 | `inlineHelpText` | string | — | Texto de información sobre herramientas / ayuda |
 | `conditionalRequired` | predicado `P` | — | Obligatorio cuando el CEL es verdadero |
-| `auditTrail` | boolean | `false` | Registra cada cambio en el log de auditoría |
-| `encryptionConfig` | object | — | Cifrado a nivel de campo (consulta [Security](./security)) |
-| `maskingRule` | string | — | Patrón de enmascaramiento de PII |
+| `trackHistory` | boolean | `false` | Muestra los cambios de valor como entradas legibles en la línea de tiempo de actividad del registro (ADR-0052) |
 
 ## Familia de texto
 
@@ -41,7 +39,8 @@ description: Cada tipo de campo que puedes declarar en un objeto — qué almace
 | `email` | correo electrónico | validado por formato; en minúsculas |
 | `url` | URL | validado por formato |
 | `phone` | teléfono | E.164 |
-| `password` | secretos | con hash; nunca devuelto por GET |
+| `password` | secretos de un solo sentido | con hash por el subsistema de autenticación; nunca devuelto por GET |
+| `secret` | secretos reversibles (claves de API, tokens, contraseñas de BD) | cifrado en reposo mediante el proveedor de criptografía, almacenado como una referencia opaca, enmascarado al leer. Fail-closed: sin un proveedor configurado, las escrituras lanzan un error en lugar de persistir texto plano |
 | `markdown` | cuerpo markdown | renderizado en la vista previa de Console |
 | `html` | HTML saneado | DOMPurify al escribir |
 | `richtext` | WYSIWYG | editor de Console + JSON serializado |
@@ -196,7 +195,7 @@ No declaras estos campos — desactívalos por objeto con
    ├─► REST: validated on POST/PATCH, exposed on GET
    ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
-   └─► Audit: change-tracked if `auditTrail: true`
+   └─► Audit: change-tracked if `trackHistory: true`
 ```
 
 ## Consulta también

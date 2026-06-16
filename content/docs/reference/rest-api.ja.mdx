@@ -30,8 +30,40 @@ RBAC + 行レベルセキュリティ + フィールドレベルセキュリテ�
 | Path | Method | 目的 |
 |:--|:--|:--|
 | `/api/v1` | GET | サービスディスカバリ — 登録されたすべてのルート、バージョン、スコープモードを一覧表示 |
+| `/api/v1/discovery` | GET | 上記のディスカバリドキュメントに対する明示的なエイリアス |
 | `/api/v1/openapi.json` | GET | 実行中のランタイムにあるすべてのエンドポイントの OpenAPI 3.0 仕様 |
 | `/api/v1/search` | GET | すべてのオブジェクトの検索可能フィールドにまたがる全文検索 |
+
+## API 表面の制限
+
+自動生成されるエンドポイントはオブジェクト単位で制御されるため、ルートコードを一切書かずに、
+オブジェクトを API から外したり読み取り専用にしたりできます:
+
+- **`apiEnabled`**（boolean、**デフォルト `true`**）— `false` に設定すると、オブジェクトを
+  REST 表面から完全に除外します。そのルートへのリクエストは 404 になります。
+- **`apiMethods`**（任意のホワイトリスト）— 設定すると、リストされた操作のみが到達可能になり、
+  それ以外の操作は REST レイヤーで拒否されます。許可される値: `get`、`list`、`create`、
+  `update`、`delete`、`upsert`、`bulk`、`aggregate`、`history`、`search`、`restore`、
+  `purge`、`import`、`export`。
+
+```ts
+// 読み取り専用の参照オブジェクト。API 経由では書き込み不可:
+defineObject({
+  name: 'exchange_rate',
+  apiMethods: ['get', 'list'],
+  // ...fields
+})
+
+// API が決して公開しない内部オブジェクト:
+defineObject({
+  name: 'sync_cursor',
+  apiEnabled: false,
+  // ...fields
+})
+```
+
+どちらも現在は REST レイヤーで強制適用されます（ADR-0049）— 以前のバージョンではこれらの
+プロパティをパースするだけで、適用していませんでした。
 
 ## Data — `/api/v1/data/*`
 

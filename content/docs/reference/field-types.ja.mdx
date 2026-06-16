@@ -28,9 +28,7 @@ description: オブジェクトに宣言できるすべてのフィールドタ�
 | `externalId` | boolean | `false` | 外部キーによる upsert の対象 |
 | `inlineHelpText` | string | — | ツールチップ / ヘルパーテキスト |
 | `conditionalRequired` | `P` 述語 | — | CEL が真のとき必須 |
-| `auditTrail` | boolean | `false` | すべての変更を監査ログで追跡 |
-| `encryptionConfig` | object | — | フィールドレベルの暗号化（[Security](./security) を参照） |
-| `maskingRule` | string | — | PII マスキングパターン |
+| `trackHistory` | boolean | `false` | 値の変更を、レコードのアクティビティタイムラインに人間が読める形式のエントリとして表示（ADR-0052） |
 
 ## テキストファミリー
 
@@ -41,7 +39,8 @@ description: オブジェクトに宣言できるすべてのフィールドタ�
 | `email` | メールアドレス | フォーマット検証あり。小文字化される |
 | `url` | URL | フォーマット検証あり |
 | `phone` | 電話番号 | E.164 |
-| `password` | シークレット | ハッシュ化され、GET では返されない |
+| `password` | 一方向シークレット | 認証サブシステムによってハッシュ化され、GET では返されない |
+| `secret` | 復号可能なシークレット（API キー、トークン、DB パスワード） | crypto プロバイダーによって保存時に暗号化され、不透明な参照として格納され、読み取り時にマスクされる。フェイルクローズ——プロバイダー未設定では、書き込みは平文を永続化せずにスローする |
 | `markdown` | markdown 本文 | Console プレビューでレンダリング |
 | `html` | サニタイズ済み HTML | 書き込み時に DOMPurify を適用 |
 | `richtext` | WYSIWYG | Console エディタ + シリアライズされた JSON |
@@ -196,7 +195,7 @@ fileAttachmentConfig: {
    ├─► REST: validated on POST/PATCH, exposed on GET
    ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
-   └─► Audit: change-tracked if `auditTrail: true`
+   └─► Audit: change-tracked if `trackHistory: true`
 ```
 
 ## 関連項目

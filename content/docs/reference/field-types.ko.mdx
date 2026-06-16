@@ -28,9 +28,7 @@ description: 객체에 선언할 수 있는 모든 필드 타입 — 저장하�
 | `externalId` | boolean | `false` | 외부 키를 통한 upsert 대상 |
 | `inlineHelpText` | string | — | 툴팁 / 도움말 텍스트 |
 | `conditionalRequired` | `P` 술어 | — | CEL이 true일 때 필수 |
-| `auditTrail` | boolean | `false` | 모든 변경을 감사 로그에 기록 |
-| `encryptionConfig` | object | — | 필드 단위 암호화 ([Security](./security) 참조) |
-| `maskingRule` | string | — | PII 마스킹 패턴 |
+| `trackHistory` | boolean | `false` | 값 변경을 레코드 활동 타임라인에 사람이 읽을 수 있는 항목으로 렌더링 (ADR-0052) |
 
 ## 텍스트 패밀리
 
@@ -41,7 +39,8 @@ description: 객체에 선언할 수 있는 모든 필드 타입 — 저장하�
 | `email` | 이메일 | 형식 검증됨, 소문자로 변환 |
 | `url` | URL | 형식 검증됨 |
 | `phone` | 전화번호 | E.164 |
-| `password` | 시크릿 | 해시 처리됨, GET으로 반환되지 않음 |
+| `password` | 단방향 시크릿 | 인증 서브시스템이 해시 처리함, GET으로 반환되지 않음 |
+| `secret` | 가역 시크릿 (API 키, 토큰, DB 비밀번호) | 크립토 제공자를 통해 저장 시 암호화되고, 불투명 참조로 저장되며, 읽기 시 마스킹됨. fail-closed — 제공자가 구성되지 않으면 쓰기가 평문을 저장하는 대신 예외를 던짐 |
 | `markdown` | 마크다운 본문 | Console 미리보기에서 렌더링 |
 | `html` | 새니타이즈된 HTML | 쓰기 시 DOMPurify 적용 |
 | `richtext` | WYSIWYG | Console 에디터 + 직렬화된 JSON |
@@ -196,7 +195,7 @@ fileAttachmentConfig: {
    ├─► REST: validated on POST/PATCH, exposed on GET
    ├─► Console: form widget + list column
    ├─► AI Builder: tool argument schema (so the AI knows what to ask)
-   └─► Audit: change-tracked if `auditTrail: true`
+   └─► Audit: change-tracked if `trackHistory: true`
 ```
 
 ## 함께 보기

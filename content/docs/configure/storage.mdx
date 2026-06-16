@@ -18,7 +18,7 @@ enabled by default in standalone and project boots.
 |---|---|
 | Console file/image fields | Browser uploads directly to storage via presigned URLs |
 | REST `/api/v1/storage/*` | Programmatic upload/download endpoints |
-| Object `attachment` / `image` fields | Render as upload widgets; metadata persists in `sys_file` |
+| Object `file` / `image` fields | Render as upload widgets; metadata persists in `sys_file` |
 
 Files are tracked in the `sys_file` system object — never as raw paths
 in your records. That decouples your data model from the storage

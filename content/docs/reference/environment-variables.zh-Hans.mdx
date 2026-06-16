@@ -8,7 +8,7 @@ description: ObjectOS 运行时环境变量参考。
 使用环境变量进行部署级配置和密钥管理。
 使用系统设置进行租户/用户可编辑的应用配置。
 
-> **命名。** 自下一版本起,所有 ObjectStack 自有变量统一使用 `OS_` 前缀。1.0 之前的无前缀名称（`PORT`、`AUTH_SECRET`、`OS_MULTI_TENANT` 等）仍可使用,但会触发一次性弃用警告。新部署请优先使用规范的 `OS_*` 名称,参见[旧别名](#legacy-aliases)。
+> **命名。** 所有 ObjectStack 自有变量统一使用 `OS_` 前缀。1.0 之前的无前缀名称（`PORT`、`AUTH_SECRET`、`OS_MULTI_TENANT` 等）仍可使用,但会触发一次性弃用警告。新部署请优先使用规范的 `OS_*` 名称,参见[旧别名](#legacy-aliases)。
 
 ## 核心
 
@@ -67,6 +67,25 @@ description: ObjectOS 运行时环境变量参考。
 | `OS_SKIP_SCHEMA_SYNC` | 设为 `1` 时在启动时跳过 ObjectQL DDL 同步。schema 由外部管理时使用。 |
 
 对 ObjectOS 客户部署,优先使用显式控制平面运行时配置或 artifact 数据源配置,而非依赖容器本地默认值。
+
+## 可观测性
+
+追踪与指标导出为按需启用。导出器默认为 `noop`,因此在你选择之前部署不会发出任何数据 —— 仅设置端点不起作用。
+
+| 变量 | 默认值 | 说明 |
+|---|---:|---|
+| `OS_OBS_EXPORTER` | `noop` | 遥测导出器:`noop` \| `console` \| `json` \| `otlp`。本地调试用 `console`/`json`,接入采集器用 `otlp`。 |
+| `OS_OTLP_ENDPOINT` | — | OTLP/HTTP 根 URL（例如 `https://otlp.grafana.net/otlp`）。当 `OS_OBS_EXPORTER=otlp` 时必需;若为空,运行时会告警并回退到 `noop`。 |
+| `OS_OTLP_HEADERS` | — | 额外的 OTLP 头（例如鉴权）,以逗号分隔的 `key=value` 对表示。 |
+| `OS_OBS_SERVICE_NAME` | — | 发出的 span/指标上的 `service.name` 资源属性。 |
+| `OS_OBS_DEPLOYMENT_ENV` | `production` | `deployment.environment` 资源属性。 |
+| `OS_OTLP_FLUSH_MS` | — | OTLP 导出器的刷新间隔,单位毫秒。 |
+
+## 设置命名空间覆盖
+
+系统设置（租户/用户可编辑的 `ai`、`email`、`feature_flags` 等命名空间）可在部署级用一个名为 `OS_<NAMESPACE>_<KEY>` 的环境变量固定 —— 全部大写,并将 `.` 与 `-` 替换为 `_`。例如 `ai.openai_base_url` → `OS_AI_OPENAI_BASE_URL`,`feature_flags.ai_enabled` → `OS_FEATURE_FLAGS_AI_ENABLED`。自 9.0 起,无前缀的别名已被移除 —— 只读取带 `OS_` 前缀的形式。
+
+Google 登录（在 **Setup → Authentication** 中配置）也在部署级读取 `GOOGLE_CLIENT_ID` 与 `GOOGLE_CLIENT_SECRET`。
 
 ## 旧别名 [#legacy-aliases]
 

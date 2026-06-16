@@ -11,9 +11,9 @@ ObjectOS sigue el **[Versionado semántico](https://semver.org/)**: `MAJOR.MINOR
 
 | Incremento de versión | Qué significa | Qué hacer |
 |---|---|---|
-| **Parche** (`4.0.1 → 4.0.2`) | Corrección de errores, sin cambios de comportamiento | Actualiza, no se requieren cambios en la aplicación |
-| **Menor** (`4.0 → 4.1`) | Nuevas funciones, compatible con versiones anteriores | Actualiza y, opcionalmente, adopta las nuevas funciones |
-| **Mayor** (`4 → 5`) | Cambios incompatibles documentados en las notas de versión | Lee la guía de migración antes de actualizar |
+| **Parche** (`9.7.0 → 9.7.1`) | Corrección de errores, sin cambios de comportamiento | Actualiza, no se requieren cambios en la aplicación |
+| **Menor** (`9.6 → 9.7`) | Nuevas funciones, compatible con versiones anteriores | Actualiza y, opcionalmente, adopta las nuevas funciones |
+| **Mayor** (`8 → 9`) | Cambios incompatibles documentados en las notas de versión | Lee la guía de migración antes de actualizar |
 
 Todos los paquetes `@objectstack/*` se publican juntos con un número de
 versión sincronizado: se prueban como una matriz, no de forma independiente.
@@ -22,7 +22,7 @@ versión sincronizado: se prueban como una matriz, no de forma independiente.
 
 | Componente | Regla de compatibilidad |
 |---|---|
-| Imagen de ObjectOS ↔ artefacto compilado | Misma versión menor. Una imagen 4.0.x ejecuta un artefacto 4.0.x; un artefacto 4.1 puede usar funciones no disponibles en una imagen 4.0. |
+| Imagen de ObjectOS ↔ artefacto compilado | Misma versión menor. Una imagen 9.7.x ejecuta un artefacto 9.7.x; un artefacto 9.7 puede usar funciones no disponibles en una imagen 9.6. |
 | ObjectOS ↔ CLI | Se recomienda la misma versión menor. La CLI en `npm i -g` genera andamiajes fijados a su propia versión. |
 | ObjectOS ↔ controlador de base de datos | El controlador queda fijado por la compilación de la imagen; verifica Postgres ≥ 13 / MongoDB ≥ 5 / Turso (cualquiera actual). |
 | Node.js | **20 LTS o posterior**. Se recomienda 22 LTS para nuevos despliegues. |
@@ -31,9 +31,9 @@ versión sincronizado: se prueban como una matriz, no de forma independiente.
 
 | Rama | Estado | Hasta |
 |---|---|---|
-| **4.x** (actual) | Desarrollo activo; nuevas funciones y correcciones | Al menos 12 meses después del lanzamiento de 5.0 |
-| **3.x** | Solo correcciones de seguridad | EOL en el lanzamiento de 5.0 |
-| **≤ 2.x** | Sin soporte | Ya en EOL |
+| **9.x** (actual) | Desarrollo activo; nuevas funciones y correcciones | Al menos 12 meses después del lanzamiento de 10.0 |
+| **8.x** | Solo correcciones de seguridad | EOL en el lanzamiento de 10.0 |
+| **≤ 7.x** | Sin soporte | Ya en EOL |
 
 Las correcciones de seguridad críticas se retroportan a la versión mayor
 actual y a la anterior. Todo lo demás se incorpora en `main`.
@@ -51,9 +51,67 @@ Suscríbete a las versiones en GitHub para recibir notificaciones.
 
 ## Aspectos destacados recientes
 
-### 8.0.x — tren de versiones actual
+### 9.x — tren de versiones actual
 
-ObjectOS One y el servidor incluido ahora se ejecutan sobre `@objectstack` **8.0.1**.
+ObjectOS One y el servidor incluido ahora se ejecutan sobre `@objectstack` **9.7.0**.
+El contrato de arranque del runtime no cambia respecto a 8.0 —
+`createStandaloneStack` sigue tomando el mismo artefacto, entorno y ajustes de
+base de datos—, por lo que un despliegue 8.0 actualiza sin cambios de
+configuración. Lo que se movió es la superficie orientada al autor:
+
+- **Los datasets de analítica son la única superficie de autor** (9.0, cambio
+  incompatible): los widgets de panel, los informes y los gráficos de lista
+  ahora vinculan un `dataset` semántico (`defineDataset(...)`) y seleccionan
+  dimensiones/medidas **por nombre**. Se eliminaron los antiguos campos de
+  consulta en línea (`object`/`valueField`/`aggregate` en widgets,
+  `objectName`/`columns`/`groupingsDown` en informes, `xAxisField`/`yAxisFields`
+  en gráficos de lista). Migración: mueve la consulta en línea a un
+  `defineDataset` y refiérete a él por nombre. `ChartTypeSchema` también eliminó
+  8 tipos de variante que solo se renderizaban como su base (`stacked-bar`→`bar`,
+  `spline`→`line`, `bubble`→`scatter`, …).
+- **Validación más estricta en tiempo de compilación** (9.6–9.7): `os compile`
+  ahora **falla** ante referencias de campo sin prefijo (`amount` en lugar de
+  `record.amount`), funciones CEL desconocidas y sintaxis de interpolación de
+  valores de flujo incorrecta, cada una con una sugerencia «quizás quisiste
+  decir». Un stack que antes «compilaba pero estaba silenciosamente mal» ahora
+  falla de forma visible: vuelve a ejecutar `os compile` tras actualizar y
+  corrige lo que señale.
+- **Las fórmulas de campos numéricos calculan aritmética mixta** (9.7):
+  `record.amount / 100` y `record.price * 2` ahora se evalúan en lugar de
+  producir silenciosamente `null`; ya no se necesita el truco del literal flotante
+  `/ 100.0`.
+- **Control de REST a nivel de objeto, ahora aplicado** (ADR-0049): el
+  `apiEnabled: false` de un objeto lo retira de la superficie REST, y una lista
+  blanca `apiMethods` restringe qué operaciones son accesibles. Antes se
+  analizaba pero no se aplicaba.
+- **Documentación de paquetes como metadatos + navegación `book`** (9.3–9.6):
+  los `src/docs/*.md` se registran como metadatos `doc`; el elemento `book`
+  (ADR-0046) declara una espina de navegación de pertenencia derivada, servida en
+  `GET /api/v1/meta/book/:name/tree` con control por audiencia.
+- **`os package install`** (9.3): instala un paquete en un runtime en ejecución
+  desde un id de catálogo o un artefacto en línea aislado de la red,
+  autenticándose con `--email` / `--password`.
+- **Aprobaciones** (9.3): devolución para revisión (`maxRevisions`, predeterminado
+  3), autoescalada de SLA respaldada por jobs, búsqueda/paginación de listas y
+  enlaces de confirmación de aprobar/rechazar bilingües y sin sesión.
+- **Disparadores de flujo por webhook entrante** (9.3): un flujo `type: 'api'`
+  monta un endpoint `POST /api/v1/automation/hooks/:flowName/:hookId` verificado
+  con HMAC, con ingesta idempotente y respaldada por cola.
+- **Retención de notificaciones activada por defecto** (9.5): el historial de
+  notificaciones se poda automáticamente a los **90 días**; pon
+  `retentionDays: 0` en la mensajería para conservar el historial para siempre.
+- **La CLI incluye los SDK de proveedores de IA** (9.0): los proveedores
+  compatibles con OpenAI (DeepSeek, DashScope, SiliconFlow, OpenRouter,
+  Cloudflare) funcionan de inmediato en una CLI instalada globalmente.
+
+Un cambio de comportamiento en la autoría de flujos a tener en cuenta: el
+`outputVariable` de un nodo `create_record` ahora contiene el **objeto de
+registro creado** (antes era el id sin más), así que actualiza las referencias
+`{var}` que esperaban un id a `{var.id}`.
+
+### 8.0.x
+
+ObjectOS One y el servidor incluido se ejecutaban sobre `@objectstack` **8.0.1**.
 
 - **MCP sobre Streamable HTTP**: cada despliegue puede actuar como un servidor
   [Model Context Protocol](https://modelcontextprotocol.io) accesible por red.

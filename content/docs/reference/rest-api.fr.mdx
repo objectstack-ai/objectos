@@ -30,8 +30,43 @@ sécurité au niveau des lignes + sécurité au niveau des champs au sein du mot
 | Chemin | Méthode | Objectif |
 |:--|:--|:--|
 | `/api/v1` | GET | Découverte de service — liste toutes les routes enregistrées, la version, le mode de cadrage |
+| `/api/v1/discovery` | GET | Alias explicite du document de découverte ci-dessus |
 | `/api/v1/openapi.json` | GET | Spécification OpenAPI 3.0 pour chaque point de terminaison du runtime en cours d'exécution |
 | `/api/v1/search` | GET | Recherche plein texte sur les champs recherchables de tous les objets |
+
+## Restreindre la surface d'API
+
+Les endpoints générés automatiquement sont gouvernés par objet, de sorte que
+vous pouvez retirer un objet de l'API ou le rendre en lecture seule sans écrire
+aucun code de route :
+
+- **`apiEnabled`** (booléen, **par défaut `true`**) — définissez `false` pour
+  retirer entièrement l'objet de la surface REST. Les requêtes vers ses routes
+  renvoient 404.
+- **`apiMethods`** (liste blanche optionnelle) — lorsqu'elle est définie, seules
+  les opérations listées sont accessibles ; toute autre opération est rejetée au
+  niveau de la couche REST. Valeurs autorisées : `get`, `list`, `create`,
+  `update`, `delete`, `upsert`, `bulk`, `aggregate`, `history`, `search`,
+  `restore`, `purge`, `import`, `export`.
+
+```ts
+// Un objet de référence en lecture seule, jamais inscriptible via l'API :
+defineObject({
+  name: 'exchange_rate',
+  apiMethods: ['get', 'list'],
+  // ...fields
+})
+
+// Un objet interne que l'API n'expose jamais :
+defineObject({
+  name: 'sync_cursor',
+  apiEnabled: false,
+  // ...fields
+})
+```
+
+Les deux sont désormais appliqués au niveau de la couche REST (ADR-0049) — les
+versions antérieures analysaient ces propriétés mais ne les appliquaient pas.
 
 ## Données — `/api/v1/data/*`
 

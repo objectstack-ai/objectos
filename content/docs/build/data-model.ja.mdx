@@ -119,16 +119,16 @@ ObjectStack には約 25 種類のフィールドタイプが付属します。�
 
 | タイプ | 格納する内容 |
 |---|---|
-| `attachment` | ストレージサービス経由の単一ファイル |
-| `image` | プレビュー付きの画像添付 |
+| `file` | ストレージサービス経由の単一ファイル |
+| `image` | プレビュー付きの画像ファイル |
 
 ### 計算 / 派生
 
 | タイプ | 動作 |
 |---|---|
 | `formula` | CEL 式から読み取り時に計算 |
-| `rollup` | 関連レコードの集計（sum/count/avg） |
-| `autoNumber` | シーケンス（`INV-{000001}`） |
+| `summary` | 関連レコードの集計（sum/count/avg） |
+| `autonumber` | シーケンス（`INV-{000001}`） |
 | `created`, `lastModified` | システムが保守するタイムスタンプ |
 | `createdBy`, `lastModifiedBy` | システムが保守するユーザー参照 |
 

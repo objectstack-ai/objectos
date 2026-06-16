@@ -32,6 +32,19 @@ Wichtige Schnittstellen:
 Das Präfix lautet standardmäßig `/api/v1` (der API-`basePath` von `/api` plus
 die `version` `v1`) und ist im ObjectOS-Stack konfigurierbar.
 
+## Steuern, was offengelegt wird
+
+Die API-Offenlegung wird pro Objekt im Artefakt gesteuert, nicht am Gateway:
+
+- Setzen Sie `apiEnabled: false` auf einem Objekt, um es vollständig von der
+  REST-Oberfläche fernzuhalten (seine Routen liefern 404).
+- Setzen Sie eine `apiMethods`-Whitelist (z. B. `['get', 'list']`), um ein
+  Objekt schreibgeschützt zu machen oder anderweitig einzuschränken, welche
+  Operationen erreichbar sind.
+
+Beide werden auf der REST-Ebene durchgesetzt — siehe
+[REST-API → API-Oberfläche einschränken](/docs/reference/rest-api#restricting-the-api-surface).
+
 ## Authentifizierungsoptionen
 
 Aufrufer können sich auf drei Arten authentifizieren:

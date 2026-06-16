@@ -28,6 +28,16 @@ https://<project-domain>/api/v1
 
 前缀默认为 `/api/v1`（即 API 的 `basePath` `/api` 加上 `version` `v1`），并且可在 ObjectOS stack 上配置。
 
+## 控制暴露的内容
+
+API 暴露在 artifact 中按对象逐个治理，而不是在网关层：
+
+- 在对象上设置 `apiEnabled: false`，使其完全不出现在 REST 面上（其路由返回 404）。
+- 设置 `apiMethods` 白名单（例如 `['get', 'list']`），将对象设为只读或以其他方式限制哪些操作可达。
+
+两者都在 REST 层强制执行 —— 参见
+[REST API → 限制 API 暴露面](/docs/reference/rest-api#restricting-the-api-surface)。
+
 ## 身份验证方式
 
 调用方可以通过三种方式进行身份验证：

@@ -11,9 +11,9 @@ ObjectOS follows **[Semantic Versioning](https://semver.org/)**: `MAJOR.MINOR.PA
 
 | Version bump | What it means | What to do |
 |---|---|---|
-| **Patch** (`4.0.1 → 4.0.2`) | Bug fixes, no behavior change | Roll forward, no app changes needed |
-| **Minor** (`4.0 → 4.1`) | New features, backward-compatible | Roll forward, optionally adopt new features |
-| **Major** (`4 → 5`) | Breaking changes documented in release notes | Read the migration guide before upgrading |
+| **Patch** (`9.7.0 → 9.7.1`) | Bug fixes, no behavior change | Roll forward, no app changes needed |
+| **Minor** (`9.6 → 9.7`) | New features, backward-compatible | Roll forward, optionally adopt new features |
+| **Major** (`8 → 9`) | Breaking changes documented in release notes | Read the migration guide before upgrading |
 
 All `@objectstack/*` packages release together with a synchronized
 version number — they're tested as a matrix, not independently.
@@ -22,7 +22,7 @@ version number — they're tested as a matrix, not independently.
 
 | Component | Compatibility rule |
 |---|---|
-| ObjectOS image ↔ compiled artifact | Same minor version. A 4.0.x image runs a 4.0.x artifact; a 4.1 artifact may use features unavailable in a 4.0 image. |
+| ObjectOS image ↔ compiled artifact | Same minor version. A 9.7.x image runs a 9.7.x artifact; a 9.7 artifact may use features unavailable in a 9.6 image. |
 | ObjectOS ↔ CLI | Same minor version recommended. The CLI in `npm i -g` writes scaffolds pinned to its own version. |
 | ObjectOS ↔ database driver | Driver pinned by image build; verify Postgres ≥ 13 / MongoDB ≥ 5 / Turso (any current). |
 | Node.js | **20 LTS or newer**. 22 LTS recommended for new deployments. |
@@ -31,9 +31,9 @@ version number — they're tested as a matrix, not independently.
 
 | Branch | Status | Until |
 |---|---|---|
-| **4.x** (current) | Active development; new features and fixes | At least 12 months after 5.0 ships |
-| **3.x** | Security fixes only | EOL on 5.0 release |
-| **≤ 2.x** | Unsupported | Already EOL |
+| **9.x** (current) | Active development; new features and fixes | At least 12 months after 10.0 ships |
+| **8.x** | Security fixes only | EOL on 10.0 release |
+| **≤ 7.x** | Unsupported | Already EOL |
 
 Critical security fixes are backported to the current and previous
 major. Everything else lands on `main`.
@@ -51,9 +51,62 @@ Subscribe to releases on GitHub to get notified.
 
 ## Recent highlights
 
-### 8.0.x — current release train
+### 9.x — current release train
 
-ObjectOS One and the bundled server now ship on `@objectstack` **8.0.1**.
+ObjectOS One and the bundled server now ship on `@objectstack` **9.7.0**.
+The runtime boot contract is unchanged from 8.0 — `createStandaloneStack`
+still takes the same artifact, environment, and database settings — so an
+8.0 deployment rolls forward without config changes. The author-facing
+surface is what moved:
+
+- **Analytics datasets are the single author surface** (9.0, breaking) —
+  dashboard widgets, reports, and list-charts now bind a semantic `dataset`
+  (`defineDataset(...)`) and select dimensions/measures **by name**. The old
+  inline query fields (`object`/`valueField`/`aggregate` on widgets,
+  `objectName`/`columns`/`groupingsDown` on reports, `xAxisField`/`yAxisFields`
+  on list-charts) were removed. Migration: move the inline query into a
+  `defineDataset` and reference it by name. `ChartTypeSchema` also dropped 8
+  variant types that only rendered as their base (`stacked-bar`→`bar`,
+  `spline`→`line`, `bubble`→`scatter`, …).
+- **Stricter build-time validation** (9.6–9.7) — `os compile` now **fails**
+  on bare field references (`amount` instead of `record.amount`), unknown CEL
+  functions, and wrong flow-value interpolation syntax, each with a
+  did-you-mean hint. A stack that previously "built but was silently wrong"
+  now fails loudly — re-run `os compile` after upgrading and fix what it flags.
+- **Number-field formulas compute mixed arithmetic** (9.7) — `record.amount / 100`
+  and `record.price * 2` now evaluate instead of silently yielding `null`; the
+  `/ 100.0` float-literal workaround is no longer needed.
+- **Object-level REST gating, now enforced** (ADR-0049) — an object's
+  `apiEnabled: false` removes it from the REST surface, and an `apiMethods`
+  whitelist restricts which operations are reachable. Previously parsed but
+  not enforced.
+- **Package documentation as metadata + `book` navigation** (9.3–9.6) —
+  `src/docs/*.md` register as `doc` metadata; the `book` element (ADR-0046)
+  declares a derived-membership navigation spine, served at
+  `GET /api/v1/meta/book/:name/tree` with audience gating.
+- **`os package install`** (9.3) — install a package into a running runtime
+  from a catalog id or an inline air-gapped artifact, authenticating with
+  `--email` / `--password`.
+- **Approvals** (9.3) — send-back-for-revision (`maxRevisions`, default 3),
+  jobs-backed SLA auto-escalation, list search/pagination, and session-less
+  bilingual approve/reject confirm links.
+- **Inbound webhook flow triggers** (9.3) — a `type: 'api'` flow mounts an
+  HMAC-verified `POST /api/v1/automation/hooks/:flowName/:hookId` endpoint
+  with idempotent, queue-backed ingestion.
+- **Notification retention defaults on** (9.5) — notification history
+  auto-prunes at **90 days**; set the messaging `retentionDays: 0` to keep
+  history forever.
+- **CLI bundles AI provider SDKs** (9.0) — OpenAI-compatible providers
+  (DeepSeek, DashScope, SiliconFlow, OpenRouter, Cloudflare) work out of the
+  box on a globally-installed CLI.
+
+One flow-authoring behavior change to note: a `create_record` node's
+`outputVariable` now holds the **created record object** (was the bare id), so
+update `{var}` references that expected an id to `{var.id}`.
+
+### 8.0.x
+
+ObjectOS One and the bundled server shipped on `@objectstack` **8.0.1**.
 
 - **MCP over Streamable HTTP** — every deployment can act as a
   network-reachable [Model Context Protocol](https://modelcontextprotocol.io)
