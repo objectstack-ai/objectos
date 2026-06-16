@@ -4,24 +4,26 @@
 // Activates only on the Console — where the in-app inbox lives — and only
 // inside Tauri. It polls the in-app inbox and, when the window is in the
 // background, surfaces each NEW message as a native OS notification (macOS
-// Notification Center / Windows toast / Linux libnotify), badges the dock with
-// the count missed while away, and focuses the app (deep-linking to the record
-// when the plugin reports the click).
+// Notification Center / Windows toast / Linux libnotify) and badges the dock
+// with the count missed while away (cleared on focus).
 //
 // Source of truth is `sys_inbox_message` (ADR-0030 L5) — the same table the
-// Console bell reads. This only mirrors new rows to the OS so they reach the
-// user when the window isn't focused — the point of a desktop client. The
-// dedicated `/api/v1/notifications` route isn't mounted in this runtime, so we
-// read the canonical inbox object directly via the data API.
+// Console bell reads. The dedicated `/api/v1/notifications` route isn't mounted
+// in this runtime, so we read the canonical inbox object via the data API.
+//
+// All native work goes through Rust commands (`notify_native`, `set_badge`,
+// `notif_request_permission`) via `core.invoke` — matching this app's pattern.
+// `withGlobalTauri` only exposes `core`/`event`, NOT the plugin/window JS APIs,
+// so we must not call `__TAURI__.notification`/`.window`/`.app` directly.
 (function () {
   if (window.__objectosNotifyBridge) return;
   // Only on the Console (its login/app routes live under /_console), and only
   // when the Tauri bridge is present (no-op in a plain browser).
   if (!/\/_console(\/|$)/.test(location.pathname)) return;
-  if (!window.__TAURI__) return;
+  if (!window.__TAURI__ || !window.__TAURI__.core) return;
   window.__objectosNotifyBridge = true;
 
-  var T = window.__TAURI__;
+  var invoke = window.__TAURI__.core.invoke;
   var INBOX_URL = '/api/v1/data/sys_inbox_message?sort=-created_at&limit=25';
   var POLL_MS = 20000;
   var SEEN_KEY = '__objectos_notif_seen_v1';
@@ -30,9 +32,7 @@
   var baselined = false; // first successful poll adopts the backlog silently
   var inFlight = false;
   var fatal = false; // inbox object absent → stop
-  var permission = false;
   var unseen = 0; // count surfaced while backgrounded, cleared on focus
-  var pendingUrl = {}; // notification id → action_url, for click routing
 
   function loadSeen() {
     try {
@@ -55,81 +55,16 @@
     return document.visibilityState === 'hidden' || !document.hasFocus();
   }
 
-  function currentWindow() {
+  function notify(title, body) {
     try {
-      var w = T.window;
-      if (!w) return null;
-      if (w.getCurrentWindow) return w.getCurrentWindow();
-      if (w.getCurrent) return w.getCurrent();
-    } catch (_) {}
-    return null;
-  }
-
-  async function ensurePermission() {
-    try {
-      var n = T.notification;
-      if (!n) return false;
-      if (await n.isPermissionGranted()) return true;
-      return (await n.requestPermission()) === 'granted';
-    } catch (_) {
-      return false;
-    }
-  }
-
-  async function notify(id, title, body) {
-    var opts = { title: title || 'Notification', body: body || '', tag: id };
-    try {
-      if (T.notification && T.notification.sendNotification) {
-        T.notification.sendNotification(opts);
-        return;
-      }
-    } catch (_) {}
-    // Fall back to the raw plugin command if the JS guest isn't on the global.
-    try {
-      await T.core.invoke('plugin:notification|notify', { options: opts });
+      return invoke('notify_native', { title: title || 'Notification', body: body || '' });
     } catch (_) {}
   }
-
-  async function setBadge(count) {
-    var n = count > 0 ? count : null;
+  function setBadge(count) {
     try {
-      if (T.app && T.app.setBadgeCount) {
-        await T.app.setBadgeCount(n);
-        return;
-      }
-    } catch (_) {}
-    try {
-      var w = currentWindow();
-      if (w && w.setBadgeCount) await w.setBadgeCount(n);
+      return invoke('set_badge', { count: count > 0 ? count : null });
     } catch (_) {}
   }
-
-  async function focusAndOpen(actionUrl) {
-    var w = currentWindow();
-    if (w) {
-      try { await w.show(); } catch (_) {}
-      try { await w.unminimize(); } catch (_) {}
-      try { await w.setFocus(); } catch (_) {}
-    }
-    if (actionUrl) {
-      try { location.assign(actionUrl); } catch (_) {}
-    }
-  }
-
-  // Best-effort click routing: if this build exposes notification actions,
-  // clicking a toast focuses the app and deep-links to the record. When it
-  // doesn't, the OS default (focus the app) still applies; only the deep-link
-  // is lost.
-  (async function wireActions() {
-    try {
-      if (T.notification && T.notification.onAction) {
-        await T.notification.onAction(function (n) {
-          var tag = n && n.tag;
-          focusAndOpen(tag ? pendingUrl[tag] : null);
-        });
-      }
-    } catch (_) {}
-  })();
 
   // sys_inbox_message → the minimal shape we need for a toast.
   function view(row) {
@@ -137,7 +72,6 @@
       id: row && row.id,
       title: (row && row.title) || (row && row.topic) || 'Notification',
       body: (row && (row.body_md || row.body)) || '',
-      actionUrl: (row && row.action_url) || null,
       createdAt: (row && row.created_at) || '',
     };
   }
@@ -172,12 +106,11 @@
         fresh.forEach(function (v) { seen.add(v.id); });
         baselined = true;
       } else {
-        var allowed = backgrounded() && permission;
+        var allowed = backgrounded();
         fresh.forEach(function (v) {
           seen.add(v.id);
           if (allowed) {
-            pendingUrl[v.id] = v.actionUrl;
-            notify(v.id, v.title, String(v.body).slice(0, 240));
+            notify(v.title, String(v.body).slice(0, 240));
             unseen += 1;
           }
         });
@@ -198,9 +131,9 @@
     poll();
   }
 
-  // Ask once up front, while the window is in the foreground, so the OS prompt
-  // isn't sprung from the background.
-  ensurePermission().then(function (g) { permission = g; });
+  // Ask once up front, in the foreground, so the OS prompt isn't sprung from
+  // the background.
+  try { invoke('notif_request_permission'); } catch (_) {}
 
   poll();
   setInterval(poll, POLL_MS);
