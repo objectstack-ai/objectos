@@ -5,7 +5,7 @@ description: 你可以在对象上声明的所有字段类型 —— 存储什�
 
 # 字段类型
 
-53 个内置字段类型,按家族分组。完整的 Zod schema 在
+48 个内置字段类型,按家族分组。完整的 Zod schema 在
 [`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) —— 本页为工作摘要。
 
 ## 核心属性（每个字段都有）
@@ -165,8 +165,7 @@ fileAttachmentConfig: {
 | `rating` | 1–N 星 —— `max`、`icon` |
 | `slider` | 带滑块 UI 的有界数字 |
 | `signature` | 手绘签名,存为图像 |
-| `qrcode` | 将值渲染为 QR —— `qrErrorCorrection: 'L' \| 'M' \| 'Q' \| 'H'` |
-| `barcode` | EAN/UPC/Code128 —— `barcodeFormat` |
+| `qrcode` | 将值渲染为 QR 或条形码（EAN / UPC / Code128） |
 | `progress` | 派生百分比,以进度条渲染 |
 | `tags` | 带自动完成的自由标签数组 |
 | `vector` | 嵌入列 —— `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |

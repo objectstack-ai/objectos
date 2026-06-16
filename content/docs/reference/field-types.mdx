@@ -5,7 +5,7 @@ description: Every field type you can declare on an object — what it stores, w
 
 # Field Types
 
-53 built-in field types, grouped by family. The full Zod schema is in
+48 built-in field types, grouped by family. The full Zod schema is in
 [`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — this page is a working summary.
 
 ## Core properties (every field)
@@ -166,8 +166,7 @@ fileAttachmentConfig: {
 | `rating` | 1–N stars — `max`, `icon` |
 | `slider` | bounded number with slider UI |
 | `signature` | drawn signature, stored as image |
-| `qrcode` | renders the value as a QR — `qrErrorCorrection: 'L' \| 'M' \| 'Q' \| 'H'` |
-| `barcode` | EAN/UPC/Code128 — `barcodeFormat` |
+| `qrcode` | renders the value as a QR or barcode (EAN / UPC / Code128) |
 | `progress` | derived percent rendered as a bar |
 | `tags` | free-form tag array with autocomplete |
 | `vector` | embedding column — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
