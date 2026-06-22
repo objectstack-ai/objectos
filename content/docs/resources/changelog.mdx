@@ -11,9 +11,9 @@ ObjectOS follows **[Semantic Versioning](https://semver.org/)**: `MAJOR.MINOR.PA
 
 | Version bump | What it means | What to do |
 |---|---|---|
-| **Patch** (`9.7.0 → 9.7.1`) | Bug fixes, no behavior change | Roll forward, no app changes needed |
-| **Minor** (`9.6 → 9.7`) | New features, backward-compatible | Roll forward, optionally adopt new features |
-| **Major** (`8 → 9`) | Breaking changes documented in release notes | Read the migration guide before upgrading |
+| **Patch** (`10.0.0 → 10.0.1`) | Bug fixes, no behavior change | Roll forward, no app changes needed |
+| **Minor** (`10.0 → 10.1`) | New features, backward-compatible | Roll forward, optionally adopt new features |
+| **Major** (`9 → 10`) | Breaking changes documented in release notes | Read the migration guide before upgrading |
 
 All `@objectstack/*` packages release together with a synchronized
 version number — they're tested as a matrix, not independently.
@@ -22,7 +22,7 @@ version number — they're tested as a matrix, not independently.
 
 | Component | Compatibility rule |
 |---|---|
-| ObjectOS image ↔ compiled artifact | Same minor version. A 9.7.x image runs a 9.7.x artifact; a 9.7 artifact may use features unavailable in a 9.6 image. |
+| ObjectOS image ↔ compiled artifact | Same minor version. A 10.2.x image runs a 10.2.x artifact; a 10.2 artifact may use features unavailable in a 10.0 image. |
 | ObjectOS ↔ CLI | Same minor version recommended. The CLI in `npm i -g` writes scaffolds pinned to its own version. |
 | ObjectOS ↔ database driver | Driver pinned by image build; verify Postgres ≥ 13 / MongoDB ≥ 5 / Turso (any current). |
 | Node.js | **20 LTS or newer**. 22 LTS recommended for new deployments. |
@@ -31,9 +31,9 @@ version number — they're tested as a matrix, not independently.
 
 | Branch | Status | Until |
 |---|---|---|
-| **9.x** (current) | Active development; new features and fixes | At least 12 months after 10.0 ships |
-| **8.x** | Security fixes only | EOL on 10.0 release |
-| **≤ 7.x** | Unsupported | Already EOL |
+| **10.x** (current) | Active development; new features and fixes | At least 12 months after 11.0 ships |
+| **9.x** | Security fixes only | EOL on 11.0 release |
+| **≤ 8.x** | Unsupported | Already EOL |
 
 Critical security fixes are backported to the current and previous
 major. Everything else lands on `main`.
@@ -51,9 +51,48 @@ Subscribe to releases on GitHub to get notified.
 
 ## Recent highlights
 
-### 9.x — current release train
+### 10.x — current release train
 
-ObjectOS One and the bundled server now ship on `@objectstack` **9.7.0**.
+ObjectOS One and the bundled server now ship on `@objectstack` **10.2.0**.
+Despite the major bump, the runtime boot contract is unchanged —
+`createStandaloneStack` still takes the same artifact, environment, and
+database settings — and every breaking change lands in the multi-org tenancy
+layer, so a **single-tenant ObjectOS deployment (the default) rolls forward
+from 9.x with no config changes**. What moved:
+
+- **Row-level org scoping split into its own plugin** (10.0, breaking) — the
+  `organization_id` auto-stamp, per-org seed replay, and default-org bootstrap
+  moved out of `@objectstack/plugin-security` into the opt-in
+  [`@objectstack/plugin-org-scoping`](https://www.npmjs.com/package/@objectstack/plugin-org-scoping).
+  Single-org deployments are leaner (no wildcard RLS to strip on every query),
+  and `OS_MULTI_TENANT=true` still auto-registers the plugin ahead of
+  `plugin-security`, so projects driven by the CLI need no code changes. Per
+  ADR-0002, a *tenant* is physical isolation (one Environment = one database);
+  `organization_id` is *logical* scoping inside one DB, so it earns its own plugin.
+- **No more automatic personal workspaces** (10.0, breaking) — `plugin-security`
+  no longer creates a "`<User>'s Workspace`" org for every new user. Users now
+  accept an invitation or explicitly create their first organization (the
+  Slack / Linear / GitHub-Orgs model). The first registered user — auto-promoted
+  to platform admin — still gets a single `Default Organization` in multi-tenant
+  mode so their session resolves RLS; single-tenant deployments create no orgs.
+- **`record` form field type** (ADR-0014) — `Record<string, X>` properties (such
+  as an object's `fields` map) are now editable as first-class form fields in
+  Studio instead of leaking through as raw JSON, and the object preview pane
+  mounts the real `ObjectGrid` renderer — what you preview is what ships.
+- **Pluggable embeddings via `IEmbedder`** — a new embedder protocol plus
+  [`@objectstack/embedder-openai`](https://www.npmjs.com/package/@objectstack/embedder-openai);
+  the knowledge / RAG adapters now consume `IEmbedder` and were renamed to drop
+  the `plugin-` prefix.
+- **Public Forms** — anonymous Web-to-Lead / Web-to-Case forms served at
+  `/f/:slug`, a unified FormPage (public `/f/:slug` + internal `/forms/:name`),
+  a `type: 'form'` action variant, and `defaultDetailForm` on `ObjectSchema`.
+- **Cloud identity split** — `os cloud login` is now separate from `os login`,
+  the cloud control plane moved to a private repo (a leaner OSS runtime), and
+  `objectstack init` again scaffolds a project that builds and boots.
+
+### 9.x
+
+The 9.x train ran on `@objectstack` **9.0 – 9.11** before the 10.0 cutover.
 The runtime boot contract is unchanged from 8.0 — `createStandaloneStack`
 still takes the same artifact, environment, and database settings — so an
 8.0 deployment rolls forward without config changes. The author-facing

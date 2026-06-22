@@ -11,9 +11,9 @@ ObjectOS suit le **[versionnage sémantique](https://semver.org/)** : `MAJOR.MIN
 
 | Incrément de version | Signification | Que faire |
 |---|---|---|
-| **Patch** (`9.7.0 → 9.7.1`) | Corrections de bogues, aucun changement de comportement | Mettre à jour, aucune modification de l'application nécessaire |
-| **Mineur** (`9.6 → 9.7`) | Nouvelles fonctionnalités, rétrocompatibles | Mettre à jour, adopter éventuellement les nouvelles fonctionnalités |
-| **Majeur** (`8 → 9`) | Changements incompatibles documentés dans les notes de version | Lire le guide de migration avant de mettre à niveau |
+| **Patch** (`10.0.0 → 10.0.1`) | Corrections de bogues, aucun changement de comportement | Mettre à jour, aucune modification de l'application nécessaire |
+| **Mineur** (`10.0 → 10.1`) | Nouvelles fonctionnalités, rétrocompatibles | Mettre à jour, adopter éventuellement les nouvelles fonctionnalités |
+| **Majeur** (`9 → 10`) | Changements incompatibles documentés dans les notes de version | Lire le guide de migration avant de mettre à niveau |
 
 Tous les paquets `@objectstack/*` sont publiés ensemble avec un numéro de
 version synchronisé — ils sont testés en tant que matrice, et non
@@ -23,7 +23,7 @@ indépendamment.
 
 | Composant | Règle de compatibilité |
 |---|---|
-| Image ObjectOS ↔ artefact compilé | Même version mineure. Une image 9.7.x exécute un artefact 9.7.x ; un artefact 9.7 peut utiliser des fonctionnalités indisponibles dans une image 9.6. |
+| Image ObjectOS ↔ artefact compilé | Même version mineure. Une image 10.2.x exécute un artefact 10.2.x ; un artefact 10.2 peut utiliser des fonctionnalités indisponibles dans une image 10.0. |
 | ObjectOS ↔ CLI | Même version mineure recommandée. Le CLI dans `npm i -g` écrit des squelettes épinglés à sa propre version. |
 | ObjectOS ↔ pilote de base de données | Pilote épinglé par la construction de l'image ; vérifier Postgres ≥ 13 / MongoDB ≥ 5 / Turso (toute version actuelle). |
 | Node.js | **20 LTS ou plus récent**. 22 LTS recommandé pour les nouveaux déploiements. |
@@ -32,9 +32,9 @@ indépendamment.
 
 | Branche | Statut | Jusqu'à |
 |---|---|---|
-| **9.x** (actuelle) | Développement actif ; nouvelles fonctionnalités et corrections | Au moins 12 mois après la sortie de la 10.0 |
-| **8.x** | Corrections de sécurité uniquement | Fin de vie à la sortie de la 10.0 |
-| **≤ 7.x** | Non prise en charge | Déjà en fin de vie |
+| **10.x** (actuelle) | Développement actif ; nouvelles fonctionnalités et corrections | Au moins 12 mois après la sortie de la 11.0 |
+| **9.x** | Corrections de sécurité uniquement | Fin de vie à la sortie de la 11.0 |
+| **≤ 8.x** | Non prise en charge | Déjà en fin de vie |
 
 Les correctifs de sécurité critiques sont rétroportés vers la version
 majeure actuelle et la précédente. Tout le reste atterrit sur `main`.
@@ -52,9 +52,58 @@ Abonnez-vous aux versions sur GitHub pour être notifié.
 
 ## Points marquants récents
 
-### 9.x — train de versions actuel
+### 10.x — train de versions actuel
 
-ObjectOS One et le serveur intégré tournent désormais sur `@objectstack` **9.7.0**.
+ObjectOS One et le serveur intégré tournent désormais sur `@objectstack` **10.2.0**.
+Malgré le bond de version majeure, le contrat de démarrage du runtime est inchangé —
+`createStandaloneStack` prend toujours le même artefact, le même environnement et
+les mêmes paramètres de base de données — et chaque changement incompatible se
+situe dans la couche de multilocation multi-organisations, de sorte qu'un
+**déploiement ObjectOS mono-locataire (le cas par défaut) se met à jour depuis la
+9.x sans aucun changement de configuration**. Ce qui a bougé :
+
+- **Le périmètre d'organisation au niveau des lignes est extrait dans son propre
+  plugin** (10.0, incompatible) — l'auto-marquage `organization_id`, la réexécution
+  des seeds par organisation et l'amorçage de l'organisation par défaut ont été
+  sortis de `@objectstack/plugin-security` vers le plugin optionnel
+  [`@objectstack/plugin-org-scoping`](https://www.npmjs.com/package/@objectstack/plugin-org-scoping).
+  Les déploiements mono-organisation sont plus légers (plus de RLS générique à
+  retirer à chaque requête), et `OS_MULTI_TENANT=true` enregistre toujours
+  automatiquement le plugin avant `plugin-security`, de sorte que les projets
+  pilotés par le CLI n'ont besoin d'aucun changement de code. Selon l'ADR-0002, un
+  *locataire* est une isolation physique (un Environment = une base de données) ;
+  `organization_id` est un périmètre *logique* à l'intérieur d'une seule base, il
+  mérite donc son propre plugin.
+- **Plus d'espaces de travail personnels automatiques** (10.0, incompatible) —
+  `plugin-security` ne crée plus d'organisation « `<User>'s Workspace` » pour chaque
+  nouvel utilisateur. Les utilisateurs acceptent désormais une invitation ou créent
+  explicitement leur première organisation (le modèle Slack / Linear / GitHub-Orgs).
+  Le premier utilisateur enregistré — auto-promu administrateur de la plateforme —
+  obtient toujours une unique `Default Organization` en mode multilocataire pour que
+  sa session résolve la RLS ; les déploiements mono-locataire ne créent aucune
+  organisation.
+- **Type de champ de formulaire `record`** (ADR-0014) — les propriétés
+  `Record<string, X>` (telles que la map `fields` d'un objet) sont désormais
+  éditables comme des champs de formulaire de première classe dans Studio au lieu de
+  transparaître en JSON brut, et le volet d'aperçu d'objet monte le véritable
+  moteur de rendu `ObjectGrid` — ce que vous prévisualisez correspond à ce qui est
+  livré.
+- **Embeddings enfichables via `IEmbedder`** — un nouveau protocole d'embedder ainsi
+  que [`@objectstack/embedder-openai`](https://www.npmjs.com/package/@objectstack/embedder-openai) ;
+  les adaptateurs de connaissances / RAG consomment désormais `IEmbedder` et ont été
+  renommés pour abandonner le préfixe `plugin-`.
+- **Formulaires publics** — des formulaires Web-to-Lead / Web-to-Case anonymes
+  servis sur `/f/:slug`, une FormPage unifiée (`/f/:slug` public + `/forms/:name`
+  interne), une variante d'action `type: 'form'` et `defaultDetailForm` sur
+  `ObjectSchema`.
+- **Séparation de l'identité cloud** — `os cloud login` est désormais distinct de
+  `os login`, le plan de contrôle cloud a été déplacé vers un dépôt privé (un
+  runtime OSS plus léger), et `objectstack init` génère de nouveau un projet qui se
+  construit et démarre.
+
+### 9.x
+
+Le train 9.x a tourné sur `@objectstack` **9.0 – 9.11** avant la bascule vers la 10.0.
 Le contrat de démarrage du runtime est inchangé depuis la 8.0 —
 `createStandaloneStack` prend toujours les mêmes paramètres d'artefact,
 d'environnement et de base de données — de sorte qu'un déploiement 8.0 se met à
