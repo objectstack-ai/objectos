@@ -9,6 +9,7 @@ import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { LLMCopyButton, ViewOptions } from '@/components/ai/page-actions';
 import { gitConfig } from '@/lib/layout.shared';
+import { languageAlternates, localeUrl } from '@/lib/seo';
 
 export default async function Page(props: {
   params: Promise<{ lang: string; slug?: string[] }>;
@@ -60,8 +61,15 @@ export async function generateMetadata(props: {
   const page = source.getPage(params.slug ?? [], params.lang);
   if (!page) notFound();
 
+  // Logical path is locale-independent; reconstruct each locale URL from slugs.
+  const path = ['docs', ...page.slugs].join('/');
+
   return {
     title: page.data.title,
     description: page.data.description,
+    alternates: {
+      canonical: localeUrl(params.lang, path),
+      languages: languageAlternates(path),
+    },
   };
 }
