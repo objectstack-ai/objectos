@@ -85,7 +85,7 @@ Artifact の先頭にあるトップレベルのメタデータ: `id`、`namespa
 
 ### MCP (Model Context Protocol)
 
-AI エージェントがツールを検出して呼び出すためのオープンプロトコル。ObjectOS は `@objectstack/plugin-mcp-server` を介して、オブジェクト + アクションを MCP として公開できます。
+AI エージェントがツールを検出して呼び出すためのオープンプロトコル。ObjectOS は `@objectstack/mcp` を介して、オブジェクト + アクションを MCP として公開できます。
 
 ### Object
 
@@ -113,7 +113,7 @@ AI エージェントがツールを検出して呼び出すためのオープ�
 
 ### Plugin
 
-ランタイムをある機能で拡張するフレームワークパッケージ — `plugin-auth`、`plugin-security`、`plugin-audit`、`plugin-webhooks`、`plugin-mcp-server` など。DI + ライフサイクルフック（`init → start → destroy`）を介して有効化されます。
+ランタイムをある機能で拡張するフレームワークパッケージ — `plugin-auth`、`plugin-security`、`plugin-audit`、`plugin-webhooks`、`mcp` など。DI + ライフサイクルフック（`init → start → destroy`）を介して有効化されます。
 
 ### Project
 

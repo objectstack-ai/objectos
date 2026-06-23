@@ -136,7 +136,7 @@ kernel.use(new KnowledgeRagflowPlugin({
 ObjectOS は、オープンな [Model Context Protocol](https://modelcontextprotocol.io) を介して、AI エージェント（Claude Desktop、IDE、カスタムエージェント）に対してツールサーバーとして自身を公開できます。
 
 ```ts
-import { MCPServerPlugin } from '@objectstack/plugin-mcp-server';
+import { MCPServerPlugin } from '@objectstack/mcp';
 
 kernel.use(new MCPServerPlugin({
   transport: 'stdio', // or 'http'

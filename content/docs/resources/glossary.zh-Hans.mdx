@@ -116,7 +116,7 @@ Console 内可安装应用的目录。背后由可配置的包注册中心支持
 ### MCP（Model Context Protocol）
 
 一个开放协议，让 AI 智能体发现并调用工具。ObjectOS 可以通过
-`@objectstack/plugin-mcp-server` 把对象 + action 暴露为 MCP。
+`@objectstack/mcp` 把对象 + action 暴露为 MCP。
 
 ### Object（对象）
 
@@ -153,7 +153,7 @@ Console 渲染 ObjectUI 声明。
 ### Plugin（插件）
 
 为运行时扩展能力的框架包 —— `plugin-auth`、`plugin-security`、
-`plugin-audit`、`plugin-webhooks`、`plugin-mcp-server` 等。通过
+`plugin-audit`、`plugin-webhooks`、`mcp` 等。通过
 DI + 生命周期 Hook（`init → start → destroy`）激活。
 
 ### Project

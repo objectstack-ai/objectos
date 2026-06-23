@@ -66,7 +66,8 @@ view: {
 | `timeline` | Flux chronologique | `timeline: { startDateField, titleField }` |
 | `gantt` | Échéancier de projet + dépendances | `gantt: { startDateField, endDateField, titleField }` |
 | `map` | Repères géospatiaux | `map: { locationField }` |
-| `chart` | Graphique intégré | `chart: { chartType, xAxisField, yAxisFields }` |
+| `tree` | Hiérarchie auto-référencée | `tree: { parentField, labelField }` |
+| `chart` | Graphique intégré | `chart: { chartType, dataset }` |
 
 ### Options de liste courantes
 
@@ -147,23 +148,38 @@ champ de regroupement — mêmes règles d'autorisation qu'une modification manu
 }
 ```
 
+### Arbre
+
+```ts
+{
+  type: 'tree',
+  tree: {
+    parentField: 'parent_id',                // self-lookup that builds the hierarchy
+    labelField:  'name',                     // shown indented in the first column
+    defaultExpandedDepth: 1                   // optional — 0 = roots only, omit = expand all
+  }
+}
+```
+
+Pour un objet auto-référencé (catégories, nomenclatures, unités organisationnelles, commentaires imbriqués), la grille arborescente imbrique les lignes selon leur pointeur `parentField`.
+
 ### Graphique (intégré)
+
+Une vue liste `chart` lie un **dataset** nommé — la couche analytique sémantique (ADR-0021) — et sélectionne ses dimensions et mesures **par leur nom**. Définissez une métrique une fois, et chaque graphique, tableau de bord et rapport lié au même dataset reste cohérent :
 
 ```ts
 {
   type: 'chart',
   chart: {
-    chartType: 'bar',                        // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
-    xAxisField:  'created_at',
-    yAxisFields: ['amount'],
-    aggregation: 'sum',
-    groupByField: 'status'
+    chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
+    dimensions: ['status'],                  // dataset dimension name(s) — X / group / split
+    values:     ['ticket_count']             // dataset measure name(s) — the value axis
   }
 }
 ```
 
-Les vues de graphique servent aux tableaux de bord intégrés sur un seul objet —
-pour des analyses plus riches et inter-objets, utilisez la surface de rapports dédiée.
+La forme en ligne `xAxisField` / `yAxisFields` / `aggregation` / `groupByField` a été supprimée en 9.0 — chaque graphique, widget de tableau de bord et rapport lie désormais un dataset. Pour des analyses plus riches et inter-objets, utilisez la surface de rapports dédiée.
 
 ## Types de vues de formulaire
 

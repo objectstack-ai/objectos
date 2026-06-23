@@ -67,7 +67,8 @@ view: {
 | `timeline` | Chronologischer Feed | `timeline: { startDateField, titleField }` |
 | `gantt` | Projektzeitachse + Abhängigkeiten | `gantt: { startDateField, endDateField, titleField }` |
 | `map` | Geografische Pins | `map: { locationField }` |
-| `chart` | Eingebettetes Diagramm | `chart: { chartType, xAxisField, yAxisFields }` |
+| `tree` | Selbstreferenzierende Hierarchie | `tree: { parentField, labelField }` |
+| `chart` | Eingebettetes Diagramm | `chart: { chartType, dataset }` |
 
 ### Allgemeine List-Optionen
 
@@ -151,24 +152,38 @@ Bearbeitung.
 }
 ```
 
+### Tree
+
+```ts
+{
+  type: 'tree',
+  tree: {
+    parentField: 'parent_id',                // self-lookup that builds the hierarchy
+    labelField:  'name',                     // shown indented in the first column
+    defaultExpandedDepth: 1                   // optional — 0 = roots only, omit = expand all
+  }
+}
+```
+
+Für ein selbstreferenzierendes Objekt (Kategorien, Stücklisten, Organisationseinheiten, verschachtelte Kommentare) verschachtelt das Tree-Grid die Zeilen anhand ihres `parentField`-Zeigers.
+
 ### Chart (inline)
+
+Eine `chart`-Listenansicht bindet ein benanntes **Dataset** — die semantische Analyseschicht (ADR-0021) — und wählt dessen Dimensionen und Kennzahlen **per Name**. Definieren Sie eine Kennzahl einmal, und jedes Diagramm, Dashboard und jeder Report, der dasselbe Dataset bindet, bleibt konsistent:
 
 ```ts
 {
   type: 'chart',
   chart: {
-    chartType: 'bar',                        // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
-    xAxisField:  'created_at',
-    yAxisFields: ['amount'],
-    aggregation: 'sum',
-    groupByField: 'status'
+    chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
+    dimensions: ['status'],                  // dataset dimension name(s) — X / group / split
+    values:     ['ticket_count']             // dataset measure name(s) — the value axis
   }
 }
 ```
 
-Chart-Views sind für eingebettete Dashboards auf einem einzelnen Objekt
-gedacht — für umfangreichere, objektübergreifende Analysen verwenden Sie
-die dedizierte Reports-Oberfläche.
+Die Inline-Form `xAxisField` / `yAxisFields` / `aggregation` / `groupByField` wurde in 9.0 entfernt — jedes Diagramm, Dashboard-Widget und jeder Report bindet jetzt ein Dataset. Für umfangreichere, objektübergreifende Analysen verwenden Sie die dedizierte Reports-Oberfläche.
 
 ## Form-View-Typen
 
