@@ -2470,7 +2470,7 @@ dependencies = [
 
 [[package]]
 name = "objectos-one"
-version = "9.7.0"
+version = "10.2.0"
 dependencies = [
  "dirs 5.0.1",
  "libc",

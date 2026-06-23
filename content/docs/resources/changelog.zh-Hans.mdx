@@ -11,9 +11,9 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 | 版本号变化 | 含义 | 应对方式 |
 |---|---|---|
-| **Patch**（`9.7.0 → 9.7.1`） | 修 bug，不改变行为 | 直接升级，无需改动应用 |
-| **Minor**（`9.6 → 9.7`） | 新增功能，向后兼容 | 直接升级，可选采用新功能 |
-| **Major**（`8 → 9`） | 破坏性变更，发版说明会列出 | 升级前阅读迁移指南 |
+| **Patch**（`10.0.0 → 10.0.1`） | 修 bug，不改变行为 | 直接升级，无需改动应用 |
+| **Minor**（`10.0 → 10.1`） | 新增功能，向后兼容 | 直接升级，可选采用新功能 |
+| **Major**（`9 → 10`） | 破坏性变更，发版说明会列出 | 升级前阅读迁移指南 |
 
 所有 `@objectstack/*` 包按同步的版本号一起发布 —— 作为矩阵一同测试，
 而不是各自独立。
@@ -22,7 +22,7 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 | 组件 | 兼容性规则 |
 |---|---|
-| ObjectOS 镜像 ↔ 编译产物 | 同一 minor 版本。9.7.x 镜像运行 9.7.x 产物;9.7 产物可能使用 9.6 镜像不具备的功能。 |
+| ObjectOS 镜像 ↔ 编译产物 | 同一 minor 版本。10.2.x 镜像运行 10.2.x 产物;10.2 产物可能使用 10.0 镜像不具备的功能。 |
 | ObjectOS ↔ CLI | 建议使用同一 minor 版本。`npm i -g` 安装的 CLI 生成的脚手架会固定为其自身版本。 |
 | ObjectOS ↔ 数据库驱动 | 驱动版本由镜像构建固定;请确认 Postgres ≥ 13 / MongoDB ≥ 5 / Turso（当前版本）。 |
 | Node.js | **20 LTS 或更新**。新部署推荐 22 LTS。 |
@@ -31,9 +31,9 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 | 分支 | 状态 | 截止 |
 |---|---|---|
-| **9.x**（当前） | 活跃开发;新功能与修复 | 至少到 10.0 发布后 12 个月 |
-| **8.x** | 仅安全修复 | 10.0 发布时 EOL |
-| **≤ 7.x** | 不再支持 | 已 EOL |
+| **10.x**（当前） | 活跃开发;新功能与修复 | 至少到 11.0 发布后 12 个月 |
+| **9.x** | 仅安全修复 | 11.0 发布时 EOL |
+| **≤ 8.x** | 不再支持 | 已 EOL |
 
 关键安全修复会反向移植到当前 major 与上一个 major;其他变更只进
 `main`。
@@ -51,9 +51,46 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 ## 近期亮点
 
-### 9.x —— 当前发布列车
+### 10.x —— 当前发布列车
 
-ObjectOS One 与捆绑的 server 现已基于 `@objectstack` **9.7.0**。运行时的
+ObjectOS One 与捆绑的 server 现已基于 `@objectstack` **10.2.0**。尽管是大版本
+跨越，运行时的启动契约并未变化 —— `createStandaloneStack` 仍然接收同样的
+artifact、环境与数据库设置 —— 而所有破坏性变更都落在多组织（multi-org）租户
+层，因此**单租户的 ObjectOS 部署（默认形态）可从 9.x 无配置改动直接升级**。
+变动内容如下：
+
+- **行级组织作用域拆分为独立插件**（10.0，破坏性）—— `organization_id`
+  自动标记、按组织的 seed 重放,以及默认组织的 bootstrap,已从
+  `@objectstack/plugin-security` 移出,改到可选启用的
+  [`@objectstack/plugin-org-scoping`](https://www.npmjs.com/package/@objectstack/plugin-org-scoping)。
+  单组织部署因此更精简(无需在每次查询时剥离通配的 RLS),而
+  `OS_MULTI_TENANT=true` 仍会在 `plugin-security` 之前自动注册该插件,因此由
+  CLI 驱动的项目无需任何代码改动。按 ADR-0002,*tenant*(租户)是物理隔离
+  (一个 Environment = 一个数据库);`organization_id` 则是同一数据库内的*逻辑*
+  作用域,因此它单独成为一个插件。
+- **不再自动创建个人工作区**（10.0，破坏性）—— `plugin-security` 不再为每位
+  新用户创建「`<User>'s Workspace`」组织。用户现在需要接受邀请,或显式创建
+  自己的第一个组织(Slack / Linear / GitHub-Orgs 的模式)。第一位注册用户
+  —— 会被自动提升为平台管理员 —— 在多租户模式下仍会获得一个
+  `Default Organization`,以便其会话能解析 RLS;单租户部署则不创建任何组织。
+- **`record` 表单字段类型**（ADR-0014）—— `Record<string, X>` 属性(例如对象的
+  `fields` 映射)现在可在 Studio 中作为一等公民的表单字段编辑,而不再以原始
+  JSON 的形式泄露出来;对象预览面板也挂载了真正的 `ObjectGrid` 渲染器 ——
+  你预览到的就是最终交付的。
+- **通过 `IEmbedder` 实现可插拔嵌入**（embeddings）—— 新增一套 embedder 协议,
+  外加 [`@objectstack/embedder-openai`](https://www.npmjs.com/package/@objectstack/embedder-openai);
+  知识 / RAG 适配器现在消费 `IEmbedder`,并已重命名以去掉 `plugin-` 前缀。
+- **Public Forms（公开表单）** —— 服务于 `/f/:slug` 的匿名 Web-to-Lead /
+  Web-to-Case 表单、一个统一的 FormPage(公开的 `/f/:slug` + 内部的
+  `/forms/:name`)、一个 `type: 'form'` 的 action 变体,以及 `ObjectSchema` 上的
+  `defaultDetailForm`。
+- **云身份拆分** —— `os cloud login` 现在与 `os login` 分离,云控制平面已迁至
+  私有仓库(让 OSS 运行时更精简),而 `objectstack init` 再次能脚手架出一个
+  可构建、可启动的项目。
+
+### 9.x
+
+9.x 列车在切换到 10.0 之前运行于 `@objectstack` **9.0 – 9.11**。运行时的
 启动契约相较 8.0 没有变化 —— `createStandaloneStack` 仍然接收同样的
 artifact、环境与数据库设置 —— 因此 8.0 部署可无配置改动直接升级。变动
 集中在面向作者的层面：

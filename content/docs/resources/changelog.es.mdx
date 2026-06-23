@@ -11,9 +11,9 @@ ObjectOS sigue el **[Versionado semántico](https://semver.org/)**: `MAJOR.MINOR
 
 | Incremento de versión | Qué significa | Qué hacer |
 |---|---|---|
-| **Parche** (`9.7.0 → 9.7.1`) | Corrección de errores, sin cambios de comportamiento | Actualiza, no se requieren cambios en la aplicación |
-| **Menor** (`9.6 → 9.7`) | Nuevas funciones, compatible con versiones anteriores | Actualiza y, opcionalmente, adopta las nuevas funciones |
-| **Mayor** (`8 → 9`) | Cambios incompatibles documentados en las notas de versión | Lee la guía de migración antes de actualizar |
+| **Parche** (`10.0.0 → 10.0.1`) | Corrección de errores, sin cambios de comportamiento | Actualiza, no se requieren cambios en la aplicación |
+| **Menor** (`10.0 → 10.1`) | Nuevas funciones, compatible con versiones anteriores | Actualiza y, opcionalmente, adopta las nuevas funciones |
+| **Mayor** (`9 → 10`) | Cambios incompatibles documentados en las notas de versión | Lee la guía de migración antes de actualizar |
 
 Todos los paquetes `@objectstack/*` se publican juntos con un número de
 versión sincronizado: se prueban como una matriz, no de forma independiente.
@@ -22,7 +22,7 @@ versión sincronizado: se prueban como una matriz, no de forma independiente.
 
 | Componente | Regla de compatibilidad |
 |---|---|
-| Imagen de ObjectOS ↔ artefacto compilado | Misma versión menor. Una imagen 9.7.x ejecuta un artefacto 9.7.x; un artefacto 9.7 puede usar funciones no disponibles en una imagen 9.6. |
+| Imagen de ObjectOS ↔ artefacto compilado | Misma versión menor. Una imagen 10.2.x ejecuta un artefacto 10.2.x; un artefacto 10.2 puede usar funciones no disponibles en una imagen 10.0. |
 | ObjectOS ↔ CLI | Se recomienda la misma versión menor. La CLI en `npm i -g` genera andamiajes fijados a su propia versión. |
 | ObjectOS ↔ controlador de base de datos | El controlador queda fijado por la compilación de la imagen; verifica Postgres ≥ 13 / MongoDB ≥ 5 / Turso (cualquiera actual). |
 | Node.js | **20 LTS o posterior**. Se recomienda 22 LTS para nuevos despliegues. |
@@ -31,9 +31,9 @@ versión sincronizado: se prueban como una matriz, no de forma independiente.
 
 | Rama | Estado | Hasta |
 |---|---|---|
-| **9.x** (actual) | Desarrollo activo; nuevas funciones y correcciones | Al menos 12 meses después del lanzamiento de 10.0 |
-| **8.x** | Solo correcciones de seguridad | EOL en el lanzamiento de 10.0 |
-| **≤ 7.x** | Sin soporte | Ya en EOL |
+| **10.x** (actual) | Desarrollo activo; nuevas funciones y correcciones | Al menos 12 meses después del lanzamiento de 11.0 |
+| **9.x** | Solo correcciones de seguridad | EOL en el lanzamiento de 11.0 |
+| **≤ 8.x** | Sin soporte | Ya en EOL |
 
 Las correcciones de seguridad críticas se retroportan a la versión mayor
 actual y a la anterior. Todo lo demás se incorpora en `main`.
@@ -51,9 +51,58 @@ Suscríbete a las versiones en GitHub para recibir notificaciones.
 
 ## Aspectos destacados recientes
 
-### 9.x — tren de versiones actual
+### 10.x — tren de versiones actual
 
-ObjectOS One y el servidor incluido ahora se ejecutan sobre `@objectstack` **9.7.0**.
+ObjectOS One y el servidor incluido ahora se ejecutan sobre `@objectstack` **10.2.0**.
+A pesar del salto de versión mayor, el contrato de arranque del runtime no cambia
+—`createStandaloneStack` sigue tomando el mismo artefacto, entorno y ajustes de
+base de datos— y todos los cambios incompatibles caen en la capa de tenencia
+multi-organización, por lo que un **despliegue de ObjectOS de inquilino único
+(el predeterminado) actualiza desde 9.x sin cambios de configuración**. Lo que se
+movió:
+
+- **El alcance por organización a nivel de fila se separó en su propio plugin**
+  (10.0, cambio incompatible): el autosellado de `organization_id`, la repetición
+  de seeds por organización y el arranque de la organización predeterminada se
+  movieron de `@objectstack/plugin-security` al plugin opcional
+  [`@objectstack/plugin-org-scoping`](https://www.npmjs.com/package/@objectstack/plugin-org-scoping).
+  Los despliegues de una sola organización son más ligeros (no hay RLS comodín que
+  eliminar en cada consulta), y `OS_MULTI_TENANT=true` sigue registrando
+  automáticamente el plugin por delante de `plugin-security`, por lo que los
+  proyectos gestionados por la CLI no necesitan cambios de código. Según el
+  ADR-0002, un *tenant* es aislamiento físico (un Environment = una base de datos);
+  `organization_id` es alcance *lógico* dentro de una misma BD, así que merece su
+  propio plugin.
+- **Se acabaron los espacios de trabajo personales automáticos** (10.0, cambio
+  incompatible): `plugin-security` ya no crea una organización «`<User>'s
+  Workspace`» para cada nuevo usuario. Ahora los usuarios aceptan una invitación o
+  crean explícitamente su primera organización (el modelo de Slack / Linear /
+  GitHub-Orgs). El primer usuario registrado —autopromovido a administrador de la
+  plataforma— sigue obteniendo una única `Default Organization` en modo
+  multi-inquilino para que su sesión resuelva el RLS; los despliegues de inquilino
+  único no crean ninguna organización.
+- **Tipo de campo de formulario `record`** (ADR-0014): las propiedades
+  `Record<string, X>` (como el mapa `fields` de un objeto) ahora son editables como
+  campos de formulario de primera clase en Studio, en lugar de filtrarse como JSON
+  en bruto, y el panel de previsualización del objeto monta el renderizador real
+  `ObjectGrid`: lo que previsualizas es lo que se publica.
+- **Embeddings conectables mediante `IEmbedder`**: un nuevo protocolo de embedder
+  junto con
+  [`@objectstack/embedder-openai`](https://www.npmjs.com/package/@objectstack/embedder-openai);
+  los adaptadores de conocimiento / RAG ahora consumen `IEmbedder` y se
+  renombraron para eliminar el prefijo `plugin-`.
+- **Formularios públicos**: formularios anónimos de Web-to-Lead / Web-to-Case
+  servidos en `/f/:slug`, una FormPage unificada (`/f/:slug` público + `/forms/:name`
+  interno), una variante de acción `type: 'form'` y `defaultDetailForm` en
+  `ObjectSchema`.
+- **Separación de la identidad en la nube**: `os cloud login` ahora es independiente
+  de `os login`, el plano de control de la nube se movió a un repositorio privado
+  (un runtime OSS más ligero), y `objectstack init` vuelve a generar un proyecto que
+  compila y arranca.
+
+### 9.x
+
+El tren 9.x se ejecutó sobre `@objectstack` **9.0 – 9.11** antes del cambio a 10.0.
 El contrato de arranque del runtime no cambia respecto a 8.0 —
 `createStandaloneStack` sigue tomando el mismo artefacto, entorno y ajustes de
 base de datos—, por lo que un despliegue 8.0 actualiza sin cambios de
