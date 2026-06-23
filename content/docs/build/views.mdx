@@ -65,7 +65,8 @@ view: {
 | `timeline` | Chronological feed | `timeline: { startDateField, titleField }` |
 | `gantt` | Project timeline + dependencies | `gantt: { startDateField, endDateField, titleField }` |
 | `map` | Geospatial pins | `map: { locationField }` |
-| `chart` | Embedded chart | `chart: { chartType, xAxisField, yAxisFields }` |
+| `tree` | Self-referencing hierarchy | `tree: { parentField, labelField }` |
+| `chart` | Embedded chart | `chart: { chartType, dataset }` |
 
 ### Common list options
 
@@ -146,23 +147,44 @@ field — same permission rules as a manual edit.
 }
 ```
 
+### Tree
+
+```ts
+{
+  type: 'tree',
+  tree: {
+    parentField: 'parent_id',                // self-lookup that builds the hierarchy
+    labelField:  'name',                     // shown indented in the first column
+    defaultExpandedDepth: 1                   // optional — 0 = roots only, omit = expand all
+  }
+}
+```
+
+For a self-referencing object (categories, BOMs, org units, nested
+comments) the tree-grid nests rows by their `parentField` pointer.
+
 ### Chart (inline)
+
+A `chart` list view binds a named **dataset** — the semantic analytics layer
+(ADR-0021) — and selects its dimensions and measures **by name**. Define a
+metric once and every chart, dashboard, and report bound to the same dataset
+stays consistent:
 
 ```ts
 {
   type: 'chart',
   chart: {
-    chartType: 'bar',                        // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
-    xAxisField:  'created_at',
-    yAxisFields: ['amount'],
-    aggregation: 'sum',
-    groupByField: 'status'
+    chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
+    dimensions: ['status'],                  // dataset dimension name(s) — X / group / split
+    values:     ['ticket_count']             // dataset measure name(s) — the value axis
   }
 }
 ```
 
-Chart views are for inline dashboards on a single object — for richer,
-cross-object analytics use the dedicated reports surface.
+The inline `xAxisField` / `yAxisFields` / `aggregation` / `groupByField` shape
+was removed in 9.0 — every chart, dashboard widget, and report now binds a
+dataset. For richer, cross-object analytics use the dedicated reports surface.
 
 ## Form view types
 

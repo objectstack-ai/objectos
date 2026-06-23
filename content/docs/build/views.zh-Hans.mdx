@@ -59,7 +59,8 @@ view: {
 | `timeline` | 按时间顺序的 feed | `timeline: { dateField, titleField }` |
 | `gantt` | 项目时间线 + 依赖 | `gantt: { startDateField, endDateField, titleField }` |
 | `map` | 地理 pin | `map: { locationField }` |
-| `chart` | 嵌入式图表 | `chart: { chartType, xAxisField, yAxisFields }` |
+| `tree` | 自引用层级 | `tree: { parentField, labelField }` |
+| `chart` | 嵌入式图表 | `chart: { chartType, dataset }` |
 
 ### 通用 list 选项
 
@@ -141,22 +142,38 @@ view: {
 }
 ```
 
+### Tree
+
+```ts
+{
+  type: 'tree',
+  tree: {
+    parentField: 'parent_id',                // self-lookup that builds the hierarchy
+    labelField:  'name',                     // shown indented in the first column
+    defaultExpandedDepth: 1                   // optional — 0 = roots only, omit = expand all
+  }
+}
+```
+
+对于自引用对象(分类、BOM、组织单元、嵌套评论),树形表格会按 `parentField` 指针把行嵌套展示。
+
 ### Chart(内联)
+
+`chart` 列表视图绑定一个具名 **dataset**(语义分析层,ADR-0021),并**按名称**选择它的维度和度量。度量只定义一次,绑定同一个 dataset 的每个图表、仪表板和报表都保持一致:
 
 ```ts
 {
   type: 'chart',
   chart: {
-    chartType: 'bar',                        // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
-    xAxisField:  'created_at',
-    yAxisFields: ['amount'],
-    aggregation: 'sum',
-    groupByField: 'status'
+    chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
+    dimensions: ['status'],                  // dataset dimension name(s) — X / group / split
+    values:     ['ticket_count']             // dataset measure name(s) — the value axis
   }
 }
 ```
 
-完整的报表请用 [Reports](/docs/build/reports) 表面 —— chart 视图用于对象的内联仪表板。
+内联的 `xAxisField` / `yAxisFields` / `aggregation` / `groupByField` 形式已在 9.0 中移除 —— 现在每个图表、仪表板小组件和报表都绑定 dataset。完整的跨对象分析请使用专用的 reports 表面。
 
 ## Form 视图类型
 

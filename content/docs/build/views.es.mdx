@@ -66,7 +66,8 @@ view: {
 | `timeline` | Feed cronológico | `timeline: { startDateField, titleField }` |
 | `gantt` | Cronograma de proyecto + dependencias | `gantt: { startDateField, endDateField, titleField }` |
 | `map` | Pines geoespaciales | `map: { locationField }` |
-| `chart` | Gráfico incrustado | `chart: { chartType, xAxisField, yAxisFields }` |
+| `tree` | Jerarquía autorreferenciada | `tree: { parentField, labelField }` |
+| `chart` | Gráfico incrustado | `chart: { chartType, dataset }` |
 
 ### Opciones comunes de lista
 
@@ -147,23 +148,38 @@ agrupado — con las mismas reglas de permisos que una edición manual.
 }
 ```
 
+### Tree
+
+```ts
+{
+  type: 'tree',
+  tree: {
+    parentField: 'parent_id',                // self-lookup that builds the hierarchy
+    labelField:  'name',                     // shown indented in the first column
+    defaultExpandedDepth: 1                   // optional — 0 = roots only, omit = expand all
+  }
+}
+```
+
+Para un objeto autorreferenciado (categorías, listas de materiales, unidades organizativas, comentarios anidados) el tree-grid anida las filas según su puntero `parentField`.
+
 ### Chart (en línea)
+
+Una vista de lista `chart` vincula un **dataset** con nombre —la capa analítica semántica (ADR-0021)— y selecciona sus dimensiones y medidas **por nombre**. Define una métrica una vez y cada gráfico, panel e informe vinculado al mismo dataset se mantiene consistente:
 
 ```ts
 {
   type: 'chart',
   chart: {
-    chartType: 'bar',                        // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
-    xAxisField:  'created_at',
-    yAxisFields: ['amount'],
-    aggregation: 'sum',
-    groupByField: 'status'
+    chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
+    dimensions: ['status'],                  // dataset dimension name(s) — X / group / split
+    values:     ['ticket_count']             // dataset measure name(s) — the value axis
   }
 }
 ```
 
-Las vistas de gráfico son para paneles en línea sobre un único objeto — para
-analíticas más ricas y entre objetos, usa la superficie dedicada de informes.
+La forma en línea `xAxisField` / `yAxisFields` / `aggregation` / `groupByField` se eliminó en 9.0 — cada gráfico, widget de panel e informe ahora vincula un dataset. Para analíticas más ricas y entre objetos, usa la superficie dedicada de informes.
 
 ## Tipos de vista de formulario
 

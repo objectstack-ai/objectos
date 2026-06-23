@@ -65,7 +65,8 @@ view: {
 | `timeline` | 時系列フィード | `timeline: { startDateField, titleField }` |
 | `gantt` | プロジェクトタイムライン + 依存関係 | `gantt: { startDateField, endDateField, titleField }` |
 | `map` | 地理空間ピン | `map: { locationField }` |
-| `chart` | 埋め込みチャート | `chart: { chartType, xAxisField, yAxisFields }` |
+| `tree` | 自己参照型の階層 | `tree: { parentField, labelField }` |
+| `chart` | 埋め込みチャート | `chart: { chartType, dataset }` |
 
 ### 共通のリストオプション
 
@@ -146,23 +147,38 @@ view: {
 }
 ```
 
+### ツリー
+
+```ts
+{
+  type: 'tree',
+  tree: {
+    parentField: 'parent_id',                // self-lookup that builds the hierarchy
+    labelField:  'name',                     // shown indented in the first column
+    defaultExpandedDepth: 1                   // optional — 0 = roots only, omit = expand all
+  }
+}
+```
+
+自己参照型のオブジェクト（カテゴリ、部品表、組織単位、入れ子のコメント）では、ツリーグリッドが `parentField` ポインタに従って行を入れ子にします。
+
 ### チャート（インライン）
+
+`chart` リストビューは、名前付きの **dataset**（セマンティック分析レイヤー、ADR-0021）をバインドし、そのディメンションとメジャーを**名前で**選択します。メトリックを一度定義すれば、同じ dataset をバインドするすべてのチャート、ダッシュボード、レポートが一貫します。
 
 ```ts
 {
   type: 'chart',
   chart: {
-    chartType: 'bar',                        // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
-    xAxisField:  'created_at',
-    yAxisFields: ['amount'],
-    aggregation: 'sum',
-    groupByField: 'status'
+    chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
+    dimensions: ['status'],                  // dataset dimension name(s) — X / group / split
+    values:     ['ticket_count']             // dataset measure name(s) — the value axis
   }
 }
 ```
 
-チャートビューは、単一オブジェクト上のインラインダッシュボード向けです。より高度な
-オブジェクト横断分析には、専用のレポート画面を使用してください。
+インラインの `xAxisField` / `yAxisFields` / `aggregation` / `groupByField` の形式は 9.0 で削除されました。すべてのチャート、ダッシュボードウィジェット、レポートは現在 dataset をバインドします。より高度なオブジェクト横断分析には、専用のレポート画面を使用してください。
 
 ## フォームビューの種類
 

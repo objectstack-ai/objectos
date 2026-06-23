@@ -167,7 +167,7 @@ agentes de IA (Claude Desktop, IDEs, agentes personalizados) a través del
 [Model Context Protocol](https://modelcontextprotocol.io) abierto.
 
 ```ts
-import { MCPServerPlugin } from '@objectstack/plugin-mcp-server';
+import { MCPServerPlugin } from '@objectstack/mcp';
 
 kernel.use(new MCPServerPlugin({
   transport: 'stdio', // or 'http'

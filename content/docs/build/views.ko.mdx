@@ -65,7 +65,8 @@ view: {
 | `timeline` | 시간순 피드 | `timeline: { startDateField, titleField }` |
 | `gantt` | 프로젝트 타임라인 + 의존성 | `gantt: { startDateField, endDateField, titleField }` |
 | `map` | 지리공간 핀 | `map: { locationField }` |
-| `chart` | 임베드 차트 | `chart: { chartType, xAxisField, yAxisFields }` |
+| `tree` | 자기 참조 계층 | `tree: { parentField, labelField }` |
+| `chart` | 임베드 차트 | `chart: { chartType, dataset }` |
 
 ### 공통 list 옵션
 
@@ -146,23 +147,38 @@ view: {
 }
 ```
 
+### Tree
+
+```ts
+{
+  type: 'tree',
+  tree: {
+    parentField: 'parent_id',                // self-lookup that builds the hierarchy
+    labelField:  'name',                     // shown indented in the first column
+    defaultExpandedDepth: 1                   // optional — 0 = roots only, omit = expand all
+  }
+}
+```
+
+자기 참조 오브젝트(카테고리, BOM, 조직 단위, 중첩 댓글)의 경우 tree-grid는 `parentField` 포인터에 따라 행을 중첩합니다.
+
 ### Chart (인라인)
+
+`chart` 리스트 뷰는 이름이 지정된 **dataset**(시맨틱 분석 레이어, ADR-0021)을 바인딩하고 그 디멘션과 측정값을 **이름으로** 선택합니다. 메트릭을 한 번 정의하면 동일한 dataset을 바인딩하는 모든 차트, 대시보드, 리포트가 일관되게 유지됩니다:
 
 ```ts
 {
   type: 'chart',
   chart: {
-    chartType: 'bar',                        // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
-    xAxisField:  'created_at',
-    yAxisFields: ['amount'],
-    aggregation: 'sum',
-    groupByField: 'status'
+    chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
+    dimensions: ['status'],                  // dataset dimension name(s) — X / group / split
+    values:     ['ticket_count']             // dataset measure name(s) — the value axis
   }
 }
 ```
 
-Chart 뷰는 단일 오브젝트의 인라인 대시보드를 위한 것입니다 — 더 풍부한
-오브젝트 간 분석을 위해서는 전용 reports 표면을 사용하세요.
+인라인 `xAxisField` / `yAxisFields` / `aggregation` / `groupByField` 형식은 9.0에서 제거되었습니다 — 모든 차트, 대시보드 위젯, 리포트는 이제 dataset을 바인딩합니다. 더 풍부한 오브젝트 간 분석을 위해서는 전용 reports 표면을 사용하세요.
 
 ## Form 뷰 타입
 
