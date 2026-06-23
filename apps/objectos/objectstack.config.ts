@@ -23,9 +23,19 @@
  *   OS_BUSINESS_DB_URL  — Per-project business database (legacy: OS_DATABASE_URL;
  *                         default: file-backed sqlite under the ObjectStack home)
  *
- * Artifact hot-reload follows `NODE_ENV` (on outside production). Enterprise
- * plugins live in ../../packages/* and can be appended to the returned
- * plugin manifest below.
+ * Artifact hot-reload follows `NODE_ENV` (on outside production).
+ *
+ * NOTE — marketplace + Console SPA are intentionally NOT wired here. The
+ * `objectstack` CLI (dev / serve / start, which every entry point — Docker and
+ * the ObjectOS One desktop via one.mjs — routes through) auto-provisions them
+ * on top of this standalone stack: it injects marketplace browse/install +
+ * cloud-connection + runtime-config from `@objectstack/cloud-connection`
+ * (gated on `resolveCloudUrl()`; `OS_CLOUD_URL=off` → fully offline, nothing
+ * mounts) and serves the `@objectstack/console` SPA at `/_console/`. Both
+ * packages are declared as dependencies so this distribution pins their
+ * versions. Re-adding them to `plugins` below would double-mount; only wire
+ * them explicitly here if a future framework drops the CLI auto-injection
+ * (ADR-0006 Phase 4).
  */
 
 import { createStandaloneStack } from '@objectstack/runtime';

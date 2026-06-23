@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@objectstack/cli": "^10.2.0",
+    "@objectstack/cloud-connection": "^10.2.0",
+    "@objectstack/console": "^10.2.0",
     "@objectstack/core": "^10.2.0",
     "@objectstack/driver-memory": "^10.2.0",
     "@objectstack/driver-sql": "^10.2.0",

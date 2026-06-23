@@ -87,6 +87,12 @@ importers:
       '@objectstack/cli':
         specifier: ^10.2.0
         version: 10.2.0(@aws-sdk/client-s3@3.984.0)(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(ai@6.0.208(zod@4.4.3))(better-call@1.3.6(zod@4.4.3))(better-sqlite3@12.11.1)(jose@6.2.3)(kysely@0.29.2)(mongodb@7.3.0)(nanostores@1.3.0)(next@16.2.6(@opentelemetry/api@1.9.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@objectstack/cloud-connection':
+        specifier: ^10.2.0
+        version: 10.2.0(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(ai@6.0.208(zod@4.4.3))(better-call@1.3.6(zod@4.4.3))(better-sqlite3@12.11.1)(jose@6.2.3)(kysely@0.29.2)(mongodb@7.3.0)(nanostores@1.3.0)(next@16.2.6(@opentelemetry/api@1.9.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@objectstack/console':
+        specifier: ^10.2.0
+        version: 10.2.0
       '@objectstack/core':
         specifier: ^10.2.0
         version: 10.2.0(ai@6.0.208(zod@4.4.3))
