@@ -112,9 +112,11 @@ A: Yes — webhooks for outbound and the REST API + API keys for inbound.
 Native connectors for popular iPaaS tools are on the roadmap.
 
 **Q: Can AI agents call my ObjectOS?**
-A: Yes, via MCP (`@objectstack/mcp`) — exposes objects
-and actions as MCP tools that Claude Desktop, IDEs, or other MCP
-clients can use. See [AI Service](/docs/configure/ai).
+A: Yes, via MCP (`@objectstack/mcp`) — exposes objects (and, increasingly,
+actions) as MCP tools that Claude Desktop, IDEs, Claude Code, or any other MCP
+client can use. This is the **AI path on the free Community Edition** (bring your
+own model); the in-product AI Builder / "ask your data" assistant is a Cloud /
+Enterprise feature. See [AI Service](/docs/configure/ai).
 
 ## Customization
 
@@ -156,7 +158,11 @@ all customer data. ObjectOS itself is stateless. See [Backup](/docs/operate/back
 ## Pricing & legal
 
 **Q: Is ObjectOS really free?**
-A: Yes. Apache-2.0. No seats, no usage tier, no license server.
+A: Yes — the **Community Edition** is free forever (Apache-2.0): no seats, no
+usage tier, no license server. The hosted **in-UI AI** assistant, clustering/HA,
+and enterprise governance are the paid **Cloud / Enterprise** layer — where you
+pay only for **AI seats** (viewers and non-AI users are free). See
+[Editions](/docs/resources/license#editions).
 
 **Q: Can I use ObjectOS in a commercial product I sell?**
 A: Yes. Apache-2.0 allows commercial use. See [License](/docs/resources/license).
