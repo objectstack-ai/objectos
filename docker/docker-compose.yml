@@ -13,6 +13,9 @@ services:
       OS_PROJECT_ID: ${OS_PROJECT_ID:-}
       OS_ARTIFACT_FILE: ${OS_ARTIFACT_FILE:-/artifacts/objectstack.json}
       OS_BUSINESS_DB_URL: ${OS_BUSINESS_DB_URL:-file:/var/lib/objectos/data.db}
+      OS_SECRET_KEY: ${OS_SECRET_KEY:-}
+      OS_AUTH_SECRET: ${OS_AUTH_SECRET:-}
+      OS_CORS_ORIGIN: ${OS_CORS_ORIGIN:-}
       OS_CACHE_DIR: /var/cache/objectos
       PORT: 3000
     volumes:

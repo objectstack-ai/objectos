@@ -22,7 +22,8 @@
     "@objectstack/metadata": "^10.2.0",
     "@objectstack/objectql": "^10.2.0",
     "@objectstack/runtime": "^10.2.0",
-    "@objectstack/spec": "^10.2.0"
+    "@objectstack/spec": "^10.2.0",
+    "pg": "^8.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
