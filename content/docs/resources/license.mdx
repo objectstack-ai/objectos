@@ -44,17 +44,18 @@ ObjectOS is **open core**. The open-source runtime is the complete *mechanism*
 for building and running business applications; the commercial editions layer on
 hosted *intelligence*, operational scale, and governance.
 
-| | **Community** | **Self-host (licensed)** | **Cloud** |
+| | **Community** | **Cloud** | **Enterprise** |
 |---|---|---|---|
-| Delivery | self-host, free | self-host, paid | fully hosted |
-| License | Apache-2.0 | commercial | — (SaaS) |
-| Price | **Free, forever** | **per AI seat** (BYO model) | **per AI seat** ($24 / $54, credits included) |
+| Delivery | self-host (OSS) | fully hosted | cloud **or private/self-host** |
+| License | Apache-2.0 | — (SaaS) | commercial |
+| Price | **Free, forever** | **per AI seat** ($24 / $54; Free tier available) | Custom (volume) |
 | Build & run apps; real DB tables, RBAC, row/field security, flows, interfaces, REST/ObjectQL | ✓ | ✓ | ✓ |
 | **AI via MCP** — point your own Claude Code / MCP client at your data | ✓ | ✓ | ✓ |
 | **In-UI AI** — hosted AI Builder + "ask your data" assistant | — | ✓ | ✓ |
-| Clustering / HA / multi-node, data residency / air-gap | — | ✓ (Enterprise) | managed |
-| SSO/SCIM at scale, compliance attestations (SOC 2 report / ISO image), advanced governance | — | ✓ (Enterprise) | by plan |
-| Support | community | by plan / SLA | by plan |
+| **Private / self-host deployment** (license, BYO model, offline-payable) | — | — | ✓ |
+| Clustering / HA / multi-node, data residency / air-gap | — | managed | ✓ |
+| SSO/SCIM at scale, compliance attestations (SOC 2 report / ISO image), advanced governance | — | by plan | ✓ |
+| Support | community | by plan | SLA + dedicated |
 
 **Open mechanism, closed intelligence.** Everything you need to model data and
 run apps is open-source and free. The *hosted AI* — the in-product AI Builder and
@@ -63,16 +64,17 @@ Community Edition your AI path is the open **MCP server**: point your own Claude
 Code (or any MCP client) at your deployment and it can query and operate your data
 with your own model — no platform AI bill.
 
-**You pay only for AI seats.** On the paid plans — **cloud or self-hosted** — the
-only billed seat is the **AI seat**; viewers and non-AI users are free, with no
-per-user seat tax (a clean contrast to the $150–300/user incumbents).
+**You pay only for AI seats.** On the paid plans the only billed seat is the
+**AI seat**; viewers and non-AI users are free, with no per-user seat tax (a clean
+contrast to the $150–300/user incumbents).
 
-**Same price, your choice of deployment.** The paid plans (Team / Business /
-Enterprise) run **either** in our cloud **or** self-hosted on your own
-infrastructure, at the **same per-AI-seat price**. The only difference is who runs
-the model: in the cloud we bundle AI credits; self-hosted, you **bring your own
-model / key** (and pay your own LLM cost) as a **license — offline-payable**.
-There is **no per-node charge** — clustering / HA is an Enterprise-tier feature.
+**Cloud, or private deployment on Enterprise.** The paid cloud plans (Team /
+Business) are **hosted** — per AI seat, AI credits included. **Private / self-host
+deployment is an Enterprise capability**: a license, **bring your own model / key**
+(you pay your own LLM cost), **offline-payable**, plus clustering/HA and
+governance. Want to self-host for free? That's the open-source **Community
+Edition** (MCP-only AI). There is **no per-node charge** — clustering / HA is
+folded into Enterprise.
 
 ## When you might want a commercial edition
 
