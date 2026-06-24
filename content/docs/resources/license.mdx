@@ -38,18 +38,47 @@ Full text: [LICENSE](https://github.com/objectstack-ai/framework/blob/main/LICEN
 | Console and Account UIs | Apache-2.0 |
 | Documentation | CC-BY-4.0 |
 
-## When you might want a commercial agreement
+## Editions
 
-Apache-2.0 covers most use cases. You may still want a commercial
-agreement when:
+ObjectOS is **open core**. The open-source runtime is the complete *mechanism*
+for building and running business applications; the commercial editions layer on
+hosted *intelligence*, operational scale, and governance.
 
-| Scenario | What we offer |
+| | **Community** | **Enterprise** | **Cloud** |
+|---|---|---|---|
+| Delivery | self-host | self-host (licensed) | fully hosted |
+| License | Apache-2.0 | commercial | — (SaaS) |
+| Price | **Free, forever** | per-seat + per-node | **per AI seat** ($24 / $54) |
+| Build & run apps; real DB tables, RBAC, row/field security, flows, interfaces, REST/ObjectQL | ✓ | ✓ | ✓ |
+| **AI via MCP** — point your own Claude Code / MCP client at your data | ✓ | ✓ | ✓ |
+| **In-UI AI** — hosted AI Builder + "ask your data" assistant | — | ✓ | ✓ |
+| Clustering / HA / multi-node, data residency / air-gap | — | ✓ | managed |
+| SSO/SCIM at scale, compliance attestations (SOC 2 report / ISO image), advanced governance | — | ✓ | by plan |
+| Support | community | SLA + dedicated | by plan |
+
+**Open mechanism, closed intelligence.** Everything you need to model data and
+run apps is open-source and free. The *hosted AI* — the in-product AI Builder and
+the "ask your data" assistant — is a Cloud / Enterprise feature. On the free
+Community Edition your AI path is the open **MCP server**: point your own Claude
+Code (or any MCP client) at your deployment and it can query and operate your data
+with your own model — no platform AI bill.
+
+**You pay only for AI seats.** On the paid Cloud plans the only billed seat is the
+**AI seat** — viewers and non-AI users are free, with no per-user seat tax (a clean
+contrast to the $150–300/user incumbents).
+
+## When you might want a commercial edition
+
+Apache-2.0 covers most self-host use cases. You may want **Enterprise** (licensed
+self-host) or **ObjectStack Cloud** (hosted) when:
+
+| Scenario | Edition |
 |---|---|
-| You need **support with SLAs** | Commercial support |
-| You want us to **host it for you** | Managed cloud (ObjectStack Cloud) |
-| You want **OEM rights** (use ObjectStack trademarks, badge it as your own) | OEM agreement |
-| You want a **warranty / indemnification** | Commercial agreement (Apache-2.0 disclaims warranty) |
-| You need **regulatory attestations** (SOC 2 report, ISO certificate of the runtime image) | Enterprise tier |
+| You want us to **host it for you** (per AI seat, in-UI AI, billing handled) | ObjectStack Cloud |
+| You need **clustering / HA / multi-node** or **air-gapped** scale | Enterprise |
+| You want the **in-product AI assistant** on your own infrastructure | Enterprise |
+| You need **SSO/SCIM at scale** + **compliance attestations** (SOC 2 report, ISO image) | Enterprise |
+| You need **support with SLAs**, **warranty / indemnification**, or **OEM** rights | Enterprise / commercial agreement |
 
 Contact **sales@objectstack.ai** to discuss.
 
@@ -64,7 +93,9 @@ Run it on:
 - A Raspberry Pi
 - A Kubernetes cluster of 1000 pods
 
-The license is the same in every case.
+The license is the same in every case. (The hosted **in-UI AI** assistant and the
+Enterprise scale / governance add-ons are the paid layer — the runtime itself is
+free.)
 
 ## Third-party components
 
