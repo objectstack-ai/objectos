@@ -18,6 +18,31 @@ ObjectStack   →   how a business application is described
 ObjectOS      →   where it runs, and where AI plugs in
 ```
 
+## See it running
+
+ObjectStack metadata, running on ObjectOS — the business apps your team actually uses, with AI working the same data under the same permissions.
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" width="900" alt="A business application running on ObjectOS: an executive dashboard with revenue, account, and pipeline KPIs plus charts">
+  <br><sub>A business app running on ObjectOS — dashboards, KPIs, and reports over data you host.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/kanban.png" width="49%" alt="Pipeline as a kanban board">
+  <img src="docs/screenshots/gantt.png" width="49%" alt="Delivery plan as a Gantt schedule">
+</p>
+<p align="center">
+  <img src="docs/screenshots/calendar.png" width="49%" alt="Records on a calendar">
+  <img src="docs/screenshots/gallery.png" width="49%" alt="Records as a cover gallery">
+</p>
+<p align="center"><sub>The same records as boards, Gantt schedules, calendars, and galleries — rendered by the runtime from metadata, no extra UI code.</sub></p>
+
+<p align="center">
+  <img src="docs/screenshots/record.png" width="49%" alt="A record page with a guided stage path and actions">
+  <img src="docs/screenshots/ask-ai.png" width="49%" alt="AI assistant querying business records">
+</p>
+<p align="center"><sub><b>Rich records</b> with guided actions, and <b>AI plugged into the same data</b> — agents act as the signed-in user, every step audited.</sub></p>
+
 ## Why ObjectOS
 
 The promise of "AI inside the enterprise" usually breaks on two things:
