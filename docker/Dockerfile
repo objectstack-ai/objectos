@@ -2,11 +2,11 @@
 #
 # ObjectOS runtime image
 # -----------------------------------------------------------------------
-# Multi-stage build producing a minimal Node 20 runtime that boots
+# Multi-stage build producing a minimal Node 22 runtime that boots
 # `apps/objectos` against either an Artifact API or a local artifact file.
 # -----------------------------------------------------------------------
 
-ARG NODE_VERSION=20
+ARG NODE_VERSION=22
 ARG PNPM_VERSION=10.28.2
 
 # ---------- builder ----------
