@@ -46,8 +46,19 @@ const environmentId =
 const databaseUrl =
   process.env.OS_BUSINESS_DB_URL ?? process.env.OS_DATABASE_URL;
 
-export default await createStandaloneStack({
+const stack = await createStandaloneStack({
   artifactPath: artifactFile,
   environmentId,
   databaseUrl,
 });
+
+// @objectstack 12.1 workaround: createStandaloneStack hard-codes
+// `api.projectResolution: 'none'` for the single-tenant standalone case, but the
+// 12.1 protocol validator's `api.projectResolution` enum only accepts
+// required|optional|auto (the field is optional). Since standalone runs with
+// `enableProjectScoping: false`, drop the field so compile/validate passes.
+const { projectResolution: _drop, ...api } = stack.api as {
+  projectResolution?: string;
+} & Record<string, unknown>;
+
+export default { ...stack, api };

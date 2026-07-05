@@ -13,16 +13,16 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@objectstack/cli": "^10.2.0",
-    "@objectstack/cloud-connection": "^10.2.0",
-    "@objectstack/console": "^10.2.0",
-    "@objectstack/core": "^10.2.0",
-    "@objectstack/driver-memory": "^10.2.0",
-    "@objectstack/driver-sql": "^10.2.0",
-    "@objectstack/metadata": "^10.2.0",
-    "@objectstack/objectql": "^10.2.0",
-    "@objectstack/runtime": "^10.2.0",
-    "@objectstack/spec": "^10.2.0",
+    "@objectstack/cli": "^12.1.0",
+    "@objectstack/cloud-connection": "^12.1.0",
+    "@objectstack/console": "^12.1.0",
+    "@objectstack/core": "^12.1.0",
+    "@objectstack/driver-memory": "^12.1.0",
+    "@objectstack/driver-sql": "^12.1.0",
+    "@objectstack/metadata": "^12.1.0",
+    "@objectstack/objectql": "^12.1.0",
+    "@objectstack/runtime": "^12.1.0",
+    "@objectstack/spec": "^12.1.0",
     "pg": "^8.0.0"
   },
   "devDependencies": {
