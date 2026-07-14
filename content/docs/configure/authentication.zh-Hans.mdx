@@ -19,7 +19,25 @@ ObjectOS 使用由 Better Auth 驱动的 ObjectStack 认证插件。认证是项
 - 双因素认证；
 - Passkey/WebAuthn；
 - 魔法链接；
+- 手机号登录与短信 OTP（需显式开启）；
 - CLI/浏览器设备流程。
+
+## 手机号登录与短信（ObjectStack 14.3+）
+
+通过 `auth.plugins.phoneNumber` 设置开启手机号认证。开启后：
+
+- `POST /sign-in/phone-number` 接受手机号 + 密码登录；
+- 短信 OTP 覆盖登录验证和自助密码重置，并自带按号码冷却、滚动小时上限和按 IP 限流；
+- `sys_user` 增加唯一的 `phone_number` 与 `phone_number_verified` 列；仅手机号账户会获得占位邮箱。
+
+短信发送由 `@objectstack/plugin-sms` 提供，支持阿里云短信、Twilio 或开发环境日志回退，通过 `sms` 设置命名空间配置。含 OTP 验证码的消息体永不持久化或写入日志。通知也可以通过 `notify(channels: ['sms'])` 走 `sms` 通道。
+
+## 管理员用户管理（ObjectStack 14.3+）
+
+平台管理员可以不经邮件邀请流程直接开通账户：
+
+- `POST /api/v1/auth/admin/create-user` 直接创建用户，可选生成一次性密码（仅返回一次，不持久化）。`must_change_password` 标志强制首次登录时修改密码（未修改前返回 403 `PASSWORD_EXPIRED`）。
+- `POST /api/v1/auth/admin/import-users` 批量导入行 / CSV / XLSX（每次请求最多 500 行），支持 dry-run 和按邮箱或手机号 upsert；已存在用户的密码永不重置。
 
 ## 必需的 Secret
 

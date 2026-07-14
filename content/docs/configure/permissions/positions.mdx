@@ -1,0 +1,140 @@
+---
+title: Positions
+description: Model job functions and audience anchors with positions.
+---
+
+# Positions
+
+Positions describe the job function a user holds — "Sales Manager",
+"Support Agent", "Auditor". Since ObjectStack 13 (Permission Model v2,
+ADR-0090), positions are the **single** people-grouping concept: the
+legacy Role and Profile frameworks were consolidated into positions and
+removed from the protocol.
+
+Positions are intentionally **flat**. There is no `parent` field and no
+position hierarchy — reporting structure and subtree-based visibility
+live on the [business-unit tree](/docs/configure/permissions/record-access)
+instead.
+
+## Position responsibilities
+
+Use positions to model:
+
+- job functions ("Sales Manager", "Recruiter", "Auditor");
+- audience targeting for apps, tabs, and books;
+- approval responsibility (approvers of type `position` expand to the
+  current holders automatically);
+- distribution of [permission sets](/docs/configure/permissions/permission-sets)
+  to everyone holding the same function.
+
+Use **business units** to model the org chart (departments, regions,
+manager/subordinate structure) and **permission sets** to grant concrete
+object, field, and system capabilities.
+
+## System objects
+
+| Object | Purpose |
+|---|---|
+| `sys_position` | Position definition (flat — no hierarchy) |
+| `sys_user_position` | A user's assignment to a position |
+| `sys_position_permission_set` | Permission sets distributed through a position |
+| `sys_business_unit` | Org-chart tree used for hierarchy and subtree sharing |
+| `sys_business_unit_member` | A user's membership in a business unit (`function_in_business_unit`) |
+
+Writes to the RBAC link tables (`sys_user_position`,
+`sys_position_permission_set`, `sys_user_permission_set`,
+`sys_permission_set`) require tenant-level admin rights or a
+[delegated-admin scope](/docs/configure/permissions/permission-sets#delegated-administration) —
+plain CRUD grants on those tables are not sufficient.
+
+## Audience anchors: `everyone` and `guest`
+
+Two system-managed positions are seeded in every deployment:
+
+| Anchor | Held by |
+|---|---|
+| `everyone` | Every authenticated principal, implicitly |
+| `guest` | Sessionless (anonymous) HTTP principals only |
+
+Bind a permission set to `everyone` to grant a baseline to all signed-in
+users; bind to `guest` to open something to anonymous visitors. Bindings
+are additive, and the platform refuses to bind high-privilege sets
+(View All / Modify All, delete/purge/transfer, system permissions,
+wildcards) to these anchors.
+
+The configured baseline permission set (`fallbackPermissionSet`, default
+`member_default`) applies through the same `everyone` binding path. Note
+that since ObjectStack 14.2 the member baseline no longer includes
+**delete** — record deletion must be granted explicitly per object
+through position-distributed permission sets.
+
+## Effective-dated assignments
+
+Position and permission-set assignments carry optional `valid_from` /
+`valid_until` windows (half-open, UTC; null means unbounded). Expired
+grants stop resolving immediately — useful for temporary coverage,
+contractors, and certification-bound access. Each grant can record a
+`reason` and, for delegations, `delegated_from`.
+
+A position marked `delegatable: true` allows its current holders to
+self-delegate it to another user for a bounded window (a future
+`valid_until` capped at 30 days, mandatory reason). Positions that
+distribute admin-scoped permission sets can never be delegatable.
+
+## Recommended pattern
+
+Keep a small, stable set of function-shaped positions:
+
+```text
+Sales Manager
+Sales Representative
+Support Manager
+Support Agent
+```
+
+Model the org chart as business units:
+
+```text
+Sales
+  ├─ EMEA
+  └─ AMER
+Support
+```
+
+Then attach permission sets to positions for capabilities:
+
+```text
+Sales Manager position
+  -> CRM User
+  -> Sales Manager Access
+  -> Report Viewer
+```
+
+This keeps positions stable while permissions evolve independently.
+
+## Avoid
+
+- one position per individual user;
+- duplicating every permission inside every position;
+- using position names as business-logic checks;
+- rebuilding hierarchy on positions — subtree visibility belongs to
+  business units and
+  [record sharing](/docs/configure/permissions/record-access);
+- granting broad access through manager positions when record sharing
+  would be more precise.
+
+## Migrating from roles (pre-13)
+
+If you are upgrading metadata authored against ObjectStack 12 or
+earlier:
+
+| Legacy | Current |
+|---|---|
+| `sys_role` / `sys_user_role` / `sys_role_permission_set` | `sys_position` / `sys_user_position` / `sys_position_permission_set` |
+| `defineRole` / `RoleSchema` (with `parent`) | `definePosition` / `PositionSchema` (flat) |
+| Metadata kind `role` or `profile` | `position` |
+| Sharing recipient `role` / `role_and_subordinates` | `position` / `unit_and_subordinates` |
+| `PermissionSetSchema.isProfile` | Removed — `isDefault` marks install-time suggestions |
+
+Role hierarchies must be re-modeled as business-unit trees. `os lint`
+flags leftover role vocabulary via the `security-role-word` rule.

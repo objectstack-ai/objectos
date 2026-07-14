@@ -206,20 +206,53 @@ ObjectSchema.create({
 });
 ```
 
-## Lifecycle & ownership
+## Capability flags & ownership
 
 ```ts
 ObjectSchema.create({
   name: 'task',
   ownership: 'own',          // 'own' | 'shared' | 'system'
+  sharingModel: 'private',   // OWD — custom objects default to private (v13)
   enable: {
     apiEnabled: true,         // generated REST endpoints
-    trackHistory: true,       // audit log of field changes
-    feeds: true,              // sys_comment / sys_activity / @mentions
+    trackHistory: true,       // History tab + field-level diffs (default true)
+    feeds: true,              // sys_comment / @mentions (default true)
+    activities: true,         // mirror CRUD to sys_activity timeline (default true)
+    files: true,              // Attachments panel (opt-in, default false)
     softDelete: true,         // tombstone instead of hard delete
   },
 });
 ```
+
+Since ObjectStack 14 the `enable.*` flags are **enforced**, not
+advisory: `feeds: false` rejects comment creation with 403
+`FEEDS_DISABLED`, `files` must be opted in before `sys_attachment` rows
+can be created (403 `FILES_DISABLED` otherwise), and `activities` /
+`trackHistory` gate the timeline and History tab. The compliance
+`sys_audit_log` row is always written regardless of flags.
+
+## Data lifecycle (retention)
+
+High-volume objects can declare a `lifecycle` block so the platform
+bounds their growth (ObjectStack 14.4, ADR-0057):
+
+```ts
+ObjectSchema.create({
+  name: 'my_event',
+  lifecycle: {
+    class: 'event',            // 'record' | 'audit' | 'telemetry' | 'transient' | 'event'
+    retention: '14d',          // reaper deletes rows past the window
+    storage: { rotation: 'weekly' }, // time-sharded tables, O(1) expiry
+  },
+});
+```
+
+The built-in LifecycleService (disable with `OS_LIFECYCLE_DISABLED=1`)
+reaps expired rows, rotates time-sharded tables, and archives
+audit-class objects. Platform objects such as `sys_activity` (14 days)
+and `sys_audit_log` (90 days hot, then archive) ship with lifecycle
+declarations you can tune per environment via the
+`lifecycle.retention_overrides` setting.
 
 ## System objects (free with every project)
 
@@ -230,7 +263,7 @@ You don't have to declare these — they're always there:
 | `sys_user` | User accounts |
 | `sys_org` | Organizations / tenants |
 | `sys_member` | Org membership |
-| `sys_role`, `sys_permission_set` | RBAC primitives |
+| `sys_position`, `sys_permission_set` | RBAC primitives |
 | `sys_audit_log` | Audit trail (when audit capability loaded) |
 | `sys_file`, `sys_attachment` | File metadata (when storage loaded) |
 | `sys_comment`, `sys_activity` | Feed / chatter (when feed loaded) |

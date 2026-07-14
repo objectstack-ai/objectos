@@ -54,25 +54,52 @@ Built-in (via `@objectstack/plugin-auth`, powered by Better Auth):
 - two-factor (TOTP)
 - passkeys / WebAuthn
 - magic links
+- phone number + SMS OTP sign-in and password reset (opt-in via
+  `auth.plugins.phoneNumber`; Aliyun / Twilio transports, rate-limited)
 - CLI/browser device flow
 - API keys (hashed, expirable, revocable, bound to a user)
+- self-serve OAuth 2.1 for MCP clients (authorization-code + PKCE,
+  dynamic client registration, scope-derived permission ceiling)
+- admin-driven user creation and bulk import (one-time passwords with
+  forced rotation via `must_change_password`)
 
 See [Authentication](/docs/configure/authentication).
 
 ## Authorization
 
-Layered enforcement (via `@objectstack/plugin-security`):
+Layered enforcement (via `@objectstack/plugin-security`), following
+Permission Model v2 (ObjectStack 13, ADR-0090):
 
-1. **Object permissions** — CRUD per object per permission set
-2. **Row-level security** — declarative policy expressions injected into
+1. **Object permissions** — CRUD per object per permission set,
+   distributed to users directly or through flat **positions**
+2. **Org-wide defaults** — custom objects with an owner default to a
+   `private` sharing model; anonymous data access is denied by default
+3. **Row-level security** — declarative policy expressions injected into
    queries; not optional
-3. **Field-level security** — fields stripped from responses /
-   rejected on write
-4. **Organization scoping** — multi-tenant isolation; bypass requires
+4. **Field-level security** — fields stripped from responses /
+   rejected on write (keys are object-qualified, lint-enforced)
+5. **Organization scoping** — multi-tenant isolation; bypass requires
    explicit `viewAllRecords`
 
 System-context operations bypass checks so internal jobs / migrations
 can run — these paths are auditable.
+
+Supporting machinery:
+
+- **Explain engine** — `explain(principal, object, operation)` reports
+  every layer's verdict with per-layer attribution, using the same
+  evaluators as enforcement (no drift by construction).
+- **Author-time lints** — `os compile` gates the build on security
+  posture (`security-owd-unset`, `security-anchor-high-privilege`,
+  `security-fls-unqualified-key`, …), and an optional committed
+  `access-matrix.json` snapshot makes any capability drift fail CI
+  until explicitly re-approved.
+- **Delegated administration** — permission sets can carry an
+  `adminScope` so sub-admins manage assignments only within their
+  business-unit subtree, from an allowlist, with `granted_by` audit.
+- **MCP scope ceiling** — OAuth-connected AI agents run under
+  `effective_permission = scope_ceiling ∩ user_grants`
+  (`data:read` / `data:write` / `actions:execute`), failing closed.
 
 See [Permissions](/docs/configure/permissions).
 
@@ -84,7 +111,10 @@ When the audit capability is loaded (`@objectstack/plugin-audit`):
 - Before/after values for field changes.
 - Authentication, permission grants, session revocation events.
 - Audit rows are **immutable**: cannot be modified, only archived.
-- Retention is configurable; pair with your DB's archive policy.
+- Retention is declared on the object's `lifecycle` block
+  (`sys_audit_log` ships with 90 days hot, then archive) and tuned per
+  environment via `lifecycle.retention_overrides`; pair with your DB's
+  archive policy.
 
 This is the evidence base for SOC 2 CC6/CC7, ISO 27001 A.12.4, HIPAA
 §164.312(b), and GDPR Article 30.

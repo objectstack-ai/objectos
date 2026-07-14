@@ -11,9 +11,9 @@ ObjectOS follows **[Semantic Versioning](https://semver.org/)**: `MAJOR.MINOR.PA
 
 | Version bump | What it means | What to do |
 |---|---|---|
-| **Patch** (`10.0.0 → 10.0.1`) | Bug fixes, no behavior change | Roll forward, no app changes needed |
-| **Minor** (`10.0 → 10.1`) | New features, backward-compatible | Roll forward, optionally adopt new features |
-| **Major** (`9 → 10`) | Breaking changes documented in release notes | Read the migration guide before upgrading |
+| **Patch** (`14.7.0 → 14.7.1`) | Bug fixes, no behavior change | Roll forward, no app changes needed |
+| **Minor** (`14.6 → 14.7`) | New features, backward-compatible | Roll forward, optionally adopt new features |
+| **Major** (`13 → 14`) | Breaking changes documented in release notes | Read the migration guide before upgrading |
 
 All `@objectstack/*` packages release together with a synchronized
 version number — they're tested as a matrix, not independently.
@@ -22,7 +22,7 @@ version number — they're tested as a matrix, not independently.
 
 | Component | Compatibility rule |
 |---|---|
-| ObjectOS image ↔ compiled artifact | Same minor version. A 10.2.x image runs a 10.2.x artifact; a 10.2 artifact may use features unavailable in a 10.0 image. |
+| ObjectOS image ↔ compiled artifact | Same minor version. A 14.7.x image runs a 14.7.x artifact; a 14.7 artifact may use features unavailable in a 14.0 image. The protocol handshake (`PROTOCOL_VERSION`, 12.0+) rejects incompatible packages at install time. |
 | ObjectOS ↔ CLI | Same minor version recommended. The CLI in `npm i -g` writes scaffolds pinned to its own version. |
 | ObjectOS ↔ database driver | Driver pinned by image build; verify Postgres ≥ 13 / MongoDB ≥ 5 / Turso (any current). |
 | Node.js | **20 LTS or newer**. 22 LTS recommended for new deployments. |
@@ -31,9 +31,9 @@ version number — they're tested as a matrix, not independently.
 
 | Branch | Status | Until |
 |---|---|---|
-| **10.x** (current) | Active development; new features and fixes | At least 12 months after 11.0 ships |
-| **9.x** | Security fixes only | EOL on 11.0 release |
-| **≤ 8.x** | Unsupported | Already EOL |
+| **14.x** (current) | Active development; new features and fixes | At least 12 months after 15.0 ships |
+| **13.x** | Security fixes only | EOL on 15.0 release |
+| **≤ 12.x** | Unsupported | Already EOL |
 
 Critical security fixes are backported to the current and previous
 major. Everything else lands on `main`.
@@ -51,14 +51,109 @@ Subscribe to releases on GitHub to get notified.
 
 ## Recent highlights
 
-### 10.x — current release train
+### 14.x — current release train
 
-ObjectOS One and the bundled server now ship on `@objectstack` **10.2.0**.
-Despite the major bump, the runtime boot contract is unchanged —
-`createStandaloneStack` still takes the same artifact, environment, and
-database settings — and every breaking change lands in the multi-org tenancy
-layer, so a **single-tenant ObjectOS deployment (the default) rolls forward
-from 9.x with no config changes**. What moved:
+ObjectOS One and the bundled server now ship on `@objectstack` **14.7.0**.
+The runtime boot contract is unchanged — `createStandaloneStack` takes the
+same artifact, environment, and database settings — but 13.0 and 14.0 both
+land breaking changes in the authorization vocabulary, so **review your
+permission metadata before rolling forward from ≤ 12.x**. Full notes:
+[docs.objectstack.ai/docs/releases](https://docs.objectstack.ai/docs/releases).
+What moved in 14.x:
+
+- **ADR-0090 vocabulary convergence completed** (14.0, breaking) —
+  `book.audience` gates on `{ permissionSet }` (was `{ profile }`),
+  `PortalSchema.profiles` → `positions`, `RLSUserContextSchema.role` →
+  `positions` (string array), `sys_record_share.recipient_type: 'role'` →
+  `'position'`.
+- **Object capability flags are enforced** (14.0, breaking-ish) — the
+  `enable.*` flags went from parsed-but-unused to real gates.
+  `activities` and `feeds` are opt-out (default `true`; `feeds: false`
+  rejects comments with 403 `FEEDS_DISABLED`), `trackHistory` drives the
+  History tab, and `files` is opt-in (403 `FILES_DISABLED` until
+  `enable: { files: true }`).
+- **Member baseline lost delete** (14.2, breaking) — `member_default` no
+  longer grants record deletion; re-grant per object through
+  position-distributed permission sets.
+- **Admin user management & phone auth** (14.3) — direct user creation
+  (`POST /api/v1/auth/admin/create-user`, one-time passwords with forced
+  rotation), bulk import (rows/CSV/XLSX, dry-run, upsert), opt-in phone
+  sign-in with SMS OTP via `@objectstack/plugin-sms` (Aliyun / Twilio),
+  and an `sms` notification channel.
+- **Data-lifecycle contract** (14.4, ADR-0057) — objects declare
+  `lifecycle` (class, retention, rotation, archive); the default-on
+  LifecycleService reaps, rotates, and archives platform data
+  (`sys_activity` 14 days, `sys_audit_log` 90 days hot). Disable with
+  `OS_LIFECYCLE_DISABLED=1`; tune via `lifecycle.retention_overrides`.
+  14.5 removed the per-plugin `retentionDays` / `retentionSweepMs`
+  options (`JobRunRetention`, `NotificationRetention`) in favor of
+  lifecycle declarations, and split lifecycle-classed system data into a
+  dedicated telemetry datasource (`OS_TELEMETRY_DB`); `os db clean`
+  reclaims SQLite space.
+- **Effective-dated grants & delegation** (14.4, ADR-0091) — position and
+  permission-set assignments support `valid_from` / `valid_until`
+  windows (fail-closed, no background job), and `delegatable` positions
+  let holders self-delegate for a bounded window (≤ 30 days, reason
+  required, never admin scopes).
+- **MCP scope ceiling** (14.5, ADR-0090 D10) — OAuth-connected agents run
+  under `effective_permission = scope_ceiling ∩ user_grants`
+  (`data:read` / `data:write` / `actions:execute`), failing closed.
+- **Security fixes** (14.4–14.5) — FLS keys must be object-qualified
+  (bare keys silently matched nothing; now lint-rejected with autofix);
+  settings and share-link routes no longer trust spoofable
+  `x-user-id`-style headers; analytics queries are scoped to the
+  caller's read filter.
+
+### 13.x — Permission Model v2
+
+`@objectstack` **13.0** restructured authorization (ADR-0090). Breaking:
+
+- **Roles and Profiles converge on Positions** — `sys_role*` tables,
+  `RoleSchema` / `defineRole`, metadata kinds `role` / `profile`, and
+  `ExecutionContext.roles[]` are gone; positions are flat and hierarchy
+  moved to the business-unit tree. Sharing recipients renamed
+  (`role` → `position`, `role_and_subordinates` → `unit_and_subordinates`).
+- **Custom objects default to private** — an owner-carrying object with
+  no explicit `sharingModel` is now private; the `read` / `read_write` /
+  `full` OWD aliases were removed. Declare `sharingModel:
+  'public_read_write'` to restore prior behavior.
+- **RBAC link-table writes gated** — writes to `sys_user_position`,
+  `sys_position_permission_set`, `sys_user_permission_set`, and
+  `sys_permission_set` require tenant admin or a delegated-admin scope.
+
+And new: `everyone` / `guest` audience anchors, delegated administration
+(`PermissionSet.adminScope`), the `explain()` engine with per-layer
+attribution, the access-matrix snapshot gate for `os compile`,
+self-serve OAuth 2.1 for MCP clients, author-time security lints
+(`validateSecurityPosture`), per-operation `Object.requiredPermissions`
+maps, and package namespace-prefix enforcement. Never-enforced schemas
+(compliance / masking / global-RLS configs) were removed outright.
+
+### 12.x
+
+`@objectstack` **12.0** hardened the API default posture:
+
+- **Anonymous data access denied by default** (breaking) —
+  `api.requireAuth` now defaults to `true`; anonymous `/data/*` requests
+  get 401. Public-data deployments must opt out explicitly with
+  `api: { requireAuth: false }` (boot warning). Share links, public
+  forms, `/auth`, and `/health` are unaffected.
+- **Enforced protocol handshake** — `PROTOCOL_VERSION` +
+  `checkProtocolCompat()` reject incompatible packages at install time.
+- **Adaptive record surfaces** — records derive page vs. modal/drawer
+  display from field complexity; `FormField.span` goes responsive
+  (`'auto'` / `'full'`); related lists gain `'primary'` tab promotion.
+- **Package-shipped permissions** — packages declare default permission
+  sets that materialize at boot with provenance tracking.
+- **Build-time lints** — `lint-view-refs`, `validateListViewMode`,
+  `validateFormLayout`, and destructive-operation RBAC mapping gate
+  compilation.
+
+### 10.x
+
+The 10.x train shipped on `@objectstack` **10.0 – 10.2**. Every breaking
+change landed in the multi-org tenancy layer, so a single-tenant ObjectOS
+deployment rolled forward from 9.x with no config changes. What moved:
 
 - **Row-level org scoping split into its own plugin** (10.0, breaking) — the
   `organization_id` auto-stamp, per-org seed replay, and default-org bootstrap

@@ -40,15 +40,16 @@ API 暴露在 artifact 中按对象逐个治理，而不是在网关层：
 
 ## 身份验证方式
 
-调用方可以通过三种方式进行身份验证：
+调用方可以通过四种方式进行身份验证：
 
 | 方式 | 适用场景 | 做法 |
 |---|---|---|
 | Session cookie | 浏览器/UI 流量 | 通过 `/api/v1/auth/*` 登录；cookie 的作用域限定在项目主机名 |
 | Bearer 访问令牌 | 移动端、SPA、短时服务端任务 | 在 `/api/v1/auth/sign-in/email` 用凭据换取令牌，并以 `Authorization: Bearer <token>` 传递 |
 | API 密钥 | 服务器到服务器、ETL、长期存续的集成 | 创建一条 `sys_api_key` 记录，作为 bearer 令牌使用 |
+| OAuth 2.1（MCP） | 以登录用户身份行事的 AI 代理 / MCP 客户端 | 直接对部署本身执行自助授权码 + PKCE 流程 |
 
-这三种方式都会经过同一个 `AuthPlugin`，并最终解析为 `sys_user` 上下文，由 `SecurityPlugin` 据此评估权限和记录访问。
+这些方式都会经过同一个 `AuthPlugin`，并最终解析为 `sys_user` 上下文，由 `SecurityPlugin` 据此评估权限和记录访问。
 
 ## API 密钥
 
@@ -79,6 +80,16 @@ curl https://app.example.com/api/v1/data/account \
 ```
 
 要撤销某个密钥，请在对应的 `sys_api_key` 记录上运行 `revoke_api_key` action（Console UI 中也提供）。撤销会在下一次请求时立即生效。
+
+## MCP 客户端与 OAuth 2.1（ObjectStack 13+）
+
+任何支持 OAuth 的 MCP 客户端——Claude.ai 自定义连接器、Claude Desktop、Claude Code——都可以**自助**接入，无需管理员签发 API 密钥：
+
+- 每个部署都充当自己的授权服务器（由内嵌认证实例支撑），支持 RFC 8414 / RFC 9728 发现、动态客户端注册（RFC 7591）、授权码 + PKCE，以及绑定到 `<origin>/api/v1/mcp` 的资源约束。要求 TLS（localhost 豁免）。
+- 用户以自己的身份登录；工具调用在其本人的权限和行级安全下运行。
+- OAuth scope 构成硬性权限上限（ObjectStack 14.5）：`effective_permission = scope_ceiling ∩ user_grants`。`data:read` 授予只读数据访问，`data:write` 授予完整 CRUD，能力门控的业务动作需要 `actions:execute`。缺少 scope 的令牌将失败关闭。
+
+API 密钥仍作为 CI 与无头代理的并行通道——`x-api-key` 和 `Authorization: Bearer osk_…` 继续原样工作。
 
 ## 分页、过滤与排序
 

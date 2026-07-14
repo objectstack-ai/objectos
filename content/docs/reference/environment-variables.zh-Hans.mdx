@@ -65,6 +65,13 @@ description: ObjectOS 运行时环境变量参考。
 | `OS_BUSINESS_DB_URL` | ObjectOS wrapper 对每个项目业务数据库 URL 的约定。在部署中将其解析到 `OS_DATABASE_URL` 或运行时数据源覆盖。 |
 | `OS_CACHE_DIR` | 本地 artifact 与运行时缓存目录（默认 `/var/cache/objectos`）。 |
 | `OS_SKIP_SCHEMA_SYNC` | 设为 `1` 时在启动时跳过 ObjectQL DDL 同步。schema 由外部管理时使用。 |
+| `OS_TELEMETRY_DB` | 生命周期类系统数据的专用数据源（14.5+）。`objectstack dev` 自动预置 `<primary>.telemetry.db`；设为 `0` 可关闭，设为路径/URL 可在任意环境开启。 |
+
+## 数据生命周期
+
+| 变量 | 默认 | 说明 |
+|---|---:|---|
+| `OS_LIFECYCLE_DISABLED` | 未设置（服务开启） | 设为 `1` 可禁用 LifecycleService（保留期回收器、表轮换、审计归档器——14.4+）。保留期窗口本身通过 `lifecycle.retention_overrides` 设置调整，而非环境变量。 |
 
 对 ObjectOS 客户部署,优先使用显式控制平面运行时配置或 artifact 数据源配置,而非依赖容器本地默认值。
 

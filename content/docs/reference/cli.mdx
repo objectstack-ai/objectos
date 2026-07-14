@@ -107,10 +107,20 @@ os create example my-example
 | `os explain <object>` | Human-readable explanation of an object schema |
 | `os doctor` | Health check: detects circular deps, broken refs, env issues |
 | `os generate` (`os g`) | Generate TypeScript types / metadata files |
+| `os db clean` | One-time SQLite `VACUUM` + enable incremental auto-vacuum; reports reclaimed bytes (14.5+) |
 
 `os doctor` is the **first thing to run when something feels off** — it
 catches misconfigurations the runtime would only surface as a runtime
 warning.
+
+Since ObjectStack 13, `os compile` also gates the build on
+**security posture**: `validateSecurityPosture` errors (unset/aliased
+sharing models, high-privilege anchor bindings, leftover role
+vocabulary, unqualified field-permission keys, …) fail the build, and
+`os lint` reports them earlier in the loop. If you commit an
+`access-matrix.json` snapshot, any permission-capability drift fails
+`os compile` until re-snapshotted with `--update-access-matrix` —
+every capability change becomes reviewable.
 
 ## Data commands
 

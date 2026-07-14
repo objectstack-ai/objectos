@@ -45,13 +45,14 @@ Both are enforced at the REST layer — see
 
 ## Authentication options
 
-Callers can authenticate in three ways:
+Callers can authenticate in four ways:
 
 | Method | Best for | How |
 |---|---|---|
 | Session cookie | Browser/UI traffic | Sign in through `/api/v1/auth/*`; cookies are scoped to the project hostname |
 | Bearer access token | Mobile, SPA, short-lived server jobs | Exchange credentials at `/api/v1/auth/sign-in/email` and pass `Authorization: Bearer <token>` |
 | API key | Server-to-server, ETL, long-lived integrations | Create a `sys_api_key`, pass it as a bearer token |
+| OAuth 2.1 (MCP) | AI agents / MCP clients acting as a signed-in user | Self-serve authorization-code + PKCE flow against the deployment itself |
 
 All three pass through the same `AuthPlugin` and resolve to a `sys_user`
 context that the `SecurityPlugin` evaluates against permissions and
@@ -94,6 +95,28 @@ curl https://app.example.com/api/v1/data/account \
 To revoke a key, run the `revoke_api_key` action on the corresponding
 `sys_api_key` record (also available in the Console UI). Revocation takes
 effect immediately on the next request.
+
+## MCP clients & OAuth 2.1 (ObjectStack 13+)
+
+Any OAuth-capable MCP client — Claude.ai custom connectors, Claude
+Desktop, Claude Code — can connect **self-serve**, without an admin
+minting API keys:
+
+- Each deployment acts as its own authorization server (backed by the
+  embedded auth instance), with RFC 8414 / RFC 9728 discovery, dynamic
+  client registration (RFC 7591), authorization-code + PKCE, and
+  resource binding to `<origin>/api/v1/mcp`. TLS is required
+  (localhost exempt).
+- Users sign in as themselves; tool calls run under their own
+  permissions and row-level security.
+- OAuth scopes establish a hard permission ceiling
+  (ObjectStack 14.5): `effective_permission = scope_ceiling ∩
+  user_grants`. `data:read` grants read-only data access, `data:write`
+  full CRUD, and `actions:execute` is required for capability-gated
+  business actions. Tokens missing a scope fail closed.
+
+API keys remain a parallel track for CI and headless agents — `x-api-key`
+and `Authorization: Bearer osk_…` continue to work unchanged.
 
 ## Pagination, filtering, and sorting
 

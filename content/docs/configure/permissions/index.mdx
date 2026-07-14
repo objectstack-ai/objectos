@@ -1,14 +1,16 @@
 ---
 title: Permissions
-description: Identity, roles, permission sets, record access, and field security — the whole access model on one page.
+description: Identity, positions, permission sets, record access, and field security — the whole access model on one page.
 ---
 
 # Permissions
 
 ObjectOS has a layered access model borrowed from the playbook that's
-worked in enterprise software for two decades: identity → roles →
+worked in enterprise software for two decades: identity → positions →
 permission sets → record access → field security. Each layer answers a
 different question, and you can ignore the ones you don't need.
+(ObjectStack 13 consolidated the legacy Roles and Profiles concepts into
+**positions** — see [Positions](/docs/configure/permissions/positions).)
 
 ## The model in one diagram
 
@@ -17,7 +19,7 @@ Authentication       Who is the caller?
         ↓
 Identity             Which user/org/membership is active?
         ↓
-Roles                Where do they sit in the hierarchy?
+Positions            Which job functions do they hold?
         ↓
 Permission sets      What CAN they do — apps, objects, fields, system?
         ↓
@@ -27,7 +29,7 @@ Field security       For those records, which FIELDS are readable / writable?
 ```
 
 Each layer is enforced by the security plugin. You can use just
-permission sets (no roles, no sharing rules) for simple apps and add
+permission sets (no positions, no sharing rules) for simple apps and add
 the rest as the requirement appears.
 
 ## Layer 1 — Identity
@@ -38,7 +40,7 @@ Identity objects live in your project database. The most important ones:
 |---|---|
 | `sys_user` | A person or service account that can authenticate |
 | `sys_organization` | Tenant / workspace boundary (multi-tenant apps) |
-| `sys_member` | A user's membership in an organization (role assigned per membership) |
+| `sys_member` | A user's membership in an organization |
 | `sys_business_unit`, `sys_team` | Optional org structure for sharing rules |
 | `sys_invitation` | Pending invite waiting to be accepted |
 | `sys_session` | Active authenticated session |
@@ -55,19 +57,23 @@ In a multi-tenant deployment:
 You create/manage these from **Console** (`/_console/`) at runtime, or
 seed them in `objectstack.config.ts` for fresh environments.
 
-## Layer 2 — Roles
+## Layer 2 — Positions
 
-Roles model the org chart (CFO → Finance Manager → Analyst). They
-exist primarily so sharing rules and reports can say things like "the
-record owner's manager." Use roles when you need hierarchical access;
-skip them for flat teams.
+Positions model job functions ("Sales Manager", "Support Agent"). They
+are flat — hierarchy lives on the business-unit tree, so sharing rules
+and reports say things like "the record owner's unit and subordinate
+units." Two seeded audience anchors, `everyone` (all authenticated
+users) and `guest` (anonymous callers), let you bind baseline
+permission sets without custom fallback logic. Use positions to
+distribute permission sets by function; skip custom positions for flat
+teams.
 
-See [Roles](/docs/configure/permissions/roles).
+See [Positions](/docs/configure/permissions/positions).
 
 ## Layer 3 — Permission sets
 
 Permission sets are the primary way to grant capabilities. They attach
-to users directly or via roles.
+to users directly or via positions.
 
 ### What they grant
 
@@ -94,7 +100,7 @@ These are the exact flag names the security plugin checks:
 
 `viewAllRecords` and `modifyAllRecords` are tenant-wide super-user
 grants for that object. Reserve them for explicit administrative
-permission sets and keep them out of any user-facing role.
+permission sets and keep them out of any user-facing position.
 
 See [Permission Sets](/docs/configure/permissions/permission-sets).
 
@@ -106,9 +112,14 @@ The model supports:
 
 - Implicit ownership (rows the user created or owns)
 - Sharing rules (declarative — "team A sees team A's records")
-- Explicit shares (`sys_record_share` rows — one-off shares)
+- Explicit shares (`sys_record_share` rows — one-off shares, granted to
+  a user, position, or unit-and-subordinates)
 - Organization scoping (the row's `organization_id` matches the user's
   organization)
+
+Since ObjectStack 13, custom objects with an owner field default to a
+**private** sharing model — declare `sharingModel` explicitly to open
+them up.
 
 See [Record Access](/docs/configure/permissions/record-access).
 
@@ -132,13 +143,19 @@ applies uniformly across REST, ObjectQL, and Console.
 | If you're building … | Use |
 |---|---|
 | A single-team internal tool | Permission sets only |
-| A multi-team app with managers seeing reports | Roles + permission sets |
+| A multi-team app with managers seeing reports | Business units + positions + permission sets |
 | A multi-tenant SaaS-shaped app | Org scoping + permission sets |
 | A regulated app with PII | Add field security on top |
 | A complex CRM-style app | The full stack |
 
 ## Diagnose & audit
 
+- The **explain engine** (`explain(principal, object, operation)`)
+  reports the verdict of every layer in order — required permissions,
+  object CRUD, field security, OWD baseline, sharing, row-level
+  security — with per-layer attribution. Console surfaces it as the
+  "Why can this user access?" panel. Explaining another user requires
+  the `manage_users` capability.
 - `/_console/` shows the effective permissions of any user as they're
   evaluated.
 - Audit log (`sys_audit_log`) records permission-sensitive changes —

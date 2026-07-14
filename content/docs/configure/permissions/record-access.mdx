@@ -14,8 +14,32 @@ permissions allow the operation.
 |---|---|
 | Row-level security | Enforce tenant or organization isolation |
 | Sharing rules | Grant access based on declarative criteria |
-| Record shares | Grant access to a specific user, role, or group |
-| Ownership/hierarchy | Grant access through owner or manager structure |
+| Record shares | Grant access to a specific user, position, or unit (with subordinates) |
+| Ownership/hierarchy | Grant access through the owner and the business-unit tree |
+
+## Sharing model defaults
+
+Every object declares (or inherits) a `sharingModel` that sets the
+organization-wide default: `private`, `public_read`,
+`public_read_write`, or `controlled_by_parent`.
+
+Since ObjectStack 13, custom objects that carry an owner field and do
+not declare a `sharingModel` default to **private** — records are
+visible to their owner (and admins) until a sharing rule, record share,
+or wider default opens them up. Declare the model explicitly to restore
+open behavior:
+
+```ts
+defineObject({
+  name: 'crm_lead',
+  sharingModel: 'public_read_write',
+  // …
+});
+```
+
+The pre-13 aliases `read`, `read_write`, and `full` were removed;
+`os compile` flags unset or aliased models via the `security-owd-unset`
+and `security-owd-alias` lints.
 
 ## Default tenant isolation
 
@@ -53,8 +77,14 @@ When a user cannot see a record, check in this order:
 
 1. Is the user authenticated and in the expected organization?
 2. Does the user have object `read` permission?
-3. Does row-level security allow the record?
-4. Is there a sharing rule that should apply?
-5. Is there a direct record share?
-6. Is the record owned by a user or role in the expected hierarchy?
-7. Is the user looking at the correct project/hostname?
+3. What is the object's `sharingModel` (custom objects default to
+   `private` since ObjectStack 13)?
+4. Does row-level security allow the record?
+5. Is there a sharing rule that should apply?
+6. Is there a direct record share?
+7. Is the record owned by a user in the expected business-unit subtree?
+8. Is the user looking at the correct project/hostname?
+
+The [explain engine](/docs/configure/permissions#diagnose--audit)
+answers all of these in one call — it reports each layer's verdict and
+which grant (or missing grant) decided the outcome.
