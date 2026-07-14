@@ -100,8 +100,11 @@ os create example my-example
 | `os explain <object>` | 对象 schema 的可读说明 |
 | `os doctor` | 健康检查：检测循环依赖、断裂引用、环境问题 |
 | `os generate` (`os g`) | 生成 TypeScript 类型/元数据文件 |
+| `os db clean` | 一次性 SQLite `VACUUM` + 开启增量 auto-vacuum；报告回收字节数（14.5+） |
 
 `os doctor` 是**感觉不对劲时首先要运行的命令** —— 它能捕获运行时只会以警告呈现的配置错误。
+
+自 ObjectStack 13 起，`os compile` 还会以**安全态势**闸门构建：`validateSecurityPosture` 错误（未设置/使用别名的共享模型、高权限锚点绑定、遗留角色词汇、未带对象限定的字段权限键等）会导致构建失败，`os lint` 则在更早阶段报告它们。如果提交了 `access-matrix.json` 快照，任何权限能力漂移都会让 `os compile` 失败，直到用 `--update-access-matrix` 重新生成快照——每次能力变更都变得可审查。
 
 ## 数据命令
 

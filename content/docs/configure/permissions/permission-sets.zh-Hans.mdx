@@ -5,7 +5,7 @@ description: 授予应用、对象、字段以及系统权限。
 
 # 权限集
 
-权限集是授予能力的主要方式。它们可以直接分配给用户，或通过角色间接分配。
+权限集是授予能力的主要方式。它们可以直接分配给用户，或通过[岗位](/docs/configure/permissions/positions)间接分配。分配可以带有 `valid_from` / `valid_until` 时间窗口——过期的授权会立即失效。
 
 ## 权限集控制什么
 
@@ -44,7 +44,7 @@ Can this user perform this operation on this object at all?
 
 - 访问 Console；
 - 管理用户；
-- 管理角色和权限集；
+- 管理岗位和权限集；
 - 运行报表；
 - 导出报表；
 - 管理集成；
@@ -59,12 +59,24 @@ Can this user perform this operation on this object at all?
 | 权限集 | 用途 |
 |---|---|
 | Basic User | 登录并访问主应用 |
-| Setup Administrator | 管理用户、角色、设置和诊断 |
+| Setup Administrator | 管理用户、岗位、设置和诊断 |
 | Report Viewer | 查看报表和仪表盘 |
 | Integration Operator | 管理 Webhook/API Key |
 | Support User | 读取/更新支持类对象 |
 
 再为客户的应用添加领域特定的权限集。
+
+将权限集标记为 `isDefault` 会在其所属软件包安装时建议分配（替代 13 之前的 `isProfile` 标志）。
+
+## 委托管理（Delegated Administration）
+
+权限集可以携带 `adminScope`，使其持有者成为限定范围的管理员。该范围声明：
+
+- **在哪里**可以操作——某个业务单元子树；
+- **能做什么**——`manageAssignments`、`manageBindings`、`authorEnvironmentSets`；
+- **可以分发哪些**权限集（`assignablePermissionSets`）。
+
+被委托者只能针对白名单内的权限集逐行写入，且每条授权都会记录 `granted_by` 供审计。授予或编写本身带有 `adminScope` 的权限集，要求授予者持有严格包含的范围。租户级管理员完全绕过此闸门。
 
 ## 字段安全（附录）
 
@@ -88,10 +100,11 @@ Can this user perform this operation on this object at all?
 | `sys_user` 上的 HR 数据（薪资、SSN） | 对除 `HR` 权限集外的所有人隐藏 |
 | 外部系统标识符 | 对支持只读，对集成运维可写 |
 | `product` 的内部成本 vs 客户价格 | 对销售隐藏 `cost`，对财务呈现 |
-| 含 PHI 的备注字段 | 除包含相关临床角色的权限集外一律隐藏 |
+| 含 PHI 的备注字段 | 除包含相关临床职能的权限集外一律隐藏 |
 
 ### 编写建议
 
 - 当字段承载敏感数据时，默认选择**隐藏**而非只读 —— 只读仍然会把值泄漏到响应和日志中。
-- 把字段规则打包到匹配真实角色的权限集（`HR Manager`、`Finance Read-only`），而不是为每个字段单独建一套——更易审计。
+- 字段权限键必须**带对象限定**（写 `crm_lead.budget`，不要写 `budget`）——自 ObjectStack 14.4 起，`security-fls-unqualified-key` 校验会在编译期拒绝裸键，因为裸键会静默匹配不到任何字段。
+- 把字段规则打包到匹配真实职能的权限集（`HR Manager`、`Finance Read-only`），而不是为每个字段单独建一套——更易审计。
 - 合规场景下，把字段安全与审计日志保留期搭配使用，事后才能回答"谁看过这条记录？"。

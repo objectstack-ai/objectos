@@ -47,21 +47,32 @@ ObjectOS **零外发调用**,除非你显式配置（OIDC discovery、邮件提�
 - 双因素（TOTP）
 - Passkey / WebAuthn
 - 魔法链接
+- 手机号 + 短信 OTP 登录与密码重置（通过 `auth.plugins.phoneNumber` 显式开启;支持阿里云 / Twilio 通道,自带限流）
 - CLI/浏览器设备流
 - API key（哈希、可过期、可撤销、绑定到用户）
+- 面向 MCP 客户端的自助 OAuth 2.1（授权码 + PKCE、动态客户端注册、按 scope 推导权限上限）
+- 管理员直接创建用户与批量导入（一次性密码 + `must_change_password` 强制轮换）
 
 见[认证](/docs/configure/authentication)。
 
 ## 授权
 
-分层强制（通过 `@objectstack/plugin-security`）：
+分层强制（通过 `@objectstack/plugin-security`）,遵循权限模型 v2（ObjectStack 13,ADR-0090）：
 
-1. **对象权限** —— 每个权限集对每个对象的 CRUD
-2. **行级安全** —— 注入查询的声明式策略表达式;不可选
-3. **字段级安全** —— 响应中剥离字段 / 写入时拒绝
-4. **组织作用域** —— 多租户隔离;绕过需要显式 `viewAllRecords`
+1. **对象权限** —— 每个权限集对每个对象的 CRUD,直接分配给用户或通过扁平的**岗位**分发
+2. **组织级默认值（OWD）** —— 带所有者的自定义对象默认 `private` 共享模型;匿名数据访问默认拒绝
+3. **行级安全** —— 注入查询的声明式策略表达式;不可选
+4. **字段级安全** —— 响应中剥离字段 / 写入时拒绝（键带对象限定,由校验规则强制）
+5. **组织作用域** —— 多租户隔离;绕过需要显式 `viewAllRecords`
 
 系统上下文操作绕过检查以便内部作业 / 迁移可运行 —— 这些路径可审计。
+
+配套机制：
+
+- **解释引擎** —— `explain(principal, object, operation)` 按层报告判定结果并逐层归因,与强制执行使用相同的求值器（构造上不漂移）。
+- **编写期校验** —— `os compile` 以安全态势闸门构建（`security-owd-unset`、`security-anchor-high-privilege`、`security-fls-unqualified-key` 等）;可选提交 `access-matrix.json` 快照,任何能力漂移都会让 CI 失败,直到显式重新批准。
+- **委托管理** —— 权限集可携带 `adminScope`,子管理员只能在其业务单元子树内、按白名单管理分配,且记录 `granted_by` 审计。
+- **MCP 权限上限** —— 通过 OAuth 接入的 AI 代理在 `effective_permission = scope_ceiling ∩ user_grants` 下运行（`data:read` / `data:write` / `actions:execute`）,失败即关闭。
 
 见[权限](/docs/configure/permissions)。
 
@@ -73,7 +84,7 @@ ObjectOS **零外发调用**,除非你显式配置（OIDC discovery、邮件提�
 - 字段变更的前后值。
 - 认证、权限授予、会话撤销事件。
 - 审计行**不可变**：不能修改,只能归档。
-- 保留期可配置;与你的 DB 归档策略配合。
+- 保留期在对象的 `lifecycle` 块上声明（`sys_audit_log` 出厂为热存 90 天后归档）,可通过 `lifecycle.retention_overrides` 按环境调整;与你的 DB 归档策略配合。
 
 这是 SOC 2 CC6/CC7、ISO 27001 A.12.4、HIPAA §164.312(b) 和 GDPR Article 30 的证据基础。
 

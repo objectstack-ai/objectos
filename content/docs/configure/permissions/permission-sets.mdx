@@ -6,7 +6,10 @@ description: Grant application, object, field, and system permissions.
 # Permission Sets
 
 Permission sets are the primary way to grant capabilities. They can be
-assigned directly to users or indirectly through [roles](/docs/configure/permissions/roles).
+assigned directly to users or indirectly through
+[positions](/docs/configure/permissions/positions). Assignments may
+carry `valid_from` / `valid_until` windows — expired grants stop
+resolving immediately.
 
 ## What permission sets control
 
@@ -50,7 +53,7 @@ System permissions are for platform actions such as:
 
 - Console access;
 - manage users;
-- manage roles and permission sets;
+- manage positions and permission sets;
 - run reports;
 - export reports;
 - manage integrations;
@@ -72,6 +75,26 @@ Start with a few named permission sets:
 | Support User | Read/update support objects |
 
 Then add domain-specific sets for the customer's application.
+
+Marking a set `isDefault` suggests it for assignment when the owning
+package is installed (this replaces the pre-13 `isProfile` flag).
+
+## Delegated administration
+
+A permission set can carry an `adminScope` that turns its holders into
+scoped administrators. The scope declares:
+
+- **where** delegates may act — a business-unit subtree;
+- **what** they may do — `manageAssignments`, `manageBindings`,
+  `authorEnvironmentSets`;
+- **which** permission sets they may distribute
+  (`assignablePermissionSets`).
+
+Delegates write single rows against allowlisted sets only, and every
+grant is stamped with `granted_by` for audit. Granting or authoring a
+set that itself has an `adminScope` requires the grantor to hold a
+strictly containing scope. Tenant-level admins bypass the gate
+entirely.
 
 ## Field security (appendix)
 
@@ -105,8 +128,12 @@ is no "back door" through a lower-level API.
 - Default to **hide** rather than read-only when the field carries
   sensitive data — read-only still leaks the value into responses and
   logs.
-- Bundle field rules into permission sets that match a real role
-  (`HR Manager`, `Finance Read-only`) instead of inventing one set per
-  field — easier to audit.
+- Always write field-permission keys **object-qualified**
+  (`crm_lead.budget`, not `budget`) — since ObjectStack 14.4 the
+  `security-fls-unqualified-key` lint rejects bare keys at compile
+  time, because they silently matched nothing.
+- Bundle field rules into permission sets that match a real job
+  function (`HR Manager`, `Finance Read-only`) instead of inventing one
+  set per field — easier to audit.
 - For compliance use cases, pair field security with audit log
   retention so you can answer "who saw this row?" after the fact.

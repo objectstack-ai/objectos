@@ -10,7 +10,7 @@ This package intentionally contains **no protocol code**. All schemas,
 the kernel, drivers and official plugins come from `@objectstack/*`
 packages on npm. Enterprise plugins maintained in this monorepo live under `../../packages/`
 and are composed into the runtime stack returned by
-[`createObjectOSStack`](https://www.npmjs.com/package/@objectstack/runtime)
+[`createStandaloneStack`](https://www.npmjs.com/package/@objectstack/runtime)
 in [`objectstack.config.ts`](./objectstack.config.ts).
 
 See the repository [README](../../README.md) for positioning and the

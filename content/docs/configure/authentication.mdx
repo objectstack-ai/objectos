@@ -22,7 +22,37 @@ support:
 - two-factor authentication;
 - passkeys/WebAuthn;
 - magic links;
+- phone number sign-in with SMS OTP (opt-in);
 - CLI/browser device flow.
+
+## Phone sign-in & SMS (ObjectStack 14.3+)
+
+Enable phone-number authentication via the `auth.plugins.phoneNumber`
+setting. Once on:
+
+- `POST /sign-in/phone-number` accepts phone + password;
+- SMS OTP covers sign-in verification and self-service password reset,
+  with per-number cooldowns, rolling-hour caps, and per-IP rate limits;
+- `sys_user` gains unique `phone_number` and `phone_number_verified`
+  columns; phone-only accounts get a placeholder email.
+
+SMS delivery is provided by `@objectstack/plugin-sms` with Aliyun SMS,
+Twilio, or a dev log fallback, configured through the `sms` settings
+namespace. Message bodies containing OTP codes are never persisted or
+logged. Notifications can also target the `sms` channel via
+`notify(channels: ['sms'])`.
+
+## Admin user management (ObjectStack 14.3+)
+
+Platform admins can provision accounts without the email invite flow:
+
+- `POST /api/v1/auth/admin/create-user` creates a user directly, with an
+  optional one-time password (returned once, never persisted). The
+  `must_change_password` flag forces rotation at first sign-in (403
+  `PASSWORD_EXPIRED` until changed).
+- `POST /api/v1/auth/admin/import-users` bulk-imports rows / CSV / XLSX
+  (max 500 rows per request) with dry-run and upsert-by-email-or-phone
+  modes; existing users never get their passwords reset.
 
 ## Required secret
 

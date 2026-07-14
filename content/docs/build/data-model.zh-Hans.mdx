@@ -197,20 +197,49 @@ ObjectSchema.create({
 });
 ```
 
-## 生命周期与所有权
+## 能力开关与所有权
 
 ```ts
 ObjectSchema.create({
   name: 'task',
   ownership: 'own',          // 'own' | 'shared' | 'system'
+  sharingModel: 'private',   // OWD——自定义对象默认私有（v13）
   enable: {
     apiEnabled: true,         // 生成 REST 端点
-    trackHistory: true,       // 字段变更审计日志
-    feeds: true,              // sys_comment / sys_activity / @提及
+    trackHistory: true,       // History 选项卡 + 字段级差异（默认 true）
+    feeds: true,              // sys_comment / @提及（默认 true）
+    activities: true,         // CRUD 镜像到 sys_activity 时间线（默认 true）
+    files: true,              // 附件面板（需显式开启，默认 false）
     softDelete: true,         // 软删除而非硬删除
   },
 });
 ```
+
+自 ObjectStack 14 起，`enable.*` 开关是**强制执行**的，而不再只是声明：
+`feeds: false` 会以 403 `FEEDS_DISABLED` 拒绝评论创建；`files` 必须显式开启
+后才能创建 `sys_attachment` 行（否则返回 403 `FILES_DISABLED`）；
+`activities` / `trackHistory` 控制时间线和 History 选项卡。无论开关如何，
+合规用途的 `sys_audit_log` 行始终会写入。
+
+## 数据生命周期（保留策略）
+
+大数据量对象可以声明 `lifecycle` 块，让平台约束其增长（ObjectStack 14.4，ADR-0057）：
+
+```ts
+ObjectSchema.create({
+  name: 'my_event',
+  lifecycle: {
+    class: 'event',            // 'record' | 'audit' | 'telemetry' | 'transient' | 'event'
+    retention: '14d',          // 回收器删除超出窗口的行
+    storage: { rotation: 'weekly' }, // 按时间分片表，O(1) 过期
+  },
+});
+```
+
+内置的 LifecycleService（可用 `OS_LIFECYCLE_DISABLED=1` 关闭）负责回收过期行、
+轮换分片表，并归档 audit 类对象。`sys_activity`（14 天）、`sys_audit_log`
+（热存 90 天后归档）等平台对象自带生命周期声明，可通过
+`lifecycle.retention_overrides` 设置按环境调整。
 
 ## 系统对象(每个项目免费自带)
 
@@ -221,7 +250,7 @@ ObjectSchema.create({
 | `sys_user` | 用户账户 |
 | `sys_org` | 组织 / 租户 |
 | `sys_member` | 组织成员关系 |
-| `sys_role`、`sys_permission_set` | RBAC 原语 |
+| `sys_position`、`sys_permission_set` | RBAC 原语 |
 | `sys_audit_log` | 审计轨迹(加载审计能力时) |
 | `sys_file`、`sys_attachment` | 文件元数据(加载存储能力时) |
 | `sys_comment`、`sys_activity` | Feed / chatter(加载 feed 能力时) |

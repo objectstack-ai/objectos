@@ -72,6 +72,13 @@ artifact. As a last resort the framework also honours:
 | `OS_BUSINESS_DB_URL` | ObjectOS wrapper convention for the per-project business database URL. Resolve it to `OS_DATABASE_URL` or a runtime datasource override in your deployment. |
 | `OS_CACHE_DIR` | Local artifact and runtime cache directory (default `/var/cache/objectos`). |
 | `OS_SKIP_SCHEMA_SYNC` | Set to `1` to skip ObjectQL DDL sync at boot. Use when schema is managed out-of-band. |
+| `OS_TELEMETRY_DB` | Dedicated datasource for lifecycle-classed system data (14.5+). `objectstack dev` auto-provisions `<primary>.telemetry.db`; set to `0` to opt out, or to a path/URL to opt in anywhere. |
+
+## Data lifecycle
+
+| Variable | Default | Description |
+|---|---:|---|
+| `OS_LIFECYCLE_DISABLED` | unset (service on) | Set to `1` to disable the LifecycleService (retention reaper, table rotation, audit archiver — 14.4+). Retention windows themselves are tuned via the `lifecycle.retention_overrides` setting, not env vars. |
 
 For ObjectOS customer deployments, prefer explicit control-plane runtime
 configuration or artifact datasource configuration over relying on
