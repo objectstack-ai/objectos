@@ -4,7 +4,7 @@ Guidance for AI agents (Claude Code, Codex, Cursor, etc.) working in this reposi
 
 ## Repository
 
-ObjectOS — customer-hosted runtime for ObjectStack applications. Monorepo with the marketing + docs site under `apps/docs`.
+ObjectOS — the commercial runtime environment for ObjectStack applications (Cloud & Enterprise editions). This public repository is the product's front door: the marketing + docs site under `apps/docs` (content in `content/docs/`), the issue tracker, and the trademark policy. Product source is developed privately and does not live here.
 
 ## Critical rules
 
