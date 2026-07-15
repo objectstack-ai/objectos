@@ -46,6 +46,9 @@ pub fn run() {
             commands::open_data_dir,
             commands::autostart_get,
             commands::autostart_set,
+            commands::notify_native,
+            commands::set_badge,
+            commands::notif_request_permission,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

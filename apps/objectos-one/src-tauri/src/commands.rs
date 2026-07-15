@@ -2,11 +2,45 @@
 
 use std::collections::BTreeMap;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::{config, logger, paths, sidecar};
+
+/// Post a native OS notification (macOS Notification Center / Windows toast /
+/// Linux libnotify). Invoked by the injected notification bridge when a new
+/// inbox message arrives while the window is backgrounded.
+#[tauri::command]
+pub fn notify_native(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    logger::log_line("INFO", "native notification surfaced");
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|e| e.to_string())
+}
+
+/// Set (or clear, with `None`) the dock/taskbar unread badge.
+#[tauri::command]
+pub fn set_badge(app: AppHandle, count: Option<i64>) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("main") {
+        win.set_badge_count(count).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Ask the OS for notification authorization (no-op once the user has decided).
+/// Called once when the Console loads, so the prompt appears in the foreground.
+#[tauri::command]
+pub fn notif_request_permission(app: AppHandle) -> Result<(), String> {
+    app.notification()
+        .request_permission()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
 
 #[tauri::command]
 pub fn get_config_snapshot() -> config::ConfigSnapshot {
