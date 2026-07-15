@@ -11,7 +11,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Top-level static pages (paths are locale-independent slugs).
   const staticPaths: Array<{ path: string; priority: number }> = [
     { path: '', priority: 1 },
-    { path: 'download', priority: 0.6 },
     { path: 'privacy', priority: 0.3 },
     { path: 'terms', priority: 0.3 },
   ];

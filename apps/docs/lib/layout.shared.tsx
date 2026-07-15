@@ -7,14 +7,14 @@ export const gitConfig = {
   branch: 'main',
 };
 
-const NAV_LABELS: Record<string, { website: string; docs: string; download: string; changelog: string }> = {
-  en: { website: 'Website', docs: 'Docs', download: 'Download', changelog: 'Changelog' },
-  'zh-Hans': { website: '官网', docs: '文档', download: '下载', changelog: '更新日志' },
-  ja: { website: '公式サイト', docs: 'ドキュメント', download: 'ダウンロード', changelog: '変更履歴' },
-  de: { website: 'Website', docs: 'Dokumentation', download: 'Download', changelog: 'Änderungen' },
-  es: { website: 'Sitio web', docs: 'Documentación', download: 'Descargar', changelog: 'Cambios' },
-  fr: { website: 'Site web', docs: 'Documentation', download: 'Télécharger', changelog: 'Journal' },
-  ko: { website: '웹사이트', docs: '문서', download: '다운로드', changelog: '변경 내역' },
+const NAV_LABELS: Record<string, { website: string; docs: string; changelog: string }> = {
+  en: { website: 'Website', docs: 'Docs', changelog: 'Changelog' },
+  'zh-Hans': { website: '官网', docs: '文档', changelog: '更新日志' },
+  ja: { website: '公式サイト', docs: 'ドキュメント', changelog: '変更履歴' },
+  de: { website: 'Website', docs: 'Dokumentation', changelog: 'Änderungen' },
+  es: { website: 'Sitio web', docs: 'Documentación', changelog: 'Cambios' },
+  fr: { website: 'Site web', docs: 'Documentation', changelog: 'Journal' },
+  ko: { website: '웹사이트', docs: '문서', changelog: '변경 내역' },
 };
 
 const RELEASES_URL = 'https://github.com/objectstack-ai/objectos/releases';
@@ -54,11 +54,6 @@ export function baseOptions(lang: string = 'en'): BaseLayoutProps {
       {
         text: labels.docs,
         url: `${prefix}/docs`,
-        active: 'nested-url',
-      },
-      {
-        text: labels.download,
-        url: `${prefix}/download`,
         active: 'nested-url',
       },
       {
