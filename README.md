@@ -1,162 +1,76 @@
 # ObjectOS
 
-> **The business platform AI can actually use — running in your own environment.**
->
-> ObjectOS is the AI-native runtime for [ObjectStack](https://github.com/objectstack-ai/framework)
-> applications. Put your business systems — CRM, contracts, tickets,
-> approvals, anything modeled in ObjectStack metadata — on ObjectOS, and
-> AI agents can safely query, analyze, and act on that data under your
-> permissions, on your servers, with every step audited.
+> **The official runtime environment for ObjectStack applications** — operated
+> for end-user organizations as **ObjectOS Cloud** (managed) and
+> **ObjectOS Enterprise** (self-managed).
 
-**ObjectStack** is a metadata protocol for describing business
-applications — objects, permissions, workflows, APIs, UI, and AI tools —
-in one structured definition.
-**ObjectOS** is where those applications run, and where AI plugs in.
+ObjectOS is a **commercial product**. This repository is its public home:
+
+- 📚 **Documentation** — source for [docs.objectos.ai](https://docs.objectos.ai)
+  (`content/docs/`, built by `apps/docs/`), in seven languages.
+- 🐛 **Issue tracker** — bug reports and feature requests for ObjectOS Cloud
+  and ObjectOS Enterprise.
+- ™️ **Trademark policy** — [TRADEMARK.md](TRADEMARK.md). The "ObjectOS" name
+  and logo are trademarks and are not covered by the code license.
+
+The product source is developed privately and is not published in this
+repository. There is no open-source edition of ObjectOS.
+
+## Editions
+
+| Edition | Delivery | For |
+|:---|:---|:---|
+| **ObjectOS Cloud** | Managed service | Organizations that want the platform operated for them — orgs, environments, deploys, billing. |
+| **ObjectOS Enterprise** | Self-managed deployment | Organizations that run the platform on their own infrastructure. |
+
+See [docs.objectos.ai](https://docs.objectos.ai) for capabilities, deployment,
+and operations documentation.
+
+## Building and running your own apps? That's ObjectStack — and it's open source
+
+Everything you need to **build, run, and self-host your own applications** is
+the open-source (Apache-2.0) **[ObjectStack framework](https://github.com/objectstack-ai/framework)**:
 
 ```
-ObjectStack   →   how a business application is described
-ObjectOS      →   where it runs, and where AI plugs in
+ObjectStack  →  for builders  — the open-source protocol, toolkit, and production runtime
+ObjectOS     →  for end users — the commercial runtime environment (Cloud & Enterprise)
 ```
 
-## See it running
+`os start` — or the official Docker image
+[`ghcr.io/objectstack-ai/objectstack`](https://github.com/objectstack-ai/framework/tree/main/docker) —
+serves your compiled app in production with the Console, permissions, and
+audit included. No commercial license required.
 
-ObjectStack metadata, running on ObjectOS — the business apps your team actually uses, with AI working the same data under the same permissions.
+## What happened to the code that used to live here?
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" width="900" alt="A business application running on ObjectOS: an executive dashboard with revenue, account, and pipeline KPIs plus charts">
-  <br><sub>A business app running on ObjectOS — dashboards, KPIs, and reports over data you host.</sub>
-</p>
+Until July 2026 this repository contained a free reference runtime
+distribution (`@objectos/server`) and a desktop build (**ObjectOS One**).
+As part of clarifying the ObjectStack / ObjectOS split:
 
-<p align="center">
-  <img src="docs/screenshots/kanban.png" width="49%" alt="Pipeline as a kanban board">
-  <img src="docs/screenshots/gantt.png" width="49%" alt="Delivery plan as a Gantt schedule">
-</p>
-<p align="center">
-  <img src="docs/screenshots/calendar.png" width="49%" alt="Records on a calendar">
-  <img src="docs/screenshots/gallery.png" width="49%" alt="Records as a cover gallery">
-</p>
-<p align="center"><sub>The same records as boards, Gantt schedules, calendars, and galleries — rendered by the runtime from metadata, no extra UI code.</sub></p>
+- **`@objectos/server` is superseded** by the official ObjectStack runtime
+  image (`ghcr.io/objectstack-ai/objectstack`) — the same capability,
+  maintained where the runtime itself lives.
+- **ObjectOS One is discontinued.** Demos and evaluations are served by the
+  official Docker image and ObjectOS Cloud trials.
+- **Everything already released stays licensed as released**: historical
+  source remains available under Apache-2.0 in this repository's git history
+  (archive tag: `archive/apache-final`). Nothing is retroactively withdrawn.
 
-<p align="center">
-  <img src="docs/screenshots/record.png" width="49%" alt="A record page with a guided stage path and actions">
-  <img src="docs/screenshots/ask-ai.png" width="49%" alt="AI assistant querying business records">
-</p>
-<p align="center"><sub><b>Rich records</b> with guided actions, and <b>AI plugged into the same data</b> — agents act as the signed-in user, every step audited.</sub></p>
-
-## Why ObjectOS
-
-The promise of "AI inside the enterprise" usually breaks on two things:
-AI can't actually use the business system, and security can't say yes
-to letting it try. ObjectOS removes both blockers:
-
-- **Every object is an AI tool, automatically.** Define a business
-  object once in ObjectStack metadata; ObjectOS exposes it to AI agents
-  as a governed, callable tool — no glue code, no separate integration
-  layer to maintain.
-- **AI acts as the signed-in user.** Whatever that person is allowed to
-  see or do, the agent can — nothing more. The boundary is enforced in
-  the runtime, not in the prompt.
-- **One audit log for humans and agents.** Every read, write, and
-  escalation — by a person or an AI — is recorded with who, what, when,
-  and why. Compliance gets one log to look at, not two.
-- **Permissions enforced at the runtime.** Role-based access,
-  record-level rules, and field-level redaction run inside ObjectOS, so
-  the same policy applies whether the call comes from the UI, an API
-  client, or an agent.
-- **Your data, your network.** Runs in your environment — private cloud,
-  on-prem, or fully air-gapped. Business data and AI prompts stay
-  inside your perimeter; no third party in the loop.
-- **Plugs into the identity you already operate.** OAuth, OIDC, SAML,
-  corporate SSO, or local accounts. AI sessions inherit the same
-  identity, MFA, and offboarding — no separate "AI account" to govern.
-
-## Positioning
-
-| | ObjectStack framework | **ObjectOS** | Plugins |
-|---|---|---|---|
-| Role | The protocol — *how* an application is described | The runtime — *where* it runs and where AI plugs in | Anyone-can-write extensions on top of the runtime |
-| Repo | `objectstack-ai/framework` | `objectstack-ai/objectos` | Any repo publishing `@objectos/plugin-*` (or your own scope) |
-| What it ships | Protocol, kernel, `@objectstack/*` packages, Console, control plane | Runtime distribution + Docker/Helm + ops docs | Drivers, identity providers, audit exporters, custom UI, AI tools, integrations — your call |
-| Who builds it | Framework contributors | Distribution maintainers | **Anyone** — community, vendors, your own team |
-| License | Apache-2.0 | **Apache-2.0** | Author's choice (Apache-2.0, MIT, commercial, internal-only) |
-| Release cadence | Frequent (per `changeset`) | Distribution semver (e.g. `2026.05 LTS`) | Independent — plugins version themselves |
-
-Plugins are first-class: ObjectOS exposes the same extension points the
-core uses. See [`packages/`](packages/) for reference plugins, and the
-[plugin authoring guide](content/docs/extend/plugins.mdx) to publish
-your own.
-
-## Boot modes
-
-ObjectOS boots in one of two modes, selected by environment variables:
-
-| Mode | Required env | Use case |
-|---|---|---|
-| **Cloud-connected** | `OS_CLOUD_URL`, `OS_PROJECT_ID` | Production with the ObjectStack control plane / Console |
-| **Offline / air-gapped** | `OS_ARTIFACT_FILE` | Compile locally with the CLI, ship the JSON artifact, run anywhere |
-
-See [`apps/objectos/objectstack.config.ts`](apps/objectos/objectstack.config.ts).
-
-## Quick start
+## Working on the docs
 
 ```bash
 pnpm install
-
-# Build the runtime distribution and docs
-pnpm build
-
-# Boot the runtime against a local compiled artifact
-cd apps/objectos
-OS_ARTIFACT_FILE=dist/objectstack.json PORT=3200 pnpm start
-
-# Or run the documentation site
-pnpm docs:dev
+pnpm docs:dev     # Fumadocs site at http://localhost:3000
 ```
 
-### Docker
-
-```bash
-mkdir -p docker/artifacts
-cp apps/objectos/dist/objectstack.json docker/artifacts/objectstack.json
-docker compose -f docker/docker-compose.yml up --build
-```
-
-Docker Compose publishes ObjectOS on `http://localhost:3000` by default.
-Use `OBJECTOS_PORT=3200` to change the host port.
-
-## Repository layout
-
-```
-objectos/
-├── apps/
-│   ├── objectos/            # Runtime entry — single objectstack.config.ts
-│   └── docs/                # Product / operations site (Fumadocs + Next.js)
-├── packages/                # Plugins (@objectos/plugin-*) — anyone can write one
-├── content/docs/            # MDX content powering apps/docs
-├── docker/                  # Dockerfile + docker-compose
-├── helm/                    # Helm chart (planned)
-├── examples/                # Reference deployments
-├── e2e/                     # Black-box smoke tests against the published image
-└── scripts/
-```
-
-## Documentation
-
-- [Quickstart](content/docs/quickstart.mdx)
-- [Architecture](content/docs/architecture.mdx)
-- [Deployment](content/docs/deploy/index.mdx) — Docker, Kubernetes, air-gapped
-- [Authentication](content/docs/configure/authentication.mdx)
-- [Permissions](content/docs/configure/permissions.mdx)
-- [Observability](content/docs/operate/observability.mdx)
-
-## History
-
-The current `main` is a deliberate restart aligned with the
-[ObjectStack North Star](https://github.com/objectstack-ai/framework/blob/main/content/docs/concepts/north-star.mdx).
+Documentation is authored **English-first**; other locales are derived
+translations (see [AGENTS.md](AGENTS.md)). Contributions are welcome —
+see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-ObjectOS is licensed under the [Apache License 2.0](LICENSE).
+The contents of this repository (documentation and site code) are licensed
+under the [Apache License 2.0](LICENSE).
 
-"ObjectOS" and the ObjectOS logo are trademarks of the ObjectOS project
-and are not covered by the Apache 2.0 grant. See [TRADEMARK.md](TRADEMARK.md).
+"ObjectOS" and the ObjectOS logo are trademarks of the ObjectOS project and
+are not covered by the Apache 2.0 grant. See [TRADEMARK.md](TRADEMARK.md).
