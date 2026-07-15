@@ -54,7 +54,8 @@ As part of clarifying the ObjectStack / ObjectOS split:
   official Docker image and ObjectOS Cloud trials.
 - **Everything already released stays licensed as released**: historical
   source remains available under Apache-2.0 in this repository's git history
-  (archive tag: `archive/apache-final`). Nothing is retroactively withdrawn.
+  (archive branch: [`archive/apache-final`](https://github.com/objectstack-ai/objectos/tree/archive/apache-final)).
+  Nothing is retroactively withdrawn.
 
 ## Working on the docs
 
