@@ -1,0 +1,190 @@
+---
+title: 仪表盘
+description: 由绑定具名数据集的图表组件构成的分析页面 —— 带全局筛选、自动刷新，以及到底层记录的下钻。
+---
+
+# 仪表盘
+
+**仪表盘是一张组件网格；每个组件都绑定到一个数据集。**数据集是语义层：它拥有基础对象、连接、维度和经过认证的度量。组件按名称选用它们，因此"revenue"在每个用到它的仪表盘和报表上含义都相同。
+
+```ts
+const salesDashboard = {
+  name: 'sales_overview',
+  label: 'Sales Overview',
+  description: 'Key sales metrics and pipeline analysis',
+  refreshInterval: 300,                   // 每 5 分钟自动刷新
+
+  dateRange: {
+    field: 'close_date',
+    defaultRange: 'this_quarter',
+    allowCustomRange: true,
+  },
+
+  widgets: [
+    { id: 'total_revenue',     title: 'Total Revenue',     type: 'metric',
+      dataset: 'sales', values: ['revenue'],
+      layout: { x: 0, y: 0, w: 3, h: 2 } },
+    { id: 'revenue_by_region', title: 'Revenue by Region', type: 'bar',
+      dataset: 'sales', dimensions: ['region'], values: ['revenue'],
+      layout: { x: 3, y: 0, w: 6, h: 4 } },
+    { id: 'deals_by_month',    title: 'Deals by Month',    type: 'pie',
+      dataset: 'sales', dimensions: ['close_month'], values: ['deal_count'],
+      layout: { x: 9, y: 0, w: 3, h: 4 } },
+  ],
+}
+```
+
+## 仪表盘属性
+
+| 属性 | 类型 | 必填 | 说明 |
+|:--|:--|:--|:--|
+| `name` | `string` | 是 | 机器名（`snake_case`） |
+| `label` | `string` | 是 | 显示标签 |
+| `description` | `string` | — | 仪表盘描述 |
+| `widgets` | `DashboardWidget[]` | 是 | 图表与指标组件 |
+| `refreshInterval` | `number` | — | 自动刷新间隔（秒） |
+| `dateRange` | `object` | — | 全局日期范围筛选 |
+| `globalFilters` | `GlobalFilter[]` | — | 交互式筛选控件 |
+
+## 数据集优先
+
+数据集定义一次；每个组件都绑定到它：
+
+```ts
+import { defineDataset } from '@objectstack/spec/ui'
+
+export const salesDataset = defineDataset({
+  name: 'sales',
+  label: 'Sales',
+  object: 'opportunity',
+  include: ['account'],
+  dimensions: [
+    { name: 'region',      field: 'account.region', type: 'string' },
+    { name: 'close_month', field: 'close_date',     type: 'date', dateGranularity: 'month' },
+  ],
+  measures: [
+    { name: 'revenue',    field: 'amount', aggregate: 'sum', certified: true },
+    { name: 'deal_count', aggregate: 'count' },
+  ],
+})
+```
+
+聚合放在数据集的度量上（`aggregate`），而不是组件上：`count`、`sum`、`avg`、`min`、`max`、`count_distinct`、`array_agg`、`string_agg`。组件的 `dimensions` 和 `values` 必须引用其所绑定数据集上声明的名称。
+
+运行时，数据集查询经由分析服务执行，并自动把调用者的行级安全范围应用到基础对象和被连接的对象上 —— 仪表盘绝不会向用户展示其[权限](/docs/configure/permissions)不允许看的记录。
+
+> 旧的内联查询形态（在组件上直接写 `object` + `categoryField` + `valueField` + `aggregate`）已经移除。请定义数据集并把组件绑定上去。
+
+## 组件
+
+| 属性 | 类型 | 必填 | 说明 |
+|:--|:--|:--|:--|
+| `id` | `string` | 是 | 唯一的组件 id（`snake_case`） |
+| `dataset` | `string` | 是 | 要绑定的数据集名 |
+| `values` | `string[]` | 是 | 度量名（至少一个） |
+| `dimensions` | `string[]` | — | 维度名 —— X 轴 / 分组 / 拆分 |
+| `type` | `ChartType` | — | 可视化类型（默认 `metric`） |
+| `title` / `description` | `string` | — | 显示标题与副标题 |
+| `filter` | `FilterCondition` | — | 展示层筛选 |
+| `layout` | `object` | — | 网格位置（省略时自动排布） |
+| `colorVariant` | `enum` | — | KPI / 卡片强调色 |
+| `compareTo` | `enum \| object` | — | 同比 / 环比对比窗口 |
+| `filterBindings` | `object` | — | 组件级全局筛选映射（见下） |
+
+### 图表类型
+
+| 类型 | 最适合 |
+|:--|:--|
+| `metric`*（默认）* | 单数字 KPI —— 营收、数量、百分比 |
+| `bar` / `horizontal-bar` / `column` | 类别对比 |
+| `line` | 随时间的趋势 |
+| `pie` / `donut` | 分布 |
+| `area` | 随时间的体量 |
+| `scatter` | 相关性 |
+| `radar` | 多维对比 |
+| `funnel` | 转化阶段 |
+| `gauge` / `solid-gauge` / `bullet` / `kpi` | 目标进度 |
+| `treemap` / `sankey` | 层级占比 / 流向 |
+| `table` | 明细记录 —— **可下钻** |
+| `pivot` | 交叉汇总 —— **可下钻** |
+
+### 布局
+
+组件排布在 12 列网格上：
+
+```ts
+layout: {
+  x: 0,    // 列位置（0-11）
+  y: 0,    // 行位置
+  w: 6,    // 宽度，按列计（1-12）
+  h: 4,    // 高度，按行计
+}
+```
+
+## 下钻
+
+`table` 和 `pivot` 组件支持**下钻**：点击一行聚合数据或一个单元格，会打开一个侧边抽屉，列出该分组背后的*底层记录*。数据集保留了原始分组键，所以抽屉的筛选精确匹配那些记录 —— 不做标签到 id 的猜测。点击抽屉里的任意一行即可打开该记录的详情：完整的**分组 → 记录列表 → 单条记录**链路。
+
+抽屉还提供一个 **"Open in list →"**（在列表中打开）逃生口，把速览升级为该对象的完整列表页（排序、批量选择、导出、可分享 URL），并沿用同一个下钻筛选。
+
+下钻是自动的 —— 无需按组件配置 —— 只要数据集暴露了基础对象，且组件按至少一个维度分组。`metric` 与图表类组件只渲染聚合值；要展示明细，请改用 `table` 或 `pivot` 组件。
+
+## 全局日期范围与筛选
+
+全局时间筛选作用于所有组件：
+
+```ts
+dateRange: { field: 'created_at', defaultRange: 'this_month', allowCustomRange: true }
+```
+
+预设范围：`today`、`yesterday`、`this_week`、`last_week`、`this_month`、`last_month`、`this_quarter`、`last_quarter`、`this_year`、`last_year`、`last_7_days`、`last_30_days`、`last_90_days`、`custom`。
+
+交互式全局筛选的用法相同：
+
+```ts
+globalFilters: [
+  { name: 'region', field: 'region', label: 'Region',    type: 'select' },
+  { field: 'owner',                  label: 'Sales Rep', type: 'lookup' },
+]
+```
+
+每个筛选的 `name`（默认取 `field`）是它的稳定身份 —— 组件在 `filterBindings` 里引用的键，也是组件表达式中可通过 `page.<name>` 读取的仪表盘级变量。名称 `dateRange` 保留给内置日期范围。
+
+### 组件级筛选绑定
+
+默认情况下，筛选按其自身的 `field` 作用于每个组件。当某个组件用不同的字段存储同一概念 —— 或应忽略某个筛选 —— 时，声明 `filterBindings`：
+
+```ts
+widgets: [
+  // 默认绑定：dateRange → created_at，region → region。
+  { id: 'invoices_by_status', /* … */ },
+  // 这个组件的字段不同 —— 逐个显式映射筛选。
+  { id: 'accounts_signed',
+    filterBindings: { dateRange: 'signed_at', region: 'sales_region' }, /* … */ },
+  // 用 `false` 退出某个筛选。
+  { id: 'total_invoices', filterBindings: { region: false }, /* … */ },
+]
+```
+
+> 优先级：显式的 `filterBindings` 条目（字符串覆盖或 `false` 退出）→ 筛选的旧式 `targetWidgets` 白名单 → 筛选自身的 `field`。
+
+## 让仪表盘出现在界面上
+
+给[应用](/docs/build/interface/apps)添加一个 `dashboard` 导航入口：
+
+```ts
+{ id: 'nav_analytics', type: 'dashboard', label: 'Analytics',
+  dashboardName: 'sales_overview', icon: 'bar-chart' }
+```
+
+或者描述给 [AI Builder](/docs/build/ai-builder) —— *"一个销售总览仪表盘，含按区域的营收和月度成交趋势"* —— 然后在批准前审阅生成的数据集 + 仪表盘元数据。
+
+## 下一步
+
+| 页面 | 原因 |
+|:--|:--|
+| [应用](/docs/build/interface/apps) | 把仪表盘放进导航 |
+| [视图](/docs/build/interface/views) | 基于同一数据集的内联 `chart` 列表视图 |
+| [页面](/docs/build/interface/pages) | 当组件网格不够用时的自由布局 |
+| [数据模型](/docs/build/data) | 数据集聚合的对象 |
+| [权限](/docs/configure/permissions) | 仪表盘继承的行级安全 |

@@ -1,0 +1,161 @@
+---
+title: 表单
+description: 从一份扁平字段集派生创建与编辑表单，无漂移地把字段分组成区块，并控制提交后的去向。
+---
+
+# 表单
+
+**表单是对象字段的一个投影 —— 不是第二份字段列表。**字段在对象上只声明一次；表单只决定*哪些字段、放在哪里*。数据语义（类型、验证、默认值、字段级安全）从不放在表单上，所以表单不可能漂移到对数据"说谎"。
+
+表单视图的*类型*（`simple`、`tabbed`、`wizard`、`modal`……）与公开表单的 REST 契约在[视图](/docs/build/interface/views)中讲。本页讲布局问题：创建与编辑、分组、排序。
+
+## 创建表单 ≠ 编辑表单
+
+新建记录的表单应该只问几个要点；编辑表单则分区块展示完整记录。**别写两份表单。**创建表单的字段子集可以从每个字段上已有的意图*派生*出来：
+
+| 字段信号 | 对创建表单的影响 |
+|:--|:--|
+| `required: true` | **必须**出现在创建表单上 |
+| `readonly` / 公式 / 汇总 / 自动编号 / 系统写入 | **绝不**出现在创建表单上 —— 你设置不了它 |
+| 有 `defaultValue` | **可省略** —— 它会自动填充 |
+| `hidden` | 默认处处不显示 |
+| `group` | 字段属于哪个区块 |
+| *声明顺序* | **就是**默认显示顺序 —— 没有 `field.order` |
+
+于是合理的创建表单 —— *可编辑、必填或核心的字段，按声明顺序* —— 零编写就从对象里长出来了。省略即正确：什么都不多写，你依然得到一份完整、正确的表单。完整的编辑表单同样是派生的，把每个 `field.group` 实体化为一个区块。
+
+### 只在布局或流程真的不同时，才手工塑造创建表单
+
+逃生舱是把一个具名表单视图绑定到创建入口。把它写成一份**稀疏覆盖** —— 基本上只是一串字段名：
+
+```ts
+import { defineView } from '@objectstack/spec'
+
+const data = { provider: 'object' as const, object: 'showcase_contact' }
+
+export const ContactViews = defineView({
+  list: {
+    type: 'grid', data,
+    columns: [{ field: 'name' }, { field: 'email' }, { field: 'company' }, { field: 'stage' }],
+    // 把 "+ Add record" 入口绑定到精简的创建表单：
+    addRecord: { enabled: true, mode: 'form', formView: 'create' },
+  },
+
+  // 完整编辑表单 —— 按 field.group 分组；裸字符串继承字段定义。
+  form: {
+    type: 'simple', data,
+    sections: [
+      { name: 'contact', label: 'Contact', columns: 2, fields: ['name', 'email', 'phone'] },
+      { name: 'work',    label: 'Work',    columns: 2, fields: ['company', 'title'] },
+      { name: 'status',  label: 'Status',  columns: 2, fields: ['stage', 'lead_score'] },
+    ],
+  },
+
+  formViews: {
+    // 稀疏的创建覆盖：只留核心字段，单个区块。
+    create: {
+      type: 'simple', data, title: 'New contact',
+      sections: [
+        { label: 'Who is this?', columns: 1, fields: ['name', 'email', 'phone', 'company'] },
+      ],
+    },
+  },
+})
+```
+
+绑定方式是 `addRecord.mode: 'form'` + `addRecord.formView: 'create'`。没有 `formViews.create` → 创建入口派生默认表单。有 → 创建时它生效。
+
+| 你的真实需求 | 用 |
+|:--|:--|
+| 创建时少问几个字段（必填 + 少数核心） | **纯派生** —— 不要手写 |
+| 创建时分组不同，但仍只是更小的子集 | 通常仍然派生 |
+| 创建是向导 / 多步、有创建专属文案、条件展开 | **手写 `formViews.create`** |
+
+> 经验法则：*字段子集不同* → 派生。*布局或流程不同* → 覆盖。为了删几个字段就写一份完整的创建表单，等于直接走进"双份产物漂移"的陷阱：新增一个必填字段、忘了改创建表单，创建时就得到运行时的"缺少必填字段"错误。
+
+因为创建表单的字段是编辑表单字段的子集，*顺序和分组也相同*，"快速创建 4 个字段 → 保存 → 落到完整记录页"在视觉上是连续的。派生免费保住了这一点。
+
+## 字段分组与顺序
+
+模型是一份扁平字段集。表格显示扁平的列。表单需要区块。这不矛盾 —— 是同一份扁平集合透过不同的镜头：
+
+| 镜头 | 字段形态 | 原因 |
+|:--|:--|:--|
+| 对象定义 | 扁平 | 模型描述*存在哪些数据* |
+| 表格 / Grid | 扁平的列 | 表格是记录 × 字段的矩阵 |
+| 表单 / 记录页 | 分组区块 | 人阅读单条记录时需要分块 |
+
+分组概念有**两个**。保持区分：
+
+**1. 语义分组 —— `field.group`（在对象上）。**字段的逻辑归属。它随模型走，并为自动生成表单的*默认*分区提供种子：
+
+```ts
+fields: {
+  name:  Field.text({ label: 'Full name', group: 'contact' }),
+  email: Field.email({ label: 'Email',    group: 'contact' }),
+  stage: Field.select({ label: 'Stage',   group: 'status', options: [/* … */] }),
+}
+```
+
+**2. 布局分组 —— 表单 `sections`（在视图上）。**某个具体表单的显式编排：哪些字段、哪个区块、几个 `columns`、可否折叠。它以 `field.group` 为默认继承来源，需要时按表单覆盖。
+
+```ts
+form: {
+  type: 'simple',
+  sections: [
+    { name: 'contact', label: 'Contact', columns: 2, fields: ['name', 'email', 'phone'] },
+    { name: 'status',  label: 'Status',  columns: 2, fields: ['stage'] },
+  ],
+}
+```
+
+**顺序就是你书写的顺序。**没有 `field.order` —— 对象上字段的声明顺序就是处处的默认显示顺序，而 `sections`（以及其中的字段）是有序列表。
+
+> **"group" 陷阱。**表格视图的 `groupByField` 按字段的*值*给**记录（行）**分组 —— 所有 `stage = qualified` 的行归到一起。表单区块在视觉上给**字段（列）**分组。同一个词，两条互不相关的轴。表格分组永远不会给你的表单分区。
+
+## 提交之后会发生什么
+
+给表单视图加 `submitBehavior` 来控制提交后的体验：
+
+```ts
+submitBehavior: {
+  kind: 'thank-you',
+  title: 'Thanks!',
+  message: 'A specialist will reach out within 24 hours.',
+}
+```
+
+| `kind` | 行为 |
+|:--|:--|
+| `thank-you`*（默认）* | 用一块确认面板替换表单（`title`、`message`） |
+| `redirect` | 在 `delayMs`（默认 0）之后跳转到 `url` —— 适合营销页 |
+| `continue` | 重置表单以填写下一份 —— 自助终端、批量录入 |
+| `next-record` | 前进到队列中的下一条记录（内部模式） |
+
+公开表单和内部表单都支持 `?prefill_<field>=<value>` URL 参数 —— 从邮件链接或活动页预填表单。预填是体验捷径，不是权限绕过：值仍要经过验证，公开表单还要过服务端字段白名单。
+
+```
+/console/f/contact-us?prefill_company=Acme&prefill_email=ada@example.com
+/console/forms/quick_create?prefill_lead_source=event_booth_2026
+```
+
+## 记录详情由角色驱动，而非表单绑定
+
+没有哪个对象级键能把表单视图钉到记录详情屏上。详情渲染由对象的跨界面**语义角色**派生：`nameField`（显示名）、`highlightFields`（最重要字段组成的条带）、`stageField`（生命周期进度条）、以及 `fieldGroups` + `Field.group`（表单、弹窗与详情页共享的分区）。当记录页需要的定制布局超出这些角色所能派生的范围时，给对象指定一个自定义[页面](/docs/build/interface/pages)。
+
+## 反模式
+
+- **两份完整手写的字段列表**（`contact_create_form` + `contact_edit_form`）。必然漂移。
+- **在表单上复述字段类型 / 验证 / 选项。**数据语义只属于对象。
+- **在每个表单里重新敲一遍分组。**`field.group` 声明一次；只在真正分歧时覆盖。
+- **为了迁就表单给数据模型加结构性嵌套。**模型保持扁平；分组交给表单。
+
+## 下一步
+
+| 页面 | 原因 |
+|:--|:--|
+| [视图](/docs/build/interface/views) | 表单视图类型、公开表单分享、完整的视图 Schema |
+| [数据模型](/docs/build/data) | 字段 —— 以及它们的意图 —— 声明的地方 |
+| [操作](/docs/build/interface/actions) | 启动表单视图的 `type: 'form'` 操作 |
+| [页面](/docs/build/interface/pages) | 超越派生布局的自定义记录页 |
+| [权限](/docs/configure/permissions) | 表单遵守的字段级安全 |

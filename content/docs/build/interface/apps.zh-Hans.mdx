@@ -1,0 +1,137 @@
+---
+title: 应用与导航
+description: 把对象、视图、页面和仪表盘打包成一个带品牌、可导航的外壳 —— 并精确控制谁能看到什么。
+---
+
+# 应用与导航
+
+**应用**是一个逻辑容器，把对象、视图、页面和仪表盘打包成一体化的体验。它定义导航树、品牌，以及 —— 最关键的 —— 谁能进来。
+
+```ts
+import { App } from '@objectstack/spec/ui'
+
+export const CrmApp = App.create({
+  name: 'crm_app',
+  label: 'CRM',
+  icon: 'briefcase',
+  branding: { primaryColor: '#2563EB' },
+  navigation: [
+    { id: 'group_sales', type: 'group', label: 'Sales', icon: 'briefcase', children: [
+      { id: 'nav_leads',    type: 'object', objectName: 'crm_lead',    label: 'Leads',    icon: 'funnel' },
+      { id: 'nav_accounts', type: 'object', objectName: 'crm_account', label: 'Accounts', icon: 'building' },
+    ]},
+  ],
+  requiredPermissions: ['crm_access'],
+})
+```
+
+## 应用属性
+
+| 属性 | 类型 | 必填 | 说明 |
+|:--|:--|:--|:--|
+| `name` | `string` | 是 | 机器名（`snake_case`） |
+| `label` | `string` | 是 | 显示名 |
+| `icon` | `string` | — | 应用图标（Lucide） |
+| `description` / `version` | `string` | — | 用于列表展示的元数据 |
+| `active` | `boolean` | — | 应用是否激活（默认 `true`） |
+| `isDefault` | `boolean` | — | 是否为默认应用 |
+| `navigation` | `NavigationItem[]` | — | 导航树 |
+| `branding` | `AppBranding` | — | `primaryColor`、`logo`、`favicon` |
+| `requiredPermissions` | `string[]` | — | 谁可以打开这个应用 |
+| `homePageId` | `string` | — | 用作着陆页的导航项 `id` |
+| `mobileNavigation` | `object` | — | 移动端专属导航 |
+
+## 导航项
+
+导航树支持八种项目类型。常用的五种是 `object`、`dashboard`、`page`、`url` 和 `group`；规范还定义了 `report`、`action` 和 `component` 三种。
+
+| `type` | 落到哪里 | 关键配置 |
+|:--|:--|:--|
+| `object` | 对象的列表视图 | `objectName`，外加可选的定位配置（见下） |
+| `dashboard` | 一个仪表盘 | `dashboardName` |
+| `page` | 一个自定义页面 | `pageName`、可选 `params` |
+| `url` | 一个外部 URL | `url`、`target: '_blank'` |
+| `group` | 可折叠分组 | `children`、`expanded` |
+
+每个导航项**必须**声明唯一的 `id`（小写 `snake_case`）—— `homePageId` 和 `mobileNavigation.bottomNavItems` 引用的就是它。公共属性：`label`、`icon`、`order`、`badge`，再加下面的门控三件套。
+
+### 定位 `object` 入口
+
+三个可选字段可以细化 `object` 入口落到哪里，优先级为 `recordId` → `filters` → `viewName`：
+
+- `viewName` —— 把入口锚定到某个具名列表视图。
+- `recordId` —— 深链到单条记录（"我的资料"）；支持 `{current_user_id}` / `{current_org_id}` 模板变量。
+- `filters` —— 一次性的参数化切片：入口落到裸数据界面上，每个条件是一个可移除的 URL 筛选标签。适合"分派给我"这类链接，不必专门写视图。这不是安全特性 —— 显示什么仍由行级权限决定。
+
+```ts
+{ id: 'nav_my_open', type: 'object', label: 'My Open Deals', objectName: 'opportunity',
+  filters: { owner_id: '{current_user_id}', status: 'open' }, icon: 'user-check' }
+```
+
+### 移动端导航
+
+```ts
+mobileNavigation: {
+  mode: 'bottom_nav',                    // 'drawer'（默认）| 'bottom_nav' | 'hamburger'
+  bottomNavItems: ['nav_home', 'nav_accounts', 'nav_contacts'],  // 导航项 id，最多 5 个
+}
+```
+
+## 按受众门控应用
+
+同一份数据服务于两类截然不同的受众：设计 Schema 的**构建者**，和只录入、查看数据的**最终用户**。默认就把这两类界面分开 —— 别指望每位管理员手动把东西藏起来。
+
+| 受众 | 界面 | 门控方式 |
+|:--|:--|:--|
+| 最终用户（消费者） | 精心组织的应用 → `page` / `view` 入口 | `App.requiredPermissions`、导航项门控 |
+| 构建者 / 管理员 | Setup / Studio、原始对象表格 | 能力：`setup.access`、`studio.access`、`manage_metadata` |
+
+内置权限集已经编码了这种分割：`member_default` 和 `viewer_readonly` **不**携带 `studio.access` / `manage_metadata`，因此构建者界面对他们不可见；`admin_full_access` 和 `organization_admin` 则携带。
+
+每个导航项支持三种相互独立的门控：
+
+| 门控 | 类型 | 隐藏该项，除非…… |
+|:--|:--|:--|
+| `requiredPermissions` | `string[]` | 用户持有该 RBAC 能力（如 `manage_metadata`） |
+| `visible` | CEL 表达式 | 谓词求值为 true（如 `'org_admin' in current_user.positions`） |
+| `requiresObject` / `requiresService` | `string` | 具名对象 / 内核服务已安装 |
+
+```ts
+navigation: [
+  { id: 'nav_contacts', type: 'object', label: 'Contacts', objectName: 'showcase_contact' },
+  // 仅构建者可见的入口 —— 消费者永远不会渲染它：
+  { id: 'nav_designer', type: 'component', label: 'Object Designer',
+    componentRef: 'metadata:resource', params: { type: 'object' },
+    requiredPermissions: ['manage_metadata'] },
+]
+```
+
+> **隐藏，而不是禁用。**禁用但可见的构建者入口仍是噪音。被门控的导航项对缺少该能力的用户*根本不渲染* —— 不留下让最终用户困惑的灰色摆设。
+
+还有两个习惯能让消费者界面保持干净：
+
+- **给最终用户一个页面，而不是原始表格。**`page` 入口让你精确策划暴露的内容 —— 精选的列、固定的可视化、只有你启用的筛选和操作。`object` 入口给出的则是宽松的表格：可切换视图、个人视图、完整工具栏。
+- **也要策划数据界面本身。**优先用[精心组织的视图](/docs/build/interface/views)，而不是放开原始对象读取，把用户扔到一个 40 列的表格上。
+
+操作门控是双面的：UI 隐藏或禁用按钮，**同时**服务端拒绝调用 —— 不存在"只在 UI 门控、服务端敞开"的坑。见[操作](/docs/build/interface/actions)。
+
+## Setup 应用 —— 一个内置示例
+
+平台自身的管理 UI —— **Setup（管理后台）应用** —— 本身就是用同一套应用元数据协议渲染的：导航、页面与门控都声明为数据，由渲染你的应用的同一个渲染器绘制。它的门控方式正是你的构建者界面应有的方式：藏在消费者权限集不携带的 `setup.access` 能力后面。如果你想要"应用即元数据"可以规模化的证据 —— 你已经在用了。
+
+## 反模式
+
+- **把每个最终用户都当成构建者级协作者**，再一个个隐藏选项卡。应该让消费者 / 构建者分割成为默认。
+- **禁用而不是隐藏构建者入口。**可见但失效的摆设照样让人困惑。
+- **放开原始对象读取**，而其实一个精心组织的页面就能恰好暴露最终用户需要的内容。
+
+## 下一步
+
+| 页面 | 原因 |
+|:--|:--|
+| [视图](/docs/build/interface/views) | `object` 导航入口落到的地方 |
+| [页面](/docs/build/interface/pages) | 面向最终用户的精心组织的 `page` 入口 |
+| [仪表盘](/docs/build/interface/dashboards) | `dashboard` 入口渲染的内容 |
+| [操作](/docs/build/interface/actions) | 按钮及其双面门控 |
+| [权限](/docs/configure/permissions) | `requiredPermissions` 背后的权限集 |
+| [界面总览](/docs/build/interface) | 各部分如何组合 |

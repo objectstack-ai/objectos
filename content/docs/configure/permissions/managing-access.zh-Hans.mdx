@@ -1,0 +1,140 @@
+---
+title: 权限分配
+description: 日常管理手册 —— 新员工入职、角色变更、验证某人能看到什么，以及干净地办理离职。
+---
+
+# 权限分配
+
+这是管理员每周都会遇到的访问问题的任务指南。[模型总览](/docs/configure/permissions)解释各层*如何*工作；本页告诉你*该点哪里*。
+
+> **90% 的日常管理就是把人分配到岗位。**岗位、其背后的权限集以及安全基线都随平台和你安装的应用一起交付。你几乎从不需要从零构建能力——也不应该那么做。
+
+用户的有效访问是叠加式的：
+
+```text
+effective access = union of permission sets reached through positions
+                 + direct grants
+                 + the built-in member_default baseline
+```
+
+限制通过*不授予*来实现——没有需要维护的减法规则。
+
+## 新员工入职
+
+四个有序步骤，每一步依赖上一步：
+
+| 步骤 | 位置 | 内容 |
+|---|---|---|
+| 1. 创建用户 | Setup → People & Organization → Users | **Invite**（邀请）、**Create**（创建）或 **Import**（导入）——见[用户与组织](/docs/configure/users#add-people) |
+| 2. 放进组织树 | 同一列表 → Business Unit Member 行 | 用户 + 业务单元，其中一条标记为 *primary*；基于深度的可见性通过它解析 |
+| 3. 分配岗位 | Setup → Access Control → Positions | 那日常的 90%——见下文 |
+| 4. 验证 | 模拟 + 解释 | 绝不在未测试的情况下宣布"都配好了"——见下文 |
+
+### 分配岗位
+
+一次分配就是一行记录：**User Position**（用户岗位，`sys_user_position`）= *用户* + *岗位* + 可选的任职**业务单元**。这个锚点决定岗位的深度授权*在哪里*生效——"**东区**销售经理"看到的是东区的记录，而不是整个公司的。
+
+在 **Setup → Access Control → Positions**（岗位）中打开某个岗位，从其相关列表添加分配（或直接创建 User Position 行）。这些写入受治理约束：租户级管理员可以通过；委派管理员只能在自己的子树内分配白名单中的权限集——自我提权在结构上就会被拒绝（见[委派管理](/docs/configure/permissions/permission-sets#delegated-administration)）。
+
+两个相邻的界面补全全貌：
+
+- **直接授予**——在权限集的记录页（**Setup → Access Control → Permission Sets**）上，**Assigned Users**（已分配用户）面板可添加不经岗位的按用户授予。*经岗位*持有的行也会显示，但要在岗位上移除，不能在这里移除。
+- **业务单元成员资格**——来自第 2 步；独立于分配锚点。
+
+## 变更某人的角色
+
+当某人调换部门或职能时：
+
+1. 把其 **Business Unit Member**（业务单元成员）行更新为新单元。
+2. **重新锚定其 User Position 行**——移除或编辑锚定到旧单元的分配，为新单元添加分配。
+3. 移除属于旧角色的所有直接授予。
+4. 验证（见下文）。
+
+分配可以携带 `valid_from` / `valid_until` 时间窗口——过期的授予立即停止解析，这是处理计划内交接或临时代理角色的干净方式。参见[权限集](/docs/configure/permissions/permission-sets)。
+
+## 验证某人能看到什么
+
+两个内置的验证工具：
+
+- **模拟。**用户列表 → 行菜单 → **Impersonate User**（模拟用户）。你会获得该用户的会话——打开他们会打开的应用，确认他们能看到该看的（且*看不到*不该看的）。模拟仅用于正当的支持与验证；会话会被记录。
+- **解释。**Studio 的 **Access**（访问）板块 → **Explain access**（解释访问）：选定用户、对象和操作，引擎返回判定结果以及每个求值层——哪个权限集授予了权限、经由哪个岗位持有、哪条共享规则放宽了范围、哪条策略收窄了范围。
+
+同样的报告也可通过 REST 获取：
+
+```bash
+# GET，查询字符串形式
+curl -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/v1/security/explain?object=crm_lead&operation=read&userId=usr_123"
+
+# POST，请求体形式
+curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"object":"crm_lead","operation":"read","userId":"usr_123"}' \
+  "$BASE/api/v1/security/explain"
+```
+
+`operation` 取 `read | create | update | delete | transfer | restore | purge` 之一（默认为 `read`）；省略 `userId` 则解释**你自己**。解释自己始终被允许；解释*其他*用户需要 `manage_users` 能力，或覆盖该用户的委派管理作用域。
+
+> 当权限解析结果不对时，先解释胜过瞎猜乱试：报告会点名需要修正的确切权限集和层。参见[诊断与审计一节](/docs/configure/permissions#diagnose--audit)。
+
+## 办理离职
+
+1. **Ban User**（封禁用户）——立即阻止登录。这是唯一紧急的一步。
+2. 之后从容移除其岗位分配和直接授予。
+3. 移除或改挂其业务单元成员行。
+4. 撤销绑定到该用户的所有 API Key——Key 以该用户身份行事，只要底层授予还在，它就还能用。
+
+## 当自带的岗位不合用时
+
+权限在 Studio 中*设计*，在 Setup 中*分配*。如果没有自带岗位能满足需求，优先选择能解决问题的最小改动，顺序如下：
+
+1. **把现有权限集绑定到岗位。**
+2. **克隆一个自带权限集并调整。**
+3. **在 Studio 的权限集矩阵编辑器中编写新权限集**——一张结构化的电子表格，覆盖对象增删改查、字段级安全和能力；你永远不需要手写 JSON。
+
+编辑随应用交付的权限集会创建一个*环境覆盖层*（environment overlay）——你的修改优先生效、在升级后保留，并可重置回厂商基线。牢记叠加模型：编写内聚的能力包，绝不要写"减法权限集"。参见[权限集](/docs/configure/permissions/permission-sets)。
+
+把需求转化为改动时，选择匹配的层：
+
+| 需求 | 层 | 参考 |
+|---|---|---|
+| 能读/建/改/删某类对象 | 对象权限 | [权限集](/docs/configure/permissions/permission-sets) |
+| 能看到 / 编辑某个特定字段 | 字段级安全 | [字段级安全](/docs/configure/permissions/field-level-security) |
+| 用户能看到哪些*行* | 记录访问 | [记录访问](/docs/configure/permissions/record-access) |
+| 某项功能性能力（导出、管理用户） | 系统权限 | [权限集](/docs/configure/permissions/permission-sets#system-permissions) |
+| 能打开某个应用或导航项 | 应用访问 | [权限集](/docs/configure/permissions/permission-sets) |
+
+## 快捷路径
+
+| 我需要 …… | 这样做 |
+|---|---|
+| 新员工入职 | 邀请/创建用户 → 业务单元成员行 → 分配岗位 |
+| 办理离职 | **Ban User**（立即阻止登录）——之后再从容移除分配 |
+| "我登录不了" | 用户记录 → 是被封禁了？被锁定了？**Unlock Account**（解锁账户）或 **Set Password**（临时密码、强制修改） |
+| "我为什么看不到 X？" | Studio → Access → 对该用户 + 对象运行 **Explain access** |
+| 有人调换了部门 | 更新其业务单元成员行；重新锚定其 User Position 行 |
+| 让子公司自行管理员工 | 授予携带[委派管理作用域](/docs/configure/permissions/permission-sets#delegated-administration)的权限集 |
+| 给某个用户加一项额外能力 | 权限集记录 → **Assigned Users** → 添加（直接授予） |
+
+## 各项在哪里
+
+| 事项 | 位置 |
+|---|---|
+| 用户、邀请 | Setup → People & Organization → Users / Invitations |
+| 业务单元树 | Setup → People & Organization → Business Units |
+| 团队 | Setup → People & Organization → Teams |
+| 岗位、权限集 | Setup → Access Control |
+| 共享规则、记录共享 | Setup → Access Control |
+| 密码策略、MFA、锁定、SSO | Setup → Configuration → Authentication |
+| 会话、通知事件、审计日志 | Setup → Diagnostics |
+| 权限矩阵编辑器、Explain access | Studio → Access |
+
+## 下一步
+
+| 任务 | 页面 |
+|---|---|
+| 创建用户并搭建组织树 | [用户与组织](/docs/configure/users) |
+| 理解岗位与受众锚点 | [岗位](/docs/configure/permissions/positions) |
+| 编写或调整权限集 | [权限集](/docs/configure/permissions/permission-sets) |
+| 控制人们能看到哪些行 | [记录访问](/docs/configure/permissions/record-access) |
+| 隐藏或锁定敏感字段 | [字段级安全](/docs/configure/permissions/field-level-security) |
+| 登录策略与 SSO | [认证](/docs/configure/authentication) |

@@ -1,0 +1,156 @@
+---
+title: 页面
+description: 由区域、组件与本地状态组合的自由布局 —— 外加随包发布的 Markdown 文档页。
+---
+
+# 页面
+
+**页面是一个自由容器。**不同于绑定到单个对象的[视图](/docs/build/interface/views)，页面组合多个组件、嵌入视图并管理本地状态 —— 你的主屏、自定义记录布局和工具面板都靠它。
+
+```ts
+const homePage = {
+  name: 'sales_home',
+  label: 'Sales Home',
+  type: 'home',
+  regions: [
+    { name: 'header', width: 'full', components: [
+      { type: 'metric_card', id: 'total_revenue', label: 'Total Revenue',
+        properties: { object: 'opportunity', field: 'amount', aggregate: 'sum', format: 'currency' } },
+    ]},
+    { name: 'main', width: 'large', components: [
+      { type: 'list_view', id: 'recent_deals', label: 'Recent Deals',
+        properties: { object: 'opportunity', view: 'recent_open', limit: 10 } },
+    ]},
+  ],
+}
+```
+
+## 页面属性
+
+| 属性 | 类型 | 必填 | 说明 |
+|:--|:--|:--|:--|
+| `name` | `string` | 是 | 机器名（`snake_case`） |
+| `label` | `string` | 是 | 显示标签 |
+| `type` | `enum` | — | 页面类型（默认 `'record'`，见下） |
+| `object` | `string` | — | 关联对象（`record` 类型用） |
+| `template` | `string` | — | 布局模板名（默认 `'default'`） |
+| `regions` | `PageRegion[]` | — | 承载组件的布局区域 |
+| `variables` | `PageVariable[]` | — | 本地状态变量 |
+| `isDefault` | `boolean` | — | 是否为该类型的默认页面 |
+| `assignedProfiles` | `string[]` | — | 可访问此页面的简档 |
+
+### 页面类型
+
+| 类型 | 用于 |
+|:--|:--|
+| `record` | 绑定到某个对象记录的自定义详情页 |
+| `home` | 应用着陆 / 入口 |
+| `app` | 通用应用布局 |
+| `utility` | 工具、设置、向导 |
+| `list` | 数据驱动的界面 |
+
+只有这五种类型有效 —— 早期路线图上那些从未交付渲染器的类型已从 Schema 中移除。
+
+## 区域
+
+区域是布局分区；每个区域承载组件：
+
+```ts
+regions: [
+  { name: 'sidebar', width: 'small', components: [/* … */] },
+  { name: 'content', width: 'large', components: [/* … */] },
+]
+```
+
+`width` 接受 `'small'`、`'medium'`、`'large'` 或 `'full'`。
+
+## 组件
+
+组件是区域内部的积木：
+
+```ts
+{
+  type: 'chart',
+  id: 'revenue_chart',
+  label: 'Revenue Trend',
+  properties: { chartType: 'line', object: 'opportunity',
+                categoryField: 'close_date', valueField: 'amount' },
+  events: { onClick: "navigate_to('opportunity_detail', { id: $event.id })" },
+  visibility: "os.user.profile == 'sales_manager'",
+}
+```
+
+| 属性 | 类型 | 说明 |
+|:--|:--|:--|
+| `type` | `string` | 标准组件类型，或自定义字符串 |
+| `id` | `string` | 唯一的组件实例 id |
+| `properties` | `object` | 组件专属配置 |
+| `events` | `object` | 事件处理器（操作表达式） |
+| `visibility` | `string` | CEL 可见性谓词 |
+| `style` / `className` | — | 临时 CSS |
+| `responsiveStyles` | `object` | **首选**样式通道：桌面优先、按断点的样式映射（`large` 为基础，再叠加 `medium` / `small` / `xsmall` 覆盖），编译为作用域 CSS —— 优先用 `var(--space-8)` 这样的设计令牌 |
+
+标准的、带命名空间的组件类型：
+
+| 命名空间 | 类型 |
+|:--|:--|
+| 结构 | `page:header`、`page:footer`、`page:sidebar`、`page:tabs`、`page:accordion`、`page:card`、`page:section` |
+| 记录上下文 | `record:details`、`record:highlights`、`record:related_list`、`record:activity`、`record:chatter`、`record:path`、`record:alert`、`record:quick_actions`、`record:reference_rail`、`record:history` |
+| 导航 | `app:launcher`、`nav:menu`、`nav:breadcrumb` |
+| 工具 | `global:search`、`global:notifications`、`user:profile` |
+| AI | `ai:chat_window`、`ai:suggestion` |
+| 元素 | `element:text`、`element:number`、`element:image`、`element:divider`、`element:button`、`element:filter`、`element:form`、`element:record_picker`、`element:text_input` |
+
+组件还可以携带 `dataSource`（多对象页面中按元素绑定对象）、`responsive` 与 `aria` 配置。项目专属的组件可以使用自定义字符串类型。
+
+## 变量
+
+页面持有跨组件共享的本地状态：
+
+```ts
+variables: [
+  { name: 'selected_tab', type: 'string', defaultValue: 'overview' },
+  { name: 'date_range',   type: 'object', defaultValue: { start: null, end: null } },
+]
+```
+
+`type` 接受 `'string'`（默认）、`'number'`、`'boolean'`、`'object'`、`'array'` 或 `'record_id'`。
+
+> `record` 类型的页面是定制记录布局的受支持路径 —— 当由角色派生的详情页（见[表单](/docs/build/interface/forms)）不够用时就用它。把 `record:highlights` 组合进全宽头部，把 `record:details` 和 `record:activity` 放进侧栏，把 `record:related_list` 组件放进主区域。
+
+通过 `page` 导航入口把页面挂到[应用](/docs/build/interface/apps)上，或者用 `homePageId` 把它设为应用的着陆页。
+
+## 文档页
+
+**doc** 是一页包文档：放在扁平的 `src/docs/` 目录里的纯 Markdown 文件，编译进包产物，在 Console 中渲染于 `/docs/<name>`。文档还会在 AI 助手回答关于你的包的问题时充当依据。
+
+```
+src/docs/
+  crm_index.md            → 文档名 "crm_index"
+  crm_user_guide.md       → 文档名 "crm_user_guide"
+```
+
+文件名主干就是文档 `name` —— 没有目录分级，没有排序文件。扁平布局让交叉引用保持稳定：链接按 basename 解析，从不按路径。
+
+| 规则 | 细节 |
+|:--|:--|
+| 命名 | `snake_case`，且构建 lint 要求**命名空间前缀**（`crm_user_guide`，而非 `user_guide`） |
+| Frontmatter | 可选；读取 `title` 和 `description`。标题解析顺序：frontmatter → 第一个 `#` 标题 → 文档名 |
+| 交叉引用 | 普通相对链接（`[overview](./crm_index.md)`）—— 在 Console 里重写为 `/docs/<target>`，在 GitHub 上原生可用。**同包内的坏链会导致构建失败** |
+| Markdown | CommonMark + GFM：表格、带高亮的围栏代码、标题锚点、GitHub alerts（`> [!TIP]`） |
+| 构建时拒绝 | **MDX / 内嵌组件**（文档是数据，不是代码 —— 这是信任边界）以及**图片引用**（尚无资产服务；快速失败胜过碎图） |
+
+文档解析按包隔离：两个已安装的包可以各自发布同名裸文档并共存 —— 谁也不会覆盖谁。
+
+> 需要动态内容 —— 实时流程图、记录表格 —— 时别试图内嵌组件。用 URL 链接到元数据；平台渲染实时视图，文档只负责指向它。
+
+## 下一步
+
+| 页面 | 原因 |
+|:--|:--|
+| [应用](/docs/build/interface/apps) | 把页面放进导航、设置 `homePageId` |
+| [视图](/docs/build/interface/views) | 页面所嵌入的对象界面 |
+| [表单](/docs/build/interface/forms) | 角色派生的记录布局 vs 自定义记录页 |
+| [仪表盘](/docs/build/interface/dashboards) | 以分析为中心的布局，而非自由布局 |
+| [操作](/docs/build/interface/actions) | `element:button` 的目标与 `modal` 类型操作 |
+| [AI Builder](/docs/build/ai-builder) | 用对话生成页面元数据 |

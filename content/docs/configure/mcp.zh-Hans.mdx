@@ -1,0 +1,129 @@
+---
+title: 接入 AI 工具（MCP）
+description: 把 Claude Code、Claude Desktop 或任意 MCP 客户端指向你的 ObjectOS 应用，让 Agent 在你的权限模型约束下处理你的数据。
+---
+
+# 接入 AI 工具（MCP）
+
+每个 ObjectOS 部署天生就是一个 MCP 服务器。运行时在 **`/api/v1/mcp`** 上提供 [Model Context Protocol](https://modelcontextprotocol.io) 服务——默认开启，无需安装插件，无需配置步骤。你的对象和已暴露的操作在定义的那一刻就成为带类型的工具；剩下唯一要做的就是接入一个客户端并验证它能用。
+
+> 要关闭这个入口，设置 `OS_MCP_SERVER_ENABLED=false`——端点将返回 404，**Setup → Connect an Agent**（接入 Agent）页面也随之消失。
+
+本页讲的是把*外部* AI 工具接入你的应用。服务端 AI 栈——聊天 Provider、Embedder、RAG，以及在代码中显式注册 MCP 服务器插件——参见 [AI 服务](/docs/configure/ai)。
+
+## Claude Code（一条命令）
+
+交互式客户端使用 OAuth——每个部署本身就是一个 OAuth 2.1 授权服务器，因此不存在需要管理员签发再分发的凭据。第一次工具调用会打开浏览器登录，你**以自己的身份**接入：
+
+```bash
+# 本地开发服务器
+claude mcp add --transport http my-app http://localhost:3000/api/v1/mcp
+
+# 已部署的实例
+claude mcp add --transport http my-app https://your-deployment.example.com/api/v1/mcp
+```
+
+无头场景（CI、容器）跳过 OAuth，改为附加 [API Key](#headless-api-keys)：
+
+```bash
+claude mcp add --transport http my-app https://your-deployment.example.com/api/v1/mcp \
+  --header "x-api-key: osk_..."
+```
+
+## Claude Desktop 与 claude.ai
+
+**Settings → Connectors → Add custom connector**（设置 → 连接器 → 添加自定义连接器），然后粘贴 MCP URL（`https://your-deployment.example.com/api/v1/mcp`）。首次使用时会走同样的浏览器登录流程。
+
+## 任意 MCP 客户端（`.mcp.json`）
+
+读取 `mcpServers` 映射的客户端以同样方式接入。使用 API Key：
+
+```json
+{
+  "mcpServers": {
+    "objectstack": {
+      "type": "http",
+      "url": "https://your-deployment.example.com/api/v1/mcp",
+      "headers": { "x-api-key": "osk_..." }
+    }
+  }
+}
+```
+
+## 无头场景：API Key
+
+在 **Setup → Connect an Agent**（接入 Agent，那里还提供各客户端可直接复制粘贴的接入片段）中签发 Key，或通过 REST：
+
+```bash
+curl -b cookies.txt -X POST https://your-deployment.example.com/api/v1/keys
+# → { "key": "osk_..." }  —— 只显示一次；存入你的 secret manager
+```
+
+每次请求以三种等价形式之一携带它：
+
+| 请求头 | 示例 |
+|---|---|
+| `x-api-key` | `x-api-key: osk_...` |
+| `Authorization: ApiKey` | `Authorization: ApiKey osk_...` |
+| `Authorization: Bearer` | `Authorization: Bearer osk_...`（通过 `osk_` 前缀识别） |
+
+> OAuth 要求 TLS——纯 HTTP 部署（`localhost` 除外）会回退到**仅 API Key** 模式：浏览器登录通道被禁用，而不是被允许以不安全的方式运行。
+
+对于长期集成，把 Key 绑定到带最小权限集的专用服务用户——参见[服务账号与 API Key](/docs/configure/users#service-accounts--api-keys)。
+
+## Agent 能得到什么
+
+十个数据与操作工具，由你的元数据生成：
+
+| 工具 | 用途 |
+|---|---|
+| `list_objects` / `describe_object` | 发现有哪些对象及其字段 |
+| `query_records` / `get_record` | 读取数据（列表查询默认每页上限 50 行） |
+| `aggregate_records` | 分组聚合（当前驱动支持时才注册） |
+| `create_record` / `update_record` / `delete_record` | 写入数据 |
+| `list_actions` / `run_action` | 按名称发现并调用你的业务操作 |
+
+要了解的两条暴露规则：
+
+- **对象自动暴露**——但 `sys_*` 系统对象除外，它们以 fail-closed 方式被拦截。
+- **操作需要作者显式选择加入**：`ai: { exposed: true }` 加上不少于 40 个字符的 `ai.description`，且该操作必须可以在无 UI 的情况下调用（带 body 或已注册 handler 的 `script`，或 `flow`）。
+
+## 权限强制执行
+
+- **每次调用都以调用者身份运行。**MCP 桥接解析的执行上下文与 REST 请求相同，因此对象权限、[记录访问](/docs/configure/permissions/record-access)和[字段级安全](/docs/configure/permissions/field-level-security)对 Agent 的作用与对 UI 中的真人完全一致。结果稀疏或写入被拒，通常意味着治理在*正常工作*，而不是连接坏了。
+- **OAuth scope 会收窄工具集。**Token 携带 `data:read`、`data:write` 和 `actions:execute` 这些 scope——不在已授予 scope 内的工具，在该会话中根本不会被注册。API Key 和会话调用者获得完整工具集，但每次调用仍会做权限检查。
+- **操作体一经调用即作为可信应用代码运行**（`ai.exposed` 门槛和 `requiredPermissions` 在*调用*时检查）。把编写操作当作值得代码评审的行为——那才是真正的安全边界。
+- 操作还可以声明 `ai.requiresConfirmation`；看起来具有破坏性的操作默认要求确认。
+
+## 验证连接
+
+问 Agent 一个只有实时 schema 才能回答的问题：
+
+```text
+What objects does this app have, and what fields does the main one carry?
+```
+
+你应该看到 `list_objects` 和 `describe_object` 被触发。Agent 的自然工作模式是 `list_objects` → `describe_object` → `query_records` → `run_action`——四者都能跑通，连接就完全就绪了。
+
+> 配上应用的 **skill 文件**，Agent 的表现会明显更好：从 `GET /api/v1/mcp/skill` 下载它，或安装[官方 Claude 插件](https://github.com/objectstack-ai/claude-plugin)（`claude plugin marketplace add objectstack-ai/claude-plugin`），后者打包了该 skill 和一个引导式的 `/objectstack:connect` 命令。
+
+## 故障排查
+
+| 症状 | 原因 → 解决 |
+|---|---|
+| `/api/v1/mcp` 返回 `404` | 入口被禁用——取消设置 `OS_MCP_SERVER_ENABLED`（默认开启） |
+| `501 Not Implemented` | 此构建不包含 MCP 插件——检查你的栈的插件配置 |
+| 每次调用都 `401` | 匿名或凭据无效。交互式客户端：完成浏览器登录。无头场景：检查 `osk_` Key 和请求头拼写 |
+| `403 insufficient_scope` | OAuth token 缺少该工具族所需的 scope（例如没有 `data:write` 却尝试写入）——重新连接并授予该 scope |
+| 某个操作没出现在 `list_actions` 中 | `ai.exposed` 不为 `true`、`ai.description` 短于 40 个字符、类型不可无头调用（`url` / `modal` / `form` 永远不会出现）、目标是 `sys_*` 对象，或调用者未通过其 `requiredPermissions` |
+| 读取返回的行很少 / 写入被拒 | 符合设计——调用者的权限和记录访问在生效。用同一用户在 UI 中验证 |
+
+## 下一步
+
+| 任务 | 页面 |
+|---|---|
+| 配置 AI Provider、Embedder 和 MCP 服务器插件 | [AI 服务](/docs/configure/ai) |
+| 创建服务用户和 API Key | [用户与组织](/docs/configure/users) |
+| 理解 Agent 被允许看到什么 | [权限](/docs/configure/permissions) |
+| REST API 与 Key 管理 | [API 访问](/docs/configure/api-access) |
+| 验证某个用户的访问权限 | [权限分配](/docs/configure/permissions/managing-access) |

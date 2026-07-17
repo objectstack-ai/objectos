@@ -1,0 +1,143 @@
+---
+title: 审批流程
+description: 把记录路由给人签核 —— 同时不让自动化悄悄绕过行级安全。
+---
+
+# 审批流程
+
+**审批就是带审批节点的[流程](/docs/build/automation/flows)：流程暂停，直到有人批准或拒绝，然后沿匹配的分支继续。**没有需要另学的独立审批引擎 —— 触发器、分支、错误处理都与任何其他流程完全一致。本页新增的内容是审批节点本身，以及两个与路由同样重要的访问决策。
+
+## 谁做什么
+
+三个角色，刻意分离：
+
+| 角色 | 能做 | 需要 |
+|---|---|---|
+| **构建者** | 编写和编辑审批流程 | `manage_metadata`（通常是 Studio 用户） |
+| **提交人** | 提交进入流程的记录 | 正常的记录访问 —— 不需要任何自动化配置权限 |
+| **审批人** | 处理审批请求（批准 / 拒绝） | 由其权限集授予的能力 |
+
+最终用户提交记录、处理请求；他们从不编辑自动化。把自动化配置界面挡在消费者应用之外。
+
+## 以谁的身份运行 —— 安全决策
+
+流程通过 `runAs` 声明运行身份，对审批而言，正是这个决策防止流程悄悄绕过行级安全：
+
+| `runAs` | 数据操作以谁运行 | 何时使用 |
+|---|---|---|
+| `'user'`（默认） | **提交人**，遵守其 RLS | 流程只触碰提交人本来就能看到的记录 |
+| `'system'` | **提权** —— 绕过 RLS | 流程必须读写提交人看不到的记录（写入总账、通知一个拥有提交人不可见行的审批人） |
+
+**显式**声明提权，让它可见而非意外。默认的 `'user'` 意味着审批流程无法悄悄给提交人跨租户或跨所有者的触达 —— 提权是自愿开启且可审计的。
+
+> **提示：**由定时触发的升级流程没有触发用户 —— 它必须 `runAs: 'system'` 才能行动。这是提权的正当场景；"到处 `system` 好让它能跑"才是反模式。
+
+## 审批节点
+
+节点声明**谁来审批**以及多个决策如何聚合：
+
+```ts
+{
+  id: 'manager_approval',
+  type: 'approval',
+  label: 'Manager Approval',
+  config: {
+    approvers: [{ type: 'field', value: 'owner_manager_id' }],
+    behavior: 'unanimous',
+    approvalStatusField: 'approval_status',
+    lockRecord: true,
+  },
+}
+```
+
+| 配置 | 作用 |
+|---|---|
+| `approvers` | 谁必须决策 —— 具名用户、岗位，或从记录字段解析出的用户（如提交人的经理） |
+| `behavior` | 多个审批人如何聚合，如 `'unanimous'`（一致同意） |
+| `approvalStatusField` | 可选的记录字段，插件把请求状态镜像进去 |
+| `lockRecord` | 请求待定期间锁定记录、禁止编辑 |
+
+> **警告 —— `position` vs `role`。**`{ type: 'position', value: 'finance_manager' }` 路由给某个岗位的持有者（`sys_user_position`）。而 `role` 审批人类型是组织成员层级（`sys_member.role`：`owner`/`admin`/`member`）—— 把岗位名写成 `type: 'role'` 谁也匹配不上，请求就会卡住。`os lint` 会标记这个问题（`approval-role-not-membership-tier`）。
+
+## 一个完整的审批流程
+
+把大额提案路由给负责人的经理，再按决策分支：
+
+```ts
+export const opportunityApproval = defineFlow({
+  name: 'opportunity_approval',
+  label: 'Opportunity Approval',
+  type: 'record_change',
+  status: 'active',
+  runAs: 'user', // 用提交人的 RLS，除非某一步确实需要更多权限
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      config: {
+        triggerType: 'record-after-update',
+        objectName: 'opportunity',
+        condition: "record.amount >= 50000 && record.stage == 'proposal'",
+      },
+    },
+    {
+      id: 'manager_approval',
+      type: 'approval',
+      label: 'Manager Approval',
+      config: {
+        approvers: [{ type: 'field', value: 'owner_manager_id' }],
+        behavior: 'unanimous',
+        approvalStatusField: 'approval_status',
+        lockRecord: true,
+      },
+    },
+    { id: 'mark_approved', type: 'update_record', label: 'Mark Approved' },
+    { id: 'mark_rejected', type: 'update_record', label: 'Mark Rejected' },
+    { id: 'end', type: 'end' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'manager_approval' },
+    { id: 'approved', source: 'manager_approval', target: 'mark_approved', label: 'approve' },
+    { id: 'rejected', source: 'manager_approval', target: 'mark_rejected', label: 'reject' },
+    { id: 'e4', source: 'mark_approved', target: 'end' },
+    { id: 'e5', source: 'mark_rejected', target: 'end' },
+  ],
+});
+```
+
+注意带标签的边：`approve` 和 `reject` 命名了决策之后的分支。永远要建模拒绝路径 —— 只有批准分支的流程会让被拒绝的记录搁浅。
+
+**多级审批：**串联多个 `approval` 节点。**并行审批：**见[流程](/docs/build/automation/flows)中的聚合节点模式。
+
+## 审批人体验到什么
+
+`@objectstack/plugin-approvals` 包持有持久化的审批状态。请求待定期间：
+
+1. 插件持久化请求（`sys_approval_request`）以及针对它的每个决策（`sys_approval_action`）—— 你的审批历史是可查询的数据。
+2. 设置 `lockRecord: true` 时，记录被锁定、禁止编辑，直到决策落地。
+3. 如果设置了 `approvalStatusField`，记录自身的字段会镜像请求状态，视图和报表就能按它筛选。
+4. 审批人批准或拒绝；插件沿匹配的边恢复被暂停的流程。
+
+批准本身也是被门控的操作。把"可以批准"建模为一个能力（如 `approve_invoice`），由审批人的权限集授予，并把批准操作的 `requiredPermissions` 建立在它之上 —— 这样门控就在 **UI 和服务端**两侧同时强制，而不只是从屏幕上藏起来。
+
+## 最佳实践
+
+| 应该 | 不应该 |
+|---|---|
+| 定义清晰的进入条件 | 设置过多的审批环节 |
+| 设置合理的超时时间 | 把审批做得过于复杂 |
+| 在合适的场景允许撤回 | 忘记拒绝路径 |
+| 通知所有相关方 | 把审批人写死 |
+| 追踪审批历史 | 只在 UI 层门控"批准" |
+| 默认 `runAs: 'user'`，一步一步地提权 | 到处设置 `runAs: 'system'` "好让它能跑" |
+
+## 下一步
+
+| 页面 | 原因 |
+|---|---|
+| [流程](/docs/build/automation/flows) | 本页所基于的流程参考 —— 触发器、步骤、错误处理 |
+| [工作流](/docs/build/automation/workflows) | 约束审批所处的生命周期 |
+| [操作](/docs/build/interface/actions) | 把提交和批准做成界面上的按钮 |
+| [CEL 表达式](/docs/reference/cel) | 进入条件背后的语言 |
+| [Email](/docs/configure/email) | 通知审批人与相关方 |
+| [自动化总览](/docs/build/automation) | 选择器：流程 vs 工作流 vs 审批 |
