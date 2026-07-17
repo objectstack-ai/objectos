@@ -133,7 +133,7 @@ Chaque `*.action.ts` que vous déclarez devient un point de terminaison.
 | `/actions/:action` | POST | Invoquer l'action. Le corps correspond au schéma d'entrée de l'action. Les permissions et la validation des entrées proviennent de la déclaration de l'action |
 
 Chaque action est également exposée à l'IA sous forme d'outil `action_<name>` — voir
-[Actions](/docs/build/actions).
+[Actions](/docs/build/interface/actions).
 
 ## Flows — `/api/v1/flows/*`
 
@@ -221,5 +221,5 @@ l'horizon de dépréciation se trouvent dans `GET /api/v1`.
 
 - [ObjectQL](./objectql) — le langage de requête utilisé par `/data/*`
 - [Types de champs](./field-types) — les formes que peuvent prendre les données
-- [Build → Actions](/docs/build/actions) — déclarer des points de terminaison personnalisés
+- [Build → Actions](/docs/build/interface/actions) — déclarer des points de terminaison personnalisés
 - [Sécurité](./security) — ce que chaque route vérifie avant de s'exécuter

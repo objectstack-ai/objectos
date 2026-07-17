@@ -132,7 +132,7 @@ Cada `*.action.ts` que declaras se convierte en un endpoint.
 | `/actions/:action` | POST | Invocar la acción. El cuerpo es el esquema de entrada de la acción. Los permisos y la validación de entrada provienen de la declaración de la acción |
 
 Cada acción también se expone a la IA como una herramienta `action_<name>` — consulta
-[Acciones](/docs/build/actions).
+[Acciones](/docs/build/interface/actions).
 
 ## Flujos — `/api/v1/flows/*`
 
@@ -220,5 +220,5 @@ el horizonte de obsolescencia están en `GET /api/v1`.
 
 - [ObjectQL](./objectql) — el lenguaje de consulta utilizado por `/data/*`
 - [Tipos de campo](./field-types) — qué formas pueden adoptar los datos
-- [Build → Acciones](/docs/build/actions) — declarar endpoints personalizados
+- [Build → Acciones](/docs/build/interface/actions) — declarar endpoints personalizados
 - [Seguridad](./security) — qué comprueba cada ruta antes de ejecutarse

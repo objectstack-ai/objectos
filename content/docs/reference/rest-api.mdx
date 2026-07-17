@@ -130,7 +130,7 @@ Every `*.action.ts` you declare becomes an endpoint.
 | `/actions/:action` | POST | Invoke the action. Body is the action's input schema. Permissions and input validation come from the action declaration |
 
 Each action is also exposed to the AI as a `action_<name>` tool — see
-[Actions](/docs/build/actions).
+[Actions](/docs/build/interface/actions).
 
 ## Flows — `/api/v1/flows/*`
 
@@ -218,5 +218,5 @@ deprecation horizon are in `GET /api/v1`.
 
 - [ObjectQL](./objectql) — the query language used by `/data/*`
 - [Field types](./field-types) — what shapes data can take
-- [Build → Actions](/docs/build/actions) — declare custom endpoints
+- [Build → Actions](/docs/build/interface/actions) — declare custom endpoints
 - [Security](./security) — what every route checks before it runs
