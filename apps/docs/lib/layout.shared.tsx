@@ -7,26 +7,10 @@ export const gitConfig = {
   branch: 'main',
 };
 
-const NAV_LABELS: Record<string, { website: string; docs: string; changelog: string }> = {
-  en: { website: 'Website', docs: 'Docs', changelog: 'Changelog' },
-  'zh-Hans': { website: '官网', docs: '文档', changelog: '更新日志' },
-  ja: { website: '公式サイト', docs: 'ドキュメント', changelog: '変更履歴' },
-  de: { website: 'Website', docs: 'Dokumentation', changelog: 'Änderungen' },
-  es: { website: 'Sitio web', docs: 'Documentación', changelog: 'Cambios' },
-  fr: { website: 'Site web', docs: 'Documentation', changelog: 'Journal' },
-  ko: { website: '웹사이트', docs: '문서', changelog: '변경 내역' },
-};
-
-const RELEASES_URL = 'https://github.com/objectstack-ai/objectos/releases';
 const WEBSITE_URL = 'https://www.objectos.ai';
 
-function localePrefix(lang: string): string {
-  return lang === 'en' ? '' : `/${lang}`;
-}
-
 export function baseOptions(lang: string = 'en'): BaseLayoutProps {
-  const labels = NAV_LABELS[lang] ?? NAV_LABELS.en;
-  const prefix = localePrefix(lang);
+  void lang;
 
   return {
     nav: {
@@ -45,23 +29,6 @@ export function baseOptions(lang: string = 'en'): BaseLayoutProps {
       ),
       transparentMode: 'top',
     },
-    links: [
-      {
-        text: labels.website,
-        url: WEBSITE_URL,
-        external: true,
-      },
-      {
-        text: labels.docs,
-        url: `${prefix}/docs`,
-        active: 'nested-url',
-      },
-      {
-        text: labels.changelog,
-        url: RELEASES_URL,
-        external: true,
-      },
-    ],
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
   };
 }
