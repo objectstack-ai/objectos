@@ -1,0 +1,59 @@
+---
+title: 管理
+description: 系统管理员在哪里管理用户、访问、设置与集成 —— 以及哪个页面解决哪类任务。
+---
+
+# 管理
+
+本章面向 ObjectOS 部署的**系统管理员**：负责用户入职、授予访问权限、接通登录、邮件、存储与集成，并保持系统健康运转的人。你日常管理的是人和他们的权限；应用、对象和权限集本身则随平台及你安装的应用包一起交付。
+
+> **权限在 Studio 中设计，在 Setup 中分配。**绝大多数管理工作都不会离开 Setup（管理后台）——只有编写权限集或运行解释引擎时才需要进入 Studio。
+
+## Setup 控制台
+
+内置的管理控制台位于 **`/apps/setup`**，需要 `setup.access` 权限。其左侧导航由运行时已加载的能力插件动态提供，因此你看到的菜单精确反映当前部署所运行的内容——未启用的能力不贡献任何菜单项，其分组保持为空。
+
+稳定的导航分组：
+
+| 分组 | 里面有什么 |
+|---|---|
+| **Overview**（概览） | System Overview 系统概览仪表盘 |
+| **People & Organization**（人员与组织） | 用户、业务单元、团队、组织、邀请 |
+| **Access Control**（访问控制） | 岗位、权限集、共享规则、记录共享、API Key |
+| **Approvals**（审批） | 审批流程（加载 approvals 插件时） |
+| **Configuration**（配置） | 全部设置、品牌、认证、邮件、文件存储、AI 与 Embedder、知识库、功能开关 |
+| **Diagnostics**（诊断） | 会话、通知事件、审计日志 |
+| **Integrations**（集成） | Webhooks |
+| **Advanced**（高级） | OAuth 应用、签名密钥（JWKS）、身份关联、用户偏好 |
+
+## 任务地图
+
+| 我需要 …… | 阅读 |
+|---|---|
+| 添加用户、搭建组织树、管理团队 | [用户与组织](/docs/configure/users) |
+| 为某人办理入职、离职或调整访问权限 | [权限分配](/docs/configure/permissions/managing-access) |
+| 理解整套访问模型 | [权限](/docs/configure/permissions) |
+| 配置登录、OAuth、SSO、双因素认证 | [认证](/docs/configure/authentication) |
+| 修改运行时和租户设置 | [系统设置](/docs/configure/system-settings) |
+| 配置事务性邮件发送 | [邮件](/docs/configure/email) |
+| 配置文件存储（S3、本地磁盘） | [存储](/docs/configure/storage) |
+| 连接外部业务数据库 | [数据源](/docs/configure/data-sources) |
+| 使用 REST API 和 API Key | [API 访问](/docs/configure/api-access) |
+| 发送出站 Webhook | [Webhooks](/docs/configure/webhooks) |
+| 配置 AI Provider、Embedder、RAG | [AI 服务](/docs/configure/ai) |
+| 接入 Claude 或其他 MCP 客户端 | [接入 AI 工具（MCP）](/docs/configure/mcp) |
+| 配置制品加载、数据库、缓存 | [运行时配置](/docs/configure/runtime) |
+| 规划备份与灾难恢复 | [备份](/docs/operate/backup) |
+| 安全地升级或回滚 | [升级](/docs/operate/upgrade) |
+| 为生产环境加固 | [生产就绪](/docs/operate/production) |
+| 查看日志、指标和审计记录 | [可观测性](/docs/operate/observability) |
+| 诊断故障部署 | [故障排查](/docs/operate/troubleshooting) |
+
+## 下一步
+
+| 任务 | 页面 |
+|---|---|
+| 你的第一项管理任务：添加人员并搭建结构 | [用户与组织](/docs/configure/users) |
+| 给新员工开通访问权限 | [权限分配](/docs/configure/permissions/managing-access) |
+| 学习分层访问模型 | [权限](/docs/configure/permissions) |
+| 上线前检查清单 | [生产就绪](/docs/operate/production) |
