@@ -1,0 +1,126 @@
+---
+title: Audit Logs
+description: Read the immutable audit trail and diagnostics logs that record every change, sign-in, and emitted event on your deployment.
+---
+
+# Audit Logs
+
+The audit log is the immutable record of what happened on your deployment: who
+changed what, when, and from where. This page is the deep reference for the
+diagnostics surfaces under **Setup → Diagnostics**. For the operator overview of
+logs, metrics, and request identity, see
+[Observability](/docs/operate/observability).
+
+> These surfaces require the `manage_platform_settings` permission.
+
+Reach for the audit log when you need to prove or investigate:
+
+- permission-sensitive changes;
+- settings and configuration changes;
+- user and session activity;
+- integration and automation activity;
+- denied-access analysis.
+
+## Audit Logs
+
+At **Setup → Diagnostics → Audit Logs** (`sys_audit_log`). The object is
+**read-only and immutable** — an append-only trail of platform events. You can
+filter, group, and inspect rows, but nothing can edit or delete them from the
+Console.
+
+### Preset views
+
+The list opens with tabs that filter by action category:
+
+| View | Shows |
+|---|---|
+| `Recent` | All events, newest first |
+| `Writes` | Create / update / delete actions |
+| `Auth` | Sign-in, sign-out, and authentication events |
+| `Config` | Settings and configuration changes |
+
+### Columns and fields
+
+The default columns are `Timestamp`, `Action` (a coloured pill —
+create / update / …), `Object`, `Record ID`, and `Actor`. The footer shows the
+total record count (e.g. *36 records*).
+
+Each row carries the full field set:
+
+| Field | Meaning |
+|---|---|
+| `created_at` | When the event was recorded |
+| `action` | The operation (create, update, delete, auth, …) |
+| `user_id` | Lookup to the acting User |
+| `actor` | Textual actor identity |
+| `object_name` | The object the event touched (e.g. `sys_user`) |
+| `record_id` | The affected record |
+| `old_value` | Prior value (textarea) |
+| `new_value` | New value (textarea) |
+| `ip_address` | Source IP of the request |
+| `user_agent` | Client user agent |
+| `tenant_id` | Owning tenant |
+| `metadata` | Additional structured context |
+
+> The `Config` view is the fastest way to answer "who changed this setting?" —
+> it narrows the trail to configuration actions before you start reading rows.
+
+### Reading a change
+
+For write actions, the interesting detail is the before/after. Open a row's
+`⋮` menu to expand `old_value` and `new_value` and see exactly what changed on
+that record. The `Object` and `Record ID` columns tell you *what* was touched;
+`old_value`/`new_value` tell you *how*; `actor`, `ip_address`, and `user_agent`
+tell you *who* and *from where*.
+
+> For regulated environments, back the immutability up at the storage layer —
+> make the table append-only at the database and define a retention policy.
+
+## Notification Events
+
+At **Setup → Diagnostics → Notification Events** (`sys_notification`). This is
+the **ingress log of the notification system** — one row per `emit()`, written
+before any delivery decision. Use it to diagnose why a notification did or did
+not reach an inbox; the routing and materialization that follow are documented
+in [Notifications](/docs/configure/notifications).
+
+Preset views are `Recent` and `By Topic`. Default columns: `Topic` (e.g.
+`project.digest`), `Severity` (an info/warn/… pill), `Actor`, `Source Object`,
+and `Created At`.
+
+| Field | Meaning |
+|---|---|
+| `topic` | The emitted topic |
+| `payload` | Event payload (JSON) |
+| `severity` | Severity level |
+| `dedup_key` | Key used to collapse duplicate emits |
+| `source_object` | Object that raised the event |
+| `source_id` | Record that raised the event |
+| `actor_id` | Principal that triggered the emit |
+| `created_at` | When the event was ingested |
+
+The `dedup_key` collapses duplicate emits, and `payload` carries the raw event
+context that templates render from. Because this log sits *upstream* of routing,
+a row here with no matching inbox message usually means a subscription or
+preference filtered the event out — check
+[Notifications](/docs/configure/notifications) when a user reports a missing
+alert.
+
+Downstream, each event is materialized into per-user inbox messages
+(`sys_inbox_message`) — the recipient's view lives under
+[Notifications](/docs/use/notifications).
+
+## Sessions
+
+At **Setup → Diagnostics → Sessions**. Sessions lists active and recent
+sign-in sessions, so you can investigate a user's activity or revoke access.
+Pair it with the `Auth` audit view when reviewing a sign-in incident.
+
+## Where to go next
+
+| Task | Page |
+|---|---|
+| Operator overview of logs, metrics, and request identity | [Observability](/docs/operate/observability) |
+| Understand how notifications are routed and rendered | [Notifications](/docs/configure/notifications) |
+| Harden a deployment before go-live | [Production Readiness](/docs/operate/production) |
+| Return to the operations overview | [Operate](/docs/operate) |
