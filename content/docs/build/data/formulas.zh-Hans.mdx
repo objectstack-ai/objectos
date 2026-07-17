@@ -1,0 +1,194 @@
+---
+title: 公式
+description: 计算字段、动态默认值与条件逻辑 —— 元数据需要"思考"的地方，都用同一门 CEL 表达式语言。
+---
+
+# 公式
+
+**一门表达式语言，覆盖所有场景。**只要有一段元数据需要计算值或求值条件，ObjectOS 就使用 [CEL](/docs/reference/cel)（谷歌的 Common Expression Language）—— 公式字段、动态默认值、条件可见性、验证条件、流程决策。语法学一次，处处能用。
+
+| 场景 | CEL 在那里做什么 |
+|---|---|
+| **公式字段**（`type: 'formula'`） | 读取时由其他字段计算出一个值 |
+| **动态默认值**（``defaultValue: cel`...` ``） | 在插入时求值，而不是编译时 |
+| **字段谓词**（`visibleWhen`、`readonlyWhen`、`requiredWhen`） | 按条件显示 / 锁定 / 必填某个字段 |
+| **[验证规则](/docs/build/data/validation-rules)**（`condition`） | 标记无效记录 |
+| **[视图](/docs/build/interface/views)**（`visibleOn`、`conditionalFormatting`） | 条件区块与行样式 |
+| **[流程](/docs/build/automation/flows)**（决策、Hook 条件） | 按记录状态分支 |
+
+本页讲构建者如何*使用*公式。完整的语言 —— 运算符、标准库、`Expression` 信封 —— 见 [CEL 参考](/docs/reference/cel)。
+
+## 公式字段
+
+公式字段在读取时由一条 CEL 表达式计算出它的值。它是只读的 —— 永远不能直接写入：
+
+```ts
+import { F } from '@objectstack/spec';
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Invoice = ObjectSchema.create({
+  name: 'invoice',
+  fields: {
+    subtotal: Field.decimal({ label: 'Subtotal' }),
+    tax_rate: Field.decimal({ label: 'Tax Rate' }),
+
+    total: Field.formula({
+      label: 'Total',
+      returnType: 'number',
+      expression: F`record.subtotal + record.subtotal * record.tax_rate`,
+    }),
+  },
+});
+```
+
+两个关键的键：
+
+| 键 | 作用 |
+|---|---|
+| `expression` | CEL 源码 —— 运行时**唯一**求值的键 |
+| `returnType` | 公式返回什么：`'number'`、`'text'`、`'boolean'`、`'date'` —— 供仪表盘与格式化读取 |
+
+> **警告：**公式字段的 `type` 永远是 `formula`。**不要**给 `Field.formula` 传 `type: 'currency'` 或 `type: 'number'` —— 那会覆盖 `type: 'formula'`，字段就静默地永远不再计算。值的类型请用 `returnType` 声明。
+
+### 日常模式
+
+```ts
+// 分档标签
+Field.formula({
+  label: 'Discount Tier',
+  returnType: 'text',
+  expression: `
+    record.amount > 1000000 ? "Platinum" :
+    record.amount > 500000 ? "Gold" :
+    record.amount > 100000 ? "Silver" : "Bronze"
+  `,
+})
+
+// 距关闭还有几天
+Field.formula({
+  label: 'Days to Close',
+  returnType: 'number',
+  expression: 'daysBetween(record.close_date, today())',
+})
+
+// 全名 —— joinNonEmpty 会跳过空白部分
+Field.formula({
+  label: 'Full Name',
+  returnType: 'text',
+  expression: F`joinNonEmpty([record.salutation, record.first_name, record.last_name], ' ')`,
+})
+
+// 毛利率，保留 2 位小数
+Field.formula({
+  label: 'Gross Margin %',
+  returnType: 'number',
+  expression: 'record.revenue > 0 ? ((record.revenue - record.cost) / record.revenue) * 100 : 0',
+  scale: 2,
+})
+```
+
+> **提示：**CEL 遇到 `null + string` 会抛错，所以拼接时把可能为空的操作数包进 `coalesce(record.x, '')` —— 或者直接用 `joinNonEmpty`，省掉这套仪式。
+
+### 公式作为记录标题
+
+自 ADR-0079 起，记录的标题由 `nameField` 指定的字段决定 —— 组合式标题可以用文本公式：
+
+```ts
+ObjectSchema.create({
+  name: 'invoice',
+  nameField: 'display_title',
+  fields: {
+    display_title: Field.formula({
+      returnType: 'text',
+      expression: F`"Invoice " + string(record.invoice_no) + " – " + record.customer.name`,
+    }),
+  },
+});
+```
+
+## 动态默认值
+
+包在 `` cel`...` `` 里的 `defaultValue` 在**插入时**求值 —— 用的是用户的时钟和身份，不是你笔记本的：
+
+```ts
+import { cel } from '@objectstack/spec';
+
+issued_date: Field.date({
+  defaultValue: cel`today()`,
+}),
+due_date: Field.date({
+  defaultValue: cel`daysFromNow(30)`,
+}),
+```
+
+同样的技巧也适用于种子数据：一条带 ``close_date: cel`daysFromNow(45)` `` 的种子记录会在包安装时解析，因此演示数据永远新鲜，而不是把编译时的时间戳固化进包里。
+
+## 条件式字段行为
+
+谓词让字段随记录的其余部分而变化：
+
+```ts
+import { P } from '@objectstack/spec';
+
+po_number: Field.text({
+  label: 'PO Number',
+  requiredWhen: P`record.amount > 10000`,
+}),
+rating: Field.select({
+  label: 'Rating',
+  options: [ /* ... */ ],
+  visibleWhen: P`record.status == 'qualified'`,
+}),
+notes: Field.textarea({
+  readonlyWhen: P`record.status == 'approved'`,
+}),
+```
+
+`F`（公式）、`P`（谓词）、`cel` 这几个标签模板 helper 可以互换 —— 在调用处哪个读起来顺就用哪个。
+
+## 30 秒学会 CEL
+
+| 概念 | 语法 |
+|---|---|
+| 当前记录的字段 | `record.amount` |
+| 更新前的值 | `previous.status` |
+| 相等 / 逻辑 | `==` `!=` `&&` `\|\|` `!` |
+| 条件表达式 | `cond ? then : else` |
+| 成员判断 | `record.region in ['us', 'eu']` |
+| 空白检查 | `isBlank(record.phone)` |
+| 日期 | `today()`、`now()`、`daysBetween(a, b)`、`addDays(d, n)` |
+| 字符串 | `upper`、`lower`、`trim`、`contains`、`matches` |
+
+完整的运算符表与标准库：[CEL 参考](/docs/reference/cel)。
+
+> **警告：**谓词是裸 CEL —— 千万别把字段引用包进花括号。`{record.rating} >= 4` 是一个 **map 字面量**，会导致解析错误；应写成 `record.rating >= 4`。花括号只属于 `{{ … }}` 文本模板。畸形的表达式会导致构建失败并在运行时抛错 —— 它绝不会静默地求值为 `false`。
+
+> **提示：**`has(record.x)` 只要键存在就为 true —— 哪怕值是 `null`。要检查"非空白"，用 `isBlank(...)` 或 `record.x != null`。
+
+## 最佳实践
+
+| 应该 | 不应该 |
+|---|---|
+| 保持公式简洁易读 | 制造循环引用 |
+| 测试边界情况（null、零、空） | 把三元表达式嵌套五层深 |
+| 用 `coalesce` / `isBlank` 处理空值 | 把公式用在频繁变化的数据上 |
+| 给每个公式声明 `returnType` | 重新实现本该由验证规则负责的逻辑 |
+
+## 用对话构建
+
+你很少需要手写公式。告诉 [AI Builder](/docs/build/ai-builder)：
+
+> *"在 opportunity 上加一个 Days to Close 公式：close_date 与今天之间的天数。"*
+
+它会生成 CEL，推断并写好 `returnType`，表达式在发布前会先经过校验 —— 无效的公式会带着定位信息使构建失败。
+
+## 下一步
+
+| 页面 | 原因 |
+|---|---|
+| [CEL 参考](/docs/reference/cel) | 完整的语言：运算符、标准库、表达式信封 |
+| [数据模型](/docs/build/data) | 公式字段所在的地方 |
+| [验证规则](/docs/build/data/validation-rules) | 用 CEL 条件拦截坏写入 |
+| [视图](/docs/build/interface/views) | `visibleOn` 与 `conditionalFormatting` 中的 CEL |
+| [流程](/docs/build/automation/flows) | 决策与 Hook 条件中的 CEL |
+| [字段类型](/docs/reference/field-types) | `formula`、`summary`、`autonumber` 等 |
