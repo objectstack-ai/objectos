@@ -3,8 +3,6 @@ title: 存储
 description: ObjectOS 把文件放在哪里 —— 本地磁盘、S3、R2、MinIO、Spaces。
 ---
 
-# 存储
-
 ObjectOS 的文件（附件、上传内容、生成的文档）会经过**存储服务**——一个可插拔的抽象层，包含两类适配器：**本地文件系统**（默认）和 **S3 兼容存储**（生产）。
 
 该服务由 `@objectstack/service-storage` 提供，在 standalone 和 project 启动时默认启用。

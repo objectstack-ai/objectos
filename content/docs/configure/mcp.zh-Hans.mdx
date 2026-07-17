@@ -3,8 +3,6 @@ title: 接入 AI 工具（MCP）
 description: 把 Claude Code、Claude Desktop 或任意 MCP 客户端指向你的 ObjectOS 应用，让 Agent 在你的权限模型约束下处理你的数据。
 ---
 
-# 接入 AI 工具（MCP）
-
 每个 ObjectOS 部署天生就是一个 MCP 服务器。运行时在 **`/api/v1/mcp`** 上提供 [Model Context Protocol](https://modelcontextprotocol.io) 服务——默认开启，无需安装插件，无需配置步骤。你的对象和已暴露的操作在定义的那一刻就成为带类型的工具；剩下唯一要做的就是接入一个客户端并验证它能用。
 
 > 要关闭这个入口，设置 `OS_MCP_SERVER_ENABLED=false`——端点将返回 404，**Setup → Connect an Agent**（接入 Agent）页面也随之消失。

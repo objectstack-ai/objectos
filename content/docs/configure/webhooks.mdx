@@ -3,8 +3,6 @@ title: Webhooks
 description: Outbound webhook delivery, signing, and retries.
 ---
 
-# Webhooks
-
 ObjectOS uses a persistent **outbox** model for outbound webhooks. When
 the webhook plugin is enabled, business changes enqueue a delivery row
 and a background dispatcher delivers it with retries — so a slow or
