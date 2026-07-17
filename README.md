@@ -18,13 +18,16 @@ repository. There is no open-source edition of ObjectOS.
 
 ## Editions
 
-| Edition | Delivery | For |
-|:---|:---|:---|
-| **ObjectOS Cloud** | Managed service | Organizations that want the platform operated for them — orgs, environments, deploys, billing. |
-| **ObjectOS Enterprise** | Self-managed deployment | Organizations that run the platform on their own infrastructure. |
+One rate card, two deliveries — priced per **AI seat** in every edition:
 
-See [docs.objectos.ai](https://docs.objectos.ai) for capabilities, deployment,
-and operations documentation.
+| Delivery | Plans | For |
+|:---|:---|:---|
+| **ObjectOS Cloud** (managed service) | Free · Team · Business | Organizations that want the platform operated for them — orgs, environments, deploys, billing. |
+| **ObjectOS Self-Managed** (your infrastructure) | Business Self-Managed (single-node license) · Enterprise (full private deployment) | Organizations that run the platform themselves. |
+
+See [License & Pricing](https://docs.objectos.ai/docs/resources/license) for
+plan details, and [docs.objectos.ai](https://docs.objectos.ai) for
+capabilities, deployment, and operations documentation.
 
 ## Building and running your own apps? That's ObjectStack — and it's open source
 
