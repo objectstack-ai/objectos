@@ -1,0 +1,194 @@
+---
+title: Relationships
+description: Connect objects with lookups and master-detail — cascade rules, filtered pickers, hierarchies, junction objects, and roll-ups.
+---
+
+# Relationships
+
+**A relationship is just a field.** Point a `lookup` or `masterDetail`
+field at another object and ObjectOS wires up everything on top:
+foreign-key integrity, the record picker in Console, related lists on
+the parent page, and `expand` in queries.
+
+| Type | Cardinality | Delete default | Use for |
+|---|---|---|---|
+| `lookup` | Many-to-one | `set_null` | Loose references (ticket → assignee) |
+| `masterDetail` | Many-to-one, owned | `cascade` | Parent-child ownership (order → line items) |
+| `tree` | Self-referencing | — | Hierarchies (categories, org charts) |
+| `user` | Many-to-one | `set_null` | Person picker — a lookup specialized to `sys_user` |
+| `summary` | Roll-up onto parent | — | Aggregate children (sum, count, avg) |
+
+## Lookup (many-to-one)
+
+The workhorse. References a record in another object:
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Contact = ObjectSchema.create({
+  name: 'contact',
+  fields: {
+    account: Field.lookup('account', {
+      label: 'Account',
+      required: true,
+    }),
+  },
+});
+```
+
+The platform validates that the referenced record exists — foreign-key
+integrity is enforced on every write.
+
+> **Tip:** Name the field after the object it points to — `account`,
+> not `account_id`. Related lists, `expand`, and the AI Builder all
+> read better that way.
+
+### What happens when the parent is deleted
+
+Control cascade behavior with `deleteBehavior`:
+
+| Value | On parent delete |
+|---|---|
+| `set_null` | Child's reference is cleared (lookup default) |
+| `cascade` | Child records are deleted too |
+| `restrict` | Delete is blocked while children exist |
+
+## Filtered lookups
+
+Constrain which records the picker offers. Use `lookupFilters` for
+static conditions and `dependsOn` to scope candidates by another field
+on the same record:
+
+```ts
+contact: Field.lookup('contact', {
+  label: 'Contact',
+  dependsOn: ['account'],          // only contacts of the chosen account
+  lookupFilters: [
+    { field: 'is_active', operator: 'eq', value: true },
+  ],
+})
+```
+
+> **Warning:** The legacy `referenceFilters: string[]` property (e.g.
+> `['is_active = true']`) is accepted by the schema but **not read by
+> the record-picker UI** — it filters nothing. Always use the
+> structured `lookupFilters` + `dependsOn` shown above.
+
+## Master-detail (owned children)
+
+`masterDetail` is a lookup with ownership semantics: the child belongs
+to the parent, cascade-deletes with it by default, and can be edited
+inline as line items on the parent form.
+
+```ts
+export const OrderLine = ObjectSchema.create({
+  name: 'order_line',
+  fields: {
+    order:    Field.masterDetail({ reference: 'order', label: 'Order' }),
+    product:  Field.lookup('product', { label: 'Product' }),
+    quantity: Field.number({ label: 'Quantity', min: 1 }),
+  },
+});
+```
+
+| Aspect | Behavior |
+|---|---|
+| Delete | Cascades to children at runtime, unless `deleteBehavior: 'restrict'` |
+| Ownership | Child records are owned by the parent record |
+| Editing | Optional inline line-item editing on the parent form |
+| Roll-ups | `summary` fields are only valid on the master side |
+
+Choose `lookup` when the reference is optional or shared; choose
+`masterDetail` when a child record is meaningless without its parent.
+
+## Self-referencing lookups & trees
+
+A lookup can point back at its own object to build hierarchies:
+
+```ts
+parent_account: Field.lookup('account', {
+  label: 'Parent Account',
+  description: 'Parent company in hierarchy',
+})
+```
+
+For dedicated hierarchies (categories, org charts) use the `tree` field
+type — a self-referencing lookup stored and expanded like a `lookup`.
+Note the engine does **not** run a cycle check on write, so a chain
+that loops back on itself is not automatically rejected.
+
+> **Tip:** Pair a `tree` / self-lookup field with a
+> [tree list view](/docs/build/interface/views) to render the hierarchy
+> as nested rows in Console.
+
+## Related lists
+
+You get these for free. When a lookup points at a parent, child records
+automatically appear as a related list on the parent's detail page:
+
+- Contact has `account: Field.lookup('account')`
+- → the Account detail page shows a **Contacts** related list
+
+No extra configuration needed.
+
+## Many-to-many: junction objects
+
+ObjectOS has no direct many-to-many field — model it as a **junction
+object**: an object with two relationship fields, one to each side.
+
+```ts
+// Student ↔ Course, joined by Enrollment
+export const Enrollment = ObjectSchema.create({
+  name: 'enrollment',
+  fields: {
+    student: Field.masterDetail({ reference: 'student', label: 'Student' }),
+    course:  Field.masterDetail({ reference: 'course',  label: 'Course' }),
+    grade:   Field.select({ label: 'Grade', options: [ /* ... */ ] }),
+  },
+  indexes: [
+    { fields: ['student', 'course'], unique: true },  // one enrollment per pair
+  ],
+});
+```
+
+Each side sees the junction records as a related list, and the junction
+object itself is a natural home for attributes of the pairing (grade,
+role, date joined).
+
+## Roll-ups (`summary` fields)
+
+Aggregate child records onto the parent with a `summary` field. Only
+valid on master objects — the parent side of a master-detail:
+
+```ts
+// On the Order object
+total_lines: {
+  type: 'summary',
+  label: 'Line Count',
+  summaryOperations: {
+    object: 'order_line',    // child object to aggregate
+    field: 'quantity',       // field to aggregate
+    function: 'sum',         // count | sum | min | max | avg
+  },
+}
+```
+
+Summary fields are read-only and computed from the children — you never
+write them directly.
+
+## Querying across relationships
+
+Load related records in one call with `expand` — the query API follows
+lookup fields and inlines the referenced records, so you don't fan out
+N+1 requests from the client.
+
+## Where to go next
+
+| Page | Why |
+|---|---|
+| [Data Model](/docs/build/data) | Objects, fields, and the schema these relationships live in |
+| [Formulas](/docs/build/data/formulas) | Compute values across a record with CEL |
+| [Validation Rules](/docs/build/data/validation-rules) | Cross-field rules and unique constraints |
+| [Views](/docs/build/interface/views) | Tree views, kanban, and related-list surfaces |
+| [Field Types](/docs/reference/field-types) | Full reference for `lookup`, `master_detail`, `tree`, `summary` |
+| [AI Builder](/docs/build/ai-builder) | Describe the relationship in chat and let the platform wire it |

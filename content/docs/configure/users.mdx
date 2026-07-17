@@ -1,0 +1,173 @@
+---
+title: Users & Organization
+description: Build the business-unit tree, add and invite users, manage memberships and teams, and provision service accounts.
+---
+
+# Users & Organization
+
+Everything about *who exists* in your deployment — people, the org tree
+they sit in, the teams they collaborate in, and the service accounts
+that act on their behalf — is managed from
+**Setup → People & Organization** (`/apps/setup`).
+
+The underlying identity objects (`sys_user`, `sys_organization`,
+`sys_member`, `sys_business_unit`, `sys_team`, `sys_invitation`,
+`sys_api_key`, …) live in your project database; see the
+[identity layer table](/docs/configure/permissions#layer-1--identity)
+for what each one represents.
+
+> **90% of daily administration is assigning people to positions.** The
+> positions, the permission sets behind them, and the security baseline
+> ship with the platform and the apps you install. Your job is the
+> people side — covered on this page — and the assignments, covered in
+> [Managing Access](/docs/configure/permissions/managing-access).
+
+## Build the organization (business units)
+
+**Setup → People & Organization → Business Units.**
+
+The business-unit tree is the *one* hierarchy in the access model: it
+decides visibility depth (`unit`, `unit_and_below`) and delegated-admin
+boundaries. Build it at onboarding, revisit it only on reorgs.
+
+- The default **Org Chart** tab renders the tree as an indented
+  expand-and-collapse tree grid.
+- Create the root first (kind `company`), then add children with
+  **New**, picking the **Parent Business Unit** in the form. The kinds
+  `division` / `department` / `office` / `cost_center` are display
+  hints — the tree works the same regardless.
+- Reorganize by **Edit**-ing a unit and changing its parent. The tree
+  view is a read-only presentation — re-parenting happens through the
+  record form, not drag-and-drop.
+
+Three similarly-named things, three different jobs — don't mix them up:
+
+| Object | Job |
+|---|---|
+| **Business unit** (`sys_business_unit`) | The hierarchy. Drives visibility depth and delegated-admin boundaries |
+| **Team** (`sys_team`) | Flat collaboration group. Teams *receive* sharing; they never carry capability |
+| **Organization** (`sys_organization`) | The tenant itself — your company's account, not a node inside it |
+
+> Keep the tree shallow and honest to your real structure. If something
+> should affect *what records people see* by org structure, it's a
+> business unit; if it's just a group people share records with, it's a
+> team.
+
+## Add people
+
+**Setup → People & Organization → Users.** Three ways in, all
+first-class:
+
+| Path | When to use | What happens |
+|---|---|---|
+| **Invite User** (toolbar) | The person has a reachable email | Sends an invitation; they set their own password on accept |
+| **Create User** (toolbar) | No email flow wanted — or phone-only staff | Creates a sign-in-ready account (email and/or phone); a generated temporary password is shown **once**, with password change forced on first login |
+| **Import** (toolbar) | Bulk onboarding from CSV/Excel | Wizard with column mapping and dry-run preview; up to 500 rows per batch. Pick the sign-in policy: no password (first sign-in via OTP/magic/reset link), send invitations, or one-time temporary passwords |
+
+Pending invitations are listed under
+**Setup → People & Organization → Invitations**.
+
+The same flows exist over REST (ObjectStack 14.3+) for scripted
+onboarding:
+
+```bash
+# Create a sign-in-ready account with an optional one-time password
+curl -X POST https://crm.example.com/api/v1/auth/admin/create-user
+
+# Bulk-import rows / CSV / XLSX (max 500 rows), with dry-run and upsert modes
+curl -X POST https://crm.example.com/api/v1/auth/admin/import-users
+```
+
+Payloads, password policies, and phone-only accounts are covered in
+[Authentication → Admin user management](/docs/configure/authentication#admin-user-management-objectstack-143).
+
+## Place people in the org tree (memberships)
+
+Placing a person in the org tree is a separate record: a **Business
+Unit Member** row (`sys_business_unit_member` — user + business unit,
+one marked *primary*). Depth-based visibility and
+`unit_and_subordinates` sharing resolve through this membership, so
+don't skip it — a user without a membership row is invisible to
+depth-based rules.
+
+When someone changes departments, update their Business Unit Member row
+and re-anchor their position assignments — see
+[Managing Access](/docs/configure/permissions/managing-access).
+
+## Teams
+
+**Setup → People & Organization → Teams.** Teams are flat collaboration
+groups: sharing rules and record shares can target them, but they never
+carry permission sets. Use them when a cross-department group needs to
+see a set of records without changing anyone's job function or the org
+tree.
+
+## User lifecycle
+
+Day-to-day lifecycle actions live on each user's row menu and record
+header:
+
+| Action | Effect |
+|---|---|
+| **Ban / Unban** | Blocks (or restores) sign-in immediately |
+| **Unlock Account** | Clears a brute-force lockout early |
+| **Set Password** | Sets a password directly; also mints one-time temporary passwords with forced rotation |
+| **Impersonate User** | Opens a session as that user, for support and verification (sessions are logged) |
+
+To deactivate someone, **Ban** them first — sign-in is blocked
+immediately — then remove their position assignments and memberships at
+leisure. The full offboarding sequence is in
+[Managing Access](/docs/configure/permissions/managing-access).
+
+> Users' own self-service password recovery depends on a configured
+> [email](/docs/configure/email) or SMS delivery service. Until one is
+> wired up, admin **Set Password** (temporary, must-change) is the
+> reliable fallback.
+
+## Service accounts & API keys
+
+Integrations and headless agents authenticate with an API key
+(`sys_api_key`) — a long-lived programmatic credential **bound to a
+user**. Every call made with the key runs as that user, with that
+user's permissions.
+
+For anything beyond personal scripting, create a dedicated service
+user:
+
+1. **Create User** for the integration (no invite needed).
+2. Assign it the smallest permission set that covers the integration's
+   objects — never an admin set.
+3. Mint an API key for it, from **Setup → Connect an Agent** or over
+   REST:
+
+```bash
+curl -b cookies.txt -X POST https://crm.example.com/api/v1/keys
+# → { "key": "osk_..." }  — shown once; store it in your secret manager
+```
+
+Key usage, headers, and rotation are covered in
+[API Access](/docs/configure/api-access); connecting AI agents with a
+key is covered in [Connect AI Tools (MCP)](/docs/configure/mcp).
+
+## FAQ
+
+**A new user sees almost nothing — broken?** No: that's the baseline
+working. Every authenticated user gets the additive `member_default`
+baseline; real access arrives when you assign a position.
+
+**Department vs. team?** Department = business unit (hierarchy,
+visibility). Team = flat sharing group.
+
+**Can I delete the built-in permission sets?** No — sets like
+`member_default` and `organization_admin` are the platform baseline.
+Shipped sets can be overlaid or simply left unassigned.
+
+## Where to go next
+
+| Task | Page |
+|---|---|
+| Assign positions and permission sets | [Managing Access](/docs/configure/permissions/managing-access) |
+| Understand the layered access model | [Permissions](/docs/configure/permissions) |
+| Configure sign-in, SSO, and password policy | [Authentication](/docs/configure/authentication) |
+| Set up email so invites and resets deliver | [Email](/docs/configure/email) |
+| API keys for integrations | [API Access](/docs/configure/api-access) |

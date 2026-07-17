@@ -1,0 +1,186 @@
+---
+title: Managing Access
+description: The daily admin playbook — onboard a new hire, change a role, verify what someone can see, and offboard cleanly.
+---
+
+# Managing Access
+
+This is the task guide for the access questions an administrator
+handles every week. The [model overview](/docs/configure/permissions)
+explains *how* the layers work; this page tells you *what to click*.
+
+> **90% of daily administration is assigning people to positions.** The
+> positions, the permission sets behind them, and the security baseline
+> ship with the platform and the apps you install. You almost never
+> build capability from scratch — and you shouldn't.
+
+A user's effective access is additive:
+
+```text
+effective access = union of permission sets reached through positions
+                 + direct grants
+                 + the built-in member_default baseline
+```
+
+Restriction is done by *not granting* — there are no subtraction rules
+to maintain.
+
+## Onboard a new hire
+
+Four ordered steps, each depending on the previous one:
+
+| Step | Where | What |
+|---|---|---|
+| 1. Create the user | Setup → People & Organization → Users | **Invite**, **Create**, or **Import** — see [Users & Organization](/docs/configure/users#add-people) |
+| 2. Place them in the org tree | Same list → Business Unit Member row | User + business unit, one marked *primary*; depth-based visibility resolves through this |
+| 3. Assign their position | Setup → Access Control → Positions | The daily 90% — see below |
+| 4. Verify | Impersonate + Explain | Never announce "you're all set" untested — see below |
+
+### Assigning positions
+
+An assignment is one row: **User Position** (`sys_user_position`) =
+*user* + *position* + optionally the **business unit** they hold it in.
+The anchor decides *where* the position's depth grants apply — "sales
+manager **of East**" sees East's records, not the whole company's.
+
+From **Setup → Access Control → Positions**, open a position and add
+assignments from its related list (or create User Position rows
+directly). These writes are governed: tenant-level admins pass; a
+delegated admin can only assign allowlisted sets inside their own
+subtree — self-escalation is structurally refused (see
+[delegated administration](/docs/configure/permissions/permission-sets#delegated-administration)).
+
+Two adjacent surfaces complete the picture:
+
+- **Direct grants** — on a permission set's record page
+  (**Setup → Access Control → Permission Sets**), the **Assigned
+  Users** panel adds per-user grants without a position. Rows held *via
+  a position* are shown but removed on the position, not here.
+- **Business-unit membership** — from step 2; independent of the
+  assignment anchor.
+
+## Change someone's role
+
+When someone changes departments or job functions:
+
+1. Update their **Business Unit Member** row to the new unit.
+2. **Re-anchor their User Position rows** — remove or edit assignments
+   anchored to the old unit, add assignments for the new one.
+3. Remove any direct grants that belonged to the old role.
+4. Verify (below).
+
+Assignments may carry `valid_from` / `valid_until` windows — expired
+grants stop resolving immediately, which is the clean way to handle a
+planned transition or a temporary covering role. See
+[Permission Sets](/docs/configure/permissions/permission-sets).
+
+## Verify what someone can see
+
+Two built-in verification tools:
+
+- **Impersonate.** Users list → row menu → **Impersonate User**. You
+  get that user's session — open the apps they'd open, confirm they see
+  what they should (and *don't* see what they shouldn't).
+  Impersonation is for legitimate support and verification; sessions
+  are logged.
+- **Explain.** Studio's **Access** pillar → **Explain access**: pick
+  the user, an object, and an operation, and the engine returns the
+  verdict plus every evaluation layer — which permission set granted,
+  held via which position, which sharing rule widened, which policy
+  narrowed.
+
+The same report is available over REST:
+
+```bash
+# GET, query-string form
+curl -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/v1/security/explain?object=crm_lead&operation=read&userId=usr_123"
+
+# POST, body form
+curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"object":"crm_lead","operation":"read","userId":"usr_123"}' \
+  "$BASE/api/v1/security/explain"
+```
+
+`operation` is one of `read | create | update | delete | transfer |
+restore | purge` (defaults to `read`); omit `userId` to explain
+**yourself**. Explaining yourself is always allowed; explaining
+*another* user requires the `manage_users` capability or a delegated
+admin scope covering that user.
+
+> When something resolves wrong, explain-first beats guess-and-toggle:
+> the report names the exact permission set and layer to fix. See the
+> [diagnose & audit section](/docs/configure/permissions#diagnose--audit).
+
+## Offboard someone
+
+1. **Ban User** — blocks sign-in immediately. This is the only urgent
+   step.
+2. Remove their position assignments and direct grants at leisure.
+3. Remove or re-parent their Business Unit Member rows.
+4. Revoke any API keys bound to the user — keys act as the user and
+   keep working while the underlying grants exist.
+
+## When the shipped positions don't fit
+
+Permissions are *designed* in Studio, *assigned* in Setup. If no
+shipped position covers the need, prefer the smallest change that
+works, in this order:
+
+1. **Bind an existing permission set to a position.**
+2. **Clone a shipped set and adjust it.**
+3. **Author a new set** in Studio's permission-set matrix editor — a
+   structured spreadsheet for object CRUD, field-level security, and
+   capabilities; you never hand-write JSON.
+
+Editing a set that shipped with an app creates an *environment overlay*
+— your change wins, survives upgrades, and can be reset back to the
+vendor baseline. Keep the additive model in mind: author coherent
+capability bundles, never "subtraction sets". See
+[Permission Sets](/docs/configure/permissions/permission-sets).
+
+When translating a requirement into a change, pick the matching layer:
+
+| Requirement | Layer | Covered in |
+|---|---|---|
+| Can read/create/edit/delete an object type | Object permissions | [Permission Sets](/docs/configure/permissions/permission-sets) |
+| Can see / edit a specific field | Field-level security | [Field-Level Security](/docs/configure/permissions/field-level-security) |
+| Which *rows* a user sees | Record access | [Record Access](/docs/configure/permissions/record-access) |
+| A functional capability (export, manage users) | System permissions | [Permission Sets](/docs/configure/permissions/permission-sets#system-permissions) |
+| Can open an app or nav entry | Application access | [Permission Sets](/docs/configure/permissions/permission-sets) |
+
+## Quick paths
+
+| I need to… | Do this |
+|---|---|
+| Onboard a new employee | Invite/Create the user → Business Unit Member row → assign their position |
+| Offboard someone | **Ban User** (blocks sign-in immediately) — then remove assignments at leisure |
+| "I can't sign in" | User record → is it banned? locked? **Unlock Account** or **Set Password** (temporary, must-change) |
+| "Why can't I see X?" | Studio → Access → **Explain access** for that user + object |
+| Someone changed departments | Update their Business Unit Member row; re-anchor their User Position rows |
+| Let a subsidiary manage its own staff | Grant a set carrying a [delegated admin scope](/docs/configure/permissions/permission-sets#delegated-administration) |
+| Give one user one extra capability | Permission set record → **Assigned Users** → add (direct grant) |
+
+## Where is everything
+
+| Thing | Location |
+|---|---|
+| Users, invitations | Setup → People & Organization → Users / Invitations |
+| Business-unit tree | Setup → People & Organization → Business Units |
+| Teams | Setup → People & Organization → Teams |
+| Positions, permission sets | Setup → Access Control |
+| Sharing rules, record shares | Setup → Access Control |
+| Password policy, MFA, lockout, SSO | Setup → Configuration → Authentication |
+| Sessions, notification events, audit logs | Setup → Diagnostics |
+| Permission matrix editor, Explain access | Studio → Access |
+
+## Where to go next
+
+| Task | Page |
+|---|---|
+| Create users and build the org tree | [Users & Organization](/docs/configure/users) |
+| Understand positions and audience anchors | [Positions](/docs/configure/permissions/positions) |
+| Author or adjust permission sets | [Permission Sets](/docs/configure/permissions/permission-sets) |
+| Control which rows people see | [Record Access](/docs/configure/permissions/record-access) |
+| Hide or lock down sensitive fields | [Field-Level Security](/docs/configure/permissions/field-level-security) |
+| Sign-in policy and SSO | [Authentication](/docs/configure/authentication) |

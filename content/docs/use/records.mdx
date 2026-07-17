@@ -1,0 +1,99 @@
+---
+title: Working with records
+description: Open, read, create, and edit the records behind your daily work — tasks, projects, customers, anything.
+---
+
+# Working with records
+
+Everything in ObjectOS is a **record** — a task, a project, a
+customer, an invoice. This page shows you how to open a record, read
+its page, create new ones, and edit many at once.
+
+## Opening a record
+
+In any list, the **record's title is a link** — click it to open the
+record page. To get back, use the back link at the top of the record
+(for example **< All Tasks**), or the breadcrumb in the top-left
+corner.
+
+## Anatomy of a record page
+
+From top to bottom, a record page shows:
+
+| Element | What it is |
+|---|---|
+| **Back link** | Returns you to the list you came from (e.g. **< All Tasks**) |
+| **State pipeline bar** | Only on objects with a workflow — chevron stages showing where the record is in its process |
+| **Highlights strip** | The record's key fields at a glance (e.g. Project, Assignee, Priority, Due Date, Progress) |
+| **Action buttons** | Actions defined for this record, such as **Log Time** |
+| **Field sections** | The rest of the fields, grouped into cards (e.g. Overview, Schedule, Details) |
+| **Show N empty fields** | A toggle at the end of a section — empty fields are collapsed by default to keep the page short |
+
+### Reading the state pipeline
+
+When an object has a workflow, the bar at the top shows every stage
+as a chevron: completed stages carry a checkmark (✓ Backlog → ✓ To Do
+→ ✓ In Progress), and the **current stage is highlighted**. One
+glance tells you how far along the record is.
+
+> **Tip:** If a record looks sparse, click **Show N empty fields** —
+> the fields exist, they just have no value yet.
+
+## Creating a record
+
+Click **+ New** at the top of any list. A modal opens (for example
+*"Create Task — Add a new Task to your database"*). Inside the form:
+
+| You'll see | How it works |
+|---|---|
+| Fields marked `*` | Required — you can't save without them |
+| **Select…** pickers | Lookup fields that point to another record (a Project, a User). Type to search, or use the table-browse button to pick from a full list. |
+| Dropdowns | Choice fields like Status or Priority — pick one value |
+| Date pickers | Click a date field to pick a day from a calendar |
+
+Finish with **Create**, or **Cancel** to discard.
+
+## Editing records inline
+
+You don't have to open every record to change it. In a grid view,
+turn on the **Edit inline** toggle in the toolbar — cells become
+editable, so you can fix a status, reassign a task, or update a date
+directly in the list, spreadsheet-style.
+
+## The per-row actions menu
+
+Every row in a grid has a `⋮` **Actions** menu at its end. It holds
+the actions available for that single record — a quick alternative to
+opening the record first.
+
+## Selecting many records at once
+
+Each grid row starts with a **checkbox**:
+
+1. Tick the rows you want (or the header checkbox for the whole page).
+2. The object's **bulk actions** — buttons like **Reassign…** at the
+   top of the list — now apply to everything you selected.
+
+> **Tip:** Bulk actions differ per object; they're the buttons next to
+> **+ New** and **Import** in the list header.
+
+## The list header, in full
+
+Above every list you'll find:
+
+| Button | What it does |
+|---|---|
+| **+ New** | Create a record (the modal described above) |
+| **Import** | Bring in records from a file instead of typing them one by one |
+| Custom bulk actions | Object-specific operations like **Reassign…**, applied to your selection |
+| Bell-off toggle | Mute notifications for this object — see [Notifications](/docs/use/notifications) |
+
+## Where to go next
+
+| I want to… | Read |
+|---|---|
+| Change how the list itself looks — filter, group, switch to kanban | [Using views](/docs/use/views) |
+| See totals and trends instead of rows | [Dashboards](/docs/use/dashboards) |
+| Approve a record waiting on me | [Approvals](/docs/use/approvals) |
+| Control which updates reach me | [Notifications](/docs/use/notifications) |
+| Back to the Console tour | [Using ObjectOS](/docs/use) |

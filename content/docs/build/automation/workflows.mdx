@@ -1,0 +1,160 @@
+---
+title: Workflows
+description: Model a record's lifecycle as a state machine — valid states, guarded transitions, and nothing a flow can do better.
+---
+
+# Workflows
+
+**A workflow models a record's lifecycle as a finite state machine: the states the record can be in, the events that move it between them, and the guards that must hold for a move to happen.** Use one when the core requirement is "this object can only move through these states by these events."
+
+There is no standalone Salesforce-style Workflow Rule authoring type. The old
+"workflow" concept splits cleanly in two:
+
+- **State machine metadata** for strict lifecycle transitions — this page.
+- **[Flows](/docs/build/automation/flows)** for event-triggered or scheduled
+  automation, including [approval](/docs/build/automation/approvals) pauses.
+
+## Workflows vs flows
+
+| | Workflow (state machine) | Flow |
+|---|---|---|
+| Models | *State* — where a record is in its lifecycle | *Steps* — what happens when something occurs |
+| Answers | "Is this transition allowed right now?" | "What do we do about it?" |
+| Shape | States, transitions, guards | Nodes and edges: triggers, actions, branches |
+| Side effects | None — it only constrains | All of them — email, updates, HTTP, waits |
+
+They compose: the state machine constrains the transitions; flows perform the
+side effects around them when you need notifications, record updates, or
+external calls.
+
+## Define a state machine
+
+A support case that must move `new → assigned → resolved`, with an escalation
+path:
+
+```ts
+import type { StateMachineConfig } from '@objectstack/spec/automation';
+
+export const caseLifecycle: StateMachineConfig = {
+  id: 'case_lifecycle',
+  initial: 'new',
+  states: {
+    new: {
+      on: {
+        ASSIGN: { target: 'assigned' },
+      },
+    },
+    assigned: {
+      on: {
+        RESOLVE: { target: 'resolved', cond: 'has_resolution' },
+        ESCALATE: { target: 'escalated' },
+      },
+    },
+    escalated: {
+      on: {
+        RESOLVE: { target: 'resolved', cond: 'has_resolution' },
+      },
+    },
+    resolved: {
+      type: 'final',
+    },
+  },
+};
+```
+
+Read it as a contract: a `new` case can only be assigned. An `assigned` case
+can be resolved — but only if the `has_resolution` guard passes — or escalated.
+A `resolved` case is final; nothing moves it again.
+
+## Anatomy
+
+| Key | What it declares |
+|---|---|
+| `id` | The state machine's identifier |
+| `initial` | The state every new record starts in |
+| `states` | Map of state name → its outgoing transitions |
+| `on` | Events this state responds to (`ASSIGN`, `RESOLVE`, …) |
+| `target` | The state an event moves the record to |
+| `cond` | A guard that must hold for the transition to fire |
+| `type: 'final'` | Terminal state — no outgoing transitions |
+
+### Guards
+
+A guard (`cond`) makes a transition conditional: in the example above,
+`RESOLVE` only reaches `resolved` when `has_resolution` holds. Guards are how
+you encode "you can't close a case without a resolution" as a structural rule
+instead of a validation scattered through UI code.
+
+### Events, not field writes
+
+Transitions fire on named **events** (`ASSIGN`, `ESCALATE`), not on arbitrary
+status-field edits. That's the point: the machine defines the complete set of
+legal moves, and anything not declared is impossible.
+
+> **Tip:** Keep the machine minimal — states, transitions, guards. The moment
+> you want "and then send an email", you've left workflow territory: put the
+> side effect in a [flow](/docs/build/automation/flows) that reacts to the
+> transition.
+
+## Side effects belong in flows
+
+State machines describe valid transitions and guards — nothing else. When a
+transition should *do* something (notify sales, stamp a closed date, call an
+external system), pair the machine with a flow triggered by the record change:
+
+```ts
+export const dealClosedWon = defineFlow({
+  name: 'deal_closed_won',
+  type: 'record_change',
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      config: {
+        triggerType: 'record-after-update',
+        objectName: 'opportunity',
+        condition: "record.stage == 'closed_won' && previous.stage != 'closed_won'",
+      },
+    },
+    { id: 'set_closed_date', type: 'update_record', label: 'Set Closed Date' },
+    { id: 'notify_sales', type: 'notify', label: 'Notify Sales' },
+    { id: 'end', type: 'end' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'set_closed_date' },
+    { id: 'e2', source: 'set_closed_date', target: 'notify_sales' },
+    { id: 'e3', source: 'notify_sales', target: 'end' },
+  ],
+});
+```
+
+The machine guarantees the deal *reached* `closed_won` legally; the flow
+handles what happens next. Conditions like the one above are CEL expressions —
+see [CEL](/docs/reference/cel).
+
+## Migrating from workflow rules
+
+If you're coming from a platform with Workflow Rules, here's the mapping:
+
+| Old concept | Current equivalent |
+|---|---|
+| Workflow Rule | Flow |
+| Time trigger | Scheduled flow |
+| Field update action | `update_record` node |
+| Email alert | `notify` node |
+| HTTP call | `http` node |
+| Approval Process | Flow with one or more `approval` nodes |
+
+The test: if the old rule was "when X happens, do Y", model it as a small
+flow. If it was "this record must move through controlled states", model the
+lifecycle as a state machine and use flows for the side effects.
+
+## Where to go next
+
+| Page | Why |
+|---|---|
+| [Flows](/docs/build/automation/flows) | Side effects around transitions — triggers, steps, error handling |
+| [Approvals](/docs/build/automation/approvals) | Human sign-off as a pause inside a flow |
+| [CEL expressions](/docs/reference/cel) | The language behind guards and flow conditions |
+| [Data modeling](/docs/build/data) | The objects whose lifecycles you're constraining |
+| [Automation overview](/docs/build/automation) | Chooser: flow vs workflow vs approval |

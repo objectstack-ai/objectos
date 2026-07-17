@@ -1,0 +1,70 @@
+---
+title: Administration
+description: Where system administrators manage users, access, settings, and integrations — and which page answers which task.
+---
+
+# Administration
+
+This section is for the **system administrator** of an ObjectOS
+deployment: the person who onboards users, grants access, wires up
+sign-in, email, storage, and integrations, and keeps the system healthy.
+You manage people and their permissions day to day; the applications,
+objects, and permission sets themselves ship with the platform and the
+app packages you install.
+
+> **Permissions are designed in Studio, assigned in Setup.** Most
+> administration never leaves Setup — you enter Studio only to author
+> permission sets or to run the explain engine.
+
+## The Setup console
+
+The built-in administration console lives at **`/apps/setup`** and
+requires the `setup.access` permission. Its left-hand navigation is
+contributed at runtime by the capability plugins that are loaded, so the
+menu you see reflects exactly what your deployment runs — a disabled
+capability contributes nothing and its group stays empty.
+
+The stable navigation groups:
+
+| Group | What you find there |
+|---|---|
+| **Overview** | System Overview dashboard |
+| **People & Organization** | Users, Business Units, Teams, Organizations, Invitations |
+| **Access Control** | Positions, Permission Sets, Sharing Rules, Record Shares, API Keys |
+| **Approvals** | Approval processes (when the approvals plugin is loaded) |
+| **Configuration** | All Settings, Branding, Authentication, Email, File Storage, AI & Embedder, Knowledge, Feature Flags |
+| **Diagnostics** | Sessions, Notification Events, Audit Logs |
+| **Integrations** | Webhooks |
+| **Advanced** | OAuth Applications, Signing Keys (JWKS), Identity Links, User Preferences |
+
+## Task map
+
+| I need to… | Read |
+|---|---|
+| Add users, build the org tree, manage teams | [Users & Organization](/docs/configure/users) |
+| Onboard, offboard, or change someone's access | [Managing Access](/docs/configure/permissions/managing-access) |
+| Understand the whole access model | [Permissions](/docs/configure/permissions) |
+| Configure sign-in, OAuth, SSO, 2FA | [Authentication](/docs/configure/authentication) |
+| Change runtime and tenant settings | [System Settings](/docs/configure/system-settings) |
+| Set up transactional email delivery | [Email](/docs/configure/email) |
+| Configure file storage (S3, local disk) | [Storage](/docs/configure/storage) |
+| Connect external business databases | [Data Sources](/docs/configure/data-sources) |
+| Use the REST API and API keys | [API Access](/docs/configure/api-access) |
+| Deliver outbound webhooks | [Webhooks](/docs/configure/webhooks) |
+| Configure AI providers, embedders, RAG | [AI Service](/docs/configure/ai) |
+| Connect Claude or another MCP client | [Connect AI Tools (MCP)](/docs/configure/mcp) |
+| Configure artifact loading, database, cache | [Runtime Configuration](/docs/configure/runtime) |
+| Plan backups and disaster recovery | [Backup](/docs/operate/backup) |
+| Upgrade or roll back safely | [Upgrade](/docs/operate/upgrade) |
+| Harden for production | [Production Readiness](/docs/operate/production) |
+| Read logs, metrics, and audit trails | [Observability](/docs/operate/observability) |
+| Diagnose a broken deployment | [Troubleshooting](/docs/operate/troubleshooting) |
+
+## Where to go next
+
+| Task | Page |
+|---|---|
+| Your first admin task: add people and structure | [Users & Organization](/docs/configure/users) |
+| Give a new hire access | [Managing Access](/docs/configure/permissions/managing-access) |
+| Learn the layered access model | [Permissions](/docs/configure/permissions) |
+| Pre-production checklist | [Production Readiness](/docs/operate/production) |

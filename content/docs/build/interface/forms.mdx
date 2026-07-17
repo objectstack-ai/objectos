@@ -1,0 +1,210 @@
+---
+title: Forms
+description: Derive create and edit forms from one flat field set, group fields into sections without drift, and control what happens after submit.
+---
+
+# Forms
+
+**A form is a projection of your object's fields — not a second field
+list.** You declare fields once on the object; forms choose *which fields
+and where*. Data semantics (types, validation, defaults, field-level
+security) never live on the form, so forms can't drift into lying about
+the data.
+
+Form view *types* (`simple`, `tabbed`, `wizard`, `modal`, …) and the
+public-form REST contract are covered in
+[Views](/docs/build/interface/views). This page is about the layout
+questions: create vs edit, grouping, ordering.
+
+## Create form ≠ edit form
+
+The new-record form should ask a handful of essentials; the edit form
+shows the full record in sections. **Don't author two forms.** The
+create-form subset is *derivable* from intent that already lives on each
+field:
+
+| Field signal | Effect on the create form |
+|:--|:--|
+| `required: true` | **Must** appear on create |
+| `readonly` / formula / rollup / autonumber / system-stamped | **Never** on create — you can't set it |
+| `defaultValue` present | **Can be omitted** — it self-fills |
+| `hidden` | Off everywhere by default |
+| `group` | Which section the field belongs to |
+| *Declaration order* | **Is** the default display order — there is no `field.order` |
+
+So the sensible create form — *editable, required-or-core fields, in
+declaration order* — falls out of the object with zero authoring.
+Omission is correct: emit nothing extra and you still get a complete,
+correct form. The full edit form derives too, materializing each
+`field.group` into a section.
+
+### Hand-shape the create form only when layout or flow diverges
+
+The escape hatch is a named form view bound to the create entry point.
+Author it as a **sparse override** — mostly a list of field names:
+
+```ts
+import { defineView } from '@objectstack/spec'
+
+const data = { provider: 'object' as const, object: 'showcase_contact' }
+
+export const ContactViews = defineView({
+  list: {
+    type: 'grid', data,
+    columns: [{ field: 'name' }, { field: 'email' }, { field: 'company' }, { field: 'stage' }],
+    // Bind the "+ Add record" entry point to the slim create form:
+    addRecord: { enabled: true, mode: 'form', formView: 'create' },
+  },
+
+  // Full edit form — grouped by field.group; bare strings inherit field defs.
+  form: {
+    type: 'simple', data,
+    sections: [
+      { name: 'contact', label: 'Contact', columns: 2, fields: ['name', 'email', 'phone'] },
+      { name: 'work',    label: 'Work',    columns: 2, fields: ['company', 'title'] },
+      { name: 'status',  label: 'Status',  columns: 2, fields: ['stage', 'lead_score'] },
+    ],
+  },
+
+  formViews: {
+    // Sparse create override: only the core fields, one section.
+    create: {
+      type: 'simple', data, title: 'New contact',
+      sections: [
+        { label: 'Who is this?', columns: 1, fields: ['name', 'email', 'phone', 'company'] },
+      ],
+    },
+  },
+})
+```
+
+The binding is `addRecord.mode: 'form'` + `addRecord.formView: 'create'`.
+No `formViews.create` → the create entry derives a default. Present → it
+wins for create.
+
+| Your real need | Use |
+|:--|:--|
+| Create asks fewer fields (required + a few core) | **Pure derivation** — don't hand-write |
+| Create groups differently but is just a smaller subset | Usually still derivation |
+| Create is a wizard / multi-step, has create-only copy, conditional reveal | **Hand-write `formViews.create`** |
+
+> Rule of thumb: *different field subset* → derive. *Different layout or
+> flow* → override. Writing a full create form just to drop fields walks
+> straight into the two-artifact drift trap: add a required field, forget
+> the create form, get a runtime "missing required field" on create.
+
+Because the create fields are a subset of the edit fields *in the same
+order and groups*, "quick-create 4 fields → save → land on the full
+record" stays visually continuous. Derivation preserves that for free.
+
+## Field grouping and order
+
+The model is a flat field set. A grid shows flat columns. A form needs
+sections. That's not a contradiction — it's one flat set seen through
+different lenses:
+
+| Lens | Field shape | Why |
+|:--|:--|:--|
+| Object definition | Flat | The model describes *what data exists* |
+| Table / grid | Flat columns | A grid is a record × field matrix |
+| Form / record page | Grouped sections | A human reading one record needs chunking |
+
+There are **two** grouping concepts. Keep them distinct:
+
+**1. Semantic grouping — `field.group` (on the object).** A field's
+logical home. It travels with the model and seeds the *default*
+sectioning of auto-generated forms:
+
+```ts
+fields: {
+  name:  Field.text({ label: 'Full name', group: 'contact' }),
+  email: Field.email({ label: 'Email',    group: 'contact' }),
+  stage: Field.select({ label: 'Stage',   group: 'status', options: [/* … */] }),
+}
+```
+
+**2. Layout grouping — form `sections` (on a view).** A specific form's
+explicit arrangement: which fields, which section, how many `columns`,
+collapsible. It inherits `field.group` as the default and overrides it
+per form when needed.
+
+```ts
+form: {
+  type: 'simple',
+  sections: [
+    { name: 'contact', label: 'Contact', columns: 2, fields: ['name', 'email', 'phone'] },
+    { name: 'status',  label: 'Status',  columns: 2, fields: ['stage'] },
+  ],
+}
+```
+
+**Order is the order you author in.** There is no `field.order` — field
+declaration order on the object is the default display order everywhere,
+and `sections` (and the fields inside them) are ordered lists.
+
+> **The "group" trap.** A grid view's `groupByField` groups **records
+> (rows)** by a field's *value* — all `stage = qualified` rows together.
+> A form section groups **fields (columns)** visually. Same word, two
+> unrelated axes. A grid group will never section your form.
+
+## What happens after submit
+
+Add `submitBehavior` to a form view to control the post-submit
+experience:
+
+```ts
+submitBehavior: {
+  kind: 'thank-you',
+  title: 'Thanks!',
+  message: 'A specialist will reach out within 24 hours.',
+}
+```
+
+| `kind` | Behavior |
+|:--|:--|
+| `thank-you` *(default)* | Replace the form with a confirmation panel (`title`, `message`) |
+| `redirect` | Navigate to `url` after `delayMs` (default 0) — great for marketing pages |
+| `continue` | Reset the form for another response — kiosks, batch entry |
+| `next-record` | Advance to the next record in a queue (internal mode) |
+
+Both public and internal forms also honor `?prefill_<field>=<value>` URL
+params — seed forms from email links or campaign pages. Prefill is a UX
+shortcut, not a permissions bypass: values still go through validation
+and (for public forms) the server-side field whitelist.
+
+```
+/console/f/contact-us?prefill_company=Acme&prefill_email=ada@example.com
+/console/forms/quick_create?prefill_lead_source=event_booth_2026
+```
+
+## Record detail is driven by roles, not a form binding
+
+There is no object-level key that pins a form view to the record-detail
+screen. Detail rendering derives from the object's cross-surface
+**semantic roles**: `nameField` (display name), `highlightFields` (the
+strip of most important fields), `stageField` (the lifecycle progress
+stepper), and `fieldGroups` + `Field.group` (sectioning shared by forms,
+modals, and detail pages). When a record page needs a bespoke layout
+beyond what the roles derive, assign the object a custom
+[Page](/docs/build/interface/pages).
+
+## Anti-patterns
+
+- **Two full hand-authored field lists** (`contact_create_form` +
+  `contact_edit_form`). Guaranteed drift.
+- **Restating field type / validation / options on the form.** Data
+  semantics live on the object only.
+- **Re-typing the grouping in every form.** Declare `field.group` once;
+  override only on real divergence.
+- **Adding structural nesting to the data model to satisfy a form.** The
+  model stays flat; the form groups.
+
+## Where to go next
+
+| Page | Why |
+|:--|:--|
+| [Views](/docs/build/interface/views) | Form view types, public form sharing, the full view schema |
+| [Data model](/docs/build/data) | Where fields — and their intent — are declared |
+| [Actions](/docs/build/interface/actions) | `type: 'form'` actions that launch a form view |
+| [Pages](/docs/build/interface/pages) | Custom record pages beyond derived layouts |
+| [Permissions](/docs/configure/permissions) | Field-level security forms respect |

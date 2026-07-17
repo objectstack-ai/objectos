@@ -1,0 +1,177 @@
+---
+title: Pages
+description: Free-form layouts composed from regions, components, and local state — plus Markdown doc pages that ship inside your package.
+---
+
+# Pages
+
+**A page is a free-form container.** Unlike a
+[view](/docs/build/interface/views), which is bound to a single object, a
+page combines multiple components, embeds views, and manages local state
+— your home screens, custom record layouts, and utility panels.
+
+```ts
+const homePage = {
+  name: 'sales_home',
+  label: 'Sales Home',
+  type: 'home',
+  regions: [
+    { name: 'header', width: 'full', components: [
+      { type: 'metric_card', id: 'total_revenue', label: 'Total Revenue',
+        properties: { object: 'opportunity', field: 'amount', aggregate: 'sum', format: 'currency' } },
+    ]},
+    { name: 'main', width: 'large', components: [
+      { type: 'list_view', id: 'recent_deals', label: 'Recent Deals',
+        properties: { object: 'opportunity', view: 'recent_open', limit: 10 } },
+    ]},
+  ],
+}
+```
+
+## Page properties
+
+| Property | Type | Required | Description |
+|:--|:--|:--|:--|
+| `name` | `string` | yes | Machine name (`snake_case`) |
+| `label` | `string` | yes | Display label |
+| `type` | `enum` | — | Page type (default `'record'`, see below) |
+| `object` | `string` | — | Associated object (for `record` type) |
+| `template` | `string` | — | Layout template name (default `'default'`) |
+| `regions` | `PageRegion[]` | — | Layout zones with components |
+| `variables` | `PageVariable[]` | — | Local state variables |
+| `isDefault` | `boolean` | — | Is the default page for its type |
+| `assignedProfiles` | `string[]` | — | Profiles that can access this page |
+
+### Page types
+
+| Type | Use for |
+|:--|:--|
+| `record` | Custom detail pages tied to one object's records |
+| `home` | App landing / entry points |
+| `app` | General application layouts |
+| `utility` | Tools, settings, wizards |
+| `list` | Data-driven interface surfaces |
+
+Only these five types are valid — earlier roadmap types that never
+shipped a renderer were removed from the schema.
+
+## Regions
+
+Regions are the layout zones; each holds components:
+
+```ts
+regions: [
+  { name: 'sidebar', width: 'small', components: [/* … */] },
+  { name: 'content', width: 'large', components: [/* … */] },
+]
+```
+
+`width` accepts `'small'`, `'medium'`, `'large'`, or `'full'`.
+
+## Components
+
+Components are the building blocks inside regions:
+
+```ts
+{
+  type: 'chart',
+  id: 'revenue_chart',
+  label: 'Revenue Trend',
+  properties: { chartType: 'line', object: 'opportunity',
+                categoryField: 'close_date', valueField: 'amount' },
+  events: { onClick: "navigate_to('opportunity_detail', { id: $event.id })" },
+  visibility: "os.user.profile == 'sales_manager'",
+}
+```
+
+| Property | Type | Description |
+|:--|:--|:--|
+| `type` | `string` | Standard component type or a custom string |
+| `id` | `string` | Unique component instance id |
+| `properties` | `object` | Component-specific configuration |
+| `events` | `object` | Event handlers (action expressions) |
+| `visibility` | `string` | CEL visibility predicate |
+| `style` / `className` | — | Ad-hoc CSS |
+| `responsiveStyles` | `object` | **Preferred** styling channel: desktop-first per-breakpoint style maps (`large` base, then `medium` / `small` / `xsmall` overrides), compiled to scoped CSS — prefer design tokens like `var(--space-8)` |
+
+The standard, namespaced component types:
+
+| Namespace | Types |
+|:--|:--|
+| Structure | `page:header`, `page:footer`, `page:sidebar`, `page:tabs`, `page:accordion`, `page:card`, `page:section` |
+| Record context | `record:details`, `record:highlights`, `record:related_list`, `record:activity`, `record:chatter`, `record:path`, `record:alert`, `record:quick_actions`, `record:reference_rail`, `record:history` |
+| Navigation | `app:launcher`, `nav:menu`, `nav:breadcrumb` |
+| Utility | `global:search`, `global:notifications`, `user:profile` |
+| AI | `ai:chat_window`, `ai:suggestion` |
+| Elements | `element:text`, `element:number`, `element:image`, `element:divider`, `element:button`, `element:filter`, `element:form`, `element:record_picker`, `element:text_input` |
+
+Components may also carry `dataSource` (per-element object binding for
+multi-object pages), `responsive`, and `aria` configuration. Custom
+string types are accepted for project-specific widgets.
+
+## Variables
+
+Pages hold local state shared across components:
+
+```ts
+variables: [
+  { name: 'selected_tab', type: 'string', defaultValue: 'overview' },
+  { name: 'date_range',   type: 'object', defaultValue: { start: null, end: null } },
+]
+```
+
+`type` accepts `'string'` (default), `'number'`, `'boolean'`, `'object'`,
+`'array'`, or `'record_id'`.
+
+> A `record`-type page is the supported path for bespoke record layouts —
+> reach for it when the roles-derived detail page (see
+> [Forms](/docs/build/interface/forms)) isn't enough. Compose
+> `record:highlights` in a full-width header, `record:details` and
+> `record:activity` in a sidebar, and `record:related_list` components in
+> the main region.
+
+Surface a page from an [app](/docs/build/interface/apps) with a `page`
+navigation entry, or make it the app's landing page via `homePageId`.
+
+## Doc pages
+
+A **doc** is a page of package documentation: plain Markdown files in a
+flat `src/docs/` directory, compiled into the package artifact and
+rendered in the console at `/docs/<name>`. Docs also ground the AI
+assistant when it answers questions about your package.
+
+```
+src/docs/
+  crm_index.md            → doc name "crm_index"
+  crm_user_guide.md       → doc name "crm_user_guide"
+```
+
+The filename stem becomes the doc `name` — no directory taxonomy, no
+ordering file. The flat layout keeps cross-references stable: links
+resolve by basename, never by path.
+
+| Rule | Detail |
+|:--|:--|
+| Naming | `snake_case`, and the build lint requires a **namespace prefix** (`crm_user_guide`, not `user_guide`) |
+| Frontmatter | Optional; `title` and `description` are read. Title resolves: frontmatter → first `#` heading → doc name |
+| Cross-references | Plain relative links (`[overview](./crm_index.md)`) — rewritten to `/docs/<target>` in console, native on GitHub. **Broken same-package links fail the build** |
+| Markdown | CommonMark + GFM: tables, fenced code with highlighting, heading anchors, GitHub alerts (`> [!TIP]`) |
+| Rejected at build | **MDX / embedded components** (docs are data, not code — a trust boundary) and **image references** (no asset service yet; fail fast beats broken images) |
+
+Doc resolution is package-scoped: two installed packages may each ship a
+doc with the same bare name and coexist — neither overwrites the other.
+
+> For dynamic content — a live flow diagram, a record table — don't try
+> to embed a component. Link to the metadata by URL; the platform renders
+> the live view, the doc just points at it.
+
+## Where to go next
+
+| Page | Why |
+|:--|:--|
+| [Apps](/docs/build/interface/apps) | Put pages in navigation, set `homePageId` |
+| [Views](/docs/build/interface/views) | The object surfaces pages embed |
+| [Forms](/docs/build/interface/forms) | Roles-derived record layouts vs custom record pages |
+| [Dashboards](/docs/build/interface/dashboards) | Analytics-focused layout instead of free-form |
+| [Actions](/docs/build/interface/actions) | `element:button` targets and `modal`-type actions |
+| [AI Builder](/docs/build/ai-builder) | Generate page metadata by chat |

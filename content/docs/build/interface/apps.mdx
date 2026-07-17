@@ -1,0 +1,170 @@
+---
+title: Apps
+description: Bundle objects, views, pages, and dashboards into a branded, navigable shell — and gate exactly who sees what.
+---
+
+# Apps
+
+An **app** is a logical container that bundles objects, views, pages, and
+dashboards into one cohesive experience. It defines the navigation tree,
+the branding, and — critically — who gets in.
+
+```ts
+import { App } from '@objectstack/spec/ui'
+
+export const CrmApp = App.create({
+  name: 'crm_app',
+  label: 'CRM',
+  icon: 'briefcase',
+  branding: { primaryColor: '#2563EB' },
+  navigation: [
+    { id: 'group_sales', type: 'group', label: 'Sales', icon: 'briefcase', children: [
+      { id: 'nav_leads',    type: 'object', objectName: 'crm_lead',    label: 'Leads',    icon: 'funnel' },
+      { id: 'nav_accounts', type: 'object', objectName: 'crm_account', label: 'Accounts', icon: 'building' },
+    ]},
+  ],
+  requiredPermissions: ['crm_access'],
+})
+```
+
+## App properties
+
+| Property | Type | Required | Description |
+|:--|:--|:--|:--|
+| `name` | `string` | yes | Machine name (`snake_case`) |
+| `label` | `string` | yes | Display name |
+| `icon` | `string` | — | App icon (Lucide) |
+| `description` / `version` | `string` | — | Metadata for listings |
+| `active` | `boolean` | — | Is the app active (default `true`) |
+| `isDefault` | `boolean` | — | Is this the default app |
+| `navigation` | `NavigationItem[]` | — | The navigation tree |
+| `branding` | `AppBranding` | — | `primaryColor`, `logo`, `favicon` |
+| `requiredPermissions` | `string[]` | — | Who may open the app at all |
+| `homePageId` | `string` | — | Nav item `id` to use as the landing page |
+| `mobileNavigation` | `object` | — | Mobile-specific navigation |
+
+## Navigation items
+
+The navigation tree supports eight item types. The common five are
+`object`, `dashboard`, `page`, `url`, and `group`; the spec also defines
+`report`, `action`, and `component` items.
+
+| `type` | Lands on | Key config |
+|:--|:--|:--|
+| `object` | An object's list view | `objectName`, plus optional targeting (below) |
+| `dashboard` | A dashboard | `dashboardName` |
+| `page` | A custom page | `pageName`, optional `params` |
+| `url` | An external URL | `url`, `target: '_blank'` |
+| `group` | Collapsible section | `children`, `expanded` |
+
+Every item **must** declare a unique `id` (lowercase `snake_case`) — it's
+what `homePageId` and `mobileNavigation.bottomNavItems` reference. Shared
+properties: `label`, `icon`, `order`, `badge`, plus the gating trio below.
+
+### Targeting an object entry
+
+Three optional fields refine where an `object` entry lands, with
+precedence `recordId` → `filters` → `viewName`:
+
+- `viewName` — anchor the entry to a named list view.
+- `recordId` — deep-link to a single record ("My Profile"); supports
+  `{current_user_id}` / `{current_org_id}` template variables.
+- `filters` — a one-off parameterized slice: the entry lands on the bare
+  data surface with each condition as a removable URL filter chip. Great
+  for "assigned to me" links without authoring a view. Not a security
+  feature — row-level permissions still decide what's shown.
+
+```ts
+{ id: 'nav_my_open', type: 'object', label: 'My Open Deals', objectName: 'opportunity',
+  filters: { owner_id: '{current_user_id}', status: 'open' }, icon: 'user-check' }
+```
+
+### Mobile navigation
+
+```ts
+mobileNavigation: {
+  mode: 'bottom_nav',                    // 'drawer' (default) | 'bottom_nav' | 'hamburger'
+  bottomNavItems: ['nav_home', 'nav_accounts', 'nav_contacts'],  // nav item ids, max 5
+}
+```
+
+## Gating apps by audience
+
+The same data serves two very different audiences: **builders** who design
+the schema, and **end users** who just enter and read data. Separate those
+surfaces by default — don't rely on each admin to hide things by hand.
+
+| Audience | Surface | Gated by |
+|:--|:--|:--|
+| End user (consumer) | A curated app → `page` / `view` entries | `App.requiredPermissions`, nav-item gating |
+| Builder / admin | Setup / Studio, raw object tables | Capabilities: `setup.access`, `studio.access`, `manage_metadata` |
+
+The built-in permission sets already encode this split: `member_default`
+and `viewer_readonly` do **not** carry `studio.access` /
+`manage_metadata`, so builder surfaces are invisible to them;
+`admin_full_access` and `organization_admin` do.
+
+Each nav item supports three independent gates:
+
+| Gate | Type | Hides the item unless… |
+|:--|:--|:--|
+| `requiredPermissions` | `string[]` | The user holds the RBAC capability (e.g. `manage_metadata`) |
+| `visible` | CEL expression | The predicate evaluates true (e.g. `'org_admin' in current_user.positions`) |
+| `requiresObject` / `requiresService` | `string` | The named object / kernel service is installed |
+
+```ts
+navigation: [
+  { id: 'nav_contacts', type: 'object', label: 'Contacts', objectName: 'showcase_contact' },
+  // Builder-only entry — consumers never render it:
+  { id: 'nav_designer', type: 'component', label: 'Object Designer',
+    componentRef: 'metadata:resource', params: { type: 'object' },
+    requiredPermissions: ['manage_metadata'] },
+]
+```
+
+> **Hide, don't disable.** A disabled-but-visible builder entry is still
+> noise. Gated nav items are *not rendered* for users who lack the
+> capability — no greyed-out chrome to confuse end users.
+
+Two more habits keep consumer surfaces clean:
+
+- **Hand end users a page, not the raw table.** A `page` entry lets you
+  curate exactly what's exposed — selected columns, fixed visualization,
+  only the filters and actions you enabled. An `object` entry gives the
+  permissive grid: switchable views, personal views, the full toolbar.
+- **Curate the data surface itself.** Prefer a
+  [curated view](/docs/build/interface/views) over granting raw object
+  read and dropping users onto a 40-column grid.
+
+Action gates are dual-surface: the UI hides or disables the button **and**
+the server rejects the call — there is no "UI-gated but server-open"
+footgun. See [Actions](/docs/build/interface/actions).
+
+## The Setup app — a built-in example
+
+The platform's own administration UI, the **Setup app**, is itself
+rendered from the same app metadata protocol — navigation, pages, and
+gating declared as data, drawn by the same renderer as your apps. It's
+gated exactly the way your builder surfaces should be: behind the
+`setup.access` capability that consumer permission sets don't carry. If
+you want proof that apps-as-metadata scales, you're already using it.
+
+## Anti-patterns
+
+- **Making every end user a builder-grade collaborator** and hiding tabs
+  one by one. Make the consumer/builder split the default.
+- **Disabling builder entries instead of hiding them.** Visible-but-dead
+  chrome still confuses.
+- **Granting raw object read** when a curated page would expose exactly
+  what end users need.
+
+## Where to go next
+
+| Page | Why |
+|:--|:--|
+| [Views](/docs/build/interface/views) | What `object` nav entries land on |
+| [Pages](/docs/build/interface/pages) | Curated `page` entries for end users |
+| [Dashboards](/docs/build/interface/dashboards) | What `dashboard` entries render |
+| [Actions](/docs/build/interface/actions) | Buttons and their dual-surface gates |
+| [Permissions](/docs/configure/permissions) | The permission sets behind `requiredPermissions` |
+| [Interface overview](/docs/build/interface) | How all the pieces compose |

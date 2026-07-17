@@ -1,0 +1,175 @@
+---
+title: Connect AI Tools (MCP)
+description: Point Claude Code, Claude Desktop, or any MCP client at your ObjectOS app and let agents work with your data under your permission model.
+---
+
+# Connect AI Tools (MCP)
+
+Every ObjectOS deployment is already an MCP server. The runtime serves
+the [Model Context Protocol](https://modelcontextprotocol.io) at
+**`/api/v1/mcp`** — on by default, no plugin to install, no
+configuration step. Your objects and exposed actions become typed tools
+the moment you define them; the only thing left to do is connect a
+client and prove it works.
+
+> To turn the surface off, set `OS_MCP_SERVER_ENABLED=false` — the
+> endpoint then returns 404 and the **Setup → Connect an Agent** page
+> disappears with it.
+
+This page is about connecting *external* AI tools to your app. For the
+server-side AI stack — chat providers, embedders, RAG, and registering
+the MCP server plugin explicitly in code — see
+[AI Service](/docs/configure/ai).
+
+## Claude Code (one command)
+
+Interactive clients use OAuth — each deployment is its own OAuth 2.1
+authorization server, so there are no admin-minted credentials to pass
+around. The first tool call opens a browser login and you connect **as
+yourself**:
+
+```bash
+# local dev server
+claude mcp add --transport http my-app http://localhost:3000/api/v1/mcp
+
+# a deployed instance
+claude mcp add --transport http my-app https://your-deployment.example.com/api/v1/mcp
+```
+
+For headless use (CI, containers) skip OAuth and attach an
+[API key](#headless-api-keys) instead:
+
+```bash
+claude mcp add --transport http my-app https://your-deployment.example.com/api/v1/mcp \
+  --header "x-api-key: osk_..."
+```
+
+## Claude Desktop and claude.ai
+
+**Settings → Connectors → Add custom connector**, then paste the MCP
+URL (`https://your-deployment.example.com/api/v1/mcp`). The first use
+walks through the same browser login.
+
+## Any MCP client (`.mcp.json`)
+
+Clients that read an `mcpServers` map connect the same way. With an API
+key:
+
+```json
+{
+  "mcpServers": {
+    "objectstack": {
+      "type": "http",
+      "url": "https://your-deployment.example.com/api/v1/mcp",
+      "headers": { "x-api-key": "osk_..." }
+    }
+  }
+}
+```
+
+## Headless: API keys
+
+Mint a key from **Setup → Connect an Agent** (which also shows
+copy-paste-ready connect snippets per client), or over REST:
+
+```bash
+curl -b cookies.txt -X POST https://your-deployment.example.com/api/v1/keys
+# → { "key": "osk_..." }  — shown once; store it in your secret manager
+```
+
+Send it on every request in any of three equivalent forms:
+
+| Header | Example |
+|---|---|
+| `x-api-key` | `x-api-key: osk_...` |
+| `Authorization: ApiKey` | `Authorization: ApiKey osk_...` |
+| `Authorization: Bearer` | `Authorization: Bearer osk_...` (recognized by the `osk_` prefix) |
+
+> OAuth requires TLS — plain-HTTP deployments (except `localhost`) fall
+> back to **API-key-only**: the browser-login track is disabled rather
+> than allowed to run insecurely.
+
+For a long-lived integration, bind the key to a dedicated service user
+with a minimal permission set — see
+[Service accounts & API keys](/docs/configure/users#service-accounts--api-keys).
+
+## What the agent gets
+
+Ten data and action tools, generated from your metadata:
+
+| Tool | What it does |
+|---|---|
+| `list_objects` / `describe_object` | Discover which objects exist and their fields |
+| `query_records` / `get_record` | Read data (list queries are capped at 50 rows per page by default) |
+| `aggregate_records` | Grouped aggregation (registered when the active driver supports it) |
+| `create_record` / `update_record` / `delete_record` | Write data |
+| `list_actions` / `run_action` | Discover and invoke your business actions by name |
+
+Two exposure rules to know:
+
+- **Objects are exposed automatically** — except `sys_*` system
+  objects, which are blocked fail-closed.
+- **Actions require the author's opt-in**: `ai: { exposed: true }` plus
+  an `ai.description` of at least 40 characters, and the action must be
+  callable without a UI (`script` with a body or registered handler, or
+  `flow`).
+
+## Permission enforcement
+
+- **Every call runs as the caller.** The MCP bridge resolves the same
+  execution context as a REST request, so object permissions,
+  [record access](/docs/configure/permissions/record-access), and
+  [field-level security](/docs/configure/permissions/field-level-security)
+  apply to the agent exactly as they do to a person in the UI. Sparse
+  results or denied writes usually mean governance is *working*, not
+  that the connection is broken.
+- **OAuth scopes narrow the toolset.** Tokens carry `data:read`,
+  `data:write`, and `actions:execute` scopes — tools outside the
+  granted scopes are not even registered for that session. API-key and
+  session callers get the full set, still permission-checked per call.
+- **Action bodies run as trusted app code** once invoked (the
+  `ai.exposed` gate and `requiredPermissions` are checked at *invoke*
+  time). Treat writing an action as a code-review-worthy act — that's
+  the real security boundary.
+- An action can also declare `ai.requiresConfirmation`;
+  destructive-looking actions default to requiring it.
+
+## Verify the connection
+
+Ask the agent something only the live schema can answer:
+
+```text
+What objects does this app have, and what fields does the main one carry?
+```
+
+You should see `list_objects` and `describe_object` fire. The natural
+working pattern for an agent is `list_objects` → `describe_object` →
+`query_records` → `run_action` — if all four work, the connection is
+fully operational.
+
+> Agents work noticeably better with the app's **skill file**: download
+> it from `GET /api/v1/mcp/skill`, or install the
+> [official Claude plugin](https://github.com/objectstack-ai/claude-plugin)
+> (`claude plugin marketplace add objectstack-ai/claude-plugin`), which
+> bundles the skill and a guided `/objectstack:connect` command.
+
+## Troubleshooting
+
+| Symptom | Cause → fix |
+|---|---|
+| `404` on `/api/v1/mcp` | The surface is disabled — unset `OS_MCP_SERVER_ENABLED` (default is on) |
+| `501 Not Implemented` | The MCP plugin isn't part of this build — check your stack's plugins |
+| `401` on every call | Anonymous or invalid credentials. Interactive clients: complete the browser login. Headless: check the `osk_` key and header spelling |
+| `403 insufficient_scope` | The OAuth token lacks the scope for that tool family (e.g. writes without `data:write`) — reconnect and grant the scope |
+| An action is missing from `list_actions` | `ai.exposed` is not `true`, `ai.description` is shorter than 40 characters, the type isn't headless-callable (`url` / `modal` / `form` never appear), it targets a `sys_*` object, or the caller fails its `requiredPermissions` |
+| Reads return few rows / writes denied | Working as designed — the caller's permissions and record access apply. Verify with the same user in the UI |
+
+## Where to go next
+
+| Task | Page |
+|---|---|
+| Configure AI providers, embedders, and the MCP server plugin | [AI Service](/docs/configure/ai) |
+| Create service users and API keys | [Users & Organization](/docs/configure/users) |
+| Understand what the agent is allowed to see | [Permissions](/docs/configure/permissions) |
+| REST API and key management | [API Access](/docs/configure/api-access) |
+| Verify a specific user's access | [Managing Access](/docs/configure/permissions/managing-access) |

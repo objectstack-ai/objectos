@@ -1,0 +1,57 @@
+---
+title: Interface
+description: Apps, views, forms, dashboards, pages, and actions — every user-facing surface declared as metadata, rendered by Console.
+---
+
+# Interface
+
+**Everything a user sees is metadata.** You declare interfaces as data —
+same lifecycle as your objects: version them, ship them in a package,
+let the AI Builder generate them, and any compliant renderer draws them.
+
+The pieces compose top-down:
+
+1. An **app** is the shell — navigation, branding, and an audience gate.
+2. Its **navigation** points at objects, dashboards, pages, and URLs.
+3. An object entry lands on a **view** — grid, kanban, calendar, and more.
+4. Opening or creating a record renders a **form** — sections derived
+   from your field metadata, overridable per mode.
+5. **Dashboards** aggregate the same data into chart widgets bound to
+   named datasets.
+6. **Pages** break out of the object frame entirely — free-form layouts
+   composed from components and regions.
+7. **Actions** put buttons on all of the above — one declaration, callable
+   from Console, REST, flows, and AI agents.
+
+## The concepts
+
+| Concept | What it declares | Page |
+|:--|:--|:--|
+| App | Navigation shell, branding, audience gating | [Apps](/docs/build/interface/apps) |
+| View | How records render: grid, kanban, calendar, gantt, … | [Views](/docs/build/interface/views) |
+| Form | Create / edit layouts, sections, field grouping | [Forms](/docs/build/interface/forms) |
+| Dashboard | Chart widgets, global filters, drill-down | [Dashboards](/docs/build/interface/dashboards) |
+| Page | Free-form component layouts; packaged doc pages | [Pages](/docs/build/interface/pages) |
+| Action | Named operations surfaced as buttons everywhere | [Actions](/docs/build/interface/actions) |
+
+Because the UI is data, it respects the same
+[permissions](/docs/configure/permissions) as the records it shows, and
+the [AI Builder](/docs/build/ai-builder) can generate or modify any of it
+through the same typed surface — describe the interface you want, review
+the diff, approve.
+
+> Start with the data. Views and forms derive sensible defaults from your
+> [object definitions](/docs/build/data) — you only write interface
+> metadata where the default isn't what you want.
+
+## Where to go next
+
+| Page | Why |
+|:--|:--|
+| [Apps](/docs/build/interface/apps) | Wrap your objects in a navigable shell |
+| [Views](/docs/build/interface/views) | Choose how records render |
+| [Forms](/docs/build/interface/forms) | Shape create and edit experiences |
+| [Dashboards](/docs/build/interface/dashboards) | Add analytics widgets |
+| [Pages](/docs/build/interface/pages) | Compose free-form layouts |
+| [Actions](/docs/build/interface/actions) | Put operations behind buttons |
+| [Data model](/docs/build/data) | The objects every surface reads from |

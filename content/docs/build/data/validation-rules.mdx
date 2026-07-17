@@ -1,0 +1,220 @@
+---
+title: Validation Rules
+description: Required fields, unique constraints, and CEL-powered rules that stop bad data at the platform level — with error messages you control.
+---
+
+# Validation Rules
+
+**Validation runs on every write path.** REST, Console forms, ObjectQL
+— the same rules fire everywhere, so there is no back door for bad
+data. A validation rule is a deterministic, synchronous, side-effect-free
+predicate over a single record: decidable from the incoming write (and,
+on update, the prior record) with no I/O.
+
+Validation is layered — use the lowest layer that can express the rule:
+
+| Layer | Expresses | Example |
+|---|---|---|
+| **Field modifiers** | Presence, uniqueness | `required: true`, `unique: true` |
+| **Field constraints** | Per-field shape | `min`, `max`, `maxLength`, `format` |
+| **Conditional modifiers** | Context-dependent presence | ``requiredWhen: P`record.amount > 10000` `` |
+| **Object validation rules** | Cross-field business logic | "Discount cannot exceed total" |
+| **Unique indexes** | Composite / scoped uniqueness | `{ fields: ['code', 'organization'], unique: true }` |
+| **Lifecycle hooks** | Arbitrary validation code | `beforeInsert` / `beforeUpdate` |
+
+## Field-level: required, unique, constraints
+
+The universal modifiers work on every field type:
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+fields: {
+  email: Field.email({ label: 'Contact Email', required: true, unique: true }),
+  quantity: Field.number({ label: 'Quantity', min: 1, max: 9999 }),
+  code: Field.text({ label: 'Code', minLength: 3, maxLength: 20 }),
+}
+```
+
+| Modifier | Behavior |
+|---|---|
+| `required: true` | Rejects `null` / `undefined` at runtime |
+| `unique: true` | Database-level uniqueness constraint — not a racy application check |
+| `min` / `max` | Numeric range (number, currency, percent, rating, slider…) |
+| `minLength` / `maxLength` | Character bounds on text types |
+| `format` | Built-in shape checks — `email`, `url`, `phone` field types carry theirs by default |
+| `readonly: true` | Server-enforced on update — a non-system write to the field is silently dropped (insert exempt) |
+
+Field types also validate themselves for free: `email` checks the
+`local@domain` shape, `url` requires a protocol, `select` values must
+match an option, `lookup` enforces that the referenced record exists,
+`json` must parse. See the
+[field-type reference](/docs/reference/field-types) for every default.
+
+### Conditional required / read-only / visible
+
+Presence can depend on the rest of the record via CEL predicates:
+
+```ts
+import { P } from '@objectstack/spec';
+
+po_number: Field.text({
+  label: 'PO Number',
+  requiredWhen: P`record.amount > 10000`,
+}),
+```
+
+`visibleWhen`, `readonlyWhen`, and `requiredWhen` all take a CEL
+predicate — see [Formulas](/docs/build/data/formulas).
+
+## Object-level validation rules
+
+Cross-field business logic lives in the object's `validations` array:
+
+```ts
+export const Order = ObjectSchema.create({
+  name: 'order',
+  fields: {
+    amount: Field.currency({ label: 'Amount', required: true }),
+    status: Field.select({ label: 'Status', options: [ /* ... */ ] }),
+  },
+
+  validations: [
+    {
+      name: 'amount_positive',
+      type: 'script',
+      severity: 'error',
+      message: 'Amount must be greater than zero',
+      // CEL predicate — TRUE means the record is INVALID.
+      condition: 'record.amount <= 0',
+      events: ['insert', 'update'],
+    },
+  ],
+});
+```
+
+> **Warning:** For `script` rules the `condition` is the **failure**
+> predicate — when it evaluates TRUE, validation fails. Write the test
+> for the *bad* state: `record.amount <= 0` rejects non-positive
+> amounts.
+
+### Common properties
+
+Every rule type shares this base shape:
+
+| Property | Required | Description |
+|---|---|---|
+| `name` | yes | Unique rule name (`snake_case`) |
+| `message` | yes | User-facing error message |
+| `type` | yes | `script`, `state_machine`, `format`, `cross_field`, `json_schema`, `conditional` |
+| `severity` | no | `error` (blocks save, default), `warning` (allows save), `info` |
+| `events` | no | `insert`, `update`, `delete` — default `['insert', 'update']` |
+| `priority` | no | 0–9999, lower runs first (default 100) |
+| `active` | no | Toggle without deleting (default `true`) |
+
+### The six rule types
+
+| Type | Checks | Key config |
+|---|---|---|
+| `script` | Any CEL predicate | `condition` (TRUE = invalid) |
+| `state_machine` | Allowed status transitions | `field`, `transitions` map |
+| `format` | One field against regex or built-in format | `field`, `regex` or `format: 'email' \| 'url' \| 'phone' \| 'json'` |
+| `cross_field` | Relationship between fields | `fields`, `condition` |
+| `json_schema` | JSON field against a JSON Schema | `field`, `schema` |
+| `conditional` | Applies a nested rule only when a predicate holds | `when`, `then`, optional `otherwise` |
+
+Two rules you'll reach for constantly:
+
+```ts
+// State machine — enforce the status flow
+{
+  name: 'order_status_transitions',
+  type: 'state_machine',
+  severity: 'error',
+  message: 'Invalid status transition',
+  field: 'status',
+  transitions: {
+    draft: ['submitted', 'cancelled'],
+    submitted: ['approved', 'rejected', 'cancelled'],
+    approved: ['completed'],
+    rejected: ['draft'],
+    cancelled: [],
+    completed: [],
+  },
+  events: ['update'],
+}
+
+// Cross-field — dates in order
+{
+  name: 'date_range_valid',
+  type: 'cross_field',
+  severity: 'error',
+  message: 'End date must be after start date',
+  fields: ['start_date', 'end_date'],
+  condition: 'record.end_date <= record.start_date',
+  events: ['insert', 'update'],
+}
+```
+
+In update-time conditions, `previous` holds the pre-change snapshot —
+`record.stage != previous.stage` detects a change.
+
+## Uniqueness: use an index, not a rule
+
+There is **no** `uniqueness` validation type — on purpose. A
+SELECT-then-INSERT check is inherently racy (TOCTOU); a database unique
+constraint is not. Enforce uniqueness at the data layer:
+
+```ts
+// Field-level
+email: Field.email({ label: 'Contact Email', unique: true }),
+
+// Composite / scoped via indexes
+indexes: [
+  { fields: ['code', 'organization'], unique: true },
+  // add `partial` for a scoped/conditional constraint
+]
+```
+
+The same logic excludes async/remote validation (a client-form concern
+and an SSRF/latency hazard on the write path) and custom handlers —
+arbitrary validation code belongs in a `beforeInsert` / `beforeUpdate`
+lifecycle hook.
+
+## Custom error messages
+
+The `message` is what the user sees when the rule fires — in the
+Console form and in the API error response. Make it actionable:
+
+| Weak | Strong |
+|---|---|
+| "Invalid input" | "Close date is required for closed deals" |
+| "Validation failed" | "Phone must match format: +1-XXX-XXX-XXXX" |
+| "Error" | "Discount cannot exceed total" |
+
+Use `severity` to calibrate: `error` blocks the save, `warning` shows
+the message but lets the save through, `info` is purely informational.
+
+> **Tip:** A predicate that can't be evaluated (parse error, unbound
+> variable) is treated as a broken rule — logged and skipped rather
+> than blocking every write.
+
+## Best practices
+
+| Do | Don't |
+|---|---|
+| Validate at the lowest layer possible (field → rule → hook) | Use hooks for what a field modifier expresses |
+| Write clear, actionable messages | Duplicate the same check across layers |
+| Use `priority` to run cheap format checks first | Build overly complex conditions |
+| Test rules with real-world data | Block legitimate edge cases |
+
+## Where to go next
+
+| Page | Why |
+|---|---|
+| [Data Model](/docs/build/data) | The objects and fields these rules protect |
+| [Formulas](/docs/build/data/formulas) | The CEL language behind `condition` and `requiredWhen` |
+| [Relationships](/docs/build/data/relationships) | Referential integrity across objects |
+| [CEL reference](/docs/reference/cel) | Full operator and stdlib reference for conditions |
+| [Field Types](/docs/reference/field-types) | Built-in validation defaults per field type |
+| [Flows](/docs/build/automation/flows) | React to (valid) record changes with automation |
