@@ -51,6 +51,19 @@ ObjectOS 会将每个请求解析到打包的项目，并从磁盘加载制品�
 如果客户使用 OIDC/SSO，身份提供方必须能从隔离网络中访问。如果无法访问，
 请使用本地的邮箱/密码身份验证，或在同一网络内托管的身份提供方。
 
+## 安装额外的包
+
+运行中的隔离网络实例无需任何目录连接即可安装额外的包 —— 把编译好的
+制品交给安装 CLI，它会内联发送并合并进正在运行的内核（无需重启）：
+
+```bash
+os package install ./dist/objectstack.json --runtime https://os.internal.example \
+  --email admin@example.com --password …
+```
+
+清单会缓存在运行时主机的 `.objectstack/installed-packages/` 目录下，
+并在每次启动时重新注册。
+
 ## 升级流程
 
 将制品视为不可变：

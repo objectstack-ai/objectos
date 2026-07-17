@@ -9,7 +9,30 @@ ObjectOS marketplace 让你能够将预构建的应用安装到运行中的运�
 
 ## 工作原理
 
-每个 ObjectOS 运行时默认都启用了 `MarketplaceProxy` 和 `MarketplaceInstallLocal` 插件。当你打开 Console（`/_console/`）时，marketplace 标签页会查询已配置的应用目录，并展示可安装的应用。
+marketplace 客户端是开源的 `@objectstack/cloud-connection` 包。云托管环境和自托管的 ObjectOS 镜像开箱即已接好；如果是你自己组装的技术栈，用几行配置即可启用：
+
+```ts
+import {
+  MarketplaceProxyPlugin,
+  MarketplaceInstallLocalPlugin,
+  RuntimeConfigPlugin,
+  resolveCloudUrl,
+} from '@objectstack/cloud-connection';
+
+const catalogUrl = resolveCloudUrl(); // OS_CLOUD_URL; 'off' disables
+
+plugins: [
+  ...(catalogUrl ? [
+    new MarketplaceProxyPlugin({ controlPlaneUrl: catalogUrl }),
+    new MarketplaceInstallLocalPlugin({ controlPlaneUrl: catalogUrl }),
+  ] : []),
+  new RuntimeConfigPlugin({ controlPlaneUrl: '', singleEnvironment: true, installLocal: true }),
+]
+```
+
+浏览 / 安装的*机制*是开放的；目录*服务*（组织目录、审核、付费分发）由 `OS_CLOUD_URL` 所指向的控制平面提供。应用一经安装就存在于你运行时自己的内核中 —— 运行时的任何部分都不依赖目录保持可达。
+
+当你打开 Console（`/_console/`）时，marketplace 标签页会查询已配置的应用目录，并展示可安装的应用。
 
 ```text
 You ─→ Console ─→ Marketplace tab ─→ pick app ─→ Install
@@ -81,6 +104,22 @@ os package publish                            # publish to a catalog
 ## 版本管理
 
 每个已发布的应用都是不可变的。更新会产生一个新版本。运行时会按应用跟踪已安装的版本以及可用的更新。当某个应用在用户所跟踪的目录中发布了新版本时，用户会在 Console 中看到一个 "Update available" 徽标。
+
+## 通过 CLI 安装
+
+Console 是主要的安装入口，但同一个 install-local 端点也可以脚本化，用于 CI 和隔离网络环境下的运维：
+
+```bash
+# 目录模式 —— 运行时从其配置的目录解析包
+os package install com.acme.crm --runtime http://localhost:3000 \
+  --email admin@example.com --password …
+
+# 隔离网络模式 —— 内联发送编译好的制品，不经过目录往返
+os package install ./dist/objectstack.json --runtime http://localhost:3000 \
+  --email admin@example.com --password …
+```
+
+凭证是**目标运行时**上的账户（不是你的云端登录）—— 与 Console 安装使用同一套授权。
 
 ## 权限
 
