@@ -1,141 +1,153 @@
 ---
-title: License
-description: ObjectOS licensing — Apache-2.0, commercial options, and FAQ.
+title: License & Pricing
+description: ObjectOS is a commercial product — editions, pricing, and how it relates to the open-source ObjectStack framework.
 ---
 
-# License
+# License & Pricing
 
-## ObjectOS runtime — Apache-2.0
+## ObjectOS is a commercial product
 
-The ObjectOS runtime and all `@objectstack/*` open-source packages are
-licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+ObjectOS is the **official runtime environment for ObjectStack applications**,
+sold in two deliveries: **ObjectOS Cloud** (we operate it) and **ObjectOS
+Self-Managed** (you operate it, under a commercial license). There is **no
+open-source edition of ObjectOS**.
 
-In plain English:
-
-| You can | You must |
-|---|---|
-| Use it in commercial products | Include the LICENSE and NOTICE files when you redistribute |
-| Modify it without sharing changes | Mark modified files as modified |
-| Embed it in proprietary software | Not use ObjectStack trademarks without permission |
-| Run it for any purpose, anywhere | — |
-| Sublicense it as part of a larger work | — |
-
-There is **no copyleft**. Modifications you make for internal use, or
-that you ship in a closed-source product, do **not** have to be
-contributed back. The Apache-2.0 license also includes an **express
-patent grant** from contributors — important for enterprise legal
-review.
-
-Full text: [LICENSE](https://github.com/objectstack-ai/framework/blob/main/LICENSE)
-
-## What's included under Apache-2.0
-
-| | License |
-|---|---|
-| ObjectOS runtime image | Apache-2.0 |
-| All `@objectstack/*` npm packages (runtime, plugins, services, drivers, adapters, CLI, client SDKs) | Apache-2.0 |
-| Templates repo (`objectstack-ai/templates`) | Apache-2.0 |
-| Console and Account UIs | Apache-2.0 |
-| Documentation | CC-BY-4.0 |
+The open-source story lives under its own brand: the
+**[ObjectStack framework](https://github.com/objectstack-ai/framework)**
+(Apache-2.0) is everything you need to **build, run, and self-host your own
+applications** — the protocol, kernel, CLI, production runtime, Console, and
+the MCP server — free, with no feature gate between development and
+production. If you want free self-hosting, you want ObjectStack, and it is
+excellent. ObjectOS is what you buy when you want the **embedded AI** and an
+**officially operated / supported** platform on top of that mechanism.
 
 ## Editions
 
-ObjectOS is **open core**. The open-source runtime is the complete *mechanism*
-for building and running business applications; the commercial editions layer on
-hosted *intelligence*, operational scale, and governance.
+One rate card, two deliveries. The **AI seat** is the only unit of pricing in
+every edition.
 
-| | **Community** | **Cloud** | **Enterprise** |
-|---|---|---|---|
-| Delivery | self-host (OSS) | fully hosted | cloud **or private/self-host** |
-| License | Apache-2.0 | — (SaaS) | commercial |
-| Price | **Free, forever** | **per AI seat** ($24 / $54; Free tier available) | Custom (volume) |
-| Build & run apps; real DB tables, RBAC, row/field security, flows, interfaces, REST/ObjectQL | ✓ | ✓ | ✓ |
-| **AI via MCP** — point your own Claude Code / MCP client at your data | ✓ | ✓ | ✓ |
-| **In-UI AI** — hosted AI Builder + "ask your data" assistant | — | ✓ | ✓ |
-| **Private / self-host deployment** (license, BYO model, offline-payable) | — | — | ✓ |
-| Clustering / HA / multi-node, data residency / air-gap | — | managed | ✓ |
-| SSO/SCIM at scale, compliance attestations (SOC 2 report / ISO image), advanced governance | — | by plan | ✓ |
-| Support | community | by plan | SLA + dedicated |
+| | **Free** | **Team** | **Business** | **Enterprise** |
+|---|---|---|---|---|
+| Delivery | cloud | cloud | cloud **or self-managed (single-node)** | cloud **or private deployment** |
+| Price | **Free** | **$24** / AI seat / mo | **$54** / AI seat / mo · self-managed: **$540** / AI seat / yr | Custom (volume) — [contact sales](mailto:sales@objectstack.ai) |
+| In-UI AI (AI Builder + "ask your data") | taste | ✓ | ✓ | ✓ |
+| AI governance (action audit, guardrails, permission scoping) | — | — | ✓ | ✓ |
+| Clustering / HA, multi-org self-host, air-gap, SCIM | — | — | — | ✓ |
+| Support | community | standard | priority (cloud) / standard (self-managed) | SLA + dedicated |
+
+Want to self-host **for free**? That's the open-source
+**ObjectStack framework** (MCP-only AI) — a different brand, not an ObjectOS
+edition. See [the open-source alternative](#the-open-source-alternative) below.
 
 **Open mechanism, closed intelligence.** Everything you need to model data and
-run apps is open-source and free. The *hosted AI* — the in-product AI Builder and
-the "ask your data" assistant — is a Cloud / Enterprise feature. On the free
-Community Edition your AI path is the open **MCP server**: point your own Claude
-Code (or any MCP client) at your deployment and it can query and operate your data
-with your own model — no platform AI bill.
+run apps is open-source (ObjectStack). ObjectOS layers on the *embedded
+intelligence* — the in-product AI Builder and the "ask your data" assistant,
+governed and audited — plus operational scale and official support.
 
-**You pay only for AI seats.** On the paid plans the only billed seat is the
-**AI seat**; viewers and non-AI users are free, with no per-user seat tax (a clean
-contrast to the $150–300/user incumbents).
+**You pay only for AI seats.** The only billed seat is the **AI seat**;
+viewers, non-AI app users, and developers building over MCP are free, with no
+per-user seat tax (a clean contrast to the $150–300/user incumbents).
 
-**Cloud, or private deployment on Enterprise.** The paid cloud plans (Team /
-Business) are **hosted** — per AI seat, AI credits included. **Private / self-host
-deployment is an Enterprise capability**: a license, **bring your own model / key**
-(you pay your own LLM cost), **offline-payable**, plus clustering/HA and
-governance. Want to self-host for free? That's the open-source **Community
-Edition** (MCP-only AI). There is **no per-node charge** — clustering / HA is
-folded into Enterprise.
+## Cloud or self-managed
 
-## When you might want a commercial edition
+- **Cloud (Free / Team / Business)** — fully hosted, self-serve. The price
+  includes hosting and a generous monthly AI allowance (we run the model).
+- **Business Self-Managed** — the Business plan delivered as a **single-node
+  Docker license** for **10–25 AI seats** ($540/AI seat/yr, annual): in-UI AI
+  and AI governance on your own infrastructure, **bring your own model / key**
+  (you pay your own LLM cost — no platform AI bill or metering), card-paid,
+  standard support. If the license lapses, the runtime keeps running and your
+  data stays intact — the paid features simply switch off (it never bricks).
+- **ObjectOS Enterprise** — full private deployment for everything beyond
+  that: clustering / HA / multi-node, multi-organization self-host,
+  data residency and **air-gapped** operation, SCIM and identity lifecycle,
+  compliance attestations, SLA and dedicated support, and offline / invoice
+  payment. Sold as an **annual license** with multi-year price-lock options;
+  on non-renewal your deployment **keeps the last paid version perpetually**
+  (you lose updates and support, never your system or data). Pricing is
+  volume-based — [contact sales](mailto:sales@objectstack.ai).
 
-Apache-2.0 covers most self-host use cases. You may want **Enterprise** (licensed
-self-host) or **ObjectStack Cloud** (hosted) when:
+There is **no per-node charge** — clustering / scale is folded into
+Enterprise.
 
-| Scenario | Edition |
+## When you might want each
+
+| Scenario | Choose |
 |---|---|
-| You want us to **host it for you** (per AI seat, in-UI AI, billing handled) | ObjectStack Cloud |
-| You need **clustering / HA / multi-node** or **air-gapped** scale | Enterprise |
-| You want the **in-product AI assistant** on your own infrastructure | Enterprise |
-| You need **SSO/SCIM at scale** + **compliance attestations** (SOC 2 report, ISO image) | Enterprise |
-| You need **support with SLAs**, **warranty / indemnification**, or **OEM** rights | Enterprise / commercial agreement |
+| You want the platform **hosted and operated for you** | ObjectOS Cloud (Free → Team → Business) |
+| You must run on **your own single node** and want the in-product AI, ≤25 AI seats | **Business Self-Managed** |
+| You need **clustering / HA**, **multi-org**, **air-gap**, **SCIM**, compliance attestations, SLAs, or offline payment | **ObjectOS Enterprise** |
+| You self-host the free ObjectStack runtime but need a **supported distribution with a commercial contract** (SLA, security-patch priority, named escalation) | **ObjectOS Runtime Subscription** — [contact sales](mailto:sales@objectstack.ai) |
+| You want **free self-hosting** and bring your own AI over MCP | **ObjectStack framework** (open source) |
+| You need **OEM / redistribution** rights under the ObjectOS or ObjectStack name | Commercial agreement — [contact sales](mailto:sales@objectstack.ai) |
 
-Contact **sales@objectstack.ai** to discuss.
+## The open-source alternative
 
-## Pricing for the open-source runtime
+The **ObjectStack framework** is licensed under the
+[Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0):
+no copyleft, an express patent grant, free forever — no seats, no usage tier,
+no license server, no key, no telemetry. Run it on your laptop, your servers,
+your customers' servers, or a 1000-pod cluster; the license is the same in
+every case. Your AI path there is the open **MCP server**: point your own
+Claude Code (or any MCP client) at your deployment and it can query and
+operate your data with your own model.
 
-**Free.** Forever. No seats, no usage tier, no license server, no key.
+What's Apache-2.0 (in the framework repository): the runtime image, all
+`@objectstack/*` npm packages (runtime, plugins, services, drivers, adapters,
+CLI, client SDKs), the templates repository, and the Console and Account UIs.
+Documentation is CC-BY-4.0.
 
-Run it on:
-- Your laptop
-- Your servers
-- Your customers' servers
-- A Raspberry Pi
-- A Kubernetes cluster of 1000 pods
+Full text: [LICENSE](https://github.com/objectstack-ai/framework/blob/main/LICENSE)
 
-The license is the same in every case. (The hosted **in-UI AI** assistant and the
-Enterprise scale / governance add-ons are the paid layer — the runtime itself is
-free.)
+## Trademarks
+
+"ObjectOS" and the ObjectOS logo are **trademarks** and are not covered by
+any code license. You may truthfully say your product is *built on* or
+*compatible with* ObjectOS / ObjectStack; using the names or logos in your
+own product, company, or domain name requires written permission. See
+[TRADEMARK.md](https://github.com/objectstack-ai/objectos/blob/main/TRADEMARK.md).
 
 ## Third-party components
 
-ObjectOS depends on several upstream open-source projects (Node.js,
-Hono, Zod, Better Auth, AI SDK, …). Each ships with its own license —
-all of which are either Apache-2.0, MIT, or BSD-style permissive
-licenses compatible with commercial use. See the SBOM published with
-each release for the full inventory.
+ObjectOS builds on the ObjectStack framework and several upstream open-source
+projects (Node.js, Hono, Zod, Better Auth, AI SDK, …). Each ships with its
+own license — all Apache-2.0, MIT, or BSD-style permissive licenses compatible
+with commercial use. See the SBOM published with each release for the full
+inventory.
 
 ## FAQ
 
-**Q: Can I use ObjectOS in a closed-source SaaS I sell to my customers?**
-A: Yes. Apache-2.0 has no copyleft. You don't need to share your code.
+**Q: Is ObjectOS open source?**
+A: No. ObjectOS is a commercial product with no open-source edition. The
+open-source platform it runs on is the **ObjectStack framework** (Apache-2.0)
+— build and self-host your own apps with it, free.
 
-**Q: Can I modify ObjectOS and not share my changes?**
-A: Yes. Apache-2.0 doesn't require you to share modifications.
+**Q: Can I use ObjectStack in a closed-source SaaS I sell to my customers?**
+A: Yes. Apache-2.0 has no copyleft and no royalty — you don't need to share
+your code, and you owe nothing if your product makes money.
 
-**Q: Can I rebrand Console as part of my product?**
-A: The UI itself, yes. Using the "ObjectStack" name or logo to promote
-your product requires an OEM agreement — contact sales.
+**Q: Can I self-host ObjectOS without paying?**
+A: No — self-managed ObjectOS (Business Self-Managed or Enterprise) is
+licensed. Free self-hosting is the ObjectStack framework, which is the same
+open mechanism with MCP-only AI.
 
-**Q: Do I owe you anything if my product makes money?**
-A: No. There's no royalty or revenue share.
+**Q: Does the software stop working if I don't renew?**
+A: It never bricks. Business Self-Managed degrades to the free-mechanism
+behavior (paid features switch off; your data and runtime keep working).
+Enterprise keeps the **last paid version perpetually** — you lose updates,
+new AI capabilities, and support, not your system.
 
-**Q: Does ObjectOS phone home with usage data?**
-A: No. There's no telemetry, no license check, no update ping.
-See [Security & Compliance](/docs/reference/security#data-residency).
+**Q: Does ObjectOS phone home?**
+A: ObjectOS Self-Managed validates its license online (Enterprise air-gapped
+licenses are offline-validated). The open-source ObjectStack runtime has no
+telemetry, no license check, and no update ping.
 
-**Q: What if I want a contractual warranty?**
-A: Apache-2.0 disclaims warranty. Buy a commercial agreement and we
-provide one.
+**Q: What if I want a contractual warranty on the free runtime?**
+A: That's the **ObjectOS Runtime Subscription** — a support contract on the
+open-source ObjectStack runtime (official distribution, SLA, security-patch
+priority) with zero feature difference. Contact
+[sales@objectstack.ai](mailto:sales@objectstack.ai).
 
-**Q: Will the open-source version always be free?**
-A: Yes. Apache-2.0 grants are irrevocable.
+**Q: Will the open-source framework always be free?**
+A: Yes. Apache-2.0 grants are irrevocable, and everything already released
+stays licensed as released.

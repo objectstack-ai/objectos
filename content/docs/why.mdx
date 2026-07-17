@@ -20,9 +20,9 @@ set of audited tools, queues every change for human approval, and the
 result is live — REST endpoints, Console screens, RBAC, audit log,
 everything generated from the same metadata.
 
-The runtime sits in **your** VPC, on **your** database, under
-**your** Apache-2.0 fork. The model talks to a sandboxed metadata API,
-not your data warehouse.
+The runtime sits in **your** VPC, on **your** database — the underlying
+**ObjectStack runtime is Apache-2.0**, yours to fork. The model talks to a
+sandboxed metadata API, not your data warehouse.
 
 That's the whole pitch. The rest of this page is who that fits and
 who it doesn't.
@@ -66,7 +66,7 @@ Common scenarios where it's a fit:
 |---|---|---|
 | Data location | Their cloud (or self-hosted at higher tier) | Your network, always |
 | UI builder | Drag-and-drop, very polished | Metadata-driven, generated; less custom |
-| Pricing | Per-user, scales painfully | Self-hosted, Apache-2.0 |
+| Pricing | Per-user, scales painfully | Self-hostable (open-source ObjectStack); ObjectOS bills AI seats only |
 | Workflow / triggers | Their workflow engine | Declarative flows + plugins |
 | Backend logic | Limited to their query editor | Full TypeScript, full Node ecosystem |
 | Best for | Quick dashboards on top of existing APIs | Apps that *own* their data |
@@ -122,9 +122,10 @@ Common scenarios where it's a fit:
 - **Newer than Salesforce.** Salesforce has 25 years of edge cases
   documented. We have a few hundred. The protocol is stable; the
   ecosystem is growing.
-- **Apache-2.0.** Use it in commercial products, embed it, modify it
-  privately. No copyleft surprises. Optional commercial support
-  available separately.
+- **Open-source foundation.** The underlying ObjectStack framework is
+  Apache-2.0 — use it in commercial products, embed it, modify it
+  privately, no copyleft surprises. ObjectOS (the commercial layer) and
+  support subscriptions are available separately.
 
 ## Reality check
 
