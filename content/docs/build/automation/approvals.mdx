@@ -1,0 +1,165 @@
+---
+title: Approvals
+description: Route records for human sign-off — without letting the automation quietly bypass row-level security.
+---
+
+# Approvals
+
+**An approval is a [flow](/docs/build/automation/flows) with an approval node: the flow pauses until a human approves or rejects, then resumes down the matching branch.** There is no separate approval engine to learn — triggers, branches, and error handling all work exactly as they do in any other flow. What this page adds is the approval node itself, and the two access decisions that matter as much as the routing.
+
+## Who does what
+
+Three roles, deliberately separated:
+
+| Role | Can | Needs |
+|---|---|---|
+| **Builder** | Author and edit the approval flow | `manage_metadata` (typically Studio users) |
+| **Submitter** | Submit records that enter the flow | Normal record access — no automation config |
+| **Approver** | Act on approval requests (approve / reject) | A capability granted by their permission set |
+
+End users submit records and act on requests; they never edit the automation.
+Keep automation configuration surfaces out of consumer apps.
+
+## As whom does it run — the safety decision
+
+A flow declares `runAs`, and for approvals this is the decision that keeps the
+flow from quietly bypassing row-level security:
+
+| `runAs` | Data operations run as | Use when |
+|---|---|---|
+| `'user'` (default) | The **submitter**, respecting their RLS | The flow only touches records the submitter can already see |
+| `'system'` | **Elevated** — bypasses RLS | The flow must read/write records the submitter can't (post to a ledger, notify an approver who owns rows the submitter can't see) |
+
+Declare elevation **explicitly** so it's visible, not accidental. The default
+of `'user'` means an approval flow can't silently grant the submitter
+cross-tenant or cross-owner reach — elevation is opt-in and auditable.
+
+> **Tip:** A schedule-triggered escalation has no triggering user — it must be
+> `runAs: 'system'` to act at all. That's the legitimate case for elevation;
+> "`system` everywhere to make it work" is the anti-pattern.
+
+## The approval node
+
+The node declares **who approves** and how their decisions aggregate:
+
+```ts
+{
+  id: 'manager_approval',
+  type: 'approval',
+  label: 'Manager Approval',
+  config: {
+    approvers: [{ type: 'field', value: 'owner_manager_id' }],
+    behavior: 'unanimous',
+    approvalStatusField: 'approval_status',
+    lockRecord: true,
+  },
+}
+```
+
+| Config | What it does |
+|---|---|
+| `approvers` | Who must decide — a named user, a position, or a user resolved from a record field (e.g. the submitter's manager) |
+| `behavior` | How multiple approvers aggregate, e.g. `'unanimous'` |
+| `approvalStatusField` | Optional record field the plugin mirrors the request status into |
+| `lockRecord` | Lock the record against edits while the request is pending |
+
+> **Warning — `position` vs `role`.** `{ type: 'position', value: 'finance_manager' }`
+> routes to the holders of a position (`sys_user_position`). The `role` approver
+> type is the org-membership tier (`sys_member.role`: `owner`/`admin`/`member`) —
+> a position name authored as `type: 'role'` matches nobody and the request
+> stalls. `os lint` flags this (`approval-role-not-membership-tier`).
+
+## A complete approval flow
+
+Route large proposals to the owner's manager, then branch on the decision:
+
+```ts
+export const opportunityApproval = defineFlow({
+  name: 'opportunity_approval',
+  label: 'Opportunity Approval',
+  type: 'record_change',
+  status: 'active',
+  runAs: 'user', // submitter's RLS unless a step genuinely needs more
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      config: {
+        triggerType: 'record-after-update',
+        objectName: 'opportunity',
+        condition: "record.amount >= 50000 && record.stage == 'proposal'",
+      },
+    },
+    {
+      id: 'manager_approval',
+      type: 'approval',
+      label: 'Manager Approval',
+      config: {
+        approvers: [{ type: 'field', value: 'owner_manager_id' }],
+        behavior: 'unanimous',
+        approvalStatusField: 'approval_status',
+        lockRecord: true,
+      },
+    },
+    { id: 'mark_approved', type: 'update_record', label: 'Mark Approved' },
+    { id: 'mark_rejected', type: 'update_record', label: 'Mark Rejected' },
+    { id: 'end', type: 'end' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'manager_approval' },
+    { id: 'approved', source: 'manager_approval', target: 'mark_approved', label: 'approve' },
+    { id: 'rejected', source: 'manager_approval', target: 'mark_rejected', label: 'reject' },
+    { id: 'e4', source: 'mark_approved', target: 'end' },
+    { id: 'e5', source: 'mark_rejected', target: 'end' },
+  ],
+});
+```
+
+Note the labeled edges: `approve` and `reject` name the post-decision
+branches. Always model the rejection path — a flow with only an approve branch
+strands rejected records.
+
+**Multi-step approvals:** chain multiple `approval` nodes. **Parallel
+approvals:** see the aggregating-node pattern in
+[Flows](/docs/build/automation/flows).
+
+## What the approver experiences
+
+The `@objectstack/plugin-approvals` package owns the durable approval state.
+While a request is pending:
+
+1. The plugin persists the request (`sys_approval_request`) and every decision
+   taken on it (`sys_approval_action`) — your approval history is queryable data.
+2. With `lockRecord: true`, the record is locked against edits until the
+   decision lands.
+3. If you set `approvalStatusField`, the record's own field mirrors the request
+   status, so views and reports can filter on it.
+4. The approver approves or rejects; the plugin resumes the paused flow down
+   the matching edge.
+
+Approving is itself a gated action. Model "may approve" as a capability (e.g.
+`approve_invoice`) granted by the approver's permission set, and gate the
+approve action's `requiredPermissions` on it — the gate is then enforced on
+**both** the UI and the server, not just hidden from a screen.
+
+## Best practices
+
+| Do | Don't |
+|---|---|
+| Define clear entry criteria | Create too many approval steps |
+| Set reasonable timeout periods | Make approvals too complex |
+| Allow recall when appropriate | Forget rejection paths |
+| Notify all stakeholders | Hard-code approvers |
+| Track approval history | Gate "Approve" only in the UI |
+| Default to `runAs: 'user'`, elevate one step at a time | Set `runAs: 'system'` everywhere "to make it work" |
+
+## Where to go next
+
+| Page | Why |
+|---|---|
+| [Flows](/docs/build/automation/flows) | The flow reference this page builds on — triggers, steps, error handling |
+| [Workflows](/docs/build/automation/workflows) | Constrain the lifecycle the approval sits inside |
+| [Actions](/docs/build/interface/actions) | Surface submit and approve as buttons in the interface |
+| [CEL expressions](/docs/reference/cel) | The language behind entry conditions |
+| [Email](/docs/configure/email) | Notify approvers and stakeholders |
+| [Automation overview](/docs/build/automation) | Chooser: flow vs workflow vs approval |

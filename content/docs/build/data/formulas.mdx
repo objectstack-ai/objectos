@@ -1,0 +1,223 @@
+---
+title: Formulas
+description: Computed fields, dynamic defaults, and conditional logic — one CEL expression language everywhere metadata needs to think.
+---
+
+# Formulas
+
+**One expression language, every surface.** Wherever a piece of
+metadata needs to compute a value or evaluate a condition, ObjectOS
+uses [CEL](/docs/reference/cel) (Google's Common Expression Language) —
+formula fields, dynamic defaults, conditional visibility, validation
+conditions, flow decisions. Learn the syntax once, use it everywhere.
+
+| Surface | What CEL does there |
+|---|---|
+| **Formula fields** (`type: 'formula'`) | Compute a read-time value from other fields |
+| **Dynamic defaults** (``defaultValue: cel`...` ``) | Evaluate at insert time, not compile time |
+| **Field predicates** (`visibleWhen`, `readonlyWhen`, `requiredWhen`) | Show / lock / require a field conditionally |
+| **[Validation rules](/docs/build/data/validation-rules)** (`condition`) | Flag invalid records |
+| **[Views](/docs/build/interface/views)** (`visibleOn`, `conditionalFormatting`) | Conditional sections and row styling |
+| **[Flows](/docs/build/automation/flows)** (decisions, hook conditions) | Branch on record state |
+
+This page covers how builders *use* formulas. The full language —
+operators, the standard library, the `Expression` envelope — lives in
+the [CEL reference](/docs/reference/cel).
+
+## Formula fields
+
+A formula field computes its value at read time from a CEL expression.
+It is read-only — never directly writable:
+
+```ts
+import { F } from '@objectstack/spec';
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Invoice = ObjectSchema.create({
+  name: 'invoice',
+  fields: {
+    subtotal: Field.decimal({ label: 'Subtotal' }),
+    tax_rate: Field.decimal({ label: 'Tax Rate' }),
+
+    total: Field.formula({
+      label: 'Total',
+      returnType: 'number',
+      expression: F`record.subtotal + record.subtotal * record.tax_rate`,
+    }),
+  },
+});
+```
+
+Two keys matter:
+
+| Key | What it does |
+|---|---|
+| `expression` | The CEL source — the **only** key the runtime evaluates |
+| `returnType` | What the formula returns: `'number'`, `'text'`, `'boolean'`, `'date'` — read by dashboards and formatting |
+
+> **Warning:** A formula field's `type` is always `formula`. Do **not**
+> pass `type: 'currency'` or `type: 'number'` to `Field.formula` — it
+> would override `type: 'formula'` and the field silently never
+> computes. Declare the value type with `returnType` instead.
+
+### Everyday patterns
+
+```ts
+// Tiered label
+Field.formula({
+  label: 'Discount Tier',
+  returnType: 'text',
+  expression: `
+    record.amount > 1000000 ? "Platinum" :
+    record.amount > 500000 ? "Gold" :
+    record.amount > 100000 ? "Silver" : "Bronze"
+  `,
+})
+
+// Days until close
+Field.formula({
+  label: 'Days to Close',
+  returnType: 'number',
+  expression: 'daysBetween(record.close_date, today())',
+})
+
+// Full name — joinNonEmpty skips blank parts
+Field.formula({
+  label: 'Full Name',
+  returnType: 'text',
+  expression: F`joinNonEmpty([record.salutation, record.first_name, record.last_name], ' ')`,
+})
+
+// Gross margin with 2 decimal places
+Field.formula({
+  label: 'Gross Margin %',
+  returnType: 'number',
+  expression: 'record.revenue > 0 ? ((record.revenue - record.cost) / record.revenue) * 100 : 0',
+  scale: 2,
+})
+```
+
+> **Tip:** CEL throws on `null + string`, so wrap nullable operands in
+> `coalesce(record.x, '')` when concatenating — or use `joinNonEmpty`
+> and skip the ceremony.
+
+### Formula as record title
+
+Since ADR-0079, a record's title is a designated field via `nameField`
+— use a text formula for composite titles:
+
+```ts
+ObjectSchema.create({
+  name: 'invoice',
+  nameField: 'display_title',
+  fields: {
+    display_title: Field.formula({
+      returnType: 'text',
+      expression: F`"Invoice " + string(record.invoice_no) + " – " + record.customer.name`,
+    }),
+  },
+});
+```
+
+## Dynamic defaults
+
+A `defaultValue` wrapped in `` cel`...` `` is evaluated at **insert
+time** — on the user's clock and identity, not your laptop's:
+
+```ts
+import { cel } from '@objectstack/spec';
+
+issued_date: Field.date({
+  defaultValue: cel`today()`,
+}),
+due_date: Field.date({
+  defaultValue: cel`daysFromNow(30)`,
+}),
+```
+
+The same trick applies to seed data: a seed record with
+``close_date: cel`daysFromNow(45)` `` resolves when the package is
+installed, so demo data is always fresh instead of shipping the
+timestamp from compile time.
+
+## Conditional field behavior
+
+Predicates make a field react to the rest of the record:
+
+```ts
+import { P } from '@objectstack/spec';
+
+po_number: Field.text({
+  label: 'PO Number',
+  requiredWhen: P`record.amount > 10000`,
+}),
+rating: Field.select({
+  label: 'Rating',
+  options: [ /* ... */ ],
+  visibleWhen: P`record.status == 'qualified'`,
+}),
+notes: Field.textarea({
+  readonlyWhen: P`record.status == 'approved'`,
+}),
+```
+
+The `F` (formula), `P` (predicate), and `cel` tagged-template helpers
+are interchangeable — pick whichever reads best at the call site.
+
+## CEL in 30 seconds
+
+| Concept | Syntax |
+|---|---|
+| Field on the current record | `record.amount` |
+| Value before the update | `previous.status` |
+| Equality / logic | `==` `!=` `&&` `\|\|` `!` |
+| Conditional | `cond ? then : else` |
+| Membership | `record.region in ['us', 'eu']` |
+| Blank check | `isBlank(record.phone)` |
+| Dates | `today()`, `now()`, `daysBetween(a, b)`, `addDays(d, n)` |
+| Strings | `upper`, `lower`, `trim`, `contains`, `matches` |
+
+Full operator table and standard library:
+[CEL reference](/docs/reference/cel).
+
+> **Warning:** Predicates are bare CEL — never wrap field references in
+> braces. `{record.rating} >= 4` is a **map literal** and a parse
+> error; write `record.rating >= 4`. Braces belong only in `{{ … }}`
+> text templates. A malformed expression fails the build and throws at
+> runtime — it never silently evaluates to `false`.
+
+> **Tip:** `has(record.x)` is true whenever the key exists — even when
+> the value is `null`. To check "not blank", use `isBlank(...)` or
+> `record.x != null`.
+
+## Best practices
+
+| Do | Don't |
+|---|---|
+| Keep formulas simple and readable | Create circular references |
+| Test edge cases (null, zero, empty) | Nest ternaries five levels deep |
+| Handle nulls with `coalesce` / `isBlank` | Use formulas for frequently changing data |
+| Declare `returnType` on every formula | Re-implement logic that a validation rule should own |
+
+## Build by chat
+
+You rarely write formulas by hand. Tell the
+[AI Builder](/docs/build/ai-builder):
+
+> *"Add a Days to Close formula on opportunity: days between close_date
+> and today."*
+
+It emits the CEL, infers and stamps `returnType`, and the expression is
+validated before it ships — an invalid formula fails the build with a
+located error.
+
+## Where to go next
+
+| Page | Why |
+|---|---|
+| [CEL reference](/docs/reference/cel) | The full language: operators, stdlib, expression envelope |
+| [Data Model](/docs/build/data) | Where formula fields live |
+| [Validation Rules](/docs/build/data/validation-rules) | CEL conditions that block bad writes |
+| [Views](/docs/build/interface/views) | CEL in `visibleOn` and `conditionalFormatting` |
+| [Flows](/docs/build/automation/flows) | CEL in decisions and hook conditions |
+| [Field Types](/docs/reference/field-types) | `formula`, `summary`, `autonumber` and friends |

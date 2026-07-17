@@ -1,0 +1,39 @@
+---
+title: Automation
+description: Pick the right tool for the job — flows for steps, workflows for state, approvals for human sign-off.
+---
+
+# Automation
+
+**Automation attaches business logic to your data model declaratively — as metadata the runtime executes — instead of scattering it through application code.** Three tools cover the ground, and picking the right one first saves you from rebuilding later.
+
+## Which one do I need?
+
+| You need | Use | Read |
+|---|---|---|
+| "When X happens, do Y" — steps that run on a record change, a schedule, or a button click | **Flow** | [Flows](/docs/build/automation/flows) |
+| "This record may only move through these states, by these events" — a controlled lifecycle | **Workflow** (state machine) | [Workflows](/docs/build/automation/workflows) |
+| "A person must sign off before this proceeds" — routed human decisions | **Approval** | [Approvals](/docs/build/automation/approvals) |
+
+Rule of thumb: model **state** with workflows, model **steps** with flows. Approvals are not a separate engine — an approval is a flow that pauses at an approval node until a human decides.
+
+## How they combine
+
+The three compose rather than compete:
+
+- A **workflow** constrains which lifecycle transitions are valid at all — states, transitions, and guards, nothing else.
+- A **flow** performs the side effects around those transitions: send an email, update records, call an external service, wait, branch.
+- An **approval node** inside a flow blocks execution until an approver acts, then resumes down the approve or reject branch.
+
+So "a case moves new → assigned → resolved" is a workflow; "notify the manager when it escalates" is a flow; "a discount over $50k needs the finance manager's sign-off" is a flow with an approval node.
+
+> **Tip:** If a request reads "when X happens, do Y", it's a flow. If it reads "this record must never skip a state", it's a workflow. Start there and you'll rarely choose wrong.
+
+## Where to go next
+
+| Page | Why |
+|---|---|
+| [Flows](/docs/build/automation/flows) | The full flow reference — triggers, step types, error handling, CEL |
+| [Workflows](/docs/build/automation/workflows) | States, transitions, and guards for strict lifecycles |
+| [Approvals](/docs/build/automation/approvals) | Approval nodes, run-as identity, and the approver experience |
+| [CEL expressions](/docs/reference/cel) | The expression language used in conditions and guards |

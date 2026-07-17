@@ -1,0 +1,223 @@
+---
+title: Dashboards
+description: Analytics pages built from chart widgets bound to named datasets — with global filters, auto-refresh, and drill-through to the underlying records.
+---
+
+# Dashboards
+
+**A dashboard is a grid of widgets; every widget binds to a dataset.**
+The dataset is the semantic layer: it owns the base object, joins,
+dimensions, and certified measures. Widgets select those by name, so
+"revenue" means the same thing on every dashboard and report that uses
+it.
+
+```ts
+const salesDashboard = {
+  name: 'sales_overview',
+  label: 'Sales Overview',
+  description: 'Key sales metrics and pipeline analysis',
+  refreshInterval: 300,                   // auto-refresh every 5 minutes
+
+  dateRange: {
+    field: 'close_date',
+    defaultRange: 'this_quarter',
+    allowCustomRange: true,
+  },
+
+  widgets: [
+    { id: 'total_revenue',     title: 'Total Revenue',     type: 'metric',
+      dataset: 'sales', values: ['revenue'],
+      layout: { x: 0, y: 0, w: 3, h: 2 } },
+    { id: 'revenue_by_region', title: 'Revenue by Region', type: 'bar',
+      dataset: 'sales', dimensions: ['region'], values: ['revenue'],
+      layout: { x: 3, y: 0, w: 6, h: 4 } },
+    { id: 'deals_by_month',    title: 'Deals by Month',    type: 'pie',
+      dataset: 'sales', dimensions: ['close_month'], values: ['deal_count'],
+      layout: { x: 9, y: 0, w: 3, h: 4 } },
+  ],
+}
+```
+
+## Dashboard properties
+
+| Property | Type | Required | Description |
+|:--|:--|:--|:--|
+| `name` | `string` | yes | Machine name (`snake_case`) |
+| `label` | `string` | yes | Display label |
+| `description` | `string` | — | Dashboard description |
+| `widgets` | `DashboardWidget[]` | yes | Chart and metric widgets |
+| `refreshInterval` | `number` | — | Auto-refresh interval (seconds) |
+| `dateRange` | `object` | — | Global date range filter |
+| `globalFilters` | `GlobalFilter[]` | — | Interactive filter controls |
+
+## Datasets first
+
+Define the dataset once; bind every widget to it:
+
+```ts
+import { defineDataset } from '@objectstack/spec/ui'
+
+export const salesDataset = defineDataset({
+  name: 'sales',
+  label: 'Sales',
+  object: 'opportunity',
+  include: ['account'],
+  dimensions: [
+    { name: 'region',      field: 'account.region', type: 'string' },
+    { name: 'close_month', field: 'close_date',     type: 'date', dateGranularity: 'month' },
+  ],
+  measures: [
+    { name: 'revenue',    field: 'amount', aggregate: 'sum', certified: true },
+    { name: 'deal_count', aggregate: 'count' },
+  ],
+})
+```
+
+Aggregation lives on the dataset's measures (`aggregate`), not on the
+widget: `count`, `sum`, `avg`, `min`, `max`, `count_distinct`,
+`array_agg`, `string_agg`. A widget's `dimensions` and `values` must
+reference names declared on its bound dataset.
+
+At runtime, dataset queries run through the analytics service and
+automatically apply the caller's row-level security scope to the base
+object and joined objects — a dashboard never shows a user records their
+[permissions](/docs/configure/permissions) wouldn't.
+
+> The legacy inline-query shape (`object` + `categoryField` + `valueField`
+> + `aggregate` directly on the widget) was removed. Define a dataset and
+> bind widgets to it.
+
+## Widgets
+
+| Property | Type | Required | Description |
+|:--|:--|:--|:--|
+| `id` | `string` | yes | Unique widget id (`snake_case`) |
+| `dataset` | `string` | yes | Dataset name to bind |
+| `values` | `string[]` | yes | Measure names (at least one) |
+| `dimensions` | `string[]` | — | Dimension names — X / group / split |
+| `type` | `ChartType` | — | Visualization type (default `metric`) |
+| `title` / `description` | `string` | — | Display title and subtitle |
+| `filter` | `FilterCondition` | — | Presentation-scope filter |
+| `layout` | `object` | — | Grid position (auto-flowed when omitted) |
+| `colorVariant` | `enum` | — | KPI/card accent color |
+| `compareTo` | `enum \| object` | — | Period-over-period comparison window |
+| `filterBindings` | `object` | — | Per-widget global-filter mapping (below) |
+
+### Chart types
+
+| Type | Best for |
+|:--|:--|
+| `metric` *(default)* | Single-number KPI — revenue, count, percentage |
+| `bar` / `horizontal-bar` / `column` | Category comparison |
+| `line` | Trends over time |
+| `pie` / `donut` | Distribution |
+| `area` | Volume over time |
+| `scatter` | Correlation |
+| `radar` | Multi-dimensional comparison |
+| `funnel` | Conversion stages |
+| `gauge` / `solid-gauge` / `bullet` / `kpi` | Progress toward a goal |
+| `treemap` / `sankey` | Hierarchical proportions / flows |
+| `table` | Detailed records — **drill-through** |
+| `pivot` | Cross-tab summaries — **drill-through** |
+
+### Layout
+
+Widgets sit on a 12-column grid:
+
+```ts
+layout: {
+  x: 0,    // column position (0-11)
+  y: 0,    // row position
+  w: 6,    // width in columns (1-12)
+  h: 4,    // height in rows
+}
+```
+
+## Drill-down
+
+`table` and `pivot` widgets are **drill-through**: clicking an aggregated
+row or cell opens a side drawer listing the *underlying records* behind
+that group. The dataset preserves raw group keys, so the drawer's filter
+matches the exact records — no label-to-id guessing. Click any row in
+the drawer to open that record's detail: the full
+**group → records → record** chain.
+
+The drawer also offers an **"Open in list →"** escape hatch that
+escalates the peek to the object's full list page (sort, bulk-select,
+export, shareable URL), scoped by the same drill filter.
+
+Drill-through is automatic — no per-widget configuration — whenever the
+dataset exposes the base object and the widget groups by at least one
+dimension. `metric` and chart widgets render the aggregate only; expose
+detail through a `table` or `pivot` widget instead.
+
+## Global date range and filters
+
+A global time filter applies to all widgets:
+
+```ts
+dateRange: { field: 'created_at', defaultRange: 'this_month', allowCustomRange: true }
+```
+
+Preset ranges: `today`, `yesterday`, `this_week`, `last_week`,
+`this_month`, `last_month`, `this_quarter`, `last_quarter`, `this_year`,
+`last_year`, `last_7_days`, `last_30_days`, `last_90_days`, `custom`.
+
+Interactive global filters work the same way:
+
+```ts
+globalFilters: [
+  { name: 'region', field: 'region', label: 'Region',    type: 'select' },
+  { field: 'owner',                  label: 'Sales Rep', type: 'lookup' },
+]
+```
+
+Each filter's `name` (defaults to `field`) is its stable identity — the
+key widgets reference in `filterBindings` and the dashboard-level
+variable readable in widget expressions as `page.<name>`. The name
+`dateRange` is reserved for the built-in date range.
+
+### Per-widget filter bindings
+
+By default a filter applies to its own `field` on every widget. When a
+widget stores the concept under a different field — or should ignore a
+filter — declare `filterBindings`:
+
+```ts
+widgets: [
+  // Default binding: dateRange → created_at, region → region.
+  { id: 'invoices_by_status', /* … */ },
+  // This widget's fields differ — map each filter explicitly.
+  { id: 'accounts_signed',
+    filterBindings: { dateRange: 'signed_at', region: 'sales_region' }, /* … */ },
+  // Opt out of a filter with `false`.
+  { id: 'total_invoices', filterBindings: { region: false }, /* … */ },
+]
+```
+
+> Precedence: an explicit `filterBindings` entry (string override or
+> `false` opt-out) → the filter's legacy `targetWidgets` allow-list →
+> the filter's own `field`.
+
+## Surfacing a dashboard
+
+Add a `dashboard` navigation entry to an [app](/docs/build/interface/apps):
+
+```ts
+{ id: 'nav_analytics', type: 'dashboard', label: 'Analytics',
+  dashboardName: 'sales_overview', icon: 'bar-chart' }
+```
+
+Or describe it to the [AI Builder](/docs/build/ai-builder) — *"a sales
+overview dashboard with revenue by region and a monthly deal trend"* —
+and review the generated dataset + dashboard metadata before approving.
+
+## Where to go next
+
+| Page | Why |
+|:--|:--|
+| [Apps](/docs/build/interface/apps) | Put dashboards in navigation |
+| [Views](/docs/build/interface/views) | Inline `chart` list views over the same datasets |
+| [Pages](/docs/build/interface/pages) | Free-form layouts when a widget grid isn't enough |
+| [Data model](/docs/build/data) | The objects your datasets aggregate |
+| [Permissions](/docs/configure/permissions) | The row-level security dashboards inherit |
