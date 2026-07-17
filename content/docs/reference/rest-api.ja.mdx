@@ -130,7 +130,7 @@ Authorization: Bearer <token>
 | `/actions/:action` | POST | アクションを呼び出します。ボディはアクションの入力スキーマです。権限と入力検証はアクション宣言から得られます |
 
 各アクションは `action_<name>` ツールとして AI にも公開されます —
-[Actions](/docs/build/actions) を参照してください。
+[Actions](/docs/build/interface/actions) を参照してください。
 
 ## Flows — `/api/v1/flows/*`
 
@@ -217,5 +217,5 @@ Authorization: Bearer <token>
 
 - [ObjectQL](./objectql) — `/data/*` で使用されるクエリ言語
 - [Field types](./field-types) — データが取り得る形状
-- [Build → Actions](/docs/build/actions) — カスタムエンドポイントを宣言
+- [Build → Actions](/docs/build/interface/actions) — カスタムエンドポイントを宣言
 - [Security](./security) — すべてのルートが実行前にチェックする内容

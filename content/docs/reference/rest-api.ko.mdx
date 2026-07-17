@@ -129,7 +129,7 @@ Authorization: Bearer <token>
 | `/actions/:action` | POST | 액션 호출. 본문은 액션의 입력 스키마. 권한과 입력 검증은 액션 선언에서 가져옴 |
 
 각 액션은 AI에게도 `action_<name>` 도구로 노출됩니다 —
-[Actions](/docs/build/actions) 참고.
+[Actions](/docs/build/interface/actions) 참고.
 
 ## Flows — `/api/v1/flows/*`
 
@@ -217,5 +217,5 @@ Console에 유용합니다.
 
 - [ObjectQL](./objectql) — `/data/*`가 사용하는 쿼리 언어
 - [Field types](./field-types) — 데이터가 가질 수 있는 형태
-- [Build → Actions](/docs/build/actions) — 커스텀 엔드포인트 선언
+- [Build → Actions](/docs/build/interface/actions) — 커스텀 엔드포인트 선언
 - [Security](./security) — 모든 라우트가 실행 전에 확인하는 것

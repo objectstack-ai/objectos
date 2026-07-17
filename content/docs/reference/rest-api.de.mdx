@@ -136,7 +136,7 @@ Jede `*.action.ts`, die du deklarierst, wird zu einem Endpunkt.
 | `/actions/:action` | POST | Die Action aufrufen. Der Body ist das Input-Schema der Action. Berechtigungen und Eingabevalidierung stammen aus der Action-Deklaration |
 
 Jede Action wird der KI außerdem als `action_<name>`-Tool bereitgestellt — siehe
-[Actions](/docs/build/actions).
+[Actions](/docs/build/interface/actions).
 
 ## Flows — `/api/v1/flows/*`
 
@@ -224,5 +224,5 @@ Version und der Deprecation-Horizont stehen in `GET /api/v1`.
 
 - [ObjectQL](./objectql) — die von `/data/*` verwendete Abfragesprache
 - [Field types](./field-types) — welche Formen Daten annehmen können
-- [Build → Actions](/docs/build/actions) — eigene Endpunkte deklarieren
+- [Build → Actions](/docs/build/interface/actions) — eigene Endpunkte deklarieren
 - [Security](./security) — was jede Route prüft, bevor sie ausgeführt wird

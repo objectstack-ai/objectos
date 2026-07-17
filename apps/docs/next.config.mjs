@@ -28,6 +28,19 @@ const config = {
       },
     ],
   },
+  async redirects() {
+    // Build section restructure: pages moved into data/, interface/, automation/ subgroups.
+    const moved = [
+      ['/docs/build/data-model', '/docs/build/data'],
+      ['/docs/build/views', '/docs/build/interface/views'],
+      ['/docs/build/actions', '/docs/build/interface/actions'],
+      ['/docs/build/flows', '/docs/build/automation/flows'],
+    ];
+    return moved.flatMap(([source, destination]) => [
+      { source, destination, permanent: true },
+      { source: `/:lang${source}`, destination: `/:lang${destination}`, permanent: true },
+    ]);
+  },
   async rewrites() {
     return [
       {

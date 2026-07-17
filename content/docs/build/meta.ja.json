@@ -5,12 +5,11 @@
     "index",
     "ai-builder",
     "ai-skills",
-    "packages",
-    "data-model",
-    "views",
-    "actions",
-    "flows",
+    "data",
+    "interface",
+    "automation",
     "agents",
+    "packages",
     "templates",
     "marketplace"
   ]

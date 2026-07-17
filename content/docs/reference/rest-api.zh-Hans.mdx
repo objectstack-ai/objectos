@@ -111,7 +111,7 @@ Authorization: Bearer <token>
 |:--|:--|:--|
 | `/actions/:action` | POST | 调用 Action。请求体是 Action 的输入 schema。权限和输入校验来自 Action 声明 |
 
-每个 Action 也作为 `action_<name>` 工具暴露给 AI —— 见 [Actions](/docs/build/actions)。
+每个 Action 也作为 `action_<name>` 工具暴露给 AI —— 见 [Actions](/docs/build/interface/actions)。
 
 ## 流程 —— `/api/v1/flows/*`
 
@@ -193,5 +193,5 @@ Authorization: Bearer <token>
 
 - [ObjectQL](./objectql) —— `/data/*` 使用的查询语言
 - [字段类型](./field-types) —— 数据可以呈现的形状
-- [Build → Actions](/docs/build/actions) —— 声明自定义端点
+- [Build → Actions](/docs/build/interface/actions) —— 声明自定义端点
 - [安全](./security) —— 每个路由运行前检查什么
