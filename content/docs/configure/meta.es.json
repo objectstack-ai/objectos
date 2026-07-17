@@ -1,16 +1,5 @@
 {
   "title": "Configurar",
   "defaultOpen": false,
-  "pages": [
-    "runtime",
-    "data-sources",
-    "authentication",
-    "permissions",
-    "storage",
-    "ai",
-    "system-settings",
-    "api-access",
-    "webhooks",
-    "email"
-  ]
+  "pages": ["index", "users", "runtime", "data-sources", "authentication", "permissions", "storage", "ai", "mcp", "system-settings", "api-access", "webhooks", "email"]
 }

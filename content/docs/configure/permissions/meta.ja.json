@@ -1,9 +1,4 @@
 {
   "title": "権限",
-  "pages": [
-    "index",
-    "roles",
-    "permission-sets",
-    "record-access"
-  ]
+  "pages": ["index", "managing-access", "positions", "permission-sets", "record-access", "field-level-security"]
 }

@@ -1,0 +1,163 @@
+---
+title: Field-Level Security
+description: Hide or lock down individual fields — grant semantics, server-side enforcement, and how FLS behaves in forms, views, and the API.
+---
+
+# Field-Level Security
+
+Field-level security (FLS) controls the visibility and editability of
+individual fields, *after* object permissions and
+[record access](/docs/configure/permissions/record-access) have allowed
+the user to reach the record at all. It is the layer for "support can
+see the account, but not its `annual_revenue`" and "reps can read the
+external id but never change it".
+
+FLS rules live in [permission sets](/docs/configure/permissions/permission-sets)
+— this page goes deeper on the grant semantics and enforcement than the
+[field security appendix](/docs/configure/permissions/permission-sets#field-security-appendix)
+there.
+
+## Field permission grants
+
+Field permissions are keyed `<object>.<field>` and use `readable` /
+`editable`:
+
+```ts
+fields: {
+  // Read-only: visible but not editable
+  'account.annual_revenue': { readable: true, editable: false },
+  'account.description': { readable: true, editable: true },
+  // Hidden: not visible at all
+  'account.ssn': { readable: false, editable: false },
+  'opportunity.amount': { readable: true, editable: true },
+  'opportunity.probability': { readable: true, editable: false },
+}
+```
+
+The two flags produce three states:
+
+| State | Rule | Effect |
+|---|---|---|
+| **Hidden** | `{ readable: false, editable: false }` | Field is not visible at all — stripped from every response |
+| **Read-only** | `{ readable: true, editable: false }` | Field is returned, but writes to it are rejected |
+| **Editable** | `{ readable: true, editable: true }` | Field is visible and writable |
+
+> Always write field-permission keys **object-qualified**
+> (`crm_lead.budget`, not `budget`) — since ObjectStack 14.4 the
+> `security-fls-unqualified-key` lint rejects bare keys at compile
+> time, because they silently matched nothing.
+
+## How grants combine
+
+FLS uses **default-visible (block-list) semantics**: fields without an
+explicit rule pass through untouched — readable *and* writable.
+Permission sets only constrain fields they explicitly enumerate.
+
+Field grants union **most-permissively** across a user's sets: one
+set's `readable: true` out-votes another set's `false`. Until a
+subtractive muting layer lands (reserved as ADR-0066 ⑧), a
+`{ readable: false }` rule masks the field only as long as **no other
+set the user holds** declares it `readable: true`. The practical
+consequences:
+
+- Protect sensitive fields by granting them **only** in the sets that
+  need them — never rely on a `false` rule in one set to override a
+  `true` elsewhere.
+- Treat a sensitive field on a broadly-granted object as a review
+  smell.
+
+Declared rules themselves are enforced fail-closed: a masked field is
+stripped on read and a write to a non-editable field throws.
+
+## Enforcement in the API
+
+The SecurityPlugin middleware enforces field rules on the server,
+regardless of how the request arrived — REST, ObjectQL, or any other
+path. There is no back door through a lower-level API.
+
+**On read** — `find` / `findOne` results have non-readable fields
+stripped from every record before the response leaves the engine.
+
+**On write** — `insert` / `update` requests are checked **before** the
+operation reaches the driver. If the payload contains any field the
+caller is not permitted to edit, the engine throws
+`PermissionDeniedError` (HTTP 403) with the offending field names:
+
+```json
+{
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "[Security] Field write denied: not permitted to edit [salary, ssn] on 'employee'",
+    "details": {
+      "operation": "insert",
+      "object": "employee",
+      "forbiddenFields": ["salary", "ssn"]
+    }
+  }
+}
+```
+
+**Why throw instead of silently stripping?** Silent strip hides the
+security boundary from honest clients (their update "doesn't save" and
+they cannot tell why) *and* gives a probing client no signal either
+way. Throwing makes the boundary observable in both directions —
+legitimate UIs get an actionable error to fix; probing clients learn
+nothing they could not already infer.
+
+Two more enforcement details:
+
+- **Bulk inserts** are checked row-by-row; a single offending field in
+  any row rejects the whole batch atomically.
+- **System operations** (`ExecutionContext { isSystem: true }`) bypass
+  the check entirely — used for migrations, seed loading, and audit-log
+  writes.
+
+## FLS in forms and views
+
+The generated forms and inline grids hide non-editable fields from the
+UI — but that is a **UX layer only**. The server-side check above is
+the source of truth, so behavior stays consistent everywhere:
+
+| Surface | Hidden field | Read-only field |
+|---|---|---|
+| Record forms / inline grids | Not rendered | Rendered without an editable control; a direct write attempt is rejected with 403 |
+| List views, related lists, exports | Column value stripped from the response | Value shown normally |
+| REST / ObjectQL | Stripped from results | Returned on read; write throws `PERMISSION_DENIED` with `forbiddenFields` |
+| MCP / AI agents | Stripped — agents [run as the calling user](/docs/configure/mcp#permission-enforcement) | Same as REST |
+
+Because reads are stripped rather than errored, a hidden field simply
+looks absent to that user — which is the point.
+
+## Verifying and reviewing FLS
+
+- **Per decision, at runtime** — the
+  [explain engine](/docs/configure/permissions#diagnose--audit) reports
+  the FLS layer's verdict alongside every other layer, with the
+  contributing permission set named. Use it when a user reports a
+  "missing" field.
+- **Per change, at build time** — if your app has opted into the
+  access-matrix snapshot gate, `os compile` diffs the derived
+  (permission set × object) capability matrix against a committed
+  `access-matrix.json` and fails on drift, so capability changes ride
+  pull requests as reviewable semantic diffs:
+
+```bash
+os compile --update-access-matrix
+```
+
+> Default to **hide** rather than read-only when the field carries
+> sensitive data — read-only still leaks the value into responses and
+> logs. Bundle field rules into permission sets that match a real job
+> function, and pair them with audit-log retention for compliance
+> cases. More authoring patterns:
+> [Permission Sets](/docs/configure/permissions/permission-sets#field-security-appendix).
+
+## Where to go next
+
+| Task | Page |
+|---|---|
+| Author field rules inside permission sets | [Permission Sets](/docs/configure/permissions/permission-sets) |
+| Control which rows are reachable at all | [Record Access](/docs/configure/permissions/record-access) |
+| See the whole layered model | [Permissions](/docs/configure/permissions) |
+| Verify a specific user's access | [Managing Access](/docs/configure/permissions/managing-access) |
+| Check what AI agents can read | [Connect AI Tools (MCP)](/docs/configure/mcp) |
