@@ -1,0 +1,120 @@
+---
+title: Notifications
+description: Configure how ObjectOS routes events into user inboxes — subscriptions, per-user preferences, and render templates.
+---
+
+# Notifications
+
+This page covers the **administrator side** of notifications: how events become
+messages, and the three system-managed objects you use to route and render
+them. For the recipient's view of the inbox — reading and muting notifications —
+see [Notifications](/docs/use/notifications) under *Use*.
+
+## The notification pipeline
+
+A notification is not a single record. It flows through four stages:
+
+```text
+emit()  →  Notification Event  →  routed by Subscription + Preference + Template  →  Inbox Message
+```
+
+1. **`emit()`** — Application code raises an event (an approval submitted, a
+   record shared, an invitation sent).
+2. **Notification Event** (`sys_notification`) — Each `emit()` writes one
+   ingress row. This is the diagnostic log of *what happened*, before any
+   delivery decision. See [Audit Logs](/docs/operate/audit-logs) for how to
+   read it.
+3. **Routing** — For each event, ObjectOS resolves who should be notified
+   (**Subscriptions**), whether each recipient allows that topic on that channel
+   (**Preferences**), and how the message should be rendered (**Templates**).
+4. **Inbox Message** (`sys_inbox_message`) — The materialized, per-user result
+   the recipient actually sees in their inbox.
+
+Preferences, Subscriptions, and Templates are the admin/system-side
+configuration. Inbox Messages are the user-side output.
+
+### How routing resolves
+
+For a single event, the three objects each answer one question:
+
+| Object | Question it answers |
+|---|---|
+| Notification Subscription | *Who is interested?* — which principals stand subscribed to the topic |
+| Notification Preference | *Does this recipient allow it here?* — the per-user mute/allow for the topic and channel |
+| Notification Template | *How is it written?* — the subject and body to render for the recipient's channel and locale |
+
+Only when a recipient is subscribed **and** their preference for the
+topic/channel is enabled does a template render and an inbox message
+materialize. All three objects are seeded and maintained by the platform, so
+the list views mostly show system-generated rows.
+
+## Notification Preferences
+
+At **Setup → Configuration → Notification Preferences** (`sys_notification_preference`).
+
+Per-user × topic × channel toggle (mute/allow), with admin-global defaults. A
+preference decides whether a given recipient receives a given topic on a given
+channel.
+
+| Field | Purpose |
+|---|---|
+| `user_id` | The principal the preference belongs to |
+| `topic` | Notification topic (e.g. `project.digest`) |
+| `channel` | Delivery channel (in-app, email, …) |
+| `enabled` | Boolean — allow or mute this topic/channel for the user |
+| `digest` | Batching cadence for the topic |
+| `quiet_hours` | JSON window during which delivery is suppressed |
+| `created_at` / `updated_at` | Audit timestamps |
+
+> Entries appear automatically when their source action first runs (for
+> example *Submit for Approval*, *Share*, or *Invite*) — you rarely create
+> preference rows by hand. Use the list to adjust admin defaults or mute a
+> noisy topic.
+
+## Notification Subscriptions
+
+At **Setup → Configuration → Notification Subscriptions** (`sys_notification_subscription`).
+
+A **standing subscription** of a principal (role, team, or user) to a
+notification topic. Subscriptions answer *who is interested* in a topic before
+per-user preferences filter delivery.
+
+| Field | Purpose |
+|---|---|
+| `topic` | The topic being subscribed to |
+| `principal` | Role, team, or user that receives the topic |
+| `enabled` | Boolean — activate or pause the subscription |
+
+## Notification Templates
+
+At **Setup → Configuration → Notification Templates** (`sys_notification_template`).
+
+A per **(topic × channel × locale)** render template. Templates turn an event
+payload into the subject and body a recipient reads, in their locale and for
+their channel.
+
+| Field | Purpose |
+|---|---|
+| `topic` | Topic this template renders |
+| `channel` | Channel the rendered output targets |
+| `locale` | Locale of this rendering (matched to the recipient) |
+| `version` | Template version number |
+| `subject` | Rendered title |
+| `body` | Message body (markdown) |
+| `format` | Output format for the body |
+| `is_active` | Boolean — whether this template is used for rendering |
+
+These objects are **system-managed**: rows are seeded by the platform and the
+capabilities you run, so most of your work is editing template content or
+toggling `is_active`, `enabled`, and preference defaults rather than creating
+records from scratch.
+
+## Where to go next
+
+| Task | Page |
+|---|---|
+| Configure the email channel used for delivery | [Email](/docs/configure/email) |
+| Diagnose events with the ingress log and audit trail | [Audit Logs](/docs/operate/audit-logs) |
+| See the recipient's inbox experience | [Notifications](/docs/use/notifications) |
+| Set locale defaults that templates match against | [Localization](/docs/configure/localization) |
+| Return to the administration overview | [Configure](/docs/configure) |

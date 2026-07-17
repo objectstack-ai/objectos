@@ -56,6 +56,31 @@ Customer-facing settings usually include:
 | AI providers | Model provider, API key, budget limits |
 | SSO | OIDC provider settings and test connection |
 
+## Branding
+
+At **Setup → Configuration → Branding**. These settings control the workspace's
+display identity — its name, logo, and colours.
+
+| Setting | Notes |
+|---|---|
+| `Workspace name` | Required. The name shown across the UI (default `ObjectStack`) |
+| `Support email` | Address surfaced to users for help (e.g. `support@example.com`) |
+| `Default theme` | `Match system`, `light`, or `dark` |
+| `Accent colour` | Hex colour with a picker (default `#6366f1`) |
+| `Logo URL` | URL of the workspace logo |
+
+## Feature flags
+
+At **Setup → Configuration → Feature Flags** `[Beta]`. Toggle experimental and
+beta features for this workspace — grouped as **Productivity** (AI Assistant,
+Kanban swimlanes) and **Collaboration** (Realtime cursors, Inline comments).
+Each is a tenant-level UI switch.
+
+> **Beta features may change without notice.** Pin a flag with an environment
+> variable (e.g. `OS_FEATURE_FLAGS_AI_ENABLED=true`) to lock it for the whole
+> deployment. Because environment overrides are locked, the `OS_FEATURE_FLAGS_*`
+> vars take precedence over the UI toggles.
+
 ## Secrets
 
 Password and credential fields should be encrypted by the settings

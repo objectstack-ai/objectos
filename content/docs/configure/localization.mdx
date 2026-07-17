@@ -1,0 +1,68 @@
+---
+title: Localization
+description: Set the tenant-wide timezone, language, country, and date, time, and number formats that every rendered value inherits.
+---
+
+# Localization
+
+Localization sets the **tenant-level defaults** for how ObjectOS interprets
+time, chooses a message catalog, and renders dates, numbers, and currency.
+These values are the fallback for the whole workspace — individual users can
+override their own language in their [Account](/docs/use/profile), but the
+defaults you set here apply to everyone who has not.
+
+Open **Setup → Configuration → Localization**. The page is split into two
+sections: **Region** and **Formats**.
+
+## Region
+
+Region controls how ObjectOS resolves *meaning* — which timezone anchors
+relative-time calculations, which locale drives formatting, and which country
+the deployment reports as its home.
+
+| Setting | Default | Drives |
+|---|---|---|
+| `Default timezone` | `UTC` | IANA zone for `today()` / `daysFromNow`, analytics date buckets, and rendered datetimes |
+| `Default language` | `English (US)` | BCP-47 locale for message catalogs and number/date formatting |
+| `Default country` | `US` | ISO 3166-1 alpha-2 code (e.g. `US`, `GB`, `CN`) |
+
+> **Timezone is not cosmetic.** It is the anchor for every relative-time
+> expression and for the buckets analytics rolls records into. Changing it
+> shifts what "today" means across the tenant — set it once, deliberately.
+
+`Default timezone` is a dropdown of IANA zones (`UTC`, `America/New_York`,
+`Asia/Shanghai`, and so on). `Default language` selects the locale whose
+message catalog and formatting rules the UI falls back to. `Default country`
+is a free-text field that expects a two-letter ISO code.
+
+## Formats
+
+Formats control *presentation* — how an already-resolved value is written out.
+They do not change stored data, only how it is displayed.
+
+| Setting | Default | Example |
+|---|---|---|
+| `Date format` | ISO | `2026-06-17` |
+| `Time format` | 24-hour | `14:30` |
+| `Number format` | comma / dot | `1,234.56` |
+| `Currency` | — | Currency symbol and placement for money fields |
+
+Each is a dropdown. Pick the presentation your users expect; the underlying
+timestamps and numbers are stored in a canonical form and only formatted at
+render time.
+
+## Tenant defaults vs. user overrides
+
+Everything on this page is a **tenant default**. When a user sets their own
+language in **Account**, that choice wins for that user's session and rendered
+UI; users who leave their preference unset inherit the `Default language` you
+configure here. Timezone, country, and format defaults apply tenant-wide.
+
+## Where to go next
+
+| Task | Page |
+|---|---|
+| Change branding, feature flags, and other tenant settings | [System Settings](/docs/configure/system-settings) |
+| Configure a user's personal language override | [Your profile](/docs/use/profile) |
+| Set up transactional email delivery | [Email](/docs/configure/email) |
+| Return to the administration overview | [Configure](/docs/configure) |

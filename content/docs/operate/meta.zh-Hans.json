@@ -1,5 +1,5 @@
 {
   "title": "运维",
   "defaultOpen": false,
-  "pages": ["production", "observability", "backup", "upgrade", "troubleshooting"]
+  "pages": ["index", "production", "observability", "audit-logs", "backup", "upgrade", "troubleshooting"]
 }
