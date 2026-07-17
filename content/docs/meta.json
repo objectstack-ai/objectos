@@ -6,9 +6,10 @@
     "extend-existing-systems",
     "quickstart",
     "architecture",
-    "deploy",
+    "use",
     "build",
     "configure",
+    "deploy",
     "operate",
     "resources",
     "reference"
