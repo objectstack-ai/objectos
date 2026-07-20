@@ -10,7 +10,7 @@ description: 将 ObjectOS skill 包安装到编码 Agent 的 npx 命令。
 ## 安装
 
 ```bash
-npx skills add objectstack-ai/framework
+npx skills add objectstack-ai/framework/skills
 ```
 
 首次运行通过 `npx` 从 npm 下载 [`skills`](https://www.npmjs.com/package/skills) 包,然后从 [github.com/objectstack-ai/framework](https://github.com/objectstack-ai/framework) 拉取 skill 包(`skills/<name>/` 目录)并写入你的项目 Agent 配置。
@@ -23,7 +23,7 @@ npx skills add objectstack-ai/framework
 
 | Agent | 写入路径 |
 |:--|:--|
-| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| Claude Code | `.claude/skills/<name>/` → symlink to `.agents/skills/<name>/` |
 | Cursor | `.cursor/rules/<name>.mdc` |
 | GitHub Copilot | `.github/copilot-instructions.md`（合并） |
 | Codex / Codex CLI | `AGENTS.md`（合并） |
@@ -52,7 +52,7 @@ npx skills add objectstack-ai/framework
 
 ```bash
 npx skills add <org>/<repo>        # 从 GitHub 仓库添加 skill 包
-npx skills add <org>/<repo>@<ref>  # 钉到 tag / 分支 / SHA
+npx skills add https://github.com/<org>/<repo>/tree/<ref>/<path>  # 钉到 tag / 分支 / SHA
 npx skills list                    # 列出已安装 skill
 npx skills remove <name>           # 移除 skill
 npx skills detect                  # 显示 CLI 将写入哪些 Agent
@@ -62,7 +62,7 @@ npx skills --help                  # 完整选项
 为可复现 CI 钉定版本：
 
 ```bash
-npx skills add objectstack-ai/framework@v5.0.0
+npx skills add https://github.com/objectstack-ai/framework/tree/<commit-sha>/skills
 ```
 
 ## 输出应提交在哪
@@ -72,7 +72,7 @@ npx skills add objectstack-ai/framework@v5.0.0
 ## 更新
 
 ```bash
-npx skills add objectstack-ai/framework      # 拉取匹配 spec 版本范围的最新版本
+npx skills add objectstack-ai/framework/skills
 ```
 
 升级 `@objectstack/spec` 后重新运行,使 Agent 与最新 Zod schema、CEL 辅助函数和元数据词汇保持同步。

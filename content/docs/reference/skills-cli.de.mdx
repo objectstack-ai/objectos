@@ -14,7 +14,7 @@ findest du unter [Build → IDE Skills](/docs/build/ai-skills).
 ## Installation
 
 ```bash
-npx skills add objectstack-ai/framework
+npx skills add objectstack-ai/framework/skills
 ```
 
 Beim ersten Ausführen wird das
@@ -32,7 +32,7 @@ Automatisch erkannt anhand dessen, was sich in deinem Projekt befindet:
 
 | Agent | Geschriebener Pfad |
 |:--|:--|
-| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| Claude Code | `.claude/skills/<name>/` → symlink to `.agents/skills/<name>/` |
 | Cursor | `.cursor/rules/<name>.mdc` |
 | GitHub Copilot | `.github/copilot-instructions.md` (konsolidiert) |
 | Codex / Codex CLI | `AGENTS.md` (konsolidiert) |
@@ -62,7 +62,7 @@ laden soll und wann an einen verwandten Skill abgegeben werden soll.
 
 ```bash
 npx skills add <org>/<repo>        # add a skill bundle from a GitHub repo
-npx skills add <org>/<repo>@<ref>  # pin to a tag / branch / SHA
+npx skills add https://github.com/<org>/<repo>/tree/<ref>/<path>  # pin to a tag / branch / SHA
 npx skills list                    # list installed skills
 npx skills remove <name>           # remove a skill
 npx skills detect                  # show which agents the CLI will write to
@@ -72,7 +72,7 @@ npx skills --help                  # full options
 Pinne eine Version für reproduzierbare CI:
 
 ```bash
-npx skills add objectstack-ai/framework@v5.0.0
+npx skills add https://github.com/objectstack-ai/framework/tree/<commit-sha>/skills
 ```
 
 ## Wo die Ausgabe committet werden sollte
@@ -85,7 +85,7 @@ die du ohnehin normalerweise einchecken würdest.
 ## Aktualisieren
 
 ```bash
-npx skills add objectstack-ai/framework      # pulls latest matching the spec version range
+npx skills add objectstack-ai/framework/skills
 ```
 
 Führe den Befehl nach dem Upgrade von `@objectstack/spec` erneut aus,
