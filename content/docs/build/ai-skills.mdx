@@ -20,7 +20,7 @@ opencode** and ~50 other agents.
 In any project that uses `@objectstack/*` packages:
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 The CLI detects which agents you have configured (`.claude/`,
@@ -54,7 +54,7 @@ skill.
 ## How it works
 
 Every skill is a folder under `skills/` in the
-[framework repo](https://github.com/objectstack-ai/framework/tree/main/skills):
+[framework repo](https://github.com/objectstack-ai/objectstack/tree/main/skills):
 
 ```
 skills/objectstack-data/
@@ -102,7 +102,7 @@ publish** (see [Templates](./templates) and [Marketplace](./marketplace)).
 ## Updating
 
 The skills follow `@objectstack/spec` versions. Re-run
-`npx skills add objectstack-ai/framework/skills` after upgrading the spec
+`npx skills add objectstack-ai/objectstack/skills` after upgrading the spec
 package to keep your agent in sync with the latest Zod schemas, CEL
 helpers, and metadata vocabulary.
 

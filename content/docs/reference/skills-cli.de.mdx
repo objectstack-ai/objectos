@@ -14,13 +14,13 @@ findest du unter [Build → IDE Skills](/docs/build/ai-skills).
 ## Installation
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 Beim ersten Ausführen wird das
 [`skills`](https://www.npmjs.com/package/skills)-Paket über `npx` von npm
 heruntergeladen, anschließend wird das Skill-Bundle von
-[github.com/objectstack-ai/framework](https://github.com/objectstack-ai/framework)
+[github.com/objectstack-ai/objectstack](https://github.com/objectstack-ai/objectstack)
 (`skills/<name>/`-Ordner) abgerufen und in die Agenten-Konfiguration
 deines Projekts geschrieben.
 
@@ -72,7 +72,7 @@ npx skills --help                  # full options
 Pinne eine Version für reproduzierbare CI:
 
 ```bash
-npx skills add https://github.com/objectstack-ai/framework/tree/<commit-sha>/skills
+npx skills add https://github.com/objectstack-ai/objectstack/tree/<commit-sha>/skills
 ```
 
 ## Wo die Ausgabe committet werden sollte
@@ -85,7 +85,7 @@ die du ohnehin normalerweise einchecken würdest.
 ## Aktualisieren
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 Führe den Befehl nach dem Upgrade von `@objectstack/spec` erneut aus,
@@ -97,4 +97,4 @@ Metadaten-Vokabular synchron bleibt.
 - [Build → IDE Skills](/docs/build/ai-skills) — konzeptionelle Übersicht, AI Builder vs. Skills
 - [Build → AI Builder](/docs/build/ai-builder) — das Gegenstück in der Console
 - [vercel-labs/skills](https://github.com/vercel-labs/skills) — Upstream-CLI
-- [objectstack-ai/framework/skills](https://github.com/objectstack-ai/framework/tree/main/skills) — Source of Truth für jeden Skill
+- [objectstack-ai/objectstack/skills](https://github.com/objectstack-ai/objectstack/tree/main/skills) — Source of Truth für jeden Skill

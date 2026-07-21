@@ -20,7 +20,7 @@ Continue, Roo, Goose, Kiro, opencode** y ~50 agentes más.
 En cualquier proyecto que use paquetes `@objectstack/*`:
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 El CLI detecta qué agentes tienes configurados (`.claude/`,
@@ -54,7 +54,7 @@ skill de datos.
 ## Cómo funciona
 
 Cada skill es una carpeta dentro de `skills/` en el
-[repositorio del framework](https://github.com/objectstack-ai/framework/tree/main/skills):
+[repositorio del framework](https://github.com/objectstack-ai/objectstack/tree/main/skills):
 
 ```
 skills/objectstack-data/
@@ -104,7 +104,7 @@ para la personalización del tenant y las AI Skills para IDE al trabajar en
 ## Actualización
 
 Las skills siguen las versiones de `@objectstack/spec`. Vuelve a ejecutar
-`npx skills add objectstack-ai/framework/skills` tras actualizar el paquete spec
+`npx skills add objectstack-ai/objectstack/skills` tras actualizar el paquete spec
 para mantener tu agente sincronizado con los últimos esquemas Zod,
 helpers de CEL y vocabulario de metadatos.
 

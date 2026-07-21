@@ -22,7 +22,7 @@ cinquantaine d'autres agents.
 Dans n'importe quel projet utilisant les packages `@objectstack/*` :
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 La CLI détecte les agents que vous avez configurés (`.claude/`,
@@ -57,7 +57,7 @@ d'écrire une expression CEL avec le skill data.
 ## Comment ça fonctionne
 
 Chaque skill est un dossier sous `skills/` dans le
-[dépôt framework](https://github.com/objectstack-ai/framework/tree/main/skills) :
+[dépôt framework](https://github.com/objectstack-ai/objectstack/tree/main/skills) :
 
 ```
 skills/objectstack-data/
@@ -107,7 +107,7 @@ travaillent sur des **packages qu'elles comptent publier** (voir
 ## Mise à jour
 
 Les skills suivent les versions de `@objectstack/spec`. Relancez
-`npx skills add objectstack-ai/framework/skills` après avoir mis à niveau le
+`npx skills add objectstack-ai/objectstack/skills` après avoir mis à niveau le
 package spec pour garder votre agent synchronisé avec les derniers
 schémas Zod, helpers CEL et vocabulaire de métadonnées.
 

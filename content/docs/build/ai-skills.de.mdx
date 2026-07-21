@@ -20,7 +20,7 @@ opencode** und etwa 50 weiteren Agents.
 In jedem Projekt, das `@objectstack/*`-Pakete verwendet:
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 Die CLI erkennt, welche Agents Sie konfiguriert haben (`.claude/`,
@@ -54,7 +54,7 @@ einen CEL-Ausdruck mit dem Data-Skill zu schreiben.
 ## Wie es funktioniert
 
 Jeder Skill ist ein Ordner unter `skills/` im
-[Framework-Repo](https://github.com/objectstack-ai/framework/tree/main/skills):
+[Framework-Repo](https://github.com/objectstack-ai/objectstack/tree/main/skills):
 
 ```
 skills/objectstack-data/
@@ -102,7 +102,7 @@ veröffentlichen wollen** (siehe [Templates](./templates) und [Marketplace](./ma
 ## Aktualisieren
 
 Die Skills folgen den `@objectstack/spec`-Versionen. Führen Sie
-`npx skills add objectstack-ai/framework/skills` nach dem Upgrade des Spec-Pakets
+`npx skills add objectstack-ai/objectstack/skills` nach dem Upgrade des Spec-Pakets
 erneut aus, um Ihren Agent mit den neuesten Zod-Schemas, CEL-Helfern und
 dem Metadaten-Vokabular synchron zu halten.
 

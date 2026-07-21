@@ -14,12 +14,12 @@ This page is a reference card. For the conceptual overview see
 ## Install
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 The first run downloads the [`skills`](https://www.npmjs.com/package/skills)
 package from npm via `npx`, then fetches the skill bundle from
-[github.com/objectstack-ai/framework](https://github.com/objectstack-ai/framework)
+[github.com/objectstack-ai/objectstack](https://github.com/objectstack-ai/objectstack)
 (`skills/<name>/` folders) and writes them into your project's agent
 config.
 
@@ -71,7 +71,7 @@ npx skills --help                  # full options
 Pin a version for reproducible CI:
 
 ```bash
-npx skills add https://github.com/objectstack-ai/framework/tree/<commit-sha>/skills
+npx skills add https://github.com/objectstack-ai/objectstack/tree/<commit-sha>/skills
 ```
 
 ## Where to commit the output
@@ -84,7 +84,7 @@ anyway.
 ## Updating
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 Re-run after upgrading `@objectstack/spec` so the agent stays in sync
@@ -95,4 +95,4 @@ with the latest Zod schemas, CEL helpers, and metadata vocabulary.
 - [Build → IDE Skills](/docs/build/ai-skills) — conceptual overview, AI Builder vs skills
 - [Build → AI Builder](/docs/build/ai-builder) — the in-Console counterpart
 - [vercel-labs/skills](https://github.com/vercel-labs/skills) — upstream CLI
-- [objectstack-ai/framework/skills](https://github.com/objectstack-ai/framework/tree/main/skills) — source of truth for every skill
+- [objectstack-ai/objectstack/skills](https://github.com/objectstack-ai/objectstack/tree/main/skills) — source of truth for every skill
