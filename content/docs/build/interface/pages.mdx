@@ -16,7 +16,7 @@ const homePage = {
   regions: [
     { name: 'header', width: 'full', components: [
       { type: 'metric_card', id: 'total_revenue', label: 'Total Revenue',
-        properties: { object: 'opportunity', field: 'amount', aggregate: 'sum', format: 'currency' } },
+        properties: { dataset: 'sales', values: ['revenue'], format: 'currency' } },
     ]},
     { name: 'main', width: 'large', components: [
       { type: 'list_view', id: 'recent_deals', label: 'Recent Deals',
@@ -75,12 +75,19 @@ Components are the building blocks inside regions:
   type: 'chart',
   id: 'revenue_chart',
   label: 'Revenue Trend',
-  properties: { chartType: 'line', object: 'opportunity',
-                categoryField: 'close_date', valueField: 'amount' },
+  properties: { chartType: 'line', dataset: 'sales',
+                dimensions: ['close_month'], values: ['revenue'] },
   events: { onClick: "navigate_to('opportunity_detail', { id: $event.id })" },
   visibility: "os.user.profile == 'sales_manager'",
 }
 ```
+
+Analytics-bearing components (`chart`, `metric_card`) bind a named
+**dataset** and select its `dimensions` + `values` by name — the same
+ADR-0021 shape as [dashboard](/docs/build/interface/dashboards) widgets
+and Studio's only output. The removed inline-analytics shape (`object` +
+`categoryField` + `valueField` + `aggregate` on the component) is a
+parse error since 16.0, not a silently ignored no-op.
 
 | Property | Type | Description |
 |:--|:--|:--|

@@ -81,9 +81,14 @@ automatically apply the caller's row-level security scope to the base
 object and joined objects — a dashboard never shows a user records their
 [permissions](/docs/configure/permissions) wouldn't.
 
-> The legacy inline-query shape (`object` + `categoryField` + `valueField`
-> + `aggregate` directly on the widget) was removed. Define a dataset and
-> bind widgets to it.
+> Since 16.0, the widget schema is **strict**: an undeclared top-level key
+> — a typo, a hallucinated key, or a removed inline-query key (`object` +
+> `categoryField` + `valueField` + `aggregate`, pivot `rowField` /
+> `columnField`) — is a **parse error that names the offending key** and
+> points at the dataset shape, no longer silently stripped into a widget
+> that renders nothing. Define a dataset and bind widgets to it;
+> `options` remains the free-form escape hatch for renderer-specific
+> extras.
 
 ## Widgets
 

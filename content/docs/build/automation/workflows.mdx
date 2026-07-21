@@ -137,15 +137,19 @@ If you're coming from a platform with Workflow Rules, here's the mapping:
 | Old concept | Current equivalent |
 |---|---|
 | Workflow Rule | Flow |
-| Time trigger | Scheduled flow |
+| Time trigger ("N days before/after a date") | Time-relative trigger — `config.timeRelative` on a flow's start node (16.0, see [Flows](/docs/build/automation/flows)) |
+| Time trigger (fixed clock) | Scheduled flow |
 | Field update action | `update_record` node |
 | Email alert | `notify` node |
 | HTTP call | `http` node |
 | Approval Process | Flow with one or more `approval` nodes |
 
 The test: if the old rule was "when X happens, do Y", model it as a small
-flow. If it was "this record must move through controlled states", model the
-lifecycle as a state machine and use flows for the side effects.
+flow. If it was "N days before/after a date field, do Y", declare a
+time-relative trigger — never a date-equality condition on a record-change
+flow, which only evaluates when the record happens to change. If it was
+"this record must move through controlled states", model the lifecycle as a
+state machine and use flows for the side effects.
 
 ## Where to go next
 
