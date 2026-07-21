@@ -1,8 +1,19 @@
 # ObjectOS
 
-> **The official runtime environment for ObjectStack applications** — operated
-> for end-user organizations as **ObjectOS Cloud** (managed) and
-> **ObjectOS Enterprise** (self-managed).
+> ## Describe the app you need. Keep the data you own.
+>
+> ObjectOS is the **commercial runtime environment for
+> [ObjectStack](https://github.com/objectstack-ai/objectstack) apps**: tell the
+> built-in AI Builder what your business needs — a helpdesk, an approval flow,
+> a CRM — and get a working app with a generated admin Console, REST APIs,
+> SSO, RBAC, and audit logs. Run it as **ObjectOS Cloud** (we operate it) or
+> **ObjectOS Enterprise** (self-managed: your servers, your database, your
+> data — never ours).
+
+[Website](https://www.objectos.ai) ·
+[Documentation](https://docs.objectos.ai) ·
+[License & Pricing](https://docs.objectos.ai/docs/resources/license) ·
+[ObjectStack — the open-source framework](https://github.com/objectstack-ai/objectstack)
 
 ObjectOS is a **commercial product**. This repository is its public home:
 
