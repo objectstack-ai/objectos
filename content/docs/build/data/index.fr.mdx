@@ -217,7 +217,7 @@ ObjectSchema.create({
     apiEnabled: true,         // generated REST endpoints
     trackHistory: true,       // audit log of field changes
     feeds: true,              // sys_comment / sys_activity / @mentions
-    softDelete: true,         // tombstone instead of hard delete
+    trash: true,              // soft-delete with restore (default true)
   },
 });
 ```

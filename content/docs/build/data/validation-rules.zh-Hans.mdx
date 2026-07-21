@@ -3,7 +3,7 @@ title: 验证规则
 description: 必填字段、唯一约束与 CEL 驱动的规则，在平台层拦住坏数据 —— 错误消息由你掌控。
 ---
 
-**验证在每条写入路径上都会执行。**REST、Console 表单、ObjectQL —— 同一套规则处处生效，坏数据没有后门可钻。验证规则是作用于单条记录的确定性、同步、无副作用谓词：仅凭这次写入（更新时再加上更新前的记录）即可判定，不做任何 I/O。
+**验证在每条写入路径上都会执行。**REST、Console 表单、ObjectQL —— 同一套规则处处生效，坏数据没有后门可钻。自 16.0 起也包括多行更新：批量更新会对每一条匹配的记录逐行执行规则。验证规则是作用于单条记录的确定性、同步、无副作用谓词：仅凭这次写入（更新时再加上更新前的记录）即可判定，不做任何 I/O。
 
 验证是分层的 —— 能表达规则的最低层就是该用的层：
 
@@ -14,7 +14,7 @@ description: 必填字段、唯一约束与 CEL 驱动的规则，在平台层�
 | **条件修饰符** | 依赖上下文的必填 | ``requiredWhen: P`record.amount > 10000` `` |
 | **对象级验证规则** | 跨字段业务逻辑 | "折扣不能超过总额" |
 | **唯一索引** | 组合 / 限定范围的唯一性 | `{ fields: ['code', 'organization'], unique: true }` |
-| **生命周期 Hook** | 任意验证代码 | `beforeInsert` / `beforeUpdate` |
+| **生命周期 Hook** | 任意验证代码、删除守卫 | `beforeInsert` / `beforeUpdate` / `beforeDelete` |
 
 ## 字段级：required、unique 与约束
 
@@ -94,7 +94,7 @@ export const Order = ObjectSchema.create({
 | `message` | 是 | 面向用户的错误消息 |
 | `type` | 是 | `script`、`state_machine`、`format`、`cross_field`、`json_schema`、`conditional` |
 | `severity` | 否 | `error`（阻止保存，默认）、`warning`（允许保存）、`info` |
-| `events` | 否 | `insert`、`update`、`delete` —— 默认 `['insert', 'update']` |
+| `events` | 否 | `insert`、`update` —— 默认 `['insert', 'update']`。`delete` 事件已在 16.0 中移除：求值器从未在删除路径上运行（删除没有可供验证的记录载荷），它一直是静默空操作 —— 删除守卫请用 `beforeDelete` Hook |
 | `priority` | 否 | 0–9999，数字越小越先执行（默认 100） |
 | `active` | 否 | 不删除即可开关（默认 `true`） |
 
@@ -103,7 +103,7 @@ export const Order = ObjectSchema.create({
 | 类型 | 检查什么 | 关键配置 |
 |---|---|---|
 | `script` | 任意 CEL 谓词 | `condition`（TRUE = 无效） |
-| `state_machine` | 允许的状态迁移 | `field`、`transitions` 映射 |
+| `state_machine` | 允许的状态迁移 | `field`、`transitions` 映射、可选 `initialStates` |
 | `format` | 单字段匹配正则或内置格式 | `field`、`regex` 或 `format: 'email' \| 'url' \| 'phone' \| 'json'` |
 | `cross_field` | 字段之间的关系 | `fields`、`condition` |
 | `json_schema` | JSON 字段匹配 JSON Schema | `field`、`schema` |
@@ -127,7 +127,8 @@ export const Order = ObjectSchema.create({
     cancelled: [],
     completed: [],
   },
-  events: ['update'],
+  initialStates: ['draft'],  // 16.0 新增：记录允许被“创建”为哪些状态
+  events: ['insert', 'update'],  // 包含 'insert' 才会检查 initialStates
 }
 
 // 跨字段 —— 日期先后有序
@@ -141,6 +142,8 @@ export const Order = ObjectSchema.create({
   events: ['insert', 'update'],
 }
 ```
+
+**16.0 新增：**`state_machine` 规则可以声明 `initialStates` —— 记录允许被*创建*为哪些状态。插入时状态字段的值不在列表内会被拒绝（`invalid_initial_state`）。`transitions` 只约束更新，而 `select` 字段允许任何已声明的选项作为初始值，所以不加 `initialStates` 时记录可能"生在流程中间"（比如一创建就是 `approved`）。省略它则保持旧行为（插入时不检查初始状态）。规则的 `events` 必须包含 `insert`，该检查才会执行。
 
 在更新时的条件里，`previous` 持有变更前的快照 —— `record.stage != previous.stage` 可检测到变更。
 
@@ -159,7 +162,7 @@ indexes: [
 ]
 ```
 
-同样的逻辑也排除了异步 / 远程验证（那是客户端表单的关注点，放在写路径上还是 SSRF 与延迟隐患）和自定义处理器 —— 任意验证代码应该放进 `beforeInsert` / `beforeUpdate` 生命周期 Hook。
+同样的逻辑也排除了异步 / 远程验证（那是客户端表单的关注点，放在写路径上还是 SSRF 与延迟隐患）和自定义处理器 —— 任意验证代码应该放进 `beforeInsert` / `beforeUpdate` 生命周期 Hook，删除时的守卫则放进 `beforeDelete` Hook。
 
 ## 自定义错误消息
 

@@ -217,10 +217,18 @@ ObjectSchema.create({
     feeds: true,              // sys_comment / @mentions (default true)
     activities: true,         // mirror CRUD to sys_activity timeline (default true)
     files: true,              // Attachments panel (opt-in, default false)
-    softDelete: true,         // tombstone instead of hard delete
+    trash: true,              // soft-delete with restore (default true)
   },
 });
 ```
+
+> **Changed in 16.0:** the object-level `softDelete` prop is removed —
+> `ObjectSchema.create` now throws a located error if you pass it. The
+> shipped equivalent is `enable: { trash: true }` (soft-delete with
+> restore), on by default. The same cleanup removed `versioning`,
+> `search` (use top-level `searchableFields`), `recordName` (use an
+> autonumber field as `nameField`), `keyPrefix`, `tags`, `active`, and
+> `abstract`.
 
 Since ObjectStack 14 the `enable.*` flags are **enforced**, not
 advisory: `feeds: false` rejects comment creation with 403
