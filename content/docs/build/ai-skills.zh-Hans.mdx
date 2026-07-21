@@ -12,7 +12,7 @@ ObjectOS 提供 **9 个一方 Agent Skill**，教编码助手如何编写各类 
 在任何使用 `@objectstack/*` 包的项目里：
 
 ```bash
-npx skills add objectstack-ai/framework
+npx skills add objectstack-ai/framework/skills
 ```
 
 CLI 会检测你配置了哪些 Agent（`.claude/`、`.cursor/`、`.github/copilot/`、`AGENTS.md` 等），并把 Skill 写到正确位置。随时重跑可拉取最新版本。
@@ -77,7 +77,7 @@ metadata:
 
 ## 升级
 
-Skill 跟随 `@objectstack/spec` 版本。升级 spec 包后重跑 `npx skills add objectstack-ai/framework`，可让你的 Agent 与最新的 Zod schema、CEL 辅助函数、元数据词汇保持同步。
+Skill 跟随 `@objectstack/spec` 版本。升级 spec 包后重跑 `npx skills add objectstack-ai/framework/skills`，可让你的 Agent 与最新的 Zod schema、CEL 辅助函数、元数据词汇保持同步。
 
 ## 相关
 

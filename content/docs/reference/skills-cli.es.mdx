@@ -15,7 +15,7 @@ consulta [Build → IDE Skills](/docs/build/ai-skills).
 ## Instalación
 
 ```bash
-npx skills add objectstack-ai/framework
+npx skills add objectstack-ai/framework/skills
 ```
 
 La primera ejecución descarga el paquete [`skills`](https://www.npmjs.com/package/skills)
@@ -32,7 +32,7 @@ Se detecta automáticamente según lo que haya en tu proyecto:
 
 | Agente | Ruta escrita |
 |:--|:--|
-| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| Claude Code | `.claude/skills/<name>/` → symlink to `.agents/skills/<name>/` |
 | Cursor | `.cursor/rules/<name>.mdc` |
 | GitHub Copilot | `.github/copilot-instructions.md` (consolidado) |
 | Codex / Codex CLI | `AGENTS.md` (consolidado) |
@@ -62,7 +62,7 @@ agente cargarlo y cuándo delegar en uno hermano.
 
 ```bash
 npx skills add <org>/<repo>        # add a skill bundle from a GitHub repo
-npx skills add <org>/<repo>@<ref>  # pin to a tag / branch / SHA
+npx skills add https://github.com/<org>/<repo>/tree/<ref>/<path>  # pin to a tag / branch / SHA
 npx skills list                    # list installed skills
 npx skills remove <name>           # remove a skill
 npx skills detect                  # show which agents the CLI will write to
@@ -72,7 +72,7 @@ npx skills --help                  # full options
 Fija una versión para una CI reproducible:
 
 ```bash
-npx skills add objectstack-ai/framework@v5.0.0
+npx skills add https://github.com/objectstack-ai/framework/tree/<commit-sha>/skills
 ```
 
 ## Dónde confirmar la salida
@@ -85,7 +85,7 @@ incluirías en el control de versiones de todos modos.
 ## Actualización
 
 ```bash
-npx skills add objectstack-ai/framework      # pulls latest matching the spec version range
+npx skills add objectstack-ai/framework/skills
 ```
 
 Vuelve a ejecutarlo después de actualizar `@objectstack/spec` para que
