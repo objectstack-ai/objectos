@@ -1,14 +1,15 @@
 # ObjectOS
 
-> ## Describe the app you need. Keep the data you own.
+> ## Build & ask online. Keep the data you own.
 >
 > ObjectOS is the **commercial runtime environment for
-> [ObjectStack](https://github.com/objectstack-ai/objectstack) apps**: tell the
-> built-in AI Builder what your business needs — a helpdesk, an approval flow,
-> a CRM — and get a working app with a generated admin Console, REST APIs,
-> SSO, RBAC, and audit logs. Run it as **ObjectOS Cloud** (we operate it) or
-> **ObjectOS Enterprise** (self-managed: your servers, your database, your
-> data — never ours).
+> [ObjectStack](https://github.com/objectstack-ai/objectstack) apps — built
+> and operated entirely in the browser**: tell the built-in AI Builder what
+> your business needs — a helpdesk, an approval flow, a CRM — and it's running
+> immediately, with a generated admin Console, REST APIs, SSO, RBAC, and audit
+> logs. No local toolchain, nothing to deploy. Run it as **ObjectOS Cloud**
+> (we operate it) or **ObjectOS Enterprise** (self-managed: your servers, your
+> database, your data — never ours).
 
 [Website](https://www.objectos.ai) ·
 [Documentation](https://docs.objectos.ai) ·
@@ -46,8 +47,8 @@ Everything you need to **build, run, and self-host your own applications** is
 the open-source (Apache-2.0) **[ObjectStack framework](https://github.com/objectstack-ai/objectstack)**:
 
 ```
-ObjectStack  →  for builders  — the open-source protocol, toolkit, and production runtime
-ObjectOS     →  for end users — the commercial runtime environment (Cloud & Enterprise)
+ObjectStack  →  build & ask with Claude Code — in your repo, with your coding agent (Apache-2.0)
+ObjectOS     →  build & ask online — in the browser, on a governed platform (Cloud & Enterprise)
 ```
 
 `os start` — or the official Docker image
