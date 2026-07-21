@@ -49,9 +49,65 @@ ObjectOS 遵循 **[语义化版本](https://semver.org/)**：`MAJOR.MINOR.PATCH`
 
 ## 近期亮点
 
-### 14.x —— 当前发布列车
+### 16.0
 
-ObjectOS One 与捆绑的 server 现已基于 `@objectstack` **14.7.0**。运行时的启动
+`@objectstack` **16.0.0** 收敛了开发者面，并让已声明的元数据变得诚实：调用者组织只有一个受祝福的名字、审批获得真正的多审批人治理、时间相对自动化真正会触发，以及一次平台级清理，把被静默忽略的元数据在创作时就变成响亮的错误。完整说明见
+[docs.objectstack.ai/docs/releases](https://docs.objectstack.ai/docs/releases)。
+16.0 的变动：
+
+- **hook/action `ctx` 移除 `tenantId` 别名**（16.0，破坏性）—— 在所有
+  `*.hook.ts` / `*.action.ts` 代码体中，改用 `ctx.user.organizationId` /
+  `ctx.session.organizationId` 读取调用者组织（值不变；system 写入时
+  `ctx.user` 为 `undefined`）。驱动层的租户轴（`ExecutionContext.tenantId`）
+  是另一个概念，刻意保持不动。
+- **审批：法定人数、会签，以及元数据驱动的收件箱**——审批步骤支持
+  M-of-N 法定人数（`minApprovals`）和每组一人的会签，基于开启时刻的快照
+  统计并支持 OOO 替补；单次拒绝仍是一票否决，阈值会自动收紧，错误配置
+  永远不会造成死锁。决策可附带文件附件，进度（"2 of 3 · finance
+  pending"）由服务端计算，approve / reject / reassign / send-back /
+  request-info / remind / recall / resubmit 都作为 `sys_approval_request`
+  上声明的 `type:'api'` action —— Console 通过通用 action 运行时渲染它们，
+  而不是手写按钮。
+- **时间相对自动化**——流程开始节点可以声明 `timeRelative`
+  （`offsetDays: [60, 30, 7]` 或 `withinDays`）；每日扫描对每条匹配记录
+  启动一次流程，"合同到期前 60 天提醒我"终于开箱即用——不再依赖只有
+  恰好在正确的那天有人编辑记录才会触发的日期相等条件。
+- **带过滤的汇总字段**——`summaryOperations.filter` 让父级合计只聚合
+  匹配的子行，并在子行进出谓词范围时重新聚合。
+- **严格的仪表盘 widget**（16.0，破坏性）——`DashboardWidgetSchema` 改为
+  `.strict()`：未声明的键（拼写错误或已移除的内联分析键）会成为解析
+  错误，指名该键并指向数据集形态（`dataset` + `dimensions` + `values`），
+  而不是静默渲染出一片空白。
+- **MCP：stdio 获得身份，Agent 获得校验器**——stdio 自动启动改由独立的
+  `OS_MCP_STDIO_ENABLED` 开关控制（默认关闭），并要求
+  `OS_MCP_STDIO_API_KEY=osk_...` 身份主体，fail-closed，通过与 HTTP 相同
+  的授权链解析（RLS/FLS/租户隔离全部生效；没有 `system` 旁路）。新增
+  `validate_expression` 工具，让 Agent 在保存前对照真实对象 schema 校验
+  公式。
+- **enforce-or-remove 清理**（16.0，破坏性）——声明了却从不强制执行的
+  元数据现在会大声报错：无效的字段/对象/agent 属性被移除或以带指引的
+  tombstone 报错，hook 事件从 18 收敛到 8，验证规则移除从不求值的
+  `'delete'` 事件，webhook 的 `undelete` / `api` 触发器被移除，未知的
+  `requires` 能力 token 在创作时即被拒绝（`aiStudio` / `aiSeat` 别名已
+  移除——使用 kebab-case 的 `ai-studio` / `ai-seat`）。
+- **引擎自有的系统行通过通用数据 API 只读**（ADR-0103）——作业、通知、
+  审批运行时行、共享行、审计日志、密钥等被锁定为 `get`/`list`，
+  fail-closed 守卫会拒绝经 `/data` 的用户上下文写入。确实需要接受用户
+  写入的第三方 `system` 对象必须声明 `userActions`。
+- **日期逻辑不再说谎**——`record.due_date == today()` 现在能匹配了
+  （时间相等比较会被重写以强制转换字段操作数）；而公式中的日期*算术*
+  （`end - start + 1`、`today() + 30`）改为构建期错误，并指向
+  `daysBetween` / `daysFromNow` / `addDays` / `addMonths` ——这些表达式
+  在运行时本来就总是得到 `null`。
+- **批量用户导入默认 `passwordPolicy: 'auto'`**——具有可送达通道的行
+  （真实邮箱 + 已接通的邮件服务，或手机号 + 短信邀请通道）会被邀请；
+  只有无法触达的行才得到一次性临时密码（`must_change_password`）。
+  想要旧的仅建身份行为，请显式传入 `passwordPolicy: 'none'`；每行结果
+  在 `rows[].delivery` 上。
+
+### 14.x
+
+ObjectOS One 与捆绑的 server 基于 `@objectstack` **14.7.0** 发布。运行时的启动
 契约并未变化 —— `createStandaloneStack` 仍然接收同样的 artifact、环境与数据库
 设置 —— 但 13.0 与 14.0 均在授权词汇上有破坏性变更，因此**从 ≤ 12.x 升级前请
 先审查权限元数据**。完整说明见

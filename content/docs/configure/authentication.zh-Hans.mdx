@@ -35,7 +35,7 @@ ObjectOS 使用由 Better Auth 驱动的 ObjectStack 认证插件。认证是项
 平台管理员可以不经邮件邀请流程直接开通账户：
 
 - `POST /api/v1/auth/admin/create-user` 直接创建用户，可选生成一次性密码（仅返回一次，不持久化）。`must_change_password` 标志强制首次登录时修改密码（未修改前返回 403 `PASSWORD_EXPIRED`）。
-- `POST /api/v1/auth/admin/import-users` 批量导入行 / CSV / XLSX（每次请求最多 500 行），支持 dry-run 和按邮箱或手机号 upsert；已存在用户的密码永不重置。
+- `POST /api/v1/auth/admin/import-users` 批量导入行 / CSV / XLSX（每次请求最多 500 行），支持 dry-run 和按邮箱或手机号 upsert；已存在用户的密码永不重置。自 16.0 起，默认 `passwordPolicy` 为 `'auto'`：具有可送达通道的行（真实邮箱 + 已接通的邮件服务，或手机号 + 短信邀请通道）会被**邀请**，只有无法触达的行才得到临时密码（仅返回一次，`must_change_password`）。依赖旧的仅建身份默认行为的调用方现在必须显式传入 `passwordPolicy: 'none'`；每行结果在 `rows[].delivery` 上，并附 `summary.delivery` 汇总。
 
 ## 必需的 Secret
 

@@ -23,7 +23,8 @@ https://<project-domain>/api/v1
 | `/api/v1/auth/*` | 인증 (로그인, 세션, OAuth, OIDC) |
 | `/api/v1/meta/*` | 활성화된 경우 메타데이터 API (오브젝트, 필드, 뷰) |
 | `/api/v1/keys` | 호출 사용자를 위해 한 번만 표시되는 `sys_api_key` 발급 (POST) |
-| `/api/v1/mcp` | `OS_MCP_SERVER_ENABLED=true`일 때 Streamable HTTP를 통한 Model Context Protocol 서버 |
+| `/api/v1/batch` | 오브젝트 간 트랜잭션 배치 (POST) — 원자적 실행만 지원, 모든 작업을 오브젝트별로 게이트 |
+| `/api/v1/mcp` | Streamable HTTP를 통한 Model Context Protocol 서버 — 기본 활성화, `OS_MCP_SERVER_ENABLED=false`로 비활성화 |
 | `/api/v1/health` | 활성/준비 상태 프로브 (인증 없음) |
 
 접두사는 기본적으로 `/api/v1`(API `basePath`인 `/api`에 `version`인 `v1`을

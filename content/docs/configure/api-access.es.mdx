@@ -24,7 +24,8 @@ Superficies destacadas:
 | `/api/v1/auth/*` | Autenticación (inicio de sesión, sesiones, OAuth, OIDC) |
 | `/api/v1/meta/*` | APIs de metadatos (objetos, campos, vistas) cuando está habilitado |
 | `/api/v1/keys` | Genera un `sys_api_key` de un solo uso para el usuario que llama (POST) |
-| `/api/v1/mcp` | Servidor Model Context Protocol sobre Streamable HTTP, cuando `OS_MCP_SERVER_ENABLED=true` |
+| `/api/v1/batch` | Batch transaccional entre objetos (POST) — solo atómico, cada operación validada por objeto |
+| `/api/v1/mcp` | Servidor Model Context Protocol sobre Streamable HTTP — activo de forma predeterminada; se desactiva con `OS_MCP_SERVER_ENABLED=false` |
 | `/api/v1/health` | Sonda de liveness/readiness (sin autenticación) |
 
 El prefijo es `/api/v1` de forma predeterminada (el `basePath` de la API,

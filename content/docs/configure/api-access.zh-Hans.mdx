@@ -21,7 +21,8 @@ https://<project-domain>/api/v1
 | `/api/v1/auth/*` | 身份验证（登录、会话、OAuth、OIDC） |
 | `/api/v1/meta/*` | 元数据 API（对象、字段、视图），在启用时可用 |
 | `/api/v1/keys` | 为当前调用用户生成只显示一次的 `sys_api_key`（POST） |
-| `/api/v1/mcp` | 当 `OS_MCP_SERVER_ENABLED=true` 时，通过 Streamable HTTP 提供的 Model Context Protocol 服务器 |
+| `/api/v1/batch` | 跨对象事务批量写入（POST）——仅支持原子模式，每个操作都按对象门控 |
+| `/api/v1/mcp` | 通过 Streamable HTTP 提供的 Model Context Protocol 服务器——默认开启；设置 `OS_MCP_SERVER_ENABLED=false` 可关闭 |
 | `/api/v1/health` | 存活/就绪探针（无需身份验证） |
 
 前缀默认为 `/api/v1`（即 API 的 `basePath` `/api` 加上 `version` `v1`），并且可在 ObjectOS stack 上配置。
@@ -35,6 +36,8 @@ API 暴露在 artifact 中按对象逐个治理，而不是在网关层：
 
 两者都在 REST 层强制执行 —— 参见
 [REST API → 限制 API 暴露面](/docs/reference/rest-api#restricting-the-api-surface)。
+
+同样的闸门也覆盖事务批量路由（16.0）：`POST /api/v1/batch` 会校验请求体，在开启事务*之前*就对**每个**操作强制执行 `apiEnabled` / `apiMethods`，update/delete 必须携带 id，无法解析的 `{ $ref }` 父引用会被拒绝。该路由只支持原子模式——`atomic: false` 会被以 `400 BATCH_NOT_ATOMIC` 拒绝；非原子的批量写入请继续使用按对象的 `createMany` / `updateMany` 端点。
 
 ## 身份验证方式
 
@@ -114,3 +117,5 @@ API 密钥仍作为 CI 与无头代理的并行通道——`x-api-key` 和 `Auth
 ## OpenAPI / 发现
 
 当镜像中包含相应能力时，运行时可以为自动生成的 REST API 提供 OpenAPI 文档。客户的集成应基于每个部署的 OpenAPI 文档生成客户端，而不是手写 URL，因为对象名称和生成的路由会跟随已部署的 artifact 而变化。
+
+发现（discovery）还会通告 `capabilities.transactionalBatch`（16.0），客户端可以在连接时以声明方式探知原子批量路由是否可用，而不必靠探测 `404`/`405`/`501`。

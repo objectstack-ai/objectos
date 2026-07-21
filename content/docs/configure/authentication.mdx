@@ -50,7 +50,14 @@ Platform admins can provision accounts without the email invite flow:
   `PASSWORD_EXPIRED` until changed).
 - `POST /api/v1/auth/admin/import-users` bulk-imports rows / CSV / XLSX
   (max 500 rows per request) with dry-run and upsert-by-email-or-phone
-  modes; existing users never get their passwords reset.
+  modes; existing users never get their passwords reset. Since 16.0 the
+  default `passwordPolicy` is `'auto'`: rows with a deliverable channel
+  (real email + wired email service, or phone + SMS invite path) are
+  **invited**, and only unreachable rows get a temporary password
+  (returned once, `must_change_password`). Callers that relied on the
+  old identity-only default must now pass `passwordPolicy: 'none'`
+  explicitly; per-row outcomes are on `rows[].delivery` with a
+  `summary.delivery` breakdown.
 
 ## Required secret
 
