@@ -18,11 +18,9 @@ description: Chaque type de champ que vous pouvez déclarer sur un objet — ce 
 | `searchable` | boolean | `false` | Indexé pour `/api/v1/search` |
 | `multiple` | boolean | `false` | Stocke un tableau de valeurs |
 | `defaultValue` | unknown | — | Valeur initiale (littéral ou CEL) |
-| `columnName` | string | = `name` | Remplace la colonne physique en base de données |
 | `hidden` | boolean | `false` | Masquer dans les vues Console par défaut |
 | `readonly` | boolean | `false` | Désactiver dans les formulaires |
 | `system` | boolean | `false` | Injecté automatiquement (id, created_at, …) |
-| `index` | boolean | `false` | Créer un index en base de données |
 | `externalId` | boolean | `false` | Éligible à l'upsert via clé externe |
 | `inlineHelpText` | string | — | Infobulle / texte d'aide |
 | `conditionalRequired` | prédicat `P` | — | Requis lorsque le CEL est vrai |
@@ -102,7 +100,9 @@ Options courantes :
 {
   type: 'lookup',
   reference: 'account',                       // target object name
-  referenceFilters: ['status:active'],        // narrow the lookup picker
+  lookupFilters: [                            // narrow the lookup picker
+    { field: 'status', operator: 'eq', value: 'active' }
+  ],
   deleteBehavior: 'set_null'                  // 'set_null' | 'cascade' | 'restrict'
 }
 ```
@@ -112,7 +112,7 @@ Options courantes :
 | Type | Ce qu'il fait | Option clé |
 |:--|:--|:--|
 | `formula` | Valeur dérivée, évaluée à la lecture ou au recalcul | `expression: F\`record.qty * record.unit_price\`` — voir [CEL](./cel) |
-| `summary` | Agrégation sur une relation enfant | `summaryOperations: { object, field, function }` (`count` \| `sum` \| `avg` \| `min` \| `max`) |
+| `summary` | Agrégation sur une relation enfant | `summaryOperations: { object, field, function, filter? }` (`count` \| `sum` \| `avg` \| `min` \| `max` ; le `filter` optionnel — une condition `where` de requête, p. ex. `{ status: 'received' }` — n'agrège que les lignes enfants correspondantes, 16.0+) |
 | `autonumber` | Numéro d'affichage auto-incrémenté | `format` (par ex. `TKT-{0000}`), `startAt` |
 
 Exemple de formule :
@@ -129,19 +129,18 @@ Exemple de formule :
 
 | Type | À utiliser pour | Option clé |
 |:--|:--|:--|
-| `image` | pièces jointes image | `fileAttachmentConfig` (voir ci-dessous) |
+| `image` | pièces jointes image | `multiple` / `accept` / `maxSize` (voir ci-dessous) |
 | `file` | tout fichier | identique |
 | `avatar` | photos de profil | recadrage carré, valeurs par défaut sensées |
 | `video` | téléversements vidéo | durée + capture de miniature |
 | `audio` | audio | aperçu en forme d'onde |
 
 ```ts
-fileAttachmentConfig: {
-  maxSize: 10_000_000,                        // bytes
-  allowedTypes: ['image/png','image/jpeg'],
-  virusScan: true,
-  storageProvider: 's3',                       // see Configure → Storage
-  imageValidation: { minWidth: 200, maxWidth: 4096, generateThumbnails: ['sm','md','lg'] }
+{
+  type: 'file',
+  multiple: true,                             // store an array of attachments
+  accept: ['image/png', 'image/jpeg'],        // MIME types / extensions
+  maxSize: 10_000_000                         // bytes
 }
 ```
 
@@ -167,7 +166,7 @@ fileAttachmentConfig: {
 | `qrcode` | affiche la valeur sous forme de QR ou code-barres (EAN / UPC / Code128) |
 | `progress` | pourcentage dérivé affiché sous forme de barre |
 | `tags` | tableau de tags libres avec autocomplétion |
-| `vector` | colonne d'embedding — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
+| `vector` | colonne d'embedding — `dimensions` à plat (p. ex. `1536` pour les embeddings OpenAI) ; le `vectorConfig` imbriqué (`distanceMetric`/`indexed`/`indexType`) a été supprimé en 16.0 |
 
 ## Champs système (injectés automatiquement sur chaque objet)
 

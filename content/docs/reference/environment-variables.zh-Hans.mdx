@@ -24,7 +24,9 @@ description: ObjectOS 运行时环境变量参考。
 | `OS_PROJECT_ID` | 可选 | `OS_ENVIRONMENT_ID` 的旧别名,ObjectOS 配置为向后兼容接受。新部署中优先使用 `OS_ENVIRONMENT_ID`。 |
 | `OS_ENVIRONMENT_ID` | 可选 | standalone stack 的环境 id（默认 `proj_local`）。也用于派生项目级 auth 密钥。ObjectOS 配置也接受旧别名 `OS_PROJECT_ID`。 |
 | `OS_ORGANIZATION_ID` | 可选 | 文件支持模式下的默认组织 id（默认 `org_local`）。 |
-| `OS_MCP_SERVER_ENABLED` | 否 | 设为 `true` 以通过 Streamable HTTP 在 `/api/v1/mcp` 暴露 Model Context Protocol 服务器（8.0+）。默认关闭——开启前端点返回 `404`,开启后需要已认证的主体。 |
+| `OS_MCP_SERVER_ENABLED` | 否 | 控制通过 Streamable HTTP 在 `/api/v1/mcp` 提供的 Model Context Protocol 服务器——且仅控制该 HTTP 表面。**默认开启**（16.0+）：未设置时端点即被提供；设置显式假值（`false`/`0`/`off`/`no`）可将其关闭。需要已认证的主体。遗留行为：`OS_MCP_SERVER_ENABLED=true` 在接下来一个版本内仍会附带弃用警告地自动启动 stdio 传输——请改用 `OS_MCP_STDIO_ENABLED`。 |
+| `OS_MCP_STDIO_ENABLED` | 否 | 设为真值（`true`/`1`/`on`/`yes`）以自动启动长驻的 **stdio** MCP 传输。默认关闭，且与 `OS_MCP_SERVER_ENABLED`（仅控制 HTTP 表面）相互独立。需要 `OS_MCP_STDIO_API_KEY`。 |
+| `OS_MCP_STDIO_API_KEY` | 启用 stdio 时必需 | stdio 传输绑定到的 API 密钥（`osk_...`）对应的主体。通过与 HTTP MCP 相同的校验 + 授权链解析，因此 RLS/FLS 与租户隔离同样生效。失败即关闭（fail-closed）：启用 stdio 自动启动但没有可解析的密钥时，服务器会拒绝启动 stdio 传输。 |
 | `OS_CLOUD_URL` | 可选 | marketplace 代理与本地 package 安装的控制平面基础 URL。设为 `off` 或 `local` 可禁用 marketplace 功能。在 standalone 分发中不再用于 host stack 的主机名路由。 |
 | `OS_MULTI_ORG_ENABLED` | 否 | 设为 `true` 以启用多租户路由/组织切换（默认 `false`）。旧别名:`OS_MULTI_TENANT`。 |
 | `OS_RUNTIME_PORT` | 仅开发 | 当在 `http://localhost:<port>` 开发时,用于构建平台 SSO 回调 URL 的本地端口。 |

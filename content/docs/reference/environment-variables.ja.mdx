@@ -27,7 +27,9 @@ description: ObjectOS ランタイムの環境変数リファレンス。
 | `OS_PROJECT_ID` | 任意 | `OS_ENVIRONMENT_ID` のレガシーエイリアスで、後方互換性のために ObjectOS の設定が受け付けます。新しいデプロイメントでは `OS_ENVIRONMENT_ID` を優先してください。 |
 | `OS_ENVIRONMENT_ID` | 任意 | standalone stack の環境 id（デフォルト `proj_local`）。プロジェクトごとの認証シークレットの導出にも使用されます。ObjectOS の設定はレガシーエイリアス `OS_PROJECT_ID` も受け付けます。 |
 | `OS_ORGANIZATION_ID` | 任意 | ファイルバックモードのデフォルト組織 id（デフォルト `org_local`）。 |
-| `OS_MCP_SERVER_ENABLED` | いいえ | `true` に設定すると、Model Context Protocol サーバーを Streamable HTTP 経由で `/api/v1/mcp` に公開します（8.0+）。デフォルトはオフ——有効化するまでエンドポイントは `404` を返し、有効化後は認証済みプリンシパルが必要です。 |
+| `OS_MCP_SERVER_ENABLED` | いいえ | Streamable HTTP の `/api/v1/mcp` で提供される Model Context Protocol サーバー——この HTTP サーフェスのみ——を制御します。**デフォルトはオン**（16.0+）：未設定ならエンドポイントは提供され、明示的な偽値（`false`/`0`/`off`/`no`）で無効化します。認証済みプリンシパルが必要です。レガシー：`OS_MCP_SERVER_ENABLED=true` はあと 1 リリースの間、非推奨警告付きで stdio トランスポートも自動起動します——代わりに `OS_MCP_STDIO_ENABLED` を使用してください。 |
+| `OS_MCP_STDIO_ENABLED` | いいえ | 真値（`true`/`1`/`on`/`yes`）に設定すると、長寿命の **stdio** MCP トランスポートを自動起動します。デフォルトはオフで、`OS_MCP_SERVER_ENABLED`（HTTP サーフェスのみを制御）とは別のスイッチです。`OS_MCP_STDIO_API_KEY` が必要です。 |
+| `OS_MCP_STDIO_API_KEY` | stdio 有効時 | stdio トランスポートをプリンシパルに束縛する API キー（`osk_...`）。HTTP MCP と同じ検証・認可チェーンで解決されるため、RLS/FLS とテナントスコープが適用されます。フェイルクローズド：stdio 自動起動が有効で解決可能なキーがない場合、サーバーは stdio トランスポートの起動を拒否します。 |
 | `OS_CLOUD_URL` | 任意 | marketplace プロキシとローカルパッケージインストールのためのコントロールプレーンのベース URL。`off` または `local` に設定すると marketplace 機能を無効化できます。standalone ディストリビューションでは host stack のホスト名ルーティングには使用されなくなりました。 |
 | `OS_MULTI_ORG_ENABLED` | いいえ | マルチテナントルーティング／組織切り替えを有効にするには `true` に設定します（デフォルト `false`）。レガシーエイリアス: `OS_MULTI_TENANT`。 |
 | `OS_RUNTIME_PORT` | 開発のみ | `http://localhost:<port>` で開発する際にプラットフォーム SSO のコールバック URL を構築するために使用するローカルホストポート。 |

@@ -49,9 +49,81 @@ Subscribe to releases on GitHub to get notified.
 
 ## Recent highlights
 
-### 14.x — current release train
+### 16.0
 
-ObjectOS One and the bundled server now ship on `@objectstack` **14.7.0**.
+`@objectstack` **16.0.0** converges the developer surface and makes
+declared metadata honest: one blessed name for the caller's org, real
+multi-approver governance, time-relative automations that actually fire,
+and a platform-wide sweep that turns silently-ignored metadata into loud
+errors at authoring time. Full notes:
+[docs.objectstack.ai/docs/releases](https://docs.objectstack.ai/docs/releases).
+What moved:
+
+- **`tenantId` alias removed from hook/action `ctx`** (16.0, breaking) —
+  read the caller's org as `ctx.user.organizationId` /
+  `ctx.session.organizationId` in every `*.hook.ts` / `*.action.ts` body
+  (the value is unchanged; `ctx.user` is `undefined` for system writes).
+  The driver-layer tenancy axis (`ExecutionContext.tenantId`) is a
+  different concept and is untouched.
+- **Approvals: quorum, per-group sign-off (会签), and a metadata-driven
+  inbox** — approval steps support M-of-N quorum (`minApprovals`) and
+  one-approver-from-each-group steps, tallied against an open-time
+  snapshot with OOO substitution; a single rejection still vetoes, and
+  thresholds clamp so misconfiguration can never deadlock. Decisions
+  carry file attachments, progress ("2 of 3 · finance pending") is
+  computed server-side, and approve / reject / reassign / send-back /
+  request-info / remind / recall / resubmit are declared `type:'api'`
+  actions on `sys_approval_request` — the Console renders them through
+  its generic action runtime instead of hand-written buttons.
+- **Time-relative automations** — a flow start node can declare
+  `timeRelative` (`offsetDays: [60, 30, 7]` or `withinDays`); a daily
+  sweep launches the flow once per matching record, so "remind me 60
+  days before the contract ends" finally just works — no more
+  date-equality conditions that only fire on a lucky edit.
+- **Filtered roll-ups** — `summaryOperations.filter` lets a parent total
+  aggregate only the matching child rows, and re-aggregates when a child
+  moves in or out of the predicate.
+- **Strict dashboard widgets** (16.0, breaking) —
+  `DashboardWidgetSchema` is `.strict()`: an undeclared key (typo or
+  removed inline-analytics key) is a parse error naming the key and
+  pointing at the dataset shape (`dataset` + `dimensions` + `values`)
+  instead of silently rendering nothing.
+- **MCP: stdio gets an identity, agents get a linter** — stdio
+  auto-start moves to its own `OS_MCP_STDIO_ENABLED` switch (default
+  off) and requires an `OS_MCP_STDIO_API_KEY=osk_...` principal,
+  fail-closed, resolved through the same authorization chain as HTTP
+  (RLS/FLS/tenant apply; no `system` bypass). A new
+  `validate_expression` tool lets agents lint a formula against the real
+  object schema before saving it.
+- **Enforce-or-remove sweep** (16.0, breaking) — declared-but-unenforced
+  metadata is now loud: dead field/object/agent props are removed or
+  tombstoned with guidance, hook events collapse 18 → 8, validation
+  rules lose the never-evaluated `'delete'` event, webhook `undelete` /
+  `api` triggers are removed, and unknown `requires` capability tokens
+  are rejected at authoring (the `aiStudio` / `aiSeat` aliases are gone —
+  use kebab-case `ai-studio` / `ai-seat`).
+- **Engine-owned system rows are read-only through the generic data API**
+  (ADR-0103) — jobs, notifications, approval-runtime rows, sharing rows,
+  audit trails, secrets, and the like are locked to `get`/`list`, with a
+  fail-closed guard rejecting user-context writes through `/data`.
+  Third-party `system` objects that legitimately take user writes must
+  declare `userActions`.
+- **Date logic stops lying** — `record.due_date == today()` now matches
+  (temporal equality comparisons are rewritten to coerce the field
+  operand), while date *arithmetic* in formulas (`end - start + 1`,
+  `today() + 30`) becomes a build-time error pointing at `daysBetween` /
+  `daysFromNow` / `addDays` / `addMonths` — those expressions always
+  faulted to `null` at runtime anyway.
+- **Bulk user import defaults to `passwordPolicy: 'auto'`** — rows with
+  a deliverable channel (real email + wired email service, or phone +
+  SMS invite path) are invited; only unreachable rows get a one-time
+  temporary password (`must_change_password`). Pass
+  `passwordPolicy: 'none'` explicitly for the old identity-only
+  behavior; per-row outcomes are on `rows[].delivery`.
+
+### 14.x
+
+ObjectOS One and the bundled server shipped on `@objectstack` **14.7.0**.
 The runtime boot contract is unchanged — `createStandaloneStack` takes the
 same artifact, environment, and database settings — but 13.0 and 14.0 both
 land breaking changes in the authorization vocabulary, so **review your

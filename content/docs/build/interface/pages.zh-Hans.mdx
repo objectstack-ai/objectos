@@ -13,7 +13,7 @@ const homePage = {
   regions: [
     { name: 'header', width: 'full', components: [
       { type: 'metric_card', id: 'total_revenue', label: 'Total Revenue',
-        properties: { object: 'opportunity', field: 'amount', aggregate: 'sum', format: 'currency' } },
+        properties: { dataset: 'sales', values: ['revenue'], format: 'currency' } },
     ]},
     { name: 'main', width: 'large', components: [
       { type: 'list_view', id: 'recent_deals', label: 'Recent Deals',
@@ -71,12 +71,14 @@ regions: [
   type: 'chart',
   id: 'revenue_chart',
   label: 'Revenue Trend',
-  properties: { chartType: 'line', object: 'opportunity',
-                categoryField: 'close_date', valueField: 'amount' },
+  properties: { chartType: 'line', dataset: 'sales',
+                dimensions: ['close_month'], values: ['revenue'] },
   events: { onClick: "navigate_to('opportunity_detail', { id: $event.id })" },
   visibility: "os.user.profile == 'sales_manager'",
 }
 ```
+
+承载分析数据的组件（`chart`、`metric_card`）绑定一个具名**数据集**，并按名称选用其 `dimensions` + `values` —— 与[仪表盘](/docs/build/interface/dashboards)组件相同的 ADR-0021 形态，也是 Studio 唯一会生成的形态。已移除的内联分析形态（在组件上直接写 `object` + `categoryField` + `valueField` + `aggregate`）自 16.0 起是解析错误，而不再是被悄悄忽略的空操作。
 
 | 属性 | 类型 | 说明 |
 |:--|:--|:--|

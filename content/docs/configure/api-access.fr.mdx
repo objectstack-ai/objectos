@@ -24,7 +24,8 @@ Surfaces notables :
 | `/api/v1/auth/*` | Authentification (connexion, sessions, OAuth, OIDC) |
 | `/api/v1/meta/*` | API de métadonnées (objets, champs, vues) lorsqu'elles sont activées |
 | `/api/v1/keys` | Génère une `sys_api_key` affichée une seule fois pour l'utilisateur appelant (POST) |
-| `/api/v1/mcp` | Serveur Model Context Protocol via Streamable HTTP, lorsque `OS_MCP_SERVER_ENABLED=true` |
+| `/api/v1/batch` | Batch transactionnel inter-objets (POST) — atomique uniquement, chaque opération contrôlée par objet |
+| `/api/v1/mcp` | Serveur Model Context Protocol via Streamable HTTP — actif par défaut ; se désactive avec `OS_MCP_SERVER_ENABLED=false` |
 | `/api/v1/health` | Sonde de vivacité/disponibilité (sans authentification) |
 
 Le préfixe est `/api/v1` par défaut (le `basePath` de l'API `/api` plus la
