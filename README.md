@@ -4,6 +4,11 @@
 > for end-user organizations as **ObjectOS Cloud** (managed) and
 > **ObjectOS Enterprise** (self-managed).
 
+[Website](https://www.objectos.ai) ·
+[Documentation](https://docs.objectos.ai) ·
+[License & Pricing](https://docs.objectos.ai/docs/resources/license) ·
+[ObjectStack — the open-source framework](https://github.com/objectstack-ai/objectstack)
+
 ObjectOS is a **commercial product**. This repository is its public home:
 
 - 📚 **Documentation** — source for [docs.objectos.ai](https://docs.objectos.ai)
