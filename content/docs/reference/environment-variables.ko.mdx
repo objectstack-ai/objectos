@@ -27,7 +27,9 @@ description: ObjectOS 런타임 환경 변수 참조.
 | `OS_PROJECT_ID` | 선택 | `OS_ENVIRONMENT_ID`의 레거시 별칭으로, 하위 호환성을 위해 ObjectOS 구성에서 허용됩니다. 새 배포에서는 `OS_ENVIRONMENT_ID`를 사용하는 것이 좋습니다. |
 | `OS_ENVIRONMENT_ID` | 선택 | standalone stack의 환경 id(기본값 `proj_local`). 프로젝트별 인증 시크릿을 파생하는 데에도 사용됩니다. ObjectOS 구성은 레거시 별칭 `OS_PROJECT_ID`도 허용합니다. |
 | `OS_ORGANIZATION_ID` | 선택 | 파일 기반 모드의 기본 조직 id(기본값 `org_local`). |
-| `OS_MCP_SERVER_ENABLED` | 아니오 | `true`로 설정하면 Model Context Protocol 서버를 Streamable HTTP로 `/api/v1/mcp`에 노출합니다(8.0+). 기본값은 꺼짐 — 활성화하기 전에는 엔드포인트가 `404`를 반환하며, 활성화 후에는 인증된 주체가 필요합니다. |
+| `OS_MCP_SERVER_ENABLED` | 아니오 | Streamable HTTP의 `/api/v1/mcp`로 제공되는 Model Context Protocol 서버 — 오직 이 HTTP 표면만 — 를 제어합니다. **기본값은 켜짐**(16.0+): 설정하지 않으면 엔드포인트가 제공되며, 명시적인 거짓 값(`false`/`0`/`off`/`no`)으로 비활성화합니다. 인증된 주체가 필요합니다. 레거시: `OS_MCP_SERVER_ENABLED=true`는 한 릴리스 동안 사용 중단 경고와 함께 stdio 전송도 자동 시작합니다 — 대신 `OS_MCP_STDIO_ENABLED`를 사용하세요. |
+| `OS_MCP_STDIO_ENABLED` | 아니오 | 참 값(`true`/`1`/`on`/`yes`)으로 설정하면 장수명 **stdio** MCP 전송을 자동 시작합니다. 기본값은 꺼짐이며 `OS_MCP_SERVER_ENABLED`(HTTP 표면만 제어)와는 별개의 스위치입니다. `OS_MCP_STDIO_API_KEY`가 필요합니다. |
+| `OS_MCP_STDIO_API_KEY` | stdio 활성화 시 | stdio 전송이 주체에 바인딩되는 API 키(`osk_...`). HTTP MCP와 동일한 검증·인가 체인으로 해석되므로 RLS/FLS와 테넌트 범위가 적용됩니다. 실패 시 닫힘(fail-closed): stdio 자동 시작이 활성화되었는데 해석 가능한 키가 없으면 서버는 stdio 전송 시작을 거부합니다. |
 | `OS_CLOUD_URL` | 선택 | marketplace 프록시 및 로컬 패키지 설치를 위한 컨트롤 플레인 기본 URL. `off` 또는 `local`로 설정하면 marketplace 기능을 비활성화합니다. standalone 배포판에서는 더 이상 host stack의 호스트명 라우팅에 사용되지 않습니다. |
 | `OS_MULTI_ORG_ENABLED` | 아니오 | 멀티 테넌트 라우팅/조직 전환을 활성화하려면 `true`로 설정합니다(기본값 `false`). 레거시 별칭: `OS_MULTI_TENANT`. |
 | `OS_RUNTIME_PORT` | 개발 전용 | `http://localhost:<port>`에서 개발할 때 플랫폼 SSO 콜백 URL을 구성하는 데 사용되는 localhost 포트. |

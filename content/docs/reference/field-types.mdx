@@ -18,15 +18,17 @@ description: Every field type you can declare on an object — what it stores, w
 | `searchable` | boolean | `false` | Indexed for `/api/v1/search` |
 | `multiple` | boolean | `false` | Store an array of values |
 | `defaultValue` | unknown | — | Initial value (literal or CEL) |
-| `columnName` | string | = `name` | Override physical DB column |
 | `hidden` | boolean | `false` | Hide from default Console views |
 | `readonly` | boolean | `false` | Disable in forms |
 | `system` | boolean | `false` | Auto-injected (id, created_at, …) |
-| `index` | boolean | `false` | Create a DB index |
 | `externalId` | boolean | `false` | Eligible for upsert via external key |
 | `inlineHelpText` | string | — | Tooltip / helper text |
 | `conditionalRequired` | `P` predicate | — | Required when CEL is true |
 | `trackHistory` | boolean | `false` | Render value changes as human-readable entries on the record activity timeline (ADR-0052) |
+
+> Removed in 16.0: `columnName` (the physical column is always the field name;
+> external/federated objects map columns via `external.columnMap`) and the
+> field-level `index` boolean (declare indexes in the object's `indexes[]` array).
 
 ## Text family
 
@@ -102,17 +104,23 @@ Common options:
 {
   type: 'lookup',
   reference: 'account',                       // target object name
-  referenceFilters: ['status:active'],        // narrow the lookup picker
+  lookupFilters: [                            // narrow the lookup picker
+    { field: 'status', operator: 'eq', value: 'active' }
+  ],
   deleteBehavior: 'set_null'                  // 'set_null' | 'cascade' | 'restrict'
 }
 ```
+
+> The old string-array `referenceFilters` was removed in 16.0 — the record picker
+> only honours the structured `lookupFilters` form. Supported `operator` values:
+> `eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `contains`, `in`, `notIn`.
 
 ## Computed
 
 | Type | What it does | Key option |
 |:--|:--|:--|
 | `formula` | Derived value, evaluated on read or recalc | `expression: F\`record.qty * record.unit_price\`` — see [CEL](./cel) |
-| `summary` | Roll-up over a child relation | `summaryOperations: { object, field, function }` (`count` \| `sum` \| `avg` \| `min` \| `max`) |
+| `summary` | Roll-up over a child relation | `summaryOperations: { object, field, function, filter? }` (`count` \| `sum` \| `avg` \| `min` \| `max`; optional `filter` — a query-`where` condition, e.g. `{ status: 'received' }` — aggregates only matching child rows, 16.0+) |
 | `autonumber` | Auto-incrementing display number | `format` (e.g. `TKT-{0000}`), `startAt` |
 
 Formula example:
@@ -129,21 +137,24 @@ Formula example:
 
 | Type | Use for | Key option |
 |:--|:--|:--|
-| `image` | image attachments | `fileAttachmentConfig` (see below) |
+| `image` | image attachments | `multiple` / `accept` / `maxSize` (see below) |
 | `file` | any file | same |
 | `avatar` | profile pictures | square crop, sensible defaults |
 | `video` | video uploads | duration + thumbnail capture |
 | `audio` | audio | waveform preview |
 
 ```ts
-fileAttachmentConfig: {
-  maxSize: 10_000_000,                        // bytes
-  allowedTypes: ['image/png','image/jpeg'],
-  virusScan: true,
-  storageProvider: 's3',                       // see Configure → Storage
-  imageValidation: { minWidth: 200, maxWidth: 4096, generateThumbnails: ['sm','md','lg'] }
+{
+  type: 'file',
+  multiple: true,                             // store an array of attachments
+  accept: ['image/png', 'image/jpeg'],        // MIME types / extensions
+  maxSize: 10_000_000                         // bytes
 }
 ```
+
+> The nested `fileAttachmentConfig` object was removed in 16.0 — it was never
+> read by the runtime. Use the flat `multiple` / `accept` / `maxSize` properties.
+> Storage is configured per deployment (see Configure → Storage), not per field.
 
 ## Structured
 
@@ -167,7 +178,7 @@ fileAttachmentConfig: {
 | `qrcode` | renders the value as a QR or barcode (EAN / UPC / Code128) |
 | `progress` | derived percent rendered as a bar |
 | `tags` | free-form tag array with autocomplete |
-| `vector` | embedding column — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
+| `vector` | embedding column — flat `dimensions` (e.g. `1536` for OpenAI embeddings). The nested `vectorConfig` (`distanceMetric`/`indexed`/`indexType`) was removed in 16.0 — it was never read |
 
 ## System fields (auto-injected on every object)
 

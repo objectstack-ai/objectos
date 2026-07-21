@@ -18,15 +18,17 @@ description: 你可以在对象上声明的所有字段类型 —— 存储什�
 | `searchable` | boolean | `false` | 为 `/api/v1/search` 建索引 |
 | `multiple` | boolean | `false` | 存储值的数组 |
 | `defaultValue` | unknown | — | 初始值（字面量或 CEL） |
-| `columnName` | string | = `name` | 覆盖物理 DB 列 |
 | `hidden` | boolean | `false` | 在默认 Console 视图中隐藏 |
 | `readonly` | boolean | `false` | 表单中禁用 |
 | `system` | boolean | `false` | 自动注入（id、created_at……） |
-| `index` | boolean | `false` | 创建 DB 索引 |
 | `externalId` | boolean | `false` | 可用作外部键 upsert |
 | `inlineHelpText` | string | — | 提示/帮助文本 |
 | `conditionalRequired` | `P` 谓词 | — | CEL 为真时必填 |
 | `trackHistory` | boolean | `false` | 将值变更渲染为记录活动时间线上可读的条目（ADR-0052） |
+
+> 16.0 中已移除：`columnName`（物理列始终等于字段名；外部/联邦对象通过
+> `external.columnMap` 映射列）以及字段级 `index` 布尔值（请在对象的
+> `indexes[]` 数组中声明索引）。
 
 ## 文本家族
 
@@ -101,17 +103,23 @@ options: [
 {
   type: 'lookup',
   reference: 'account',                       // 目标对象名
-  referenceFilters: ['status:active'],        // 收窄查找选择器
+  lookupFilters: [                            // 收窄查找选择器
+    { field: 'status', operator: 'eq', value: 'active' }
+  ],
   deleteBehavior: 'set_null'                  // 'set_null' | 'cascade' | 'restrict'
 }
 ```
+
+> 旧的字符串数组 `referenceFilters` 已在 16.0 移除——记录选择器只识别结构化的
+> `lookupFilters` 形式。支持的 `operator` 取值：`eq`、`ne`、`gt`、`lt`、`gte`、
+> `lte`、`contains`、`in`、`notIn`。
 
 ## 计算
 
 | 类型 | 作用 | 关键选项 |
 |:--|:--|:--|
 | `formula` | 派生值,读取或重新计算时求值 | `expression: F\`record.qty * record.unit_price\`` —— 见 [CEL](./cel) |
-| `summary` | 子关系上的汇总 | `summaryOperations: { object, field, function }`（`count` \| `sum` \| `avg` \| `min` \| `max`） |
+| `summary` | 子关系上的汇总 | `summaryOperations: { object, field, function, filter? }`（`count` \| `sum` \| `avg` \| `min` \| `max`；可选 `filter` —— 查询 `where` 条件，如 `{ status: 'received' }` —— 仅聚合匹配的子行，16.0+） |
 | `autonumber` | 自动递增显示编号 | `format`（如 `TKT-{0000}`）、`startAt` |
 
 公式示例：
@@ -128,21 +136,24 @@ options: [
 
 | 类型 | 用途 | 关键选项 |
 |:--|:--|:--|
-| `image` | 图像附件 | `fileAttachmentConfig`（见下） |
+| `image` | 图像附件 | `multiple` / `accept` / `maxSize`（见下） |
 | `file` | 任意文件 | 同 |
 | `avatar` | 头像 | 方形裁剪,合理默认 |
 | `video` | 视频上传 | 时长 + 缩略图捕获 |
 | `audio` | 音频 | 波形预览 |
 
 ```ts
-fileAttachmentConfig: {
-  maxSize: 10_000_000,                        // 字节
-  allowedTypes: ['image/png','image/jpeg'],
-  virusScan: true,
-  storageProvider: 's3',                       // 见 Configure → Storage
-  imageValidation: { minWidth: 200, maxWidth: 4096, generateThumbnails: ['sm','md','lg'] }
+{
+  type: 'file',
+  multiple: true,                             // 存储附件数组
+  accept: ['image/png', 'image/jpeg'],        // MIME 类型 / 扩展名
+  maxSize: 10_000_000                         // 字节
 }
 ```
+
+> 嵌套的 `fileAttachmentConfig` 对象已在 16.0 移除——运行时从未读取过它。
+> 请使用扁平的 `multiple` / `accept` / `maxSize` 属性。存储按部署配置
+> （见 Configure → Storage），而非按字段配置。
 
 ## 结构化
 
@@ -166,7 +177,7 @@ fileAttachmentConfig: {
 | `qrcode` | 将值渲染为 QR 或条形码（EAN / UPC / Code128） |
 | `progress` | 派生百分比,以进度条渲染 |
 | `tags` | 带自动完成的自由标签数组 |
-| `vector` | 嵌入列 —— `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
+| `vector` | 嵌入列 —— 扁平的 `dimensions`（如 OpenAI 嵌入为 `1536`）；嵌套的 `vectorConfig`（`distanceMetric`/`indexed`/`indexType`）已在 16.0 移除 |
 
 ## 系统字段（每个对象自动注入）
 
