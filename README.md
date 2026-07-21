@@ -32,7 +32,7 @@ capabilities, deployment, and operations documentation.
 ## Building and running your own apps? That's ObjectStack — and it's open source
 
 Everything you need to **build, run, and self-host your own applications** is
-the open-source (Apache-2.0) **[ObjectStack framework](https://github.com/objectstack-ai/framework)**:
+the open-source (Apache-2.0) **[ObjectStack framework](https://github.com/objectstack-ai/objectstack)**:
 
 ```
 ObjectStack  →  for builders  — the open-source protocol, toolkit, and production runtime
@@ -40,7 +40,7 @@ ObjectOS     →  for end users — the commercial runtime environment (Cloud & 
 ```
 
 `os start` — or the official Docker image
-[`ghcr.io/objectstack-ai/objectstack`](https://github.com/objectstack-ai/framework/tree/main/docker) —
+[`ghcr.io/objectstack-ai/objectstack`](https://github.com/objectstack-ai/objectstack/tree/main/docker) —
 serves your compiled app in production with the Console, permissions, and
 audit included. No commercial license required.
 

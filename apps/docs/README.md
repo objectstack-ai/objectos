@@ -9,5 +9,5 @@ pnpm --filter @objectos/docs build
 ```
 
 > Protocol references (Object, Field, View, …) belong upstream in
-> `objectstack-ai/framework`. This site is for the **distribution** —
+> `objectstack-ai/objectstack`. This site is for the **distribution** —
 > install, configure, upgrade, operate, and plugin docs.

@@ -20,7 +20,7 @@ opencode** およびその他約 50 種類のエージェントで動作しま�
 `@objectstack/*` パッケージを使用しているプロジェクトであればどこでも:
 
 ```bash
-npx skills add objectstack-ai/framework/skills
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 CLI は構成済みのエージェント (`.claude/`、`.cursor/`、`.github/copilot/`、
@@ -52,7 +52,7 @@ CLI は構成済みのエージェント (`.claude/`、`.cursor/`、`.github/cop
 ## 仕組み
 
 すべてのスキルは
-[framework リポジトリ](https://github.com/objectstack-ai/framework/tree/main/skills)
+[framework リポジトリ](https://github.com/objectstack-ai/objectstack/tree/main/skills)
 の `skills/` 配下にあるフォルダーです:
 
 ```
@@ -101,7 +101,7 @@ AI Builder を使い、**公開を意図したパッケージ** を扱う際に�
 ## 更新
 
 スキルは `@objectstack/spec` のバージョンに追従します。spec パッケージを
-アップグレードした後に `npx skills add objectstack-ai/framework/skills` を再実行して、
+アップグレードした後に `npx skills add objectstack-ai/objectstack/skills` を再実行して、
 エージェントを最新の Zod スキーマ、CEL ヘルパー、メタデータ語彙と
 同期させてください。
 

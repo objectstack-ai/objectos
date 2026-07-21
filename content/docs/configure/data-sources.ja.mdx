@@ -158,7 +158,7 @@ export default defineStack({
 
 ## ロードマップ: 製品内の外部データソースフェデレーション
 
-上記のフロー — データベースを接続し、オブジェクトをモデル化し、コーディングエージェントで生成する — は、同梱のビルディングブロックで今日機能します。よりリッチな**ターンキー型フェデレーション**体験が [ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)（ステータス: *Proposed*）の下で活発に設計中です。計画されている、**まだ出荷されていない**もの:
+上記のフロー — データベースを接続し、オブジェクトをモデル化し、コーディングエージェントで生成する — は、同梱のビルディングブロックで今日機能します。よりリッチな**ターンキー型フェデレーション**体験が [ADR-0015](https://github.com/objectstack-ai/objectstack/blob/main/docs/adr/0015-external-datasource-federation.md)（ステータス: *Proposed*）の下で活発に設計中です。計画されている、**まだ出荷されていない**もの:
 
 - ObjectOS が、所有して**いない**テーブルを移行しようとせずにバインドできるようにする `schemaMode`（`managed` / `external` / `validate-only`）。
 - オブジェクトのフィールドを既存のカラムにマッピングする、オブジェクト上の `external` バインディングサブレコード。
@@ -173,4 +173,4 @@ export default defineStack({
 - [AI サービス](/docs/configure/ai) — チャット、埋め込み、RAG、MCP
 - [AI Agents](/docs/build/agents) — オブジェクトに対する宣言的なエージェント
 - [Objects](/docs/build/objects) — `ObjectSchema.create` の作成サーフェス
-- [`examples/app-crm` datasources](https://github.com/objectstack-ai/framework/tree/main/examples/app-crm/src/datasources) — 実際のデータソース + ルーティングの例
+- [`examples/app-crm` datasources](https://github.com/objectstack-ai/objectstack/tree/main/examples/app-crm/src/datasources) — 実際のデータソース + ルーティングの例

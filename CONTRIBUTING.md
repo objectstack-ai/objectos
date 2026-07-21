@@ -19,7 +19,7 @@ Read this before opening a PR.
   behavior as an issue instead.
 - **Framework changes** — protocol schemas, kernel internals, drivers, and
   community plugins live in
-  [`objectstack-ai/framework`](https://github.com/objectstack-ai/framework)
+  [`objectstack-ai/objectstack`](https://github.com/objectstack-ai/objectstack)
   (open source, Apache-2.0). Open PRs there.
 
 ## History
