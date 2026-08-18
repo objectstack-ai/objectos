@@ -10,11 +10,22 @@ sold in two deliveries: **ObjectOS Cloud** (we operate it) and **ObjectOS
 Self-Managed** (you operate it, under a commercial license). There is **no
 open-source edition of ObjectOS**.
 
+{/*
+  Naming, decided under #79 and re-confirmed on #107: "Console UI" here and in
+  the Apache-2.0 list further down names the *component* — the shipped browser
+  bundle, the `@objectstack/console` package, the same spelling architecture.mdx
+  and configure/system-settings.mdx were deliberately kept at. #79 retired
+  "Console" as the name of the end-user surface (a reader opens ObjectOS, not
+  "the Console") but kept the names of things the product ships, and a licence
+  enumerates artifacts rather than surfaces. Both occurrences on this page are
+  therefore deliberate — do not rewrite them to "the UI" or to "ObjectOS".
+*/}
+
 The open-source story lives under its own brand: the
 **[ObjectStack framework](https://github.com/objectstack-ai/objectstack)**
 (Apache-2.0) is everything you need to **build, run, and self-host your own
-applications** — the protocol, kernel, CLI, production runtime, Console, and
-the MCP server — free, with no feature gate between development and
+applications** — the protocol, kernel, CLI, production runtime, Console UI,
+and the MCP server — free, with no feature gate between development and
 production. If you want free self-hosting, you want ObjectStack, and it is
 excellent. ObjectOS is what you buy when you want the **embedded AI** and an
 **officially operated / supported** platform on top of that mechanism.
@@ -92,8 +103,8 @@ operate your data with your own model.
 
 What's Apache-2.0 (in the framework repository): the runtime image, all
 `@objectstack/*` npm packages (runtime, plugins, services, drivers, adapters,
-CLI, client SDKs), the templates repository, and the Console and Account UIs.
-Documentation is CC-BY-4.0.
+CLI, client SDKs), the templates repository, and the Console UI, including
+the Account app it serves. Documentation is CC-BY-4.0.
 
 Full text: [LICENSE](https://github.com/objectstack-ai/objectstack/blob/main/LICENSE)
 
