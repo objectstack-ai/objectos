@@ -3,7 +3,7 @@ title: Validation Rules
 description: Required fields, unique constraints, and CEL-powered rules that stop bad data at the platform level — with error messages you control.
 ---
 
-**Validation runs on every write path.** REST, Console forms, ObjectQL
+**Validation runs on every write path.** REST, forms, ObjectQL
 — the same rules fire everywhere, so there is no back door for bad
 data. Since 16.0 that includes multi-row updates: a bulk update
 evaluates the rules once per matched row. A validation rule is a deterministic, synchronous, side-effect-free
@@ -193,7 +193,7 @@ lifecycle hook, and delete-time guards in a `beforeDelete` hook.
 ## Custom error messages
 
 The `message` is what the user sees when the rule fires — in the
-Console form and in the API error response. Make it actionable:
+form and in the API error response. Make it actionable:
 
 | Weak | Strong |
 |---|---|

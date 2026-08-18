@@ -73,7 +73,7 @@ leaked key cannot be reconstructed from the database.
 
 Issue a key in either of two ways:
 
-- **Console** — sign in to **Console → API Keys** as an administrator,
+- **Setup** — sign in to **Setup → API Keys** as an administrator,
   choose the owning user, optionally set an expiration date, and copy the
   displayed secret **once**.
 - **Self-serve endpoint** — `POST /api/v1/keys` mints a key for the
@@ -100,7 +100,7 @@ curl https://app.example.com/api/v1/data/account \
 ```
 
 To revoke a key, run the `revoke_api_key` action on the corresponding
-`sys_api_key` record (also available in the Console UI). Revocation takes
+`sys_api_key` record (also available in Setup). Revocation takes
 effect immediately on the next request.
 
 ## MCP clients & OAuth 2.1 (ObjectStack 13+)

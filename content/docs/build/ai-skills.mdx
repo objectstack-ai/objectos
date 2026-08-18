@@ -3,7 +3,7 @@ title: IDE Skills (Claude Code / Cursor / Copilot)
 description: Install ObjectOS skills into your coding agent so Claude Code, Cursor, Copilot, Codex and friends know how to author ObjectOS metadata correctly.
 ---
 
-The [AI Builder](./ai-builder) lives inside Console and talks to your
+The [AI Builder](./ai-builder) lives inside ObjectOS and talks to your
 tenant's database. But sometimes you want the same domain knowledge
 inside your IDE — when you're hand-editing `*.object.ts`, designing a
 flow, or asking Cursor to write a CEL predicate.
@@ -89,7 +89,7 @@ disappear once the skills are installed.
 
 |  | [AI Builder](./ai-builder) | IDE Skills |
 |:--|:--|:--|
-| Where it runs | Console (browser) | Your IDE / coding agent |
+| Where it runs | Your browser | Your IDE / coding agent |
 | What it changes | Live metadata in your tenant | Files in your repo |
 | Acts on behalf of | Your end users / admins | Your developers |
 | Approval model | HITL queue (`ai:approve`) | Pull request review |
@@ -108,6 +108,6 @@ helpers, and metadata vocabulary.
 
 ## Related
 
-- [AI Builder](./ai-builder) — the in-Console counterpart
+- [AI Builder](./ai-builder) — the in-browser counterpart
 - [Agents](./agents) — declare server-side agents that run *inside* ObjectOS
 - [Templates](./templates) — every official template is built with these skills loaded

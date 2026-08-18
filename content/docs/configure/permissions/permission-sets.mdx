@@ -13,10 +13,10 @@ resolving immediately.
 
 | Permission type | Examples |
 |---|---|
-| Application access | User can open CRM or Console |
+| Application access | User can open CRM or Setup |
 | Object permissions | Create, read, update, delete records |
 | Field permissions | Read or update selected fields |
-| System permissions | Access Console, run reports, view audit logs |
+| System permissions | Access Setup, run reports, view audit logs |
 | Integration permissions | Use API keys, webhooks, or admin actions |
 
 ## Object permissions
@@ -90,7 +90,7 @@ outcome. Reports are covered by the same axis.
 
 System permissions are for platform actions such as:
 
-- Console access;
+- Setup access;
 - manage users;
 - manage positions and permission sets;
 - run reports;
@@ -143,13 +143,13 @@ read a record, individual fields can be hidden or made read-only.
 
 | Mode | Effect |
 |---|---|
-| **Hidden** | Field is stripped from API responses and Console views entirely |
+| **Hidden** | Field is stripped from API responses and generated views entirely |
 | **Read-only** | Field is returned but writes are rejected |
 
 ### Where it's enforced
 
 The same evaluator that checks object permissions applies field rules
-on every path — REST, ObjectQL, generated Console forms, exports. There
+on every path — REST, ObjectQL, generated forms, exports. There
 is no "back door" through a lower-level API.
 
 ### Typical patterns

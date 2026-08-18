@@ -4,7 +4,7 @@ description: Configure tenant and user settings through manifests and a shared K
 ---
 
 ObjectStack includes a settings service for runtime and plugin settings.
-ObjectOS exposes those settings through the Console when the application
+ObjectOS exposes those settings through Setup when the application
 artifact requires the settings capability.
 
 ## Settings model
@@ -37,7 +37,7 @@ Manifest default
 ```
 
 Environment overrides are locked. If a value is set through an
-environment variable, the Console UI shows it as managed by the host
+environment variable, Setup shows it as managed by the host
 and rejects runtime edits. A locked value anywhere up the chain also
 locks the effective value, so lower scopes cannot shadow it.
 

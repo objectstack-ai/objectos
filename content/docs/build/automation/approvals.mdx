@@ -287,7 +287,7 @@ reject, reassign, send-back for revision (`/revise`), request-info, remind,
 recall, resubmit — is declared as `type: 'api'` actions on
 `sys_approval_request`, with typed params, pending-only visibility gates, and
 submitter-vs-approver predicates (e.g. `record.submitter_id == ctx.user.id`).
-The Console approvals inbox renders those declared actions instead of
+The approvals inbox renders those declared actions instead of
 hand-written buttons, so new decision capabilities ship as metadata — no
 client release required.
 

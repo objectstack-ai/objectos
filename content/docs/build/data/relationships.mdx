@@ -5,7 +5,7 @@ description: Connect objects with lookups and master-detail — cascade rules, f
 
 **A relationship is just a field.** Point a `lookup` or `masterDetail`
 field at another object and ObjectOS wires up everything on top:
-foreign-key integrity, the record picker in Console, related lists on
+foreign-key integrity, the record picker, related lists on
 the parent page, and `expand` in queries.
 
 | Type | Cardinality | Delete default | Use for |
@@ -118,7 +118,7 @@ that loops back on itself is not automatically rejected.
 
 > **Tip:** Pair a `tree` / self-lookup field with a
 > [tree list view](/docs/build/interface/views) to render the hierarchy
-> as nested rows in Console.
+> as nested rows.
 
 ## Related lists
 

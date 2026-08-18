@@ -13,7 +13,7 @@ layers**:
 | **Knowledge / RAG** | `@objectstack/service-knowledge` + adapter | Documents → indexed knowledge bases |
 
 All three are optional, all three are provider-agnostic, and all three
-can be reconfigured at runtime from **Console → Configuration**
+can be reconfigured at runtime from **Setup → Configuration**
 without a restart.
 
 ## Chat / generation
@@ -48,7 +48,7 @@ The `models` list feeds the runtime model registry — it drives
 default-model resolution and cost attribution in traces. By default the
 plugin also binds to the `ai` settings namespace and rebuilds the
 adapter live when an operator edits the provider/credentials/model in
-Console, so no restart is needed.
+Setup, so no restart is needed.
 
 Provider API keys come from each SDK's normal env vars:
 
@@ -59,7 +59,7 @@ Provider API keys come from each SDK's normal env vars:
 | Google | `GOOGLE_GENERATIVE_AI_API_KEY` |
 | AI Gateway | `AI_GATEWAY_API_KEY` |
 
-In Console you can paste these as runtime settings instead — they go
+In Setup you can paste these as runtime settings instead — they go
 through the same precedence (env > settings) but live editing means
 no restart.
 
@@ -126,7 +126,7 @@ const embedder = createOpenAIEmbedder({
 });
 ```
 
-Or pick at runtime from **Console → Configuration → AI → Embedder**.
+Or pick at runtime from **Setup → Configuration → AI → Embedder**.
 Switch providers without restart; existing vectors stay searchable
 (you can re-index in the background).
 
@@ -153,7 +153,7 @@ kernel.use(new KnowledgeRagflowPlugin({
 ```
 
 Indexed knowledge bases become first-class objects — query them from
-flows, surface them in Console, attach them to AI assistants as
+flows, surface them in your apps, attach them to AI assistants as
 retrieval context.
 
 ## MCP — Model Context Protocol
@@ -180,7 +180,7 @@ registry, including universal tools such as `list_objects`,
 
 - **No mandatory cloud dependency.** Use Ollama for chat + Ollama
   embedder + memory knowledge — entirely air-gapped.
-- **Live swappable.** Change provider in Console; new requests use the
+- **Live swappable.** Change provider in Setup; new requests use the
   new provider on next call. No restart.
 - **Per-tenant config.** Each Environment has its own AI settings.
   Tenant A on OpenAI, tenant B on Anthropic — same runtime.

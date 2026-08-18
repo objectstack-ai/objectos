@@ -78,7 +78,7 @@ counts a rejected credential, so there is no series to alert on. Counting
 endpoints do not feed that counter, a rejected API key is indistinguishable
 from a request that carried no credential at all, and both statuses are
 dominated by ordinary permission denials against users who authenticated
-perfectly well. Review sign-in activity in the Console's `Auth` audit view
+perfectly well. Review sign-in activity in Setup's `Auth` audit view
 instead — see [Audit Logs](/docs/operate/audit-logs).
 
 For OpenTelemetry, set `OS_OBS_EXPORTER=otlp` **and** `OS_OTLP_ENDPOINT`
@@ -109,9 +109,9 @@ database or storage layer and define a retention policy.
 For the full field reference, preset views, and the sibling diagnostics logs,
 see [Audit Logs](/docs/operate/audit-logs).
 
-## Console diagnostics
+## Setup diagnostics
 
-The Console exposes operational surfaces such as:
+Setup exposes operational surfaces such as:
 
 - Sessions;
 - Audit Logs;

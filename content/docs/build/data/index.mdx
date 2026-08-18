@@ -4,7 +4,7 @@ description: Objects, fields, relationships, validation, indexes — described t
 ---
 
 The data model is the single source of truth for your app. Once an
-object exists, ObjectOS gives you REST APIs, a Console view, RBAC
+object exists, ObjectOS gives you REST APIs, a generated view, RBAC
 checkpoints, audit log entries, and AI tool exposure — for free.
 
 **Most customers never write the schema by hand.** They describe what
@@ -18,7 +18,7 @@ is generating and can edit it directly when you want to.
 | Path | Looks like |
 |---|---|
 | **AI Builder** (primary) | *"Create a `support_ticket` object with subject, description, priority, status, assignee."* |
-| **Console click-build** | Console → Objects → New Object → forms |
+| **Click-build** | **Objects → New Object** → forms |
 | **TypeScript (`*.object.ts`)** | The TS shown below — typically inside a forked [template](/docs/build/templates) |
 
 All three produce the same schema. The schema is canonical; everything
@@ -74,7 +74,7 @@ export default defineStack({
 ```
 
 That's all you need. `os dev` recompiles, and `/api/v1/data/todo_task`,
-the Console Task view, and the Console permission row all appear.
+the generated Task view, and its permission row all appear.
 
 ## Field types
 
@@ -167,7 +167,7 @@ ObjectSchema.create({
 });
 ```
 
-Validation runs on every write — REST, Console, ObjectQL — so there's
+Validation runs on every write — REST, the UI, ObjectQL — so there's
 no "back door."
 
 ## Indexes & performance
@@ -187,7 +187,7 @@ The driver creates real DB indexes on schema sync.
 
 ## Field groups
 
-For long forms, group fields in Console:
+For long forms, group fields:
 
 ```ts
 ObjectSchema.create({

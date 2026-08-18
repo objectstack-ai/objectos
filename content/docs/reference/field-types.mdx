@@ -1,6 +1,6 @@
 ---
 title: Field Types
-description: Every field type you can declare on an object — what it stores, what options it accepts, how it surfaces in REST, Console, and the AI Builder.
+description: Every field type you can declare on an object — what it stores, what options it accepts, how it surfaces in REST, the UI, and the AI Builder.
 ---
 
 48 built-in field types, grouped by family. The full Zod schema is in
@@ -11,14 +11,14 @@ description: Every field type you can declare on an object — what it stores, w
 | Property | Type | Default | Purpose |
 |:--|:--|:--|:--|
 | `name` | string (snake_case) | — | Machine identifier — REST path segment, SQL column |
-| `label` | string | — | Display label in Console |
+| `label` | string | — | Display label in the UI |
 | `type` | FieldType | — | See type tables below |
 | `required` | boolean | `false` | NOT NULL constraint |
 | `unique` | boolean | `false` | Unique index |
 | `searchable` | boolean | `false` | Indexed for `/api/v1/search` |
 | `multiple` | boolean | `false` | Store an array of values |
 | `defaultValue` | unknown | — | Initial value (literal or CEL) |
-| `hidden` | boolean | `false` | Hide from default Console views |
+| `hidden` | boolean | `false` | Hide from default views |
 | `readonly` | boolean | `false` | Disable in forms |
 | `system` | boolean | `false` | Auto-injected (id, created_at, …) |
 | `externalId` | boolean | `false` | Eligible for upsert via external key |
@@ -41,9 +41,9 @@ description: Every field type you can declare on an object — what it stores, w
 | `phone` | phone | E.164 |
 | `password` | one-way secrets | hashed by the auth subsystem; never returned by GET |
 | `secret` | reversible secrets (API keys, tokens, DB passwords) | encrypted at rest via the crypto provider, stored as an opaque ref, masked on read. Fail-closed — with no provider configured, writes throw rather than persist cleartext |
-| `markdown` | markdown body | rendered in Console preview |
+| `markdown` | markdown body | rendered in preview |
 | `html` | sanitised HTML | DOMPurify on write |
-| `richtext` | WYSIWYG | Console editor + serialised JSON |
+| `richtext` | WYSIWYG | rich-text editor + serialised JSON |
 
 ## Numbers
 

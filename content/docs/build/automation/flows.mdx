@@ -6,7 +6,7 @@ description: Declarative business logic — described to AI or written in TypeSc
 Flows are how you express business logic without writing a server.
 Every flow is declarative metadata that the runtime executes — same
 as objects and views. That means flows show up in `os diff`, the
-audit log, Console's flow builder, and the [AI Builder](/docs/build/ai-builder)
+audit log, the flow builder, and the [AI Builder](/docs/build/ai-builder)
 all at once.
 
 Most customers create flows by asking the AI:
@@ -33,7 +33,7 @@ export default defineStack({
 | **Autolaunched** | A record change (insert/update/delete) | "Send welcome email when user registers" |
 | **Scheduled** | Cron expression or interval | "Mark stale tasks every night at 2am" |
 | **Time-relative** *(16.0)* | A date field's proximity to today, via a daily sweep | "Remind me 60 days before the contract ends" |
-| **Manual** | User clicks a button in Console, or an API call | "Approve invoice" actions |
+| **Manual** | User clicks a button, or an API call | "Approve invoice" actions |
 
 ## Autolaunched: react to a record change
 
@@ -202,7 +202,7 @@ export const approveInvoice = defineFlow({
 });
 ```
 
-Surface it in Console as a button on the Invoice view, or call it via
+Surface it as a button on the Invoice view, or call it via
 REST:
 
 ```bash
@@ -276,7 +276,7 @@ auditable in the flow builder.
 
 ## Visual builder
 
-Console ships a visual flow builder that round-trips with the
+ObjectOS ships a visual flow builder that round-trips with the
 declarative metadata — non-engineers can edit a flow, and it serializes
 back to the same shape as the TypeScript you'd hand-author.
 
