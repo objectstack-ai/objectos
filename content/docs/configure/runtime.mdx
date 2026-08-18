@@ -23,7 +23,7 @@ Exactly one source is in effect, and the deployment declares which.
 |---|---|---|
 | **Config-authored** | The shipped shape: one app, evaluation, air-gapped, most production deployments | The runtime serves the metadata authored in the image, plus whatever has been installed into it |
 | **Artifact-pinned** | The app is released on its own cadence, independently of the runtime image | One variable names a published artifact by URL. The image's own configuration is not loaded on this path |
-| **Composed** | Several organizations behind the isolation wall, sharing one database, running a published app | The same artifact reference, consumed from the deployment's own configuration so the enterprise plugins load with it |
+| **Composed** | Several organizations behind the isolation wall, sharing one database, running a published app | The same artifact reference, consumed from the deployment's own configuration so the enterprise plugins load with it. Air-gap licensed only, and [refused at startup](/docs/deploy/air-gapped) otherwise |
 
 Upgrading a published app is a change to the artifact reference plus a restart
 — no image rebuild. Rollback is the same operation with the previous URL, which
