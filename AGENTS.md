@@ -12,10 +12,9 @@ ObjectOS — the commercial runtime environment for ObjectStack applications (Cl
 
 All marketing copy, UI strings, and documentation are authored in **English first**. Every other locale (`zh-Hans`, `ja`, `de`, `es`, `fr`, `ko`) is a **translation derived from English**.
 
-- **Always edit the English source first.** Never patch a translation without updating the English original — translation passes will overwrite you.
-- If a typo or wording change only appears in a translation, fix English too (it almost certainly has the same issue or will after the next sync).
-- New content must be added to English before translations are touched.
-- Translations are derived artifacts; treat them like generated code that happens to be checked in.
+- **Edit English, and only English.** Translations are generated, not authored — a PR that hand-edits a locale file is rejected by CI (see [Translation workflow](#translation-workflow)).
+- If a typo or wording change only appears in a translation, fix English. The translation is re-derived from it.
+- Translations are derived artifacts; treat them like generated code that happens to be checked in — because they now are.
 
 ### 2. Test in a real browser before claiming UI work is done
 
@@ -51,12 +50,20 @@ Folder `meta.json` files declare a section's title, page order, and `defaultOpen
 
 ### Translation workflow
 
+**You edit English. You do not edit translations.** Every `*.<locale>.mdx` file is a derived artifact, refreshed by a separate periodic pass under [`docs/TRANSLATION.md`](docs/TRANSLATION.md). `.github/scripts/check-translation-ownership.mjs` rejects any PR that mixes the two — hand-maintained siblings used to be **86% of the diff** in a typical docs PR, which is the cost this split removes.
+
 When the English source changes:
-1. Edit the English `.mdx` first; verify it renders.
-2. Update each existing locale sibling (`.zh-Hans.mdx`, `.ja.mdx`, …) to match.
-3. If a locale sibling doesn't exist yet, that's fine — Fumadocs falls back to English. Create one when you're ready to translate, not as a stub.
-4. Keep `frontmatter` (title, description) translated too.
-5. **A rewrite that changes what a page asserts must delete the stale siblings it invalidates**, not leave them. A missing translation renders correct English; a stale one renders content the English source no longer claims.
+1. Edit the English `.mdx`; verify it renders. That is the whole task.
+2. Leave the locale siblings alone. They are stale now, the freshness gate says so on your PR, and the next pass fixes them. Stale is **reported, not blocking** — English landing on its own is the design, not an oversight.
+3. **Retiring or renaming a page is the exception:** delete its locale siblings in the same PR. An orphaned translation blocks the gate, and a translation of a page that was rewritten to assert something different is worse than none — a missing translation renders correct English, a stale one renders content the English source no longer claims.
+4. Never hand-write the `translation:` frontmatter block. Only `check-translations.mjs --stamp` writes it; a hand-typed sha is a lie the gate cannot catch.
+
+Status at any time:
+
+```bash
+node .github/scripts/check-translations.mjs             # report + gate
+node .github/scripts/check-translations.mjs --worklist  # what the next pass will do
+```
 
 ### Don't
 
@@ -64,6 +71,7 @@ When the English source changes:
 - Don't set `alt="ObjectOS"` on the logo image when the adjacent text already says "ObjectOS" — screen readers read it twice. Use `alt=""` + `aria-hidden`.
 - Don't add translation-only strings or files. If it doesn't have an English source, it shouldn't exist yet.
 - Don't write a `.cn.mdx` sibling. That locale does not exist; the file is ignored silently. Use `.zh-Hans.mdx`.
+- Don't hand-edit a `*.<locale>.mdx` file, and don't "just fix" one while you're in there. Fix the English source instead.
 
 ## Commands
 

@@ -1,0 +1,55 @@
+name: Translations
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'content/docs/**'
+      - 'apps/docs/lib/i18n.ts'
+      - '.github/scripts/check-translation*.mjs'
+      - '.github/workflows/translations.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'content/docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Ownership & freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Humans write English, the translation account writes translations.
+      # Enforced by PR author login, which cannot be forged; inert until the
+      # repo variable TRANSLATION_BOT_LOGIN names the account.
+      - name: Ownership
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          TRANSLATION_BOT_LOGIN: ${{ vars.TRANSLATION_BOT_LOGIN }}
+        run: |
+          git diff --name-only "origin/${BASE_REF}...HEAD" > changed.txt
+          node .github/scripts/check-translation-ownership.mjs \
+            --actor "$PR_AUTHOR" --files changed.txt
+
+      # Blocking: unstamped and orphaned translations. Non-blocking: stale and
+      # missing — English lands first by design and translations catch up in a
+      # separate pass (docs/TRANSLATION.md).
+      - name: Freshness
+        run: node .github/scripts/check-translations.mjs | tee -a "$GITHUB_STEP_SUMMARY"
