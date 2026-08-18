@@ -66,7 +66,7 @@ CEL expressions evaluate in a context with these top-level variables:
 | `record` | almost always | The current record being evaluated |
 | `previous` | on update hooks / change-detection | The pre-change state of the record (or `null`) |
 | `input` | actions, flow steps | The user-supplied input payload |
-| `os.user` | always | `{ id, roles: string[], permissions: string[] }` |
+| `os.user` | always | `{ id, name, email, positions: string[], organizationId }` |
 | `os.org` | always | Organisation / tenant context |
 | `os.env` | always | Environment variables exposed to expressions |
 
@@ -121,7 +121,7 @@ Native CEL string helpers (`.contains(...)`, `.startsWith(...)`,
 **Visibility** — show field only to managers:
 
 ```ts
-{ visibleIf: P`'manager' in os.user.roles` }
+{ visibleIf: P`'manager' in os.user.positions` }
 ```
 
 **Flow guard** — skip step when amount is small:
