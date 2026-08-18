@@ -10,10 +10,10 @@ ObjectOS — the commercial runtime environment for ObjectStack applications (Cl
 
 ### 1. English is the single source of truth for all content
 
-All marketing copy, UI strings, and documentation are authored in **English first**. Chinese (`cn`) and any future locales are **translations derived from English**.
+All marketing copy, UI strings, and documentation are authored in **English first**. Every other locale (`zh-Hans`, `ja`, `de`, `es`, `fr`, `ko`) is a **translation derived from English**.
 
 - **Always edit the English source first.** Never patch a translation without updating the English original — translation passes will overwrite you.
-- If a typo or wording change only appears in Chinese, fix English too (it almost certainly has the same issue or will after the next sync).
+- If a typo or wording change only appears in a translation, fix English too (it almost certainly has the same issue or will after the next sync).
 - New content must be added to English before translations are touched.
 - Translations are derived artifacts; treat them like generated code that happens to be checked in.
 
@@ -33,17 +33,17 @@ Stack: Next.js 16 App Router + Fumadocs UI 16 + Fumadocs MDX. Many UI affordance
 | Language display names | `apps/docs/app/[lang]/layout.tsx` (`LANGUAGE_NAMES`) |
 | Locale detection / URL rewrite | `apps/docs/middleware.ts` |
 | Header + logo | `apps/docs/lib/layout.shared.tsx` |
-| Homepage copy (en + cn) | `apps/docs/lib/homepage-i18n.ts` |
 | Docs MDX content | `content/docs/**/*.mdx` |
 | Sidebar structure / grouping | `content/docs/**/meta.json` |
 
 ### Locale conventions
 
-- Supported locales: `en` (default), `cn`.
-- Default locale has no prefix (`/docs/...`); other locales are prefixed (`/cn/docs/...`). This is set by `hideLocale: 'default-locale'` in `lib/i18n.ts`.
-- **MDX translations:** add a sibling file with `.cn.mdx` next to the English `.mdx`. Fumadocs auto-falls-back to English when a translation is missing — you can ship translations incrementally without breaking links.
-- **Homepage strings:** must exist in both `en` and `cn` objects in `lib/homepage-i18n.ts` (they implement the `HomepageTranslations` interface; missing keys are a type error).
-- **Sidebar titles:** `meta.json` `title` fields currently render in all locales. If you localize sidebar labels, add per-locale `meta.cn.json` (Fumadocs convention) — don't translate inside the English file.
+- Supported locales, as BCP 47 tags — `apps/docs/lib/i18n.ts` is the authority: `en` (default), `zh-Hans`, `ja`, `de`, `es`, `fr`, `ko`.
+- ⛔ **There is no `cn` locale.** It is a legacy code that `middleware.ts` 308-redirects to `zh-Hans`. A file named `foo.cn.mdx` would never render **and would raise no error** — it is simply ignored, which is the worst possible failure mode for a translation. Simplified Chinese is `zh-Hans`.
+- Default locale has no prefix (`/docs/...`); other locales are prefixed (`/zh-Hans/docs/...`). This is set by `hideLocale: 'default-locale'` in `lib/i18n.ts`.
+- **MDX translations:** add a sibling file with the locale tag next to the English `.mdx` — `foo.zh-Hans.mdx`, `foo.ja.mdx`, and so on. Fumadocs auto-falls-back to English when a translation is missing — you can ship translations incrementally without breaking links.
+- **Language display names:** `LANGUAGE_NAMES` in `apps/docs/app/[lang]/layout.tsx`. Adding a locale to `i18n.ts` without a name here shows the raw tag in the switcher.
+- **Sidebar titles:** `meta.json` `title` fields render in all locales unless a per-locale sibling exists. To localize sidebar labels, add `meta.<locale>.json` (e.g. `meta.zh-Hans.json`, Fumadocs convention) — don't translate inside the English file.
 
 ### Sidebar grouping
 
@@ -52,16 +52,18 @@ Folder `meta.json` files declare a section's title, page order, and `defaultOpen
 ### Translation workflow
 
 When the English source changes:
-1. Edit the English `.mdx` / `en` object first; verify it renders.
-2. Update the `.cn.mdx` / `cn` object to match.
-3. If a `.cn.mdx` doesn't exist yet, that's fine — Fumadocs falls back to English. Create one when you're ready to translate, not as a stub.
+1. Edit the English `.mdx` first; verify it renders.
+2. Update each existing locale sibling (`.zh-Hans.mdx`, `.ja.mdx`, …) to match.
+3. If a locale sibling doesn't exist yet, that's fine — Fumadocs falls back to English. Create one when you're ready to translate, not as a stub.
 4. Keep `frontmatter` (title, description) translated too.
+5. **A rewrite that changes what a page asserts must delete the stale siblings it invalidates**, not leave them. A missing translation renders correct English; a stale one renders content the English source no longer claims.
 
 ### Don't
 
 - Don't reintroduce the `---Section---` + `"...folder"` flat sidebar pattern.
 - Don't set `alt="ObjectOS"` on the logo image when the adjacent text already says "ObjectOS" — screen readers read it twice. Use `alt=""` + `aria-hidden`.
-- Don't add Chinese-only strings or files. If it doesn't have an English source, it shouldn't exist yet.
+- Don't add translation-only strings or files. If it doesn't have an English source, it shouldn't exist yet.
+- Don't write a `.cn.mdx` sibling. That locale does not exist; the file is ignored silently. Use `.zh-Hans.mdx`.
 
 ## Commands
 

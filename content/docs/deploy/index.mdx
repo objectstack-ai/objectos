@@ -1,24 +1,60 @@
 ---
 title: Deployment
-description: Choose how to run ObjectOS — Docker for evaluation, Kubernetes for production HA, or an air-gapped bundle for networks with no egress.
+description: Run ObjectOS Self-Managed from the licensed runtime image — digest-pinned, licensed on the happy path, with the supported combinations enforced at startup.
 ---
 
-ObjectOS ships as a single runtime artifact that runs the same way in every environment. Pick the deployment shape that matches your infrastructure.
+ObjectOS Self-Managed is delivered as a **licensed, pre-built runtime image**.
+You do not build it, and there is no public image to pull: your licence comes
+with registry credentials, and the release notes name the exact image digest
+to run. (ObjectOS is a commercial product — see
+[License & Pricing](/docs/resources/license). If you are looking for a free
+self-hosted runtime, that is the open-source ObjectStack framework, a
+different product.)
 
-## Docker
+## Every deployment decides three things
 
-A single container is the fastest way to evaluate ObjectOS or run it on a single host. Mount a volume for the data directory, point it at your database, and start the container.
+| Decision | What it means |
+|---|---|
+| **Which bytes run** | The image is pinned **by digest**, never by a tag. A tag can be re-pointed; a digest is the same bytes forever. |
+| **Which licence** | A licence is part of the happy path, not an add-on. Some deployment shapes *refuse to start* without one. |
+| **Which cloud posture** | Whether this runtime talks to a control plane. This is **coupled to the licence mode**, and unsupported combinations are refused at startup rather than degrading quietly. |
 
-[Docker guide →](/docs/deploy/docker)
+The last two are one decision in practice, and getting them wrong is a boot
+failure, not a slow leak. [Air-gapped](/docs/deploy/air-gapped) states the
+supported combinations in full — read it even if your site is connected,
+because it is the page that explains *why* the pairs are what they are.
 
-## Kubernetes
+## Where the copyable configuration lives
 
-For production, run ObjectOS as a Deployment behind a Service, with persistent storage for the data directory and your secrets supplied through standard Kubernetes mechanisms.
+Your release ships a **deploy bundle**: a Compose stack, environment
+templates for each supported shape, and a README with the exact commands for
+your version — including the registry reference, the digest, and the
+supply-chain verification steps.
 
-[Kubernetes guide →](/docs/deploy/kubernetes)
+These pages carry the **decisions** — why a digest, which licence mode for
+which shape, what multi-node makes mandatory, what the runtime refuses. The
+bundle carries the **values you copy**. When the two ever seem to disagree,
+the bundle that shipped with your image is right: it is versioned with the
+runtime it configures.
 
-## Air-Gapped
+## How the app gets in
 
-Ship a release bundle into a network with no internet egress. ObjectOS reads its application artifact from a local file and never reaches a hosted service.
+The image can run the app three ways, and the choice affects what is
+available to you — it is not just a matter of packaging.
 
-[Air-gapped guide →](/docs/deploy/air-gapped)
+| Shape | The app comes from | Use it when |
+|---|---|---|
+| **Shipped runtime** | The image's own bundled application | A single-organization deployment; the default the Compose stack configures. |
+| **Artifact-pinned** | A published app artifact named by URL, resolved before any deployment config runs | You run one published app and want app upgrades to be an environment change and a restart, with no image rebuild. Note that the deployment's enterprise plugins do **not** load on this path. |
+| **Composed** | A published app artifact composed *with* this deployment's enterprise plugins | Several organizations share one database. This is the hosted single-app SaaS shape — and it is **air-gap-licensed only**, enforced at startup. |
+
+Each shape has its own environment template in the deploy bundle. Copy the
+one for your shape rather than adapting another: the templates differ in the
+values that decide posture, and those are exactly the values the runtime
+checks before it serves anything.
+
+## Guides
+
+- [Docker](/docs/deploy/docker) — the supported stack: pull, verify, licence, run, scale, upgrade.
+- [Kubernetes](/docs/deploy/kubernetes) — the properties any orchestrator must preserve.
+- [Air-gapped](/docs/deploy/air-gapped) — air-gap as a **licence mode**, and the combinations that are refused at startup.

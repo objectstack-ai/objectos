@@ -1,149 +1,166 @@
 ---
 title: Docker
-description: Run ObjectOS in a container — for evaluation, staging, or production.
+description: Run the licensed ObjectOS runtime image with Docker — digest-pinned, signature-verified, licensed, and scaled to multiple replicas.
 ---
 
-Docker is the path most teams take to production. It matches the way
-the runtime is meant to be operated: one stateless container per
-instance, an external database, an external object store for files,
-secrets injected at runtime.
+Docker is the supported way to run ObjectOS Self-Managed. Your release ships a
+**deploy bundle** containing a Compose stack, an environment template per
+deployment shape, and a README with the commands for your exact version. This
+page is the decision map for what that bundle configures.
 
-## Pull the pre-built image
+## What you are given
 
-We publish the runtime image to GitHub Container Registry on every
-push to `main` and on tagged releases:
+Your licence comes with **registry credentials** for the private runtime
+image. Signing in requires a token with package **read** access; there is no
+public image and no source build: the image is produced by our release
+pipeline from sources that are not distributed, so `docker build` is not a
+path that exists for you.
 
-```bash
-docker pull ghcr.io/objectstack-ai/objectos:latest
+**Supported architecture: `linux/amd64` only.** That is a declaration, not an
+omission: the build refuses to produce an image for an architecture we have
+not declared. Apple Silicon and Graviton hosts would run it under emulation,
+which is fine for a look and wrong for production.
+
+## Pin the image by digest
+
+The image reference you run in production is a **digest**, not a tag:
+
+```
+OS_EE_IMAGE=<the registry reference from your release>@sha256:<64 hex characters>
 ```
 
-Available tags:
+A tag is a human-readable name and can be re-pointed at different bytes. A
+digest is content-addressed: the same digest is always the same image, on
+every host, forever. With a tag, a routine `docker compose pull` can replace
+the version you are running with no deployment event — and afterwards there
+is no way to prove what was actually running when something went wrong. Your
+release notes give the digest; paste it verbatim.
 
-| Tag | Channel |
+Keep the **previous** digest too. That is what a rollback is.
+
+### The image can tell you what it is
+
+Two different version numbers travel with the image and should not be
+conflated: the **product version** of ObjectOS, and the **compatibility range
+of the ObjectStack runtime** embedded in it, which moves on its own schedule.
+Both — along with the source revisions the image was built from — are
+recorded inside the image itself, as OCI labels and as a machine-readable
+release manifest. You never have to ask us which build you have.
+
+That manifest is also the single most useful thing to attach to a support
+request: it is enough to reproduce your exact image.
+
+## Verify the image before production
+
+The image is **signed** (keyless, through our release pipeline's OIDC
+identity) and ships with an **SBOM** and **build provenance**. Verify once,
+before a production rollout — the three checks answer three different
+questions:
+
+| Check | The question it answers |
 |---|---|
-| `latest` | Latest build of `main` (recommended for first-time evaluation) |
-| `main` | Same as `latest`, but explicit |
-| `sha-<short>` | Pinned to a specific commit (recommended for production) |
-| `vX.Y.Z`, `X.Y`, `X` | Tagged releases |
+| Signature | Was this digest produced by the ObjectOS release pipeline, and not by someone else? |
+| SBOM | What is inside this image? |
+| Provenance | How was this image built, from which sources? |
 
-For production, pin to `sha-<short>` or a semver tag — `latest` will
-drift.
+The bundle README carries the verification commands with the identity and
+issuer to check against, matched to your release.
 
-## Run with the bundled sample
+## Licence
 
-```bash
-docker run --rm -p 3000:3000 \
-  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/objectstack-ai/objectos:latest
-```
+**A licence is part of the happy path.** How the runtime behaves without one
+depends on what you asked it to be:
 
-Then open http://localhost:3000. The image ships with an empty sample
-app so you can verify the runtime boots and Console/Account
-render before pointing it at your own artifact.
+- **Single-organization, no licence** — the deployment runs with Community
+  behaviour: the open MCP server, bring your own AI. Nothing bricks.
+- **Single-organization, licensed** — the in-product AI is unlocked on your
+  own infrastructure: the AI Builder and "ask your data".
+- **Multi-organization (a walled tenancy posture), no licence** — the runtime
+  **exits at startup**, naming the licence. Isolation between organizations
+  is a licensed capability, and a deployment that asked for isolation must
+  never serve traffic pretending to have it.
 
-`OS_AUTH_SECRET` is required to start. Rotating it invalidates existing
-sessions.
+There is a second constraint on the same line, and it is the one that
+surprises people: **a licence has a mode, and the mode is coupled to your
+cloud posture.** An ordinary licence is validated online against a control
+plane; an air-gap licence is verified locally and needs no network at all.
+Pairing an ordinary licence with "no control plane" is not a degraded state,
+it is an impossible one — and it is **refused at startup**, naming both
+settings, rather than failing later with a misleading complaint about the
+licence. [Air-gapped](/docs/deploy/air-gapped) has the full matrix of
+supported combinations.
 
-## Run with your own artifact
+### A walled deployment must declare two more decisions
 
-Your app definition is a single file: `dist/objectstack.json`. It's
-produced by:
+On a multi-organization posture, two settings have no safe default, so the
+runtime **refuses to start until you decide them** — declaring either
+available value is accepted; not deciding is not:
 
-| Source | How |
+| Decision | Why it cannot default |
 |---|---|
-| Your own project | `pnpm exec objectstack compile` after editing `objectstack.config.ts` |
-| A template | Clone from [templates repo](https://github.com/objectstack-ai/templates), run `pnpm install && pnpm exec objectstack compile` |
-| App marketplace | Provided as part of the published app |
+| **What a new sign-up joins** | Where a membership *is* the tenant boundary, it may only be granted by an explicit act — an invitation, an admin, SSO provisioning. Automatic joining would put a stranger inside an existing organization. |
+| **Which AI agents are mounted** | The "ask" agent reads; the "build" agent **authors metadata** — and metadata is scoped to the deployment, not to an organization. On a shared database, one customer's build turn rewrites the schema every other customer runs on. |
 
-Mount the file at `/artifacts/objectstack.json` and point the runtime
-at it:
+A single-organization deployment sees neither check.
 
-```bash
-docker run --rm -p 3000:3000 \
-  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
-  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
-  -v "$PWD/dist:/artifacts:ro" \
-  -v objectos-data:/var/lib/objectos \
-  ghcr.io/objectstack-ai/objectos:latest
-```
+## The shipped stack
 
-The `objectos-data` volume holds the SQLite database (when no external
-DB is configured) and any locally-stored uploaded files.
+The Compose stack in the bundle sequences a deployment the way it has to be
+sequenced, and it is worth knowing the order because any other orchestrator
+has to reproduce it:
 
-## Use Postgres instead of SQLite
+1. The database becomes healthy.
+2. A **one-shot migration** runs the schema to completion — before any
+   application replica starts, so concurrent replicas never run schema
+   changes against each other.
+3. Application replicas start. The image carries its own health check.
+4. The reverse proxy begins forwarding only once a replica is genuinely
+   answering — not merely spawned.
 
-```bash
-docker run --rm -p 3000:3000 \
-  -e OS_AUTH_SECRET="$(openssl rand -hex 32)" \
-  -e OS_ARTIFACT_FILE=/artifacts/objectstack.json \
-  -e OS_DATABASE_DRIVER=postgres \
-  -e OS_DATABASE_URL='postgres://user:pass@db.internal:5432/myapp' \
-  -v "$PWD/dist:/artifacts:ro" \
-  ghcr.io/objectstack-ai/objectos:latest
-```
+Two HTTP endpoints exist for this, and they are not interchangeable:
+`/api/v1/health` for liveness and `/api/v1/ready` for readiness.
 
-See [Runtime Configuration](/docs/configure/runtime) for the full
-matrix of drivers and connection options.
+In production, point the deployment at your **managed** PostgreSQL (and Redis,
+if you cluster) and remove the bundled database services. Give the proxy your
+domain to get automatic HTTPS. The runtime container runs as a non-root user
+and keeps its runtime state on a declared volume.
 
-## Docker Compose
+## Multi-node
 
-A reference `docker-compose.yml` lives in the repo under `docker/`:
+Scaling past one replica changes what is mandatory:
 
-```bash
-git clone https://github.com/objectstack-ai/objectos.git
-cd objectos
-mkdir -p docker/artifacts
-cp /path/to/your/objectstack.json docker/artifacts/
-export OS_AUTH_SECRET="$(openssl rand -hex 32)"
-docker compose -f docker/docker-compose.yml up
-```
+- Turn on the **cluster driver** (backed by Redis), and
+- **A shared secret key becomes required.** With no cluster driver the
+  runtime mints and persists its own key. Across replicas those keys would
+  silently diverge — so instead of diverging, **the runtime refuses to
+  start**. Generate one key and give every replica the same value.
+- The **auth secret must also be identical on every replica**. Changing it
+  invalidates every existing session and orphans the signing key; the
+  environment template documents the one-time cleanup that goes with a
+  rotation.
 
-Default port is `3000`; override with `OBJECTOS_PORT=3200 docker compose ...`.
+Multi-node and high availability are Enterprise capabilities — see
+[License & Pricing](/docs/resources/license).
 
-## Build your own image
+## Upgrade and rollback
 
-If you need to embed an artifact, custom plugins, or your own SSL/CA
-bundle:
-
-```bash
-git clone https://github.com/objectstack-ai/objectos.git
-cd objectos
-docker build -f docker/Dockerfile -t myorg/objectos:custom .
-```
-
-The shipped Dockerfile is a multi-stage build that produces a slim
-runtime image on Node 20 Alpine.
-
-## What you need to keep separate
-
-| Asset | Where it should live |
-|---|---|
-| Artifact (`objectstack.json`) | Image (immutable) or mounted volume |
-| Business database | Externally-managed Postgres / MySQL / Mongo |
-| Identity & sessions | Same database |
-| Uploaded files | Externally-managed S3 / R2 / disk volume |
-| Secrets (`OS_AUTH_SECRET`, DB URL, API keys) | Your secret manager, injected as env vars |
-| Logs | stdout — collected by your log driver |
-
-## Verify
-
-After startup:
-
-```bash
-curl -fsS http://localhost:3000/health
-# {"status":"ok",...}
-```
-
-Then sign in at http://localhost:3000/_account/register and confirm
-the API responds:
-
-```bash
-curl http://localhost:3000/api/v1/data/<your-object>
-```
+1. Take the **new digest** from the release notes and read the image's
+   release manifest before rolling it out: confirm the product major line is
+   the one you are on, and check whether the embedded runtime's compatibility
+   range moved. A runtime major-version move means breaking changes
+   underneath — read that release's notes first.
+2. **Back up the database.** Schema migrations are *forward*: rolling the
+   image back does not roll the schema back.
+3. Change the image digest and restart the stack. The migration runs to
+   completion before new replicas take traffic.
+4. Confirm readiness returns 200 and the replicas report healthy.
+5. To roll back, restore the previous digest and repeat step 3 — valid as
+   long as the version you are leaving made no incompatible schema change
+   (the release notes say when it did).
 
 ## Next
 
-- [Kubernetes](/docs/deploy/kubernetes) — production-grade orchestration
-- [Air-gapped](/docs/deploy/air-gapped) — running without internet egress
-- [Production Readiness](/docs/operate/production) — pre-flight checklist
-- [Observability](/docs/operate/observability) — logs, metrics, audit
+- [Kubernetes](/docs/deploy/kubernetes) — the same properties, on an orchestrator.
+- [Air-gapped](/docs/deploy/air-gapped) — the licence mode for disconnected sites.
+- [Production Readiness](/docs/operate/production) — pre-flight checklist.
+- [Observability](/docs/operate/observability) — logs, metrics, audit.
