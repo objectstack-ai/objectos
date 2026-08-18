@@ -1,124 +1,180 @@
 ---
 title: Environment Variables
-description: ObjectOS runtime environment variable reference.
+description: The environment contract of a self-hosted ObjectOS deployment — what each variable decides, which combinations are refused at startup, and the names that no longer do anything.
 ---
 
-Use environment variables for deployment-level configuration and secrets.
-Use system settings for tenant/user-editable application configuration.
+Environment variables carry **deployment-level** decisions: which image is
+running, where the data lives, and what this deployment is entitled to be.
+Anything a tenant or an administrator should be able to change while the
+deployment is running belongs in system settings instead.
 
-> **Naming.** All ObjectStack-owned variables use the `OS_` prefix. Pre-1.0
-> unprefixed names (`PORT`, `AUTH_SECRET`, `OS_MULTI_TENANT`, …) still work but
-> emit a one-shot deprecation warning. Prefer the canonical `OS_*` names in new
-> deployments; see [Legacy aliases](#legacy-aliases).
+This page is the **contract** — what each variable decides, and what happens
+when two of them disagree. The **values you copy** live in the deploy bundle
+that ships with your release: an annotated template you copy to `.env` and
+edit. That template is pinned to your release; this page is not. Where the two
+differ, the template shipped with your image wins.
 
-## Core
+> **Naming.** ObjectOS-owned variables use the `OS_` prefix. A few pre-1.0
+> unprefixed names still work and emit a one-shot deprecation warning — see
+> [Legacy names](#legacy-names). Two other groups are worth knowing before you
+> reach for a name you remember: [retired names](#retired-names), which are
+> read by nothing or refuse the boot outright, and legacy names that still
+> resolve.
 
-| Variable | Required | Description |
-|---|---:|---|
-| `OS_PORT` | No | HTTP port the runtime listens on. Defaults to `3000`. Legacy alias: `PORT`. |
-| `OS_AUTH_SECRET` | Yes for auth | Base secret used to derive per-project auth secrets. Legacy alias: `AUTH_SECRET`. |
+## The decisions every deployment makes
 
-## Artifact and project resolution
-
-| Variable | Required | Description |
-|---|---:|---|
-| `OS_ARTIFACT_FILE` | File mode | Path or `http(s)://` URL to a compiled `objectstack.json`. Read by the ObjectOS config and passed as `artifactPath` to `createStandaloneStack`. Point this at a published cloud artifact URL for cloud-connected deployments. |
-| `OS_ARTIFACT_PATH` | Alternative | Framework-level name for the same path or URL, honoured by `@objectstack/runtime` directly (CLI `dev`/`start`). Defaults to `<cwd>/dist/objectstack.json`. |
-| `OS_PROJECT_ID` | Optional | Legacy alias for `OS_ENVIRONMENT_ID`, accepted by the ObjectOS config for backward compatibility. Prefer `OS_ENVIRONMENT_ID` in new deployments. |
-| `OS_ENVIRONMENT_ID` | Optional | Environment id for the standalone stack (default `proj_local`). Also used to derive the per-project auth secret. The ObjectOS config also accepts the legacy alias `OS_PROJECT_ID`. |
-| `OS_ORGANIZATION_ID` | Optional | Default organization id for file-backed mode (default `org_local`). |
-| `OS_MCP_SERVER_ENABLED` | No | Governs the Model Context Protocol server over Streamable HTTP at `/api/v1/mcp` — and only that HTTP surface. **On by default** (16.0+): unset means the endpoint is served; set an explicit falsy value (`false`/`0`/`off`/`no`) to disable it. Requires an authenticated principal. Legacy: `OS_MCP_SERVER_ENABLED=true` also auto-starts the stdio transport for one more release with a deprecation warning — use `OS_MCP_STDIO_ENABLED` instead. |
-| `OS_MCP_STDIO_ENABLED` | No | Set to a truthy value (`true`/`1`/`on`/`yes`) to auto-start the long-lived **stdio** MCP transport. Off by default and separate from `OS_MCP_SERVER_ENABLED` (which governs only the HTTP surface). Requires `OS_MCP_STDIO_API_KEY`. |
-| `OS_MCP_STDIO_API_KEY` | When stdio is enabled | API key (`osk_...`) the stdio transport is principal-bound to. Resolved through the same verify + authorization chain as HTTP MCP, so RLS/FLS and tenant scoping apply. Fails closed: with stdio auto-start enabled and no resolvable key, the server refuses to start the stdio transport. |
-| `OS_CLOUD_URL` | Optional | Control-plane base URL for the marketplace proxy and local package install. Set to `off` or `local` to disable marketplace features. No longer used for host-stack hostname routing in the standalone distribution. |
-| `OS_MULTI_ORG_ENABLED` | No | Set to `true` to enable multi-tenant routing / organization switching (default `false`). Legacy alias: `OS_MULTI_TENANT`. |
-| `OS_RUNTIME_PORT` | Dev only | Localhost port used to build platform-SSO callback URLs when developing on `http://localhost:<port>`. |
-
-> **Artifact hot-reload.** The standalone stack reloads the local artifact
-> automatically outside production (gated by `NODE_ENV`); the explicit
-> `OS_WATCH_ARTIFACT=1` flag from 7.x is no longer required.
-
-## Cache
-
-| Variable | Default | Description |
-|---|---:|---|
-| `OS_KERNEL_CACHE_SIZE` | `32` | Maximum cached project kernels. |
-| `OS_KERNEL_TTL_MS` | `900000` | Idle TTL for project kernels. |
-| `OS_ENV_CACHE_TTL_MS` | `300000` | Environment/hostname cache TTL. |
-| `OS_ARTIFACT_CACHE_TTL_MS` | `300000` | Artifact response cache TTL. |
-
-## Auth and trusted origins
-
-| Variable | Description |
+| Variable | Decides |
 |---|---|
-| `AUTH_SECRET` | Legacy alias for `OS_AUTH_SECRET`. Still honoured this release; prefer `OS_AUTH_SECRET`. |
-| `OS_TRUSTED_ORIGINS` | Comma-separated additional trusted origins. |
-| `OS_ROOT_DOMAIN` | Root domain used to trust project subdomains in platform SSO deployments. |
-| `OS_PLATFORM_SSO` | Set to `false` to disable platform SSO wiring. |
-| `OS_RUNTIME_PORT` | Local development helper for localhost project hostnames. |
+| `OS_EE_IMAGE` | Which image runs. Read by the bundled Compose stack, not by the runtime. Pin the **digest**, never a tag — see [Docker](/docs/deploy/docker). |
+| `OS_AUTH_SECRET` | The base secret sessions are signed from. Must be **identical on every replica**. Rotating it invalidates every existing session. |
+| `OS_DATABASE_URL` | The database the deployment runs on. In production, point this at your managed PostgreSQL and remove the bundled database service. |
+| `OS_DB_USER`, `OS_DB_PASSWORD`, `OS_DB_NAME` | Provision the **bundled** database service in the shipped Compose stack. The credentials inside `OS_DATABASE_URL` must match them. Irrelevant once you use a managed database. |
+| `AI_GATEWAY_API_KEY` | The AI provider credential behind the "ask your data" agent. |
 
-## Database
+## Licence and cloud posture
 
-In cloud-connected mode the control plane returns the per-project
-runtime database configuration with the artifact response. In
-file-backed mode ObjectOS reads datasource declarations from the
-artifact. As a last resort the framework also honours:
+These two are a pair. Setting one without reading the other is the most
+expensive mistake on this page, because unsupported pairings are **refused at
+startup** rather than degraded.
 
-| Variable | Description |
+| Variable | Decides |
 |---|---|
-| `OS_DATABASE_URL` | Connection URL (`file:./db.sqlite`, `libsql://…`, `postgres://…`, `mongodb://…`, `memory://`). Used by standalone mode and CLI `dev`. |
-| `OS_DATABASE_DRIVER` | Override the driver auto-detected from the URL. |
-| `OS_DATABASE_AUTH_TOKEN` | Auth token for managed drivers such as Turso/libSQL. |
-| `OS_BUSINESS_DB_URL` | ObjectOS wrapper convention for the per-project business database URL. Resolve it to `OS_DATABASE_URL` or a runtime datasource override in your deployment. |
-| `OS_CACHE_DIR` | Local artifact and runtime cache directory (default `/var/cache/objectos`). |
-| `OS_SKIP_SCHEMA_SYNC` | Set to `1` to skip ObjectQL DDL sync at boot. Use when schema is managed out-of-band. |
-| `OS_TELEMETRY_DB` | Dedicated datasource for lifecycle-classed system data (14.5+). `objectstack dev` auto-provisions `<primary>.telemetry.db`; set to `0` to opt out, or to a path/URL to opt in anywhere. |
+| `OS_LICENSE_KEY` | The deployment's entitlement. A licence also has a **mode** — ordinary licences are validated online against a control plane; air-gap licences are verified locally with no network traffic at all. The mode is a property of the licence you were issued, not something you configure here. |
+| `OS_CLOUD_URL` | Whether this deployment has a control plane, and which one. `off` (and its aliases `none`, `local`, `disabled`) means **no control plane**: no marketplace, and no licence validation either. |
 
-## Data lifecycle
+Two consequences follow, and both surprise people:
 
-| Variable | Default | Description |
-|---|---:|---|
-| `OS_LIFECYCLE_DISABLED` | unset (service on) | Set to `1` to disable the LifecycleService (retention reaper, table rotation, audit archiver — 14.4+). Retention windows themselves are tuned via the `lifecycle.retention_overrides` setting, not env vars. |
+- **Unset is not "off".** An unset `OS_CLOUD_URL` resolves to the *public*
+  control plane. It was never a neutral value — it selects the connected
+  behaviour. A deployment meant to talk to nobody must say `off` out loud.
+- **An ordinary licence with `off` is refused at startup**, naming both
+  variables. It is not a degraded state but an impossible one: an online
+  licence is validated by an exchange that needs a control plane, so with none
+  configured the exchange is never made — not on this boot and not on a later
+  one — and the grace window never starts, because grace runs from the last
+  *successful* validation.
 
-For ObjectOS customer deployments, prefer explicit control-plane runtime
-configuration or artifact datasource configuration over relying on
-container-local defaults.
+[Air-gapped Deployment](/docs/deploy/air-gapped) carries the full matrix of
+supported combinations and the reasoning behind the refusal.
+
+## Multi-organization deployments
+
+A **walled** tenancy posture puts up the per-organization isolation wall. It is
+a licensed capability, and it makes two further decisions mandatory: the
+runtime refuses to start until each is declared. Declaring either available
+value is accepted; not deciding is not.
+
+| Variable | Decides |
+|---|---|
+| `OS_TENANCY_POSTURE` | Whether organizations are isolated from one another. The walled values are `isolated` and `group`. A walled posture **requires a licence**: without one the runtime exits at startup rather than serve traffic while pretending to be isolated. |
+| `OS_AUTH_MEMBERSHIP_POLICY` | What a fresh sign-up joins. `auto` binds every new user to the deployment's default organization — right for a single-organization box, wrong where a membership *is* the tenant boundary. `invite-only` grants membership only by an explicit act: creating a workspace, accepting an invitation, an admin, or SSO provisioning. Also settable in **Setup → Authentication → Membership**; setting it here pins it and makes the Setup field read-only. |
+| `OS_AI_STUDIO_AGENTS` | Which AI agents are mounted, as a comma-separated subset of `ask` and `build`. Unset mounts **both**. `ask` reads; `build` **authors metadata** — and metadata is scoped to the deployment, not to an organization, so on a shared database one customer's `build` turn rewrites the schema every other customer runs on. The AI seat does not cover this: it is one flag for both agents. A misspelled value fails the boot rather than quietly falling back to mounting both. |
+
+A single-organization deployment sees neither of the last two checks and may
+leave both unset.
+
+## Multi-node
+
+Scaling past one replica changes what is mandatory.
+
+| Variable | Decides |
+|---|---|
+| `OS_CLUSTER_DRIVER` | Turns on the shared coordinator. Unset means one replica on the built-in in-memory coordinator. |
+| `OS_REDIS_URL` | Where that coordinator lives. |
+| `OS_SECRET_KEY` | **Becomes required** once a cluster driver is set, and must be the *same* value on every replica. With no cluster driver each replica mints and persists its own key; across replicas those keys would silently diverge, so the runtime refuses to boot instead of serving with inconsistent crypto. |
+| `OS_CLUSTER_REPLICAS` | How many application replicas the bundled stack starts. |
+
+## Running a published app
+
+The runtime image and the app it serves are independent release axes: one
+variable names a published artifact, and upgrading the app is a change to that
+variable plus a restart — no image rebuild.
+
+| Variable | Decides |
+|---|---|
+| `OS_ARTIFACT_URL` | **The one variable that selects the app.** An absolute `https://`, `http://` or `file://` URL naming a built `objectstack.json`, with an optional SRI-style integrity pin in the URL fragment (`#sha256=` followed by 64 hex characters). A pinned artifact whose bytes do not match **refuses the boot**, naming the expected and the actual digest. Resolved before any configuration is read, so the image's own enterprise wiring is not loaded on this path. |
+| `OS_COMPOSED_ARTIFACT_URL` | Selects the app for the **composed** shape — a published app booted together with the image's enterprise plugins, several organizations sharing one database. That shape has its own template in the deploy bundle, is air-gap-licensed only, and requires `OS_CLOUD_URL=off`; both are enforced at startup. Setting both this and `OS_ARTIFACT_URL` refuses the boot. |
+
+There is deliberately no companion variable for the integrity hash. The pin
+lives in the URL fragment, so there is one value to copy and one to rotate, and
+"URL updated, hash not" is not a state you can spell.
+
+Publish to **immutable, version-named** objects, give the artifact host's write
+credential to your publishing pipeline only, and pin the digest in production.
+Those three rules are what make rollback — the same operation as upgrade, with
+the older URL — actually work.
+
+## Runtime services
+
+| Variable | Decides |
+|---|---|
+| `OS_PORT` | The HTTP port the runtime listens on. Legacy alias: `PORT`. |
+| `OS_ENVIRONMENT_ID` | The environment id a single-environment runtime reports as its own. A completed cloud binding persists this, after which a self-hosted runtime does not need it set. |
+| `OS_TRUSTED_ORIGINS` | Additional trusted origins, comma-separated. |
+| `OS_ROOT_DOMAIN` | Root domain used to trust subdomains in platform-SSO deployments. |
+| `OS_DATABASE_DRIVER` | Overrides the driver otherwise inferred from the `OS_DATABASE_URL` scheme. Set it only when the scheme cannot be inferred; an unsupported value fails rather than falling back. |
+| `OS_DATABASE_AUTH_TOKEN` | Auth token for managed drivers that use one. |
+| `OS_SKIP_SCHEMA_SYNC` | Set to `1` to skip the boot-time schema sync. Use when schema is managed out of band — the shipped stack already runs migrations as a separate one-shot step before any replica starts. |
+| `OS_TELEMETRY_DB` | A dedicated datasource for lifecycle-classed system data. Set to `0` to opt out, or to a path or URL to opt in. |
+| `OS_LIFECYCLE_DISABLED` | Set to `1` to disable the lifecycle service (retention reaper, table rotation, audit archiver). Retention windows themselves are tuned through the `lifecycle.retention_overrides` setting, not through environment variables. |
+| `OS_MCP_SERVER_ENABLED` | Governs the Model Context Protocol server over HTTP at `/api/v1/mcp`, and only that surface. **On by default**: set an explicit falsy value (`false`, `0`, `off`, `no`) to disable it. An authenticated principal is always required. |
+| `OS_MCP_STDIO_ENABLED` | Set to a truthy value to auto-start the long-lived **stdio** MCP transport. Off by default, and independent of the HTTP surface above. |
+| `OS_MCP_STDIO_API_KEY` | The API key that stdio transport is principal-bound to, resolved through the same authorization chain as HTTP MCP, so record- and field-level security still apply. Fails closed: with stdio enabled and no resolvable key, the transport does not start. |
 
 ## Observability
 
-Tracing and metrics export is opt-in. The exporter defaults to `noop`, so a
-deployment emits nothing until you select one — setting an endpoint alone does
-nothing.
+Export is opt-in. The exporter defaults to `noop`, so a deployment emits
+nothing until you select one — **setting an endpoint alone does nothing.**
 
-| Variable | Default | Description |
+| Variable | Default | Decides |
 |---|---:|---|
-| `OS_OBS_EXPORTER` | `noop` | Telemetry exporter: `noop` \| `console` \| `json` \| `otlp`. Use `console`/`json` for local debugging, `otlp` for a collector. |
-| `OS_OTLP_ENDPOINT` | — | OTLP/HTTP root URL (e.g. `https://otlp.grafana.net/otlp`). Required when `OS_OBS_EXPORTER=otlp`; if empty the runtime warns and falls back to `noop`. |
-| `OS_OTLP_HEADERS` | — | Extra OTLP headers (e.g. auth) as comma-separated `key=value` pairs. |
-| `OS_OBS_SERVICE_NAME` | — | `service.name` resource attribute on emitted spans/metrics. |
-| `OS_OBS_DEPLOYMENT_ENV` | `production` | `deployment.environment` resource attribute. |
+| `OS_OBS_EXPORTER` | `noop` | `noop`, `console`, `json` or `otlp`. Use `console` or `json` for local debugging and `otlp` for a collector. |
+| `OS_OTLP_ENDPOINT` | — | OTLP/HTTP root URL. Required when the exporter is `otlp`; if it is empty the runtime warns and falls back to `noop`. |
+| `OS_OTLP_HEADERS` | — | Extra OTLP headers, as comma-separated `key=value` pairs. |
+| `OS_OBS_SERVICE_NAME` | — | The `service.name` resource attribute on emitted spans and metrics. |
+| `OS_OBS_DEPLOYMENT_ENV` | `production` | The `deployment.environment` resource attribute. |
 | `OS_OTLP_FLUSH_MS` | — | Flush interval for the OTLP exporter, in milliseconds. |
 
-## Settings namespace overrides
+## Pinning a system setting
 
-System settings (the tenant/user-editable `ai`, `email`, `feature_flags`, …
-namespaces) can be pinned at the deployment level with an environment variable
-named `OS_<NAMESPACE>_<KEY>` — uppercased, with `.` and `-` replaced by `_`.
-For example `ai.openai_base_url` → `OS_AI_OPENAI_BASE_URL`, and
-`feature_flags.ai_enabled` → `OS_FEATURE_FLAGS_AI_ENABLED`. As of 9.0 the
-unprefixed aliases were removed — the `OS_`-prefixed form is the only one read.
+System settings — the tenant- and administrator-editable `ai`, `email`,
+`feature_flags` and similar namespaces — can be pinned at the deployment level
+with a variable named `OS_` plus the namespace plus the key, uppercased, with
+`.` and `-` replaced by `_`. For example `ai.openai_base_url` becomes
+`OS_AI_OPENAI_BASE_URL`, and `feature_flags.ai_enabled` becomes
+`OS_FEATURE_FLAGS_AI_ENABLED`. A pinned setting is read-only in Setup.
 
-Google sign-in (configurable in **Setup → Authentication**) also reads
+Google sign-in, configurable in **Setup → Authentication**, also reads
 `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` at the deployment level.
 
-## Legacy aliases
+## Retired names
 
-These pre-1.0 names still work this release but emit a one-shot deprecation
-warning. They will be removed in a future major. Prefer the canonical name.
+These names appeared in earlier ObjectOS documentation. They are listed here so
+that a configuration file you inherited can be read and corrected — **not** so
+they can be used.
 
-| Canonical | Legacy |
+| Retired name | What to use instead |
 |---|---|
-| `OS_PORT` | `PORT` |
-| `OS_AUTH_SECRET` | `AUTH_SECRET` |
-| `OS_MULTI_ORG_ENABLED` | `OS_MULTI_TENANT` |
-| `OS_ENVIRONMENT_ID` | `OS_PROJECT_ID` |
+| `OS_ARTIFACT_FILE` | `OS_ARTIFACT_URL`. Nothing in the shipped runtime reads `OS_ARTIFACT_FILE`; a deployment that sets it gets the boot it would have got with nothing set, and no error naming the mistake. A local file is `file://` on the replacement, and the replacement carries the integrity pin. |
+| `OS_ARTIFACT_PATH` | `OS_ARTIFACT_URL`. **The runtime image refuses a boot that carries a non-default `OS_ARTIFACT_PATH`**, naming the replacement. Two spellings for "which artifact do I boot" is one dialect too many, and the retired one never carried an integrity pin. |
+| `OS_BUSINESS_DB_URL` | `OS_DATABASE_URL`, or a datasource declared in the artifact. Nothing reads `OS_BUSINESS_DB_URL`; a deployment that sets it and nothing else has no database configured at all. |
+
+`OS_CLOUD_API_KEY` is **not** a variable a self-hosted deployment sets. It is
+the service credential the hosted cloud injects into runtimes it operates
+itself, and — separately — the bearer token `os package publish` uses to
+authenticate against a package catalog from CI (see
+[Packages](/docs/build/packages)). A self-hosted deployment that connects to a
+control plane presents a runtime token minted when the deployment was **bound**
+to that control plane, not a key you paste into a file.
+
+## Legacy names
+
+These still resolve, but the canonical name is preferred and the legacy one may
+be removed in a future major version.
+
+| Canonical | Legacy | Note |
+|---|---|---|
+| `OS_PORT` | `PORT` | Emits a one-shot deprecation warning. |
+| `OS_AUTH_SECRET` | `AUTH_SECRET` | Emits a one-shot deprecation warning. |
+| `OS_TENANCY_POSTURE` | `OS_MULTI_ORG_ENABLED` | The posture derives from the legacy boolean only when `OS_TENANCY_POSTURE` is unset: `true` there means isolated. Declare the posture directly — it is the variable the licence and startup checks are written against. |
+| `OS_MULTI_ORG_ENABLED` | `OS_MULTI_TENANT` | |

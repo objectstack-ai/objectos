@@ -30,13 +30,19 @@ Store these in a secret manager:
 
 | Secret | Purpose |
 |---|---|
-| `OS_AUTH_SECRET` | Session signing base secret |
-| `OS_CLOUD_API_KEY` | Control-plane Artifact API access |
+| `OS_AUTH_SECRET` | Session signing base secret. **Identical on every replica** — replicas with different values reject each other's sessions. |
+| `OS_SECRET_KEY` | Required once you run more than one replica, and likewise identical across all of them. |
+| `OS_LICENSE_KEY` | The deployment's entitlement. |
 | Database credentials | Business database access |
 | OIDC client secret | Enterprise SSO |
 | Provider API keys | Email, storage, AI, integrations |
 
 Never bake secrets into artifacts or images.
+
+A deployment **bound** to a control plane holds a runtime token as well, but
+that one is not a secret you configure: it is minted during the binding and
+persisted by the runtime. There is no deployment-level API key to distribute
+for it.
 
 ## Rate limiting
 

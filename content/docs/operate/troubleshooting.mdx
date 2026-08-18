@@ -7,35 +7,53 @@ Start with the symptom, then check the smallest boundary first.
 
 ## ObjectOS does not start
 
-Check:
+**Read the last lines of the log before anything else.** A large class of
+startup failures here is a *deliberate refusal*, not a crash: the runtime
+checks the configuration it was given, prints a fatal error naming the
+variables that disagree, and exits. Those messages name the problem exactly,
+and no amount of restarting will change the outcome.
 
-1. Container logs.
-2. Node version and package install.
-3. `PORT` conflict.
-4. Missing artifact.
-5. Missing `OS_AUTH_SECRET` when auth endpoints are expected.
+The refusals you are most likely to meet:
 
-For Docker:
+| The log says | What it means |
+|---|---|
+| Two settings are named together as an unsupported pairing | A licence mode and a cloud posture that cannot work together — most often an ordinary, online-validated licence on a deployment configured with no control plane. [Air-gapped](/docs/deploy/air-gapped) has the supported matrix. |
+| A walled deployment requires a licence | A multi-organization tenancy posture was asked for without a licence. Isolation is a licensed capability; the runtime will not serve traffic while pretending to have it. |
+| A decision was not made | On a multi-organization posture, the new-sign-up membership policy and the set of mounted AI agents have no safe default. Declaring either available value is accepted; leaving it unset is not. |
+| A retired variable is set | An old artifact-selection variable refuses the boot and names its replacement. See [retired names](/docs/reference/environment-variables#retired-names). |
+| The cluster secret is missing | Turning on a cluster driver makes one shared secret key mandatory across every replica. |
 
-```bash
-docker compose -f docker/docker-compose.yml logs objectos
-```
+If the log shows no fatal error, check the ordinary causes: container logs for
+the failing service, a port conflict, and a missing auth secret when
+authentication endpoints are expected.
 
-## Artifact cannot be loaded
+## The app is not the one you expected
 
-Check:
+The app a deployment serves comes from exactly one place, and which place is a
+decision the deployment declares — see
+[Boot modes](/docs/architecture#boot-modes). When the running app is not the
+one you published:
 
-- `OS_ARTIFACT_FILE` points to the mounted file;
-- the file exists inside the container;
-- the file is valid JSON;
-- the artifact is a compiled ObjectStack artifact, not source metadata;
-- file permissions allow read access.
-
-Inside a container:
-
-```bash
-ls -l /artifacts/objectstack.json
-```
+- **Confirm which mode this deployment is in.** If no artifact reference is
+  set, the runtime is serving the metadata authored in the image plus whatever
+  was installed into it — publishing a new artifact changes nothing until the
+  deployment names it.
+- **Check the boot banner**, which names the app that was actually loaded.
+- **An integrity pin that does not match refuses the boot** and prints both the
+  expected and the actual digest. Those two being printed together is the
+  point: it distinguishes a republished artifact from a substituted one.
+- **Unpinned, with the artifact host unreachable, the boot fails loudly.**
+  There is no cache fallback on the unpinned path — nothing could authenticate
+  a cached copy. Orchestration retries; the runtime never invents a different
+  app.
+- **Pinned, with the host unreachable, a locally cached copy may serve** — but
+  only one whose bytes still hash to the pin, and it says so with a warning.
+  The cache is re-hashed on every read; a filename is never the authority.
+- **Setting a retired artifact variable does not select an app.** One of them
+  refuses the boot outright; the others are read by nothing at all, so the
+  deployment boots as if you had set nothing. [Retired
+  names](/docs/reference/environment-variables#retired-names) lists them
+  against their replacements.
 
 ## Login fails
 

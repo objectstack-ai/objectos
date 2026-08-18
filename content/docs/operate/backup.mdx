@@ -18,7 +18,9 @@ ObjectOS itself.** Plan recovery around those datasets.
 | Customer-managed identity provider | IdP vendor | Vendor-native |
 
 ObjectOS does **not** require a separate backup of its container
-filesystem. Cache directories (`OS_CACHE_DIR`) are rebuildable.
+filesystem. Its runtime state lives on a declared volume and its caches are
+rebuildable — a cached artifact is re-verified against its integrity pin on
+every read, so losing the cache costs a fetch, never correctness.
 
 ## Database backups
 

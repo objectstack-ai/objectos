@@ -99,13 +99,24 @@ catalog lives.
 
 ## Boot modes
 
-| Mode | When | How |
-|---|---|---|
-| **Standalone** | Single app, dev, evaluation, air-gapped, most production deployments | `pnpm dev` or run `dist/objectstack.json` from disk |
-| **File-backed** | Production with externally-managed artifacts | Set `OS_ARTIFACT_PATH=/path/to/objectstack.json` |
-| **Cloud-connected** | Multi-tenant / multi-app deployments fed by a control plane | Set `OS_CLOUD_URL` + `OS_CLOUD_API_KEY` |
+Where the running app comes from is one decision, and the deployment declares
+it. The shipped default needs no configuration; each of the other modes is
+selected by naming a published artifact, and the
+[Environment Variables](/docs/reference/environment-variables) reference
+carries the exact contract for each.
 
-Mode is auto-detected from environment variables.
+| Mode | When | How the app arrives |
+|---|---|---|
+| **Config-authored** | The shipped shape. Single app, evaluation, air-gapped, most production deployments | The runtime boots the metadata authored in the image, plus anything installed into it |
+| **Artifact-pinned** | The app is released on its own cadence, separately from the runtime image | One variable names a published artifact by URL, with an optional integrity pin. Upgrading the app is a change to that variable plus a restart |
+| **Composed** | Several organizations behind the isolation wall, sharing one database, running a published app | The same artifact reference, consumed from the deployment's own configuration so the enterprise plugins load alongside it. Air-gap licensed only |
+
+Whether the deployment also talks to a **control plane** is a separate
+decision, made by the cloud-posture variable — a connected deployment can be
+any of the modes above. A self-hosted runtime authenticates to a control plane
+with a token minted when the deployment was **bound** to it, not with a key
+pasted into a file, and pairing the wrong licence mode with the wrong cloud
+posture is [refused at startup](/docs/deploy/air-gapped).
 
 ## Performance characteristics
 
@@ -115,7 +126,7 @@ Mode is auto-detected from environment variables.
 | Per-kernel warmup (first request to a project) | 50-300ms depending on capabilities |
 | Warm request latency (CRUD via REST) | typically < 10ms + database latency |
 | Memory footprint | ~150MB base; ~10-30MB per active project kernel |
-| Concurrent projects per instance | Limited by `OS_KERNEL_CACHE_SIZE` (default 32) |
+| Concurrent app kernels per instance | Bounded by the runtime's kernel cache |
 
 ## Why this shape
 
