@@ -53,6 +53,31 @@ function isTranslationArtifact(path) {
   return LOCALES.some((l) => path.endsWith(`.${l}.mdx`) || path.endsWith(`meta.${l}.json`));
 }
 
+/**
+ * A misinvocation, not a fault in the check.
+ *
+ * A missing required argument used to surface as an uncaught throw: Node prints
+ * the source frame and a seven-line stack, and the reader's first conclusion is
+ * "this script is broken" rather than "I called it wrong". That is not
+ * hypothetical — a dispatch prompt listed the bare command as a check to run,
+ * and the stack read as a regression until it was diffed against main.
+ *
+ * So argument validation throws this class and the entry point below prints the
+ * message plus the usage line, no stack, exit 1. Everything else — an
+ * unparseable i18n.ts, an unreadable list file, a bug in here — is a genuine
+ * internal failure and keeps its stack, which is what a real fault needs.
+ * The exit status is unchanged in both cases: a misinvocation is still a
+ * failure, never a silent pass.
+ */
+class UsageError extends Error {}
+
+const USAGE = [
+  'usage: node .github/scripts/check-translation-ownership.mjs --actor <login> --files <path>',
+  '',
+  '  --actor <login>  PR author login (workflows pass github.event.pull_request.user.login)',
+  '  --files <path>   file listing one changed path per line (git diff --name-only)',
+].join('\n');
+
 function main() {
   const argv = process.argv.slice(2);
   const value = (name) => {
@@ -62,7 +87,7 @@ function main() {
 
   const actor = (value('actor') ?? '').trim();
   const listFile = value('files');
-  if (!listFile) throw new Error('--files <path> is required');
+  if (!listFile) throw new UsageError('--files <path> is required');
 
   const changed = readFileSync(resolve(ROOT, listFile), 'utf8')
     .split('\n')
@@ -113,4 +138,10 @@ function main() {
   console.log(`✓ ${changed.length} file(s) changed, no translation artifacts touched.`);
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  if (!(error instanceof UsageError)) throw error;
+  console.error(`✗ ${error.message}\n\n${USAGE}`);
+  process.exit(1);
+}
