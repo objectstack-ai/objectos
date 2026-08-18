@@ -101,12 +101,19 @@ os compile                     # → dist/objectstack.json
 os package publish             # → ObjectStack cloud catalog
 ```
 
-`os package publish` uploads the compiled manifest to the cloud
-control plane configured by `OS_CLOUD_URL`. Authentication comes from
-`os cloud login` (interactive) or, for CI, an `OS_CLOUD_API_KEY` bearer
-token. For private / air-gapped distribution, skip publishing and hand
-the compiled `dist/objectstack.json` directly to the target install
-(see Installing below). See [Marketplace](/docs/build/marketplace).
+`os package publish` uploads the compiled manifest to the catalog named
+by `OS_CLOUD_URL`. Authentication comes from `os cloud login`
+(interactive) or, for CI, an `OS_CLOUD_API_KEY` bearer token. For
+private / air-gapped distribution, skip publishing and hand the
+compiled `dist/objectstack.json` directly to the target install (see
+Installing below). See [Marketplace](/docs/build/marketplace).
+
+> **These two variables configure the publishing identity of your build
+> machine** — the CLI's credential for a package catalog. They are not how a
+> *deployment* connects to a control plane: a running deployment authenticates
+> with a token minted when it was bound, and has no API key to configure. Check
+> [Environment Variables](/docs/reference/environment-variables) before copying
+> either name into a deployment's configuration.
 
 ## Installing
 

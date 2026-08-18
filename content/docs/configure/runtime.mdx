@@ -1,124 +1,115 @@
 ---
 title: Runtime Configuration
-description: Configure artifact loading, project resolution, database, cache, and runtime secrets.
+description: Where the running app comes from, which database it uses, and the startup decisions a deployment has to declare.
 ---
 
-ObjectOS runtime configuration answers three questions:
+Runtime configuration answers three questions:
 
-1. Which project should this request serve?
-2. Where is the compiled artifact?
-3. Which database and runtime services should the project use?
+1. **Where does the running app come from?**
+2. **Which database does it use?**
+3. **What is this deployment entitled to be** — connected or disconnected,
+   one organization or many?
 
-## Boot modes
+This page is about the shape of those decisions. The variable names and their
+exact contracts are in
+[Environment Variables](/docs/reference/environment-variables); the values you
+copy are in the deploy bundle that ships with your release.
 
-| Mode | Use when | Key configuration |
+## Where the app comes from
+
+Exactly one source is in effect, and the deployment declares which.
+
+| Mode | Use when | How the app arrives |
 |---|---|---|
-| Standalone | `os start` with no config — quick demo, empty kernel, ~23 plugins, local SQLite at `~/.objectstack/data/standalone.db` | _none_ (defaults) |
-| File-backed | Single project, demo, customer offline bundle, air-gapped deployment | `OS_ARTIFACT_FILE` |
-| Cloud-connected | Hosted or private control plane publishes project artifacts | `OS_CLOUD_URL`, `OS_PROJECT_ID` or hostname resolution |
+| **Config-authored** | The shipped shape: one app, evaluation, air-gapped, most production deployments | The runtime serves the metadata authored in the image, plus whatever has been installed into it |
+| **Artifact-pinned** | The app is released on its own cadence, independently of the runtime image | One variable names a published artifact by URL. The image's own configuration is not loaded on this path |
+| **Composed** | Several organizations behind the isolation wall, sharing one database, running a published app | The same artifact reference, consumed from the deployment's own configuration so the enterprise plugins load with it |
 
-### Standalone mode
+Upgrading a published app is a change to the artifact reference plus a restart
+— no image rebuild. Rollback is the same operation with the previous URL, which
+only works if the previous object still exists with the same bytes. That is a
+property of how you publish, not of the runtime, so three rules go with the
+mode:
 
-The default when you run `os start` without a config or artifact.
-ObjectOS boots an empty kernel with the platform plugins loaded
-(`auth`, `security`, `audit`, `storage`, `webhooks`, `mcp-server`,
-`marketplace-proxy`, `marketplace-install-local`, …), opens local
-SQLite at `~/.objectstack/data/standalone.db`, and serves the Console
-and Account UIs.
+- **Publish immutable, version-named objects.** Never overwrite a published
+  artifact and never publish to a moving name. A mutable name means the running
+  app can change with no deployment event, makes rollback impossible, and
+  destroys the audit answer to "what was running at 14:05".
+- **Give write access to the publishing pipeline only.** An artifact store
+  humans can write to is a production deploy path with no review on it.
+- **Pin the digest in production.** The reference carries an optional
+  integrity pin; with one, a mismatch **refuses the boot** and names the
+  expected and the actual digest. Without one, the runtime boots whatever the
+  host returned and cannot tell a republished artifact from a substituted one.
 
-Install apps from the marketplace tab in Console to populate the kernel
-with objects, views, and flows — no rebuild, no restart. Best for
-demos, evaluation, and "show me what this thing does" exploration.
+A `file://` reference exercises the same path with no artifact host, which
+makes it the right way to rehearse a deployment — the production command then
+differs from the rehearsed one in exactly one place.
 
-`os start` escalates automatically:
+### Migrations on the artifact path
 
-| Detected | Behavior |
-|---|---|
-| Nothing | Standalone mode (above) |
-| `objectstack.config.ts` in cwd | Project mode — auto-compile, `HOME=<cwd>/.objectstack` |
-| Compiled artifact in cwd | Artifact mode — load that artifact |
-| Explicit `--artifact <path>` or `OS_CLOUD_URL` | File-backed / cloud-connected modes |
+"Upgrade the app" on this path is an environment change and a restart, with
+nobody at a terminal at the moment schema and metadata can first disagree. So
+this path — and only this one — applies safe schema changes automatically and
+**refuses the boot on a destructive one**, naming every change and the command
+that resolves it. Every other boot keeps the standing production policy, under
+which the schema is never altered automatically.
 
-## File-backed mode
+## Startup decisions the runtime will not guess
 
-Set:
+Some configurations are checked when configuration is loaded and **refused**
+rather than degraded. A refusal prints a fatal error naming the settings that
+disagree, and exits.
 
-```bash
-OS_ARTIFACT_FILE=/artifacts/objectstack.json
-```
+- **Licence mode and cloud posture are coupled.** An ordinary licence is
+  validated online against a control plane; an air-gap licence is verified
+  locally with no network traffic. Pairing an ordinary licence with "no control
+  plane" is impossible, not degraded, and is refused before any validation is
+  attempted. [Air-gapped](/docs/deploy/air-gapped) carries the full matrix.
+- **Leaving the cloud posture unset is not "no cloud".** Unset resolves to the
+  *public* control plane. A deployment meant to talk to nobody has to say so
+  explicitly.
+- **A multi-organization posture requires a licence**, and makes two further
+  decisions mandatory: what a new sign-up joins, and which AI agents are
+  mounted. Declaring either available value is accepted; not deciding is not. A
+  single-organization deployment sees neither check.
+- **A cluster driver makes one shared secret key mandatory** on every replica.
+  Without a cluster driver each replica mints its own; across replicas those
+  would silently diverge, so the runtime refuses to start instead.
 
-ObjectOS uses a local Artifact API client. Every hostname resolves to the
-same project. The runtime config is read from the artifact when present,
-or falls back to a local runtime default for evaluation.
+## Connecting to a control plane
 
-`OS_ARTIFACT_FILE` is the ObjectOS app-wrapper convention. The underlying
-runtime also accepts `OS_ARTIFACT_PATH` directly (used by the
-`@objectstack/cli` `dev` and `start` commands and by the framework's
-standalone stack). Set either one — not both.
+A control plane is what serves the marketplace catalog and validates an
+ordinary licence. Connecting is a **binding**, not a pasted credential: the
+deployment is bound to the control plane once, and the runtime persists the
+token it was issued and presents that on every later call. There is no
+deployment API key to distribute or rotate by hand.
 
-Optional:
+A bound, cloud-connected deployment is still a single-environment deployment.
+Connecting to a control plane does not turn one deployment into many.
 
-```bash
-OS_ENVIRONMENT_ID=env_prod      # or the legacy alias OS_PROJECT_ID
-OS_WATCH_ARTIFACT=1
-```
+## Database
 
-Use watch mode only for development or smoke tests.
+In production, point the deployment at a **managed** database and remove the
+bundled database service from the stack. The bundled one exists so that a first
+run works; it is not a production posture, and container-local storage is not
+where business data belongs.
 
-## Cloud-connected mode
+The driver is inferred from the connection URL's scheme. Override it explicitly
+only when the scheme cannot carry that information — an unsupported value fails
+rather than falling back to a guess.
 
-Set:
-
-```bash
-OS_CLOUD_URL=https://cloud.example.com
-OS_CLOUD_API_KEY=replace-with-deployment-token
-```
-
-ObjectOS asks the control plane to:
-
-- resolve hostname to project/environment;
-- fetch the current artifact;
-- receive the runtime database configuration for that project.
-
-ObjectOS should not connect directly to the control-plane database.
+The shipped stack runs schema migration as a **one-shot step that completes
+before any application replica starts**, so concurrent replicas never run
+schema changes against each other. Any other orchestrator has to reproduce that
+ordering. See [Data Sources](/docs/configure/data-sources) for declaring
+additional datasources, and [Backup](/docs/operate/backup) for the restore
+side.
 
 ## Authentication secret
 
-Set a strong base secret:
-
-```bash
-OS_AUTH_SECRET=replace-with-a-strong-random-secret
-```
-
-ObjectOS derives per-project auth secrets from this value. That keeps
-session signing isolated per project while still allowing deterministic
-restarts. Rotating this value invalidates existing sessions.
-
-## Kernel and artifact caches
-
-ObjectOS caches resolved environments and project kernels to avoid
-rebuilding a kernel for every request.
-
-| Variable | Default | Purpose |
-|---|---:|---|
-| `OS_KERNEL_CACHE_SIZE` | `32` | Maximum number of cached project kernels |
-| `OS_KERNEL_TTL_MS` | `900000` | Idle TTL for cached kernels |
-| `OS_ENV_CACHE_TTL_MS` | `300000` | Hostname/environment resolution cache |
-| `OS_ARTIFACT_CACHE_TTL_MS` | `300000` | Artifact response cache |
-
-Lower TTLs make changes visible faster. Higher TTLs reduce control-plane
-traffic and cold starts.
-
-## Database configuration
-
-In cloud-connected mode, the control plane returns the per-project
-runtime database configuration with the artifact response.
-
-In file-backed mode, ObjectOS can derive database settings from the
-artifact's datasource declarations. Supported framework drivers include
-SQLite, PostgreSQL, MySQL, MongoDB, and memory-backed evaluation
-drivers.
-
-For production, use a customer-managed database. Do not rely on
-container-local storage for business data unless the deployment is
-explicitly a single-node evaluation.
+Sessions are signed from a base secret, and it must be **identical on every
+replica**. Rotating it invalidates every existing session, and it also orphans
+the stored signing key — so a rotation is a planned operation, not a
+configuration tweak — the deploy bundle's template states the one extra step a
+rotation needs. Keep the secret in a secret manager, never in an image.

@@ -45,8 +45,16 @@ HOME directory default:
 ### `os serve` — production server
 
 Reads `objectstack.config.ts` if present, otherwise falls back to
-`dist/objectstack.json` (or `OS_ARTIFACT_PATH`, including `http(s)://` URLs).
-Use this in production containers when you want strict behavior.
+`dist/objectstack.json`. Use this in production containers when you want
+strict behavior.
+
+To boot a **published** artifact instead, name it with `OS_ARTIFACT_URL` — an
+absolute `https://`, `http://` or `file://` URL, with an optional `#sha256=`
+integrity pin in the fragment. It is resolved before any configuration is
+read. The older `OS_ARTIFACT_PATH` spelling is retired: on the ObjectOS
+runtime image a non-default value **refuses the boot** and names the
+replacement. See
+[Environment Variables](/docs/reference/environment-variables#retired-names).
 
 ```bash
 os serve                       # port 3000

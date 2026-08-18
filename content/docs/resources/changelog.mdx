@@ -328,8 +328,10 @@ ObjectOS One and the bundled server shipped on `@objectstack` **8.0.1**.
   reports bridge to it and fail closed when the scope cannot be applied.
 - **Standalone host stack** — the runtime ships a single-tenant
   `createStandaloneStack` host; the 7.x cloud-connected, hostname-routed
-  `createObjectOSStack` wrapper was removed. A cloud deployment now points
-  `OS_ARTIFACT_FILE` at a published artifact URL.
+  `createObjectOSStack` wrapper was removed. A deployment that runs a
+  separately published app names that artifact by **URL** from then on. For the
+  variable that does this today, and the retired spellings that do not, see
+  [Environment Variables](/docs/reference/environment-variables#retired-names).
 
 ### 5.0 — `project` → `environment` rename (shipped)
 
@@ -339,7 +341,8 @@ throughout. Affected:
 - CLI flags: `--environment` / `-e`
 - HTTP paths: `/api/v1/environments/:environmentId/...`
 - Headers: `X-Environment-Id`
-- Env vars: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` kept as a deprecated alias)
+- Env vars: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` was kept as a deprecated
+  alias at the time; it is no longer read)
 - DB columns: `environment_id`
 - JSON schemas: `EnvironmentArtifact`
 
