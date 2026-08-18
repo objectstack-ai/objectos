@@ -161,8 +161,9 @@ the pair [Docker](/docs/deploy/docker) and
 [status.objectstack.ai](https://status.objectstack.ai).
 
 **Q: What metrics should I monitor?**
-A: 5xx rate, p95 latency, auth failure rate, readiness
-(`/api/v1/ready`), queue depth. Minimal Prometheus example in [Observability](/docs/operate/observability).
+A: 5xx rate, p95 latency, readiness (`/api/v1/ready`), queue depth. There is
+no auth-failure metric to monitor — review sign-in activity in the Console's
+`Auth` audit view instead. Minimal Prometheus example in [Observability](/docs/operate/observability).
 
 **Q: How do I take a backup?**
 A: Back up the **database** and the **storage bucket** — those hold
