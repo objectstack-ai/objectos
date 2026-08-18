@@ -185,7 +185,9 @@ sharing rules (declarative criteria).
 
 A declarative rule that grants record access based on criteria
 ("regional managers can see records in their region"). Evaluated at
-query time, compiled into row-level filters.
+query time, compiled into row-level filters. A rule stored **without**
+criteria shares nothing — it is not a match-all. See
+[Record Access](/docs/configure/permissions/record-access#both-switches-fail-closed).
 
 ### Console
 

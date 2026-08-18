@@ -7,7 +7,7 @@ A **datasource** is a named connection to an external data store. By
 declaring datasources, you point ObjectOS at the databases your business
 already runs on — a production PostgreSQL, a reporting MySQL replica, a
 MongoDB cluster — and then bind objects to them. Once an object is bound,
-everything else in the platform (the REST/GraphQL API, permissions,
+everything else in the platform (the REST API, permissions,
 flows, dashboards, and **AI agents**) works against that data uniformly,
 without caring where the rows physically live.
 
@@ -109,6 +109,19 @@ export const Customer = ObjectSchema.create({
   },
 });
 ```
+
+> **A datasource that objects bind to must connect, or the boot fails.**
+> Since ObjectStack 17.0 an unreachable datasource is a startup failure,
+> not a warning line. Previously only an `external` datasource with
+> `validation.onMismatch: 'fail'` fail-fasted: an app declaring
+> `datasource: 'analytics'` with objects bound to it, booted against a
+> wrong URL, started clean and exited zero — then failed every read and
+> write of those objects with `Datasource 'x' is not registered`.
+> `/api/v1/ready` also reports **503** when a data driver stops
+> answering, so a replica whose database has gone away is taken out of
+> rotation instead of serving errors. Connection attempts are bounded at
+> 10 seconds. See the
+> [17.0 release notes](https://docs.objectstack.ai/docs/releases/v17).
 
 ### Centralized routing with `datasourceMapping`
 

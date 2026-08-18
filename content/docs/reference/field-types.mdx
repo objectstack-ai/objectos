@@ -152,6 +152,27 @@ Formula example:
 }
 ```
 
+### What a media field stores
+
+A media field stores an **opaque `sys_file` id** — not a URL, and not an
+inline metadata blob. The `{ url, name, size, mimeType, … }` object you
+see when you read a record is the **expanded (read) form**, derived by
+the platform from the owning `sys_file` record; `url` comes from the
+`/files/:fileId` resolver rather than from anything stored on your row.
+
+This is what makes the constraints real. Because the platform owns the
+bytes, `accept` and `maxSize` are not just hints handed to the browser's
+file picker — the server re-checks a record write against them
+authoritatively, so a caller that talks to the API directly cannot
+bypass them. It is also what lets a download carry the real filename and
+content type, and read authorization be delegated to the owning object
+instead of handed out as an unguessable URL.
+
+Existing deployments convert with `os migrate files-to-references`. See
+[Storage](/docs/configure/storage) for where the bytes actually live and
+the [17.0 release notes](https://docs.objectstack.ai/docs/releases/v17)
+for the migration's self-check and per-deployment flag.
+
 > The nested `fileAttachmentConfig` object was removed in 16.0 — it was never
 > read by the runtime. Use the flat `multiple` / `accept` / `maxSize` properties.
 > Storage is configured per deployment (see Configure → Storage), not per field.

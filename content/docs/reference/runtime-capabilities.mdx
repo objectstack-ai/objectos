@@ -70,6 +70,13 @@ ObjectOS commonly exposes:
 - metadata and i18n endpoints;
 - service endpoints for enabled capabilities.
 
-GraphQL and OData are framework-level capabilities and should be
-documented as supported only when included and enabled by the deployed
-runtime package.
+OData is a framework-level capability and should be documented as
+supported only when included and enabled by the deployed runtime
+package.
+
+**GraphQL is not one of them.** The GraphQL surface was removed in
+ObjectStack 17.0 — the endpoint had never been implemented behind the
+route, and `/graphql` now returns 404. Do not document it as an
+available or optional capability of any runtime package. (`graphql`
+remains a valid protocol on an **external datasource**, which is a
+system ObjectOS queries, not a surface it serves.)

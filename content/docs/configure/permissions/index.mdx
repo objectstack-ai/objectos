@@ -80,7 +80,7 @@ to users directly or via positions.
 | Application access | Open CRM, open the support portal |
 | Object permissions | Create / read / update / delete records of an object |
 | Field permissions | Read or update specific fields |
-| System permissions | Access Console, run reports, export data, view audit log |
+| System permissions | Access Console, run reports, view audit log |
 | Integration permissions | Use API keys, configure webhooks, run admin actions |
 
 ### Object permission flags
@@ -93,12 +93,22 @@ These are the exact flag names the security plugin checks:
 | `allowCreate` | Create new records |
 | `allowEdit` | Update records the user can see |
 | `allowDelete` | Delete records the user can see |
+| `allowExport` | Take a bulk, machine-readable copy of the object's records |
 | `viewAllRecords` | Read **every** record for the object, ignoring record-access rules |
 | `modifyAllRecords` | Update/delete **every** record; implies `viewAllRecords` |
 
 `viewAllRecords` and `modifyAllRecords` are tenant-wide super-user
 grants for that object. Reserve them for explicit administrative
 permission sets and keep them out of any user-facing position.
+
+**Export is its own opt-in grant.** `allowExport` unset means
+**denied** — it does not inherit from `allowRead`, and `viewAllRecords` /
+`modifyAllRecords` do **not** confer it. Reading a record and taking a
+machine-readable copy of a whole table are different acts, and this is
+the segregation-of-duties axis that separates them. Grant it explicitly
+on the object entry (or the `'*'` wildcard) of every set whose holders
+should export. See
+[Permission Sets](/docs/configure/permissions/permission-sets#export-is-its-own-grant).
 
 See [Permission Sets](/docs/configure/permissions/permission-sets).
 

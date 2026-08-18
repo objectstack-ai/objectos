@@ -133,8 +133,14 @@ replicas).
 
 ## Failure modes worth rehearsing
 
-- **Database unavailable for a long window.** Confirm the runtime
-  surfaces a clear 503 and that probes correctly mark pods unhealthy.
+- **Database unavailable for a long window.** Since ObjectStack 17.0 this
+  is contractual rather than something to hope for: `/api/v1/ready`
+  answers 503 while a data driver is not answering, so readiness probes
+  mark the pods unready. Rehearse the *recovery* — that the replicas
+  rejoin once the database returns, and that nothing needed a restart to
+  notice. A datasource that objects bind to and that cannot connect at
+  startup now fails the boot, so verify your restore completes before the
+  application replicas roll.
 - **Artifact regression.** Roll back the artifact pointer; data is
   unaffected.
 - **Secret rotation.** Rotating `AUTH_SECRET` invalidates every
