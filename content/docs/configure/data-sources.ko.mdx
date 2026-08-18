@@ -1,6 +1,10 @@
 ---
 title: 데이터 소스
 description: ObjectOS를 기존 비즈니스 데이터베이스에 연결하고, 객체를 해당 데이터베이스로 라우팅하며, AI가 데이터를 네이티브하게 쿼리하도록 하세요.
+translation:
+  source_sha: c1e0954576877e1498f592a5b73c5848b9cefbfe3e27a962bd809d3b2db132b9
+  guide_rev: 1
+  mode: auto
 ---
 
 **datasource**는 외부 데이터 저장소에 대한 이름이 지정된 연결입니다. 데이터 소스를 선언함으로써 ObjectOS를 비즈니스가 이미 운영 중인 데이터베이스 — 프로덕션 PostgreSQL, 리포팅용 MySQL 복제본, MongoDB 클러스터 — 로 지정한 다음, 객체를 거기에 바인딩합니다. 객체가 일단 바인딩되면 플랫폼의 나머지 모든 것(REST/GraphQL API, 권한, 플로우, 대시보드, 그리고 **AI 에이전트**)이 행이 물리적으로 어디에 있는지 신경 쓰지 않고 해당 데이터에 대해 균일하게 동작합니다.
