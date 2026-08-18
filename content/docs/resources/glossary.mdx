@@ -182,9 +182,12 @@ in framework-internal identifiers; ObjectOS documentation says
 
 ### Record Share
 
-A direct grant of access to a specific record for a specific user /
-role / group. Stored as `sys_record_share` rows. Different from
-sharing rules (declarative criteria).
+A direct grant of access to a specific record for one recipient — a
+user (`user`), a team (`team`), a position (`position`), a business
+unit (`business_unit`), or a business unit together with every unit
+beneath it (`unit_and_subordinates`). Stored as `sys_record_share`
+rows, whose `recipient_type` column takes exactly those five values.
+Different from sharing rules (declarative criteria).
 
 ### Sharing Rule
 
