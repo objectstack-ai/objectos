@@ -35,7 +35,7 @@ os start --database postgres://user:pass@host:5432/mydb
 os start --database libsql://my-db.turso.io --database-auth-token $TURSO
 os start --auth-secret "$(openssl rand -hex 32)"
 os start --home /var/lib/objectos      # persistent home dir
-os start --no-ui                       # API only (no Console/Account)
+os start --no-ui                       # API only (no UI/Account portals)
 ```
 
 HOME directory default:
