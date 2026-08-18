@@ -61,6 +61,33 @@ Use sharing rules for repeatable business policies:
 - finance can read approved invoices;
 - auditors can read records tagged for audit review.
 
+A rule is a CEL `condition` over field values, compiled at author time
+into a row filter; matching records materialize `sys_record_share`
+grants for the resolved recipients (a user, team, position, business
+unit, or a unit and its subordinates). `criteria` rules are the only
+authorable form.
+
+### Both switches fail closed
+
+Two things a reader is entitled to assume, and which have been true only
+since ObjectStack 17.0:
+
+- **A sharing rule with no criteria shares nothing.** A rule stored
+  without a criteria predicate used to evaluate as *every record of the
+  object* — the empty filter — so a typo through an unvalidated write
+  path silently opened the whole table. Writing a match-all criteria is
+  now rejected, and the evaluator treats an empty one as matching
+  **nothing**.
+- **An RLS policy with `enabled: false` is disabled.** A policy switched
+  off used to keep contributing its OR-branch grant, so turning a policy
+  off did not take the access away. A disabled policy is now simply not
+  evaluated.
+
+If you audited access under an earlier release and concluded "this rule
+grants nothing" or "this policy is off", it is worth re-running the
+[explain engine](/docs/configure/permissions#diagnose--audit) — the
+answer may have been wider than the metadata said.
+
 ## Record shares
 
 Use record shares for exceptions:

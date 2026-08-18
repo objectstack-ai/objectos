@@ -39,6 +39,13 @@ variable.
 different questions, and using one for both means either routing traffic at a
 replica that is not ready, or restarting a replica that is merely busy.
 
+Since ObjectStack 17.0 readiness is backed by the data layer:
+`/api/v1/ready` answers **503** when a data driver stops answering, so a
+readiness probe pointed at it will correctly pull a replica out of the
+Service endpoints when its database goes away. Keep it off the liveness
+probe for exactly that reason — a shared database outage would otherwise
+restart every replica at once instead of draining traffic.
+
 ### Every replica gets identical secrets
 
 Multi-replica is not a matter of raising the replica count:

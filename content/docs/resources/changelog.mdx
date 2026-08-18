@@ -23,18 +23,23 @@ version number — they're tested as a matrix, not independently.
 | ObjectOS image ↔ compiled artifact | Same minor version. A 14.7.x image runs a 14.7.x artifact; a 14.7 artifact may use features unavailable in a 14.0 image. The protocol handshake (`PROTOCOL_VERSION`, 12.0+) rejects incompatible packages at install time. |
 | ObjectOS ↔ CLI | Same minor version recommended. The CLI in `npm i -g` writes scaffolds pinned to its own version. |
 | ObjectOS ↔ database driver | Driver pinned by image build; verify Postgres ≥ 13 / MongoDB ≥ 5 / Turso (any current). |
-| Node.js | **20 LTS or newer**. 22 LTS recommended for new deployments. |
+| Node.js | **22 or newer** — `engines.node` is `>=22.0.0` across every published `@objectstack/*` package since 17.0. Node 20 reached end-of-life on 2026-04-30. |
 
 ## Support windows
 
-| Branch | Status | Until |
-|---|---|---|
-| **14.x** (current) | Active development; new features and fixes | At least 12 months after 15.0 ships |
-| **13.x** | Security fixes only | EOL on 15.0 release |
-| **≤ 12.x** | Unsupported | Already EOL |
+Support is defined **relative to the current major**, not against a
+fixed calendar:
+
+| Branch | Status |
+|---|---|
+| Current major (17.x today) | Active development; new features and fixes |
+| Previous major (16.x today) | Security fixes only |
+| Older majors | Unsupported |
 
 Critical security fixes are backported to the current and previous
-major. Everything else lands on `main`.
+major. Everything else lands on `main`. Dates attached to a specific
+major are published with that major's
+[release notes](https://docs.objectstack.ai/docs/releases).
 
 ## Release notes
 
@@ -48,6 +53,76 @@ Released ObjectOS versions and their CHANGELOG entries are published at:
 Subscribe to releases on GitHub to get notified.
 
 ## Recent highlights
+
+### 17.0
+
+`@objectstack` **17.0.0** (released 2026-08-14) is a truth-telling
+release: where 16.0 made *declared metadata* honest, 17.0 does the same
+for the surfaces around it. Full notes:
+[docs.objectstack.ai/docs/releases/v17](https://docs.objectstack.ai/docs/releases/v17).
+What moved:
+
+- **Node.js 22 is the floor** (breaking) — `engines.node` moves from
+  `>=18.0.0` to `>=22.0.0` across all 50 published manifests. CI, the
+  release pipeline, and every shipped Docker image already ran 22; the
+  promise now matches the evidence. On Node 22+ nothing changes. If your
+  CI pins Node, pin it to 22.
+- **Bulk export is its own privilege** (breaking) — `allowExport` unset
+  used to mean "inherit read"; it now means **denied**, and
+  `viewAllRecords` / `modifyAllRecords` no longer confer it either.
+  Package-shipped sets are re-seeded on upgrade, so `admin_full_access`
+  and `organization_admin` keep exporting — **environment-authored sets
+  are not**. Add `allowExport: true` to any custom set whose users
+  export. See [Permission Sets](/docs/configure/permissions/permission-sets).
+- **A file is a record, not a blob in a column** — media fields
+  (`file`/`image`/`avatar`/`video`/`audio`) store an opaque `sys_file`
+  id; the `{ url, name, size, … }` object becomes the *read* (expanded)
+  form. Because the platform owns the bytes, `accept` / `maxSize` are
+  declarable **and server-enforced** rather than browser-side hints.
+  `os migrate files-to-references` performs the conversion. See
+  [Field Types](/docs/reference/field-types#media).
+- **The GraphQL surface is removed** (breaking) — it was schema-only from
+  day one: the handler answered 501 unconditionally because the service
+  was never assigned. `/graphql` now returns 404. Unaffected: `graphql`
+  as a protocol for an **external** datasource, which is someone else's
+  API rather than one ObjectOS serves.
+- **A sharing rule with no criteria shares nothing, and a disabled RLS
+  policy is disabled** (breaking, security) — a rule stored without
+  criteria used to evaluate as *every record of the object*, and an RLS
+  policy switched off with `enabled: false` kept contributing its
+  OR-branch grant. Both now fail closed. See
+  [Record Access](/docs/configure/permissions/record-access).
+- **An approval request is visible to its participants** (security) —
+  `getRequest` / `listRequests` / `countRequests` applied only the tenant
+  half of the visibility rule, so any authenticated user could read any
+  request in their tenant: payload snapshot, decision history, and
+  attachments.
+- **Approvers can be routed dynamically** — approval nodes gain
+  `expression` approvers (CEL over `current.*` / `trigger.*` / `vars.*`),
+  a node-level `onEmptyApprovers` policy, and author-declared decision
+  outputs that resume the run as `<nodeId>.<key>` flow variables. See
+  [Approvals](/docs/build/automation/approvals).
+- **A broken datasource is loud at boot** — a datasource that objects
+  bind to must connect or the boot fails, `objectql.init()` refuses to
+  start on a dead data driver, and `/api/v1/ready` answers 503 when one
+  stops answering. Previously such a boot started clean, exited zero, and
+  then failed every read and write of the bound objects.
+- **`enable.apiMethods` shrinks to six primitives** (breaking) — the
+  authorable enum is exactly `get`, `list`, `create`, `update`, `delete`,
+  `bulk`. The eight legacy values are *derived* effective operations;
+  a stored one is stripped at parse with a warning naming its
+  replacement.
+- **The dead-metadata sweep continues** (breaking) — `object.enable.trash`
+  and `enable.mru`, `tool.requiresConfirmation`, `agent.tools[]`,
+  `agent.knowledge`, `SkillSchema.permissions`, report `aria` /
+  `performance`, `flow.active`, and a long tail of parsed-but-ignored
+  keys are removed. Each rejects at parse time with its upgrade
+  prescription rather than being silently stripped. Run
+  `os migrate meta --from 16` to rewrite your sources.
+- **The authorable surface is closed** — every authorable metadata type
+  now rejects unknown keys with a named prescription, on the parse path
+  and not only in `create()`. A typo is a located error instead of a
+  setting that quietly never took effect.
 
 ### 16.0
 

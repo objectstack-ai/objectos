@@ -10,7 +10,7 @@ A: `npm i -g @objectstack/cli && os start` — then open
 http://localhost:3000. See [Quickstart](/docs/quickstart).
 
 **Q: Do I need Docker?**
-A: No. Node 20+ and the CLI are enough. Docker is the recommended
+A: No. Node 22+ and the CLI are enough. Docker is the recommended
 production deployment shape.
 
 **Q: Do I need a database?**
@@ -36,9 +36,14 @@ A: Yes. Console uses the same `/api/v1/*` endpoints you'd call from
 your own code. Use `@objectstack/client` SDK or any HTTP client.
 
 **Q: Does ObjectOS support GraphQL?**
-A: REST is the primary surface. GraphQL is on the roadmap — until then,
-the ObjectQL query language (over REST `?filter=`/`?sort=`) covers the
-same ground.
+A: No. REST is the API surface. The GraphQL endpoint was removed in
+ObjectStack 17.0 — it had never been implemented behind the route, and
+`/graphql` now returns 404. Use the generated REST API with the
+[ObjectQL](/docs/reference/objectql) query language (over `?filter=` /
+`?sort=` / `?expand=`), which covers the same ground. A third-party
+system that speaks GraphQL is unaffected: `graphql` remains a valid
+protocol for an *external* datasource, which is a client of someone
+else's API rather than a surface ObjectOS serves.
 
 **Q: How is multi-tenancy handled?**
 A: One ObjectOS process can serve many Environments (tenants). Hostname

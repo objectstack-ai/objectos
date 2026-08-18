@@ -119,6 +119,13 @@ has to reproduce it:
 
 Two HTTP endpoints exist for this, and they are not interchangeable:
 `/api/v1/health` for liveness and `/api/v1/ready` for readiness.
+Readiness is backed by the data layer: since ObjectStack 17.0
+`/api/v1/ready` answers **503** when a data driver stops answering, so a
+replica whose database has gone away is pulled from rotation rather than
+left serving errors. A datasource that objects bind to must also connect
+at startup or the boot fails outright — an unreachable database is a
+failed deploy, not a container that comes up and then errors on every
+request.
 
 In production, point the deployment at your **managed** PostgreSQL (and Redis,
 if you cluster) and remove the bundled database services. Give the proxy your
