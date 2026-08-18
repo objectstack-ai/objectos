@@ -79,3 +79,35 @@ From `apps/docs/`:
 - `npm run dev` — dev server on http://localhost:3001
 - `npm run type-check` — `fumadocs-mdx && next typegen && tsc --noEmit`
 - `npm run build` — production build
+
+## Turbo caching and content changes
+
+`content/docs/` sits at the repo root, **outside** the `apps/docs` package, but both
+`build` and `type-check` genuinely consume it (`source.config.ts` points fumadocs at
+`../../content/docs`). Turbo's default hash only covers the package's own directory, so
+those tasks used to replay a cached green for a content-only change — and because the
+cache is shared across worktrees in a multi-agent container, the replayed logs could come
+from a *sibling agent's* tree. `turbo.json` now names the dependency explicitly:
+
+```json
+"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/content/docs/**"]
+```
+
+`$TURBO_ROOT$` is anchored to the repo root by turbo itself. Prefer it over a hand-counted
+`../../` — both work today, but a relative glob encodes the package's depth, and if the
+package ever moves the glob silently stops matching.
+
+**Verify the hash, don't trust the config.** A wrong `inputs` glob is not an error: turbo
+exits 0, matches nothing, and the task silently goes back to the stale hash. So when you
+change these globs, confirm the hash actually moves — edit any file under `content/docs/`,
+then revert it, and check the hash changes and comes back:
+
+```bash
+turbo run type-check --filter=@objectos/docs --dry=json | jq -r '.tasks[0].hash'
+```
+
+Belt and braces: `turbo run build --force` ignores the cache entirely. Reach for it if you
+are verifying a content change on a turbo older than 2.4 (before `$TURBO_ROOT$` existed,
+where the glob above matches nothing), or any time a `>>> FULL TURBO` on a content PR
+looks wrong. `--force` is the escape hatch, not the routine path — the hash is supposed to
+tell the truth on its own.
