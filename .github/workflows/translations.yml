@@ -51,5 +51,41 @@ jobs:
       # Blocking: unstamped and orphaned translations. Non-blocking: stale and
       # missing — English lands first by design and translations catch up in a
       # separate pass (docs/TRANSLATION.md).
+      #
+      # `shell: bash` is load-bearing here, not tidiness. The DEFAULT shell for
+      # a `run:` step is `bash -e {0}` with no pipefail, so in `node … | tee`
+      # the step takes tee's exit status and a gate that exits 1 passes the job
+      # silently — measured, not assumed: this gate exits 1 on a corpus with
+      # findings and the piped step still reports 0. Naming the shell gets
+      # `bash --noprofile --norc -eo pipefail {0}`, which propagates it.
       - name: Freshness
+        shell: bash
         run: node .github/scripts/check-translations.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # 裁决: a validator observed only green is indistinguishable from one that
+      # cannot go red. The fixtures run before the corpus does, so a rule that
+      # stopped being able to fail fails the job on its own.
+      - name: Output validator self-test
+        shell: bash
+        run: node .github/scripts/check-translation-output.mjs --self-test
+
+      # Fidelity and safety of the translations themselves — the checklist in
+      # docs/TRANSLATION.md § Before opening the PR. The whole corpus is scanned
+      # either way; what is scoped is what BLOCKS. On a pull request that is the
+      # locale files the PR changed, plus any `unsafe` finding anywhere in the
+      # corpus. On push to main there is no PR diff to scope to, so it reports:
+      # the corpus carries fidelity debt older than this gate, and a job that is
+      # red on main for debt nobody is touching is a job someone deletes.
+      - name: Output
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = 'pull_request' ]; then
+            git diff --name-only "origin/${BASE_REF}...HEAD" > changed-output.txt
+            node .github/scripts/check-translation-output.mjs --files changed-output.txt \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            node .github/scripts/check-translation-output.mjs --report \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
