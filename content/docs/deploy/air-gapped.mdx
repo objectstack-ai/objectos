@@ -1,82 +1,120 @@
 ---
 title: Air-gapped Deployment
-description: Run ObjectOS without access to the public internet.
+description: Air-gap is a licence mode, not a firewall setting — the two settings a disconnected deployment must declare, and the combinations the runtime refuses at startup.
 ---
 
-Air-gapped deployment is for customer networks where ObjectOS cannot
-call a hosted control plane or public package registries at runtime.
+## Air-gap is a licence mode
 
-## What to ship
+You cannot reach an air-gapped deployment by unplugging the network. An
+ordinary ObjectOS licence is validated **online**: the runtime exchanges your
+licence key for a short-term entitlement at a control plane and re-checks
+periodically. Cut that path and the licence does not "fall back to offline" —
+it can never take effect at all.
 
-An offline release bundle should contain:
+An **air-gap licence is a different licence**, issued offline by us on
+purpose. It is verified locally against a public key embedded in the image and
+mounts your entitlements with **zero network traffic**. Air-gapped operation
+is an Enterprise capability — see
+[License & Pricing](/docs/resources/license) — and the licence you need is
+requested, not configured.
 
-| Item | Purpose |
-|---|---|
-| ObjectOS container image | Runtime binary and dependencies |
-| `objectstack.json` artifact | Immutable application definition |
-| Database migration/initialization guidance | Customer business database setup |
-| Environment template | Required secrets and runtime variables |
-| Operations checklist | Upgrade, rollback, backup, and diagnostics |
+A disconnected deployment therefore declares **two** things, together:
 
-The container image and artifact mount follow the same conventions as a
-standard [Docker deployment](/docs/deploy/docker); only the network
-posture differs.
+- an **air-gap licence**, and
+- **no control plane**: the cloud-posture setting explicitly set to `off`
+  (its aliases `none`, `local` and `disabled` mean the same thing).
 
-## Runtime mode
+## Leaving the setting unset is not "no cloud"
 
-Use file-backed mode: point ObjectOS at a local artifact and a
-customer-managed business database, and leave the cloud control plane
-unset.
+This is the single most expensive mistake on this page, so it gets its own
+heading:
 
-```bash
-OS_ARTIFACT_FILE=/artifacts/objectstack.json
-OS_BUSINESS_DB_URL=file:/var/lib/objectos/data.db
-# Leave OS_CLOUD_URL unset to run fully offline
-```
+> **An unset cloud-posture setting resolves to the public control plane.**
 
-ObjectOS resolves every request to the packaged project and loads the
-artifact from disk. With `OS_CLOUD_URL` unset, no calls are made to a
-hosted control plane.
+Unset was never neutral. It selects the connected behaviour — which is why a
+deployment that "did nothing" ends up with a marketplace proxy mounted and a
+device-binding route exposed, on a site whose entire premise is that it talks
+to nobody. Declaring a posture is accepted; **not deciding is not.** Write
+`off` explicitly.
 
-## Network expectations
+## The supported combinations
 
-ObjectOS does not need public internet access in this mode. Customer
-network rules should allow only:
+These are checked when configuration is loaded, **before** anything
+licence-shaped happens. An unsupported combination is not a warning and not a
+degrade: the runtime prints a fatal error naming *both* settings and exits.
 
-- inbound HTTP/HTTPS from the approved ingress or load balancer;
-- outbound database traffic to the customer-managed business database;
-- outbound traffic to explicitly configured integrations such as SMTP,
-  object storage, webhook targets, or identity providers.
+| Licence | Cloud posture | Outcome |
+|---|---|---|
+| Air-gap licence | `off` | **Runs, fully licensed, with zero network traffic.** The disconnected answer. |
+| No licence | `off` | Runs with Community behaviour. Note that a multi-organization posture still requires a licence. |
+| Ordinary (online) licence | reachable control plane, with the device binding completed | The normal connected deployment. |
+| Ordinary (online) licence | `off` | **Refused at startup.** |
+| Ordinary (online) licence | unset | Treated as the public control plane — see above. Whether it runs depends on whether that control plane is actually reachable and bound. |
 
-## Authentication
+### Why the refusal exists
 
-If the customer uses OIDC/SSO, the identity provider must be reachable
-from the air-gapped network. If not, use local email/password auth or an
-identity provider hosted inside the same network.
+An online licence is validated by an exchange that must present a runtime
+token minted during the deployment's binding to a control plane. With no
+control plane there is no binding, so the token cannot exist, so the exchange
+is never made — not on this boot, not on a later one. The grace period does
+not help either: grace is measured from the last *successful* validation, and
+there would never be a first one.
 
-## Installing additional packages
+Left unenforced, that configuration fails later and blames the wrong thing:
+on a multi-organization posture it ends as a complaint that the deployment
+"requires a licence" — when the licence was the one thing that was never
+wrong. The runtime refuses earlier instead, and says which two settings
+disagree. Because the refusal is taken before any validation attempt, a
+refused boot sends **no packets at all**.
 
-A running air-gapped instance can take additional packages without any
-catalog connectivity — hand the compiled artifact to the install CLI
-and it is sent inline and merged into the live kernel (no restart):
+## The hosted multi-organization shape is air-gap-licensed too
 
-```bash
-os package install ./dist/objectstack.json --runtime https://os.internal.example \
-  --email admin@example.com --password …
-```
+If you run the **composed** shape — a published app booted as this
+deployment's app, with several organizations sharing one database behind the
+isolation wall — then air-gap licensing is not optional there either. That
+mode declines the marketplace and cloud-connection surfaces outright, so the
+binding that an online licence would need can never happen on it. It requires
+an air-gap licence and `off`, both enforced at startup, and it has its own
+environment template in the deploy bundle. Do not adapt the single-environment
+template to reach it; copy the composed one, so every value it decides comes
+with it.
 
-The manifest is cached on the runtime host under
-`.objectstack/installed-packages/` and re-registers on every boot.
+## Getting the image inside the network
 
-## Upgrade process
+The runtime image lives in a private registry that a disconnected site cannot
+reach, so the image crosses the boundary the way your other artefacts do.
 
-Treat artifacts as immutable:
+Do the verification on the connected side, while you still have the registry
+and the tooling: check the **signature**, the **SBOM** and the **build
+provenance** for the exact digest you are about to ship inward (the bundle
+README carries the commands). Then let the **digest** do the rest of the work
+— it is content-addressed, so confirming the copy inside the network has the
+same digest is what proves it is the same bytes you verified. This is also
+why the deployment pins a digest rather than a tag: inside the perimeter,
+there is nothing to re-resolve a tag against.
 
-1. Import the new ObjectOS image.
-2. Place the new artifact beside the previous artifact.
-3. Update the mount or environment variable to point at the new artifact.
-4. Restart ObjectOS.
-5. Roll back by restoring the previous image tag or artifact path.
+Upgrades work the same way: verify the new digest outside, transfer it in,
+change the pinned digest, restart. Keep the previous digest — inside an
+air-gapped network it may be the only copy you have to roll back to.
 
-See [Upgrade](/docs/operate/upgrade) and [Backup](/docs/operate/backup)
-for the full procedures these steps summarize.
+## What still has to be reachable
+
+Air-gapped means no traffic is required *by ObjectOS itself* — no licence
+validation, no marketplace, no update ping. It does not mean the deployment
+has no network. Inside your perimeter it still needs:
+
+- the database it is configured against (and Redis, when clustered);
+- your ingress or load balancer, inbound;
+- anything **you** configure it to talk to: an identity provider, SMTP, object
+  storage, webhook targets, an AI provider endpoint. If your users sign in via
+  OIDC, that identity provider has to be reachable from this network, or you
+  use local accounts instead.
+
+The licence itself carries an expiry, checked locally at each boot — there is
+no phone-home, so plan renewal as a delivery rather than as something the
+runtime will fetch.
+
+## Next
+
+- [Docker](/docs/deploy/docker) — verification, licence, scaling and upgrade in full.
+- [Upgrade](/docs/operate/upgrade) and [Backup](/docs/operate/backup) — the procedures the steps above summarise.
