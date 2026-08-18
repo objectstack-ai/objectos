@@ -137,8 +137,8 @@ If the AI can't do it, it says so — and points you at the manual path
 ## Live preview
 
 After each approved change, Console re-renders the affected views in
-place. No reload needed. The kernel cache invalidates the touched
-package; subsequent requests use the new metadata.
+place. No reload needed. The runtime hot-loads the touched package's new
+metadata; subsequent requests use it.
 
 ## Roll back
 

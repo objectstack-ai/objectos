@@ -46,15 +46,23 @@ protocol for an *external* datasource, which is a client of someone
 else's API rather than a surface ObjectOS serves.
 
 **Q: How is multi-tenancy handled?**
-A: One ObjectOS process can serve many Environments (tenants). Hostname
-→ Environment resolution caches in an LRU; each Environment has its own
-database, identity, and audit log. Cookies are scoped per hostname so
-sessions can't leak across tenants.
+A: One deployment serves one app, against one database — see
+[Architecture](/docs/architecture). Several organizations can share that
+deployment: a **walled** tenancy posture (`OS_TENANCY_POSTURE`) puts up the
+per-organization isolation wall, and it is a licensed capability the runtime
+refuses to start without. What the wall separates is the organizations' data
+and memberships, not the metadata — schema is scoped to the deployment, not
+to an organization, which is why a walled deployment must also declare which
+AI agents are mounted. Isolation stronger than the wall is deployment
+separation: a customer that must have its own database gets its own
+deployment. See [Multi-organization
+deployments](/docs/reference/environment-variables#multi-organization-deployments).
 
 **Q: Can ObjectOS run in a serverless / Lambda environment?**
 A: The runtime is a long-lived Node process — designed for containers
-or VMs, not stateless functions. The kernel cache and Better Auth
-session model both depend on warm in-process state.
+or VMs, not stateless functions. The kernel is built at startup and the
+process reports ready only afterwards; that warm in-process state, and the
+Better Auth session model, are what a per-invocation function cannot keep.
 
 **Q: Does it scale horizontally?**
 A: Yes. Run multiple instances behind a load balancer. Sessions live in
@@ -146,13 +154,15 @@ for files + your secret manager for `OS_AUTH_SECRET`. See
 [Production Readiness](/docs/operate/production).
 
 **Q: Does ObjectOS have a status page?**
-A: For your self-hosted deployment, status is your concern — wire
-`/health` to your monitor. For hosted services, see
+A: For your self-hosted deployment, status is your concern — point your
+monitor at `/api/v1/health` for liveness and `/api/v1/ready` for readiness,
+the pair [Docker](/docs/deploy/docker) and
+[Kubernetes](/docs/deploy/kubernetes) wire up. For hosted services, see
 [status.objectstack.ai](https://status.objectstack.ai).
 
 **Q: What metrics should I monitor?**
-A: 5xx rate, p95 latency, auth failure rate, kernel cache miss rate,
-queue depth. Minimal Prometheus example in [Observability](/docs/operate/observability).
+A: 5xx rate, p95 latency, auth failure rate, readiness
+(`/api/v1/ready`), queue depth. Minimal Prometheus example in [Observability](/docs/operate/observability).
 
 **Q: How do I take a backup?**
 A: Back up the **database** and the **storage bucket** — those hold

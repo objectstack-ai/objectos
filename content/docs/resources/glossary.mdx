@@ -77,9 +77,12 @@ See [AI Service](/docs/configure/ai).
 
 ### Environment
 
-A per-tenant runtime instance backed by its own database and identity.
-On v4.x sometimes called *Project* (alias kept). v5.0 standardizes on
-*Environment* across CLI, HTTP, env vars, and schemas.
+A deployment's own identity — the id it reports as `OS_ENVIRONMENT_ID`,
+persisted once a cloud binding completes. A self-hosted ObjectOS is a
+**single-environment** runtime: one process, one environment, one app.
+Holding many environments, and publishing an artifact for each, is what a
+control plane does. See
+[Environment Variables](/docs/reference/environment-variables).
 
 ### Field
 
@@ -108,9 +111,10 @@ hooks are first-class code; flows are metadata.
 ### Kernel
 
 The microkernel inside ObjectOS that loads plugins, holds the DI
-container, dispatches events, and serves a single Environment's
-metadata. One process can hold many cached kernels (one per
-Environment) in an LRU.
+container, dispatches events, and serves the deployment's metadata. One
+process builds one kernel, during startup, and does not report
+[ready](/docs/deploy/docker) until it is built — so nothing per request
+decides which metadata to serve.
 
 ### Manifest
 
@@ -172,8 +176,9 @@ A framework package that extends the runtime with a capability —
 
 ### Project
 
-Old name for **Environment**. Still used in v4.x CLI/env (aliased).
-Removed in v5.0.
+Old name for **Environment**. It survives in inherited configuration and
+in framework-internal identifiers; ObjectOS documentation says
+*Environment*.
 
 ### Record Share
 
@@ -208,9 +213,12 @@ code.
 
 ### Tenant
 
-A logical isolation boundary in multi-tenant deployments. One tenant
-typically maps to one Environment. Cookies and sessions are scoped per
-hostname; data is scoped per Environment.
+An isolation boundary between the organizations sharing one deployment.
+A walled tenancy posture puts the wall up and is a licensed capability.
+Those organizations still share the deployment's app, its database and its
+metadata, so the wall separates their data and memberships rather than
+their schema. See [Multi-organization
+deployments](/docs/reference/environment-variables#multi-organization-deployments).
 
 ### Trigger
 
