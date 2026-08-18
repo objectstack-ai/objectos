@@ -13,9 +13,9 @@ metadata, you own the runtime that runs it.**
 
 You don't hand-write objects, fields, views, flows, and permissions
 file-by-file. Your users describe what they need in plain language to
-the in-Console [AI Builder](/docs/build/ai-builder); it calls a small
+the built-in [AI Builder](/docs/build/ai-builder); it calls a small
 set of audited tools, queues every change for human approval, and the
-result is live — REST endpoints, Console screens, RBAC, audit log,
+result is live — REST endpoints, generated screens, RBAC, audit log,
 everything generated from the same metadata.
 
 The runtime sits in **your** VPC, on **your** database — the underlying
@@ -48,7 +48,7 @@ Common scenarios where it's a fit:
 
 - are building a high-traffic consumer product → use a traditional web
   framework, you'll have more control.
-- need a pixel-perfect bespoke UI for end users → ObjectOS's Console is
+- need a pixel-perfect bespoke UI for end users → the generated UI is
   for admin/internal use; pair it with your own front-end via REST.
 - want a no-code drag-and-drop builder for non-engineers and a hosted
   cloud → use Retool, Bubble, or Airtable. ObjectOS is code-first AI-driven, self-hosted.
@@ -76,7 +76,7 @@ Common scenarios where it's a fit:
 | Database | Postgres, theirs (self-host possible) | Any Postgres / MySQL / SQLite / Turso / Mongo, **yours** |
 | Auth | Built in | Built in |
 | Generated APIs | PostgREST | ObjectQL-generated REST |
-| Admin UI | Console (basic) | Console + Account |
+| Admin UI | Console (basic) | Setup + Account |
 | RBAC | Row-level via Postgres RLS | RBAC + row-level + field-level, declarative |
 | Audit log | DIY | First-class |
 | Vendor lock-in | Their auth + their storage + their realtime | None — every layer is a plugin |
@@ -109,9 +109,9 @@ Common scenarios where it's a fit:
 
 ## The honest tradeoffs
 
-- **Less UI freedom than Retool.** The Console is generated from your
+- **Less UI freedom than Retool.** The UI is generated from your
   metadata. You can pair it with a custom front-end (the REST API is
-  the same one Console uses), but if you need a hand-crafted pixel-
+  the same one the UI uses), but if you need a hand-crafted pixel-
   perfect UI, build it yourself and use ObjectOS as the backend.
 - **TypeScript-first.** Non-engineers won't author objects directly.
   Salesforce admins are used to clicking through a UI builder; here,

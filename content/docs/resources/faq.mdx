@@ -27,12 +27,12 @@ for multi-environment / multi-app deployments with a control plane.
 A: Yes — Postgres, MySQL, SQLite, Turso/libSQL, and MongoDB are
 supported drivers. See [Runtime Configuration](/docs/configure/runtime).
 
-**Q: Can I disable Console / Account and use only the REST API?**
+**Q: Can I disable the UI / Account portals and use only the REST API?**
 A: Yes. Run `os start --no-ui` or set the corresponding flags. The
 REST API is the same whether the UIs are mounted or not.
 
-**Q: Can I use my own front-end instead of Console?**
-A: Yes. Console uses the same `/api/v1/*` endpoints you'd call from
+**Q: Can I use my own front-end instead of the generated UI?**
+A: Yes. The generated UI uses the same `/api/v1/*` endpoints you'd call from
 your own code. Use `@objectstack/client` SDK or any HTTP client.
 
 **Q: Does ObjectOS support GraphQL?**
@@ -85,7 +85,7 @@ add a migration step (rename column in DB before deploying the new
 artifact).
 
 **Q: Can I import data from CSV / Excel / Salesforce?**
-A: CSV: yes, via `os data create` in a loop or the Console bulk upload.
+A: CSV: yes, via `os data create` in a loop or the bulk upload in the UI.
 Salesforce: best path today is to export to CSV and import. Native
 connectors are on the roadmap.
 
@@ -105,10 +105,10 @@ injects the corresponding filter on every query. See
 **Q: Can I make some fields invisible to certain users?**
 A: Yes — field-level security in permission sets. Hide or read-only,
 per field per permission set. Enforced uniformly across REST, ObjectQL,
-and Console. See [Permission Sets](/docs/configure/permissions/permission-sets).
+and the UI. See [Permission Sets](/docs/configure/permissions/permission-sets).
 
 **Q: How do I integrate Okta / Entra / Keycloak?**
-A: OIDC. Configure the discovery URL + client id/secret in **Console →
+A: OIDC. Configure the discovery URL + client id/secret in **Setup →
 Authentication** (or via env). Provider callback URL is
 `/api/v1/auth/oauth2/callback/<provider-id>`. See [Authentication](/docs/configure/authentication).
 
@@ -136,8 +136,8 @@ A: Yes — plugins follow a simple DI + lifecycle pattern
 (`init → start → destroy`). See `@objectstack/plugin-*` packages on
 GitHub for examples.
 
-**Q: Can I customize Console's look?**
-A: Branding (logo, accent color, default theme) is in **Console →
+**Q: Can I customize how ObjectOS looks?**
+A: Branding (logo, accent color, default theme) is in **Setup →
 System Settings**. Deep UI customization means forking
 `@objectstack/client-react` or building your own front-end against the
 REST API.
@@ -162,7 +162,7 @@ the pair [Docker](/docs/deploy/docker) and
 
 **Q: What metrics should I monitor?**
 A: 5xx rate, p95 latency, readiness (`/api/v1/ready`), queue depth. There is
-no auth-failure metric to monitor — review sign-in activity in the Console's
+no auth-failure metric to monitor — review sign-in activity in Setup's
 `Auth` audit view instead. Minimal Prometheus example in [Observability](/docs/operate/observability).
 
 **Q: How do I take a backup?**

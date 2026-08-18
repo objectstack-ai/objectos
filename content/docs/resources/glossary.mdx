@@ -15,7 +15,7 @@ ObjectOS actually executes.
 ### Action
 
 A named operation declared in metadata, invocable via REST
-(`/api/v1/data/<object>/actions/<action>`), Console buttons, or flow
+(`/api/v1/data/<object>/actions/<action>`), buttons in the UI, or flow
 steps. Inherits the caller's permissions.
 
 ### Adapter
@@ -28,7 +28,7 @@ server.
 ### App
 
 A bundle of objects + views + permissions presented as a single
-navigable application in Console. Multiple apps can coexist in one
+navigable application. Multiple apps can coexist in one
 runtime (e.g. CRM + Helpdesk + Setup).
 
 ### Better Auth
@@ -49,12 +49,6 @@ Loaded on demand by ObjectOS. See
 Google's safe, sandboxed expression syntax. Used in formulas,
 validation rules, permission predicates, sharing rules, and flow
 conditions.
-
-### Console
-
-The system UI at `/_console/` — manages users, roles, permission sets,
-audit log, sessions, API keys, system settings. Distinct from Console
-(business UI).
 
 ### Control Plane
 
@@ -124,7 +118,7 @@ The top-level metadata at the head of an artifact: `id`, `namespace`,
 
 ### Marketplace
 
-The in-Console catalog of installable apps. Backed by a configurable
+The built-in catalog of installable apps. Backed by a configurable
 package registry. See [Marketplace](/docs/build/marketplace).
 
 ### MCP (Model Context Protocol)
@@ -136,7 +130,7 @@ ObjectOS can expose its objects + actions as MCP via
 ### Object
 
 A typed business entity — `task`, `account`, `invoice`. Declared as a
-TypeScript schema; generates REST APIs, Console views, audit entries,
+TypeScript schema; generates REST APIs, views, audit entries,
 RBAC checkpoints automatically. See [Data Model](/docs/build/data).
 
 ### ObjectOS
@@ -147,7 +141,7 @@ source, Apache-2.0. **This documentation site is for ObjectOS.**
 ### ObjectQL
 
 The data layer protocol and query engine. Compiles declarative queries
-to native SQL / Mongo queries. Used by REST endpoints, Console,
+to native SQL / Mongo queries. Used by REST endpoints, the UI,
 flows — all the same engine.
 
 ### ObjectStack
@@ -159,7 +153,7 @@ marketplace. Sometimes called "the platform."
 ### ObjectUI
 
 The view layer protocol — apps, views, pages, dashboards, actions,
-charts, navigation. Console renders ObjectUI declarations.
+charts, navigation. ObjectOS renders ObjectUI declarations.
 
 ### Permission Set
 
@@ -189,6 +183,14 @@ beneath it (`unit_and_subordinates`). Stored as `sys_record_share`
 rows, whose `recipient_type` column takes exactly those five values.
 Different from sharing rules (declarative criteria).
 
+### Setup
+
+The built-in administration app, at `/apps/setup` inside the UI served
+at `/_console/`, gated by the `setup.access` permission. Manages users,
+business units, teams, positions, permission sets, sharing rules,
+record shares and API keys, plus configuration, diagnostics and
+integrations. See [Administration](/docs/configure).
+
 ### Sharing Rule
 
 A declarative rule that grants record access based on criteria
@@ -197,16 +199,11 @@ query time, compiled into row-level filters. A rule stored **without**
 criteria shares nothing — it is not a match-all. See
 [Record Access](/docs/configure/permissions/record-access#both-switches-fail-closed).
 
-### Console
-
-The business UI at `/_console/` — browse, create, edit records,
-configure views, install apps from the marketplace. Distinct from
-Console (system UI).
-
 ### Surface
 
-One of the four HTTP entry points a running ObjectOS exposes:
-`/` (REST API), `/_console/`, `/_account/`, `/_console/`.
+One of the HTTP entry points a running ObjectOS exposes:
+`/` (REST API), `/_console/` (the UI, which hosts the Setup app), and
+`/_account/` (sign-in, registration, and account management).
 
 ### System Context
 
@@ -231,7 +228,7 @@ schedule (cron), or manual invocation.
 ### View
 
 A declarative UI configuration — list, form, kanban, calendar, gantt —
-attached to an Object. Console renders it; you don't write the
+attached to an Object. ObjectOS renders it; you don't write the
 component.
 
 ### Zod schema

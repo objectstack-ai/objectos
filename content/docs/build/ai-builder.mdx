@@ -1,10 +1,10 @@
 ---
 title: AI Builder
-description: The in-Console chat that turns plain-language requirements into running metadata.
+description: The built-in chat that turns plain-language requirements into running metadata.
 ---
 
 The AI Builder is the **primary way customers extend ObjectOS**. Open
-Console, talk to the assistant in plain language, and it builds the
+ObjectOS, talk to the assistant in plain language, and it builds the
 metadata for you — packages, objects, fields, actions, flows. Every
 change is queued in a Human-in-the-Loop (HITL) approval list before it
 goes live.
@@ -33,7 +33,7 @@ AI:  ✓ Package created
      Done. Try it: /support_ticket
 ```
 
-You now have a working ticketing app — REST endpoints, Console views,
+You now have a working ticketing app — REST endpoints, generated views,
 audit log entries, permission checkpoints, the works. No file was
 edited; no restart happened.
 
@@ -132,11 +132,11 @@ Verified patterns, with one-liner prompts:
 | Translation | *"Translate the support_ticket labels and picklists to Spanish."* |
 
 If the AI can't do it, it says so — and points you at the manual path
-(usually a 30-line `*.ts` file or a Console form).
+(usually a 30-line `*.ts` file or a form).
 
 ## Live preview
 
-After each approved change, Console re-renders the affected views in
+After each approved change, ObjectOS re-renders the affected views in
 place. No reload needed. The runtime hot-loads the touched package's new
 metadata; subsequent requests use it.
 

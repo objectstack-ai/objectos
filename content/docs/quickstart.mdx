@@ -10,7 +10,7 @@ There are two ways to start, depending on what you're doing.
 | Trying ObjectOS for the first time, or running it in production | [Path A — `os start`](#path-a--os-start-operator-first-time-evaluator) |
 | Building or customizing an app in code | [Path B — `os init`](#path-b--os-init-developer) |
 
-Both produce a running server with Console + Account. The
+Both produce a running server with the UI + Account. The
 difference is whether you scaffold source files.
 
 ## Prerequisites
@@ -57,8 +57,8 @@ That's it. You're running ObjectOS.
 | URL | What it is |
 |---|---|
 | http://localhost:3000/_account/register | Create your first account |
-| http://localhost:3000/_console/ | The admin UI — and the **app marketplace** |
-| http://localhost:3000/_console/ | Users, roles, audit log, settings |
+| http://localhost:3000/_console/ | The generated UI — and the **app marketplace** |
+| http://localhost:3000/_console/ | **Setup** — users, roles, audit log, settings |
 | http://localhost:3000/api/v1/health | Liveness — is the process up |
 | http://localhost:3000/api/v1/ready | Readiness — is it up **and** serving data |
 
@@ -76,7 +76,7 @@ show which probe goes where.
 
 ### Build by chat — the AI Builder
 
-Once you're signed in, open the AI assistant in Console (top-right
+Once you're signed in, open the AI assistant (top-right
 sparkle icon) and describe what you need:
 
 > *"I need to track customer support tickets. Each has a subject,
@@ -84,7 +84,7 @@ sparkle icon) and describe what you need:
 > assignee. Add a kanban view grouped by status."*
 
 The AI proposes a plan, you approve, and the metadata is live —
-REST endpoints, Console views, audit log entries, permission gates.
+REST endpoints, generated views, audit log entries, permission gates.
 No file edited, no restart. See [Build → AI Builder](/docs/build/ai-builder)
 for the full vocabulary.
 
@@ -179,8 +179,8 @@ export const Task = ObjectSchema.create({
 Save. The dev server recompiles and you immediately have:
 
 - **`/api/v1/data/task`** — full CRUD with filter/sort/paginate
-- **A "Task" view in Console** — list, form, detail, all generated
-- **Permission rows in Console** — grant read/write per role
+- **A "Task" view** — list, form, detail, all generated
+- **Permission rows in Setup** — grant read/write per role
 - **Audit log entries** — every create/update/delete recorded
 
 No migrations. No code generation. No restarting.

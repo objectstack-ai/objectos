@@ -142,7 +142,7 @@ navigation entry, or make it the app's landing page via `homePageId`.
 
 A **doc** is a page of package documentation: plain Markdown files in a
 flat `src/docs/` directory, compiled into the package artifact and
-rendered in the console at `/docs/<name>`. Docs also ground the AI
+rendered in the UI at `/docs/<name>`. Docs also ground the AI
 assistant when it answers questions about your package.
 
 ```
@@ -159,7 +159,7 @@ resolve by basename, never by path.
 |:--|:--|
 | Naming | `snake_case`, and the build lint requires a **namespace prefix** (`crm_user_guide`, not `user_guide`) |
 | Frontmatter | Optional; `title` and `description` are read. Title resolves: frontmatter → first `#` heading → doc name |
-| Cross-references | Plain relative links (`[overview](./crm_index.md)`) — rewritten to `/docs/<target>` in console, native on GitHub. **Broken same-package links fail the build** |
+| Cross-references | Plain relative links (`[overview](./crm_index.md)`) — rewritten to `/docs/<target>` in the UI, native on GitHub. **Broken same-package links fail the build** |
 | Markdown | CommonMark + GFM: tables, fenced code with highlighting, heading anchors, GitHub alerts (`> [!TIP]`) |
 | Rejected at build | **MDX / embedded components** (docs are data, not code — a trust boundary) and **image references** (no asset service yet; fail fast beats broken images) |
 

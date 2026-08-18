@@ -71,8 +71,8 @@ Product nouns stay in English in **every** locale. They are how the product
 names itself in its own UI, and a translated product noun sends the reader
 looking for a control that does not exist:
 
-> ObjectOS · ObjectStack · Console · AI Builder · Studio · ObjectQL · CEL ·
-> Setup · Free / Team / Business / Enterprise (plan names)
+> ObjectOS · ObjectStack · AI Builder · Studio · ObjectQL · CEL · Setup ·
+> Free / Team / Business / Enterprise (plan names)
 
 Everything else is translated, consistently. These are the established terms —
 they are what the existing corpus already uses, so departing from them creates

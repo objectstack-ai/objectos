@@ -148,8 +148,8 @@ What moved:
   carry file attachments, progress ("2 of 3 · finance pending") is
   computed server-side, and approve / reject / reassign / send-back /
   request-info / remind / recall / resubmit are declared `type:'api'`
-  actions on `sys_approval_request` — the Console renders them through
-  its generic action runtime instead of hand-written buttons.
+  actions on `sys_approval_request` — the approvals inbox renders them
+  through its generic action runtime instead of hand-written buttons.
 - **Time-relative automations** — a flow start node can declare
   `timeRelative` (`offsetDays: [60, 30, 7]` or `withinDays`); a daily
   sweep launches the flow once per matching record, so "remind me 60

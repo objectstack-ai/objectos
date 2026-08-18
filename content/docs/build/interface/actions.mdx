@@ -1,13 +1,13 @@
 ---
 title: Actions
-description: Named operations the platform exposes as REST endpoints, Console buttons, flow steps, and AI tools — from one declaration.
+description: Named operations the platform exposes as REST endpoints, buttons, flow steps, and AI tools — from one declaration.
 ---
 
 An **Action** is a named operation on an object. Declare it once and
 it appears as:
 
 - a **REST endpoint** at `/api/v1/actions/<object>/<action>`
-- a **button** in Console's record detail
+- a **button** on the record detail page
 - a **flow step** (`type: 'action'`) for automation
 - an **AI tool** (`action_<name>`) for Agents and the AI Builder
 
@@ -58,7 +58,7 @@ export const approveInvoice = Action.create({
 After `os dev` recompiles:
 
 - `POST /api/v1/actions/invoice/approve_invoice` works
-- The Invoice record page in Console shows an **Approve Invoice** button
+- The Invoice record page shows an **Approve Invoice** button
 - A flow can include `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }`
 - The AI assistant can call `action_approve_invoice` if its skills allow
 
@@ -109,9 +109,9 @@ either as a trailing path segment (`.../approve_invoice/:recordId`) or in
 the body. The response is your script body's return value (or the call
 result for `api`-type actions).
 
-### Console
+### From the UI
 
-By default, Console shows actions as buttons on the record detail page,
+By default, actions appear as buttons on the record detail page,
 filtered by the action's `visible` predicate. Override placement
 in your view config:
 
@@ -152,7 +152,7 @@ Actions run with the calling user's permissions. The platform checks:
    must have write access (FLS).
 3. **UI gating** — the `visible` and `disabled` predicates (CEL,
    evaluated against `record`, `os.user`, and params) control whether the
-   button renders or is greyed out in Console.
+   button renders or is greyed out.
 
 Failed permission checks return `403` with a `PERMISSION_DENIED` error.
 
@@ -192,7 +192,7 @@ This is your first stop for *"who pushed the button?"* questions.
 
 The [AI Builder](/docs/build/ai-builder) generates the action metadata and
 queues the change for approval. After approval, the action is callable from
-REST, Console, flows, and — recursively — the AI itself.
+REST, the UI, flows, and — recursively — the AI itself.
 
 ## Where to go next
 

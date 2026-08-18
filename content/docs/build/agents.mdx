@@ -47,7 +47,7 @@ export const tier1Support = defineAgent({
 });
 ```
 
-Or in Console: **Console → Agents → New Agent**.
+Or in the UI: **Agents → New Agent**.
 
 Or — and this is the point — say to the AI Builder:
 
@@ -114,7 +114,7 @@ POST /api/v1/ai/chat   { context: { appName: 'crm' }, ... }
 
 When `context.appName` resolves to an app that declares a
 `defaultAgent`, the runtime auto-selects that agent — the user never
-picks from a list. Console's built-in AI panel uses this. The runtime
+picks from a list. The built-in AI panel uses this. The runtime
 resolves:
 
 1. The **default agent** for the active app (the app's `defaultAgent`),

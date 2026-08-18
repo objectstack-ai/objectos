@@ -147,7 +147,7 @@ many already are.
 | Settings stored in DB | Encrypted by the settings service at rest |
 
 **Never** bake secrets into the artifact (`objectstack.json`), the
-Docker image, the compose file, or Git. The settings UI in Console
+Docker image, the compose file, or Git. The settings UI in Setup
 shows env-managed values as locked, so operators can't accidentally
 override them.
 
@@ -252,7 +252,7 @@ construction:
   write to the database.
 - Tool calls inherit the **end user's permissions**, not the model's
   service-account permissions. A user can never use the AI to do
-  something they couldn't do themselves through Console or REST.
+  something they couldn't do themselves through the UI or REST.
 - Skills loaded into agents are versioned and explicit — see
   [Build → IDE Skills](/docs/build/ai-skills) and
   [Build → AI Builder](/docs/build/ai-builder).

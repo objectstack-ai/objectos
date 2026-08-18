@@ -18,7 +18,7 @@ os --help
 Auto-detects 4 escalating modes:
 
 1. **Empty boot** — no artifact, no config in cwd → boots a bare
-   kernel with Console + marketplace.
+   kernel with the UI + marketplace.
 2. **Project boot** — `objectstack.config.ts` in cwd → auto-compiles
    to `./dist/objectstack.json` and boots from it.
 3. **Artifact boot** — `dist/objectstack.json` reachable → boots from
@@ -71,9 +71,9 @@ os dev                         # port 3002 by default
 os dev -p 4002
 ```
 
-### `os studio` — Console with dev server
+### `os studio` — dev server with the UI enabled
 
-Same as `os dev` but with Console explicitly enabled.
+Same as `os dev` but with the UI explicitly enabled.
 
 ## Project commands
 
@@ -210,7 +210,7 @@ os test                       # run Quality Protocol scenarios against a running
 | `-d, --database` | Database URL |
 | `--home` | Persistent state directory |
 | `-v, --verbose` | Verbose output |
-| `--no-ui` | Disable Console / Account portals |
+| `--no-ui` | Disable the UI and Account portals |
 
 Run any command with `--help` for the full flag list:
 

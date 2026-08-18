@@ -14,7 +14,7 @@ enabled by default in standalone and project boots.
 
 | Surface | Behavior |
 |---|---|
-| Console file/image fields | Browser uploads directly to storage via presigned URLs |
+| File / image fields in the UI | Browser uploads directly to storage via presigned URLs |
 | REST `/api/v1/storage/*` | Programmatic upload/download endpoints |
 | Object `file` / `image` fields | Render as upload widgets; metadata persists in `sys_file` |
 
@@ -163,7 +163,7 @@ storage-layer ACLs.
 ## Live configuration
 
 When the settings service is enabled (it is by default), an admin can
-swap storage adapter in **Console → Configuration → Storage** without
+swap storage adapter in **Setup → Configuration → Storage** without
 restarting:
 
 - pick adapter, bucket, region, endpoint;
