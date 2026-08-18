@@ -59,11 +59,20 @@ That's it. You're running ObjectOS.
 | http://localhost:3000/_account/register | Create your first account |
 | http://localhost:3000/_console/ | The admin UI — and the **app marketplace** |
 | http://localhost:3000/_console/ | Users, roles, audit log, settings |
-| http://localhost:3000/health | Liveness probe |
+| http://localhost:3000/api/v1/health | Liveness — is the process up |
+| http://localhost:3000/api/v1/ready | Readiness — is it up **and** serving data |
 
 The runtime boots into an **empty kernel** — no objects, no apps —
 and exposes the marketplace so you can install ready-made apps in
 seconds.
+
+Both probes answer 200 here, and locally there is nothing to wire them
+to — but they are not interchangeable, and it is worth knowing which is
+which before you deploy. Liveness reports only that the process is
+executing, so it stays green straight through a database outage;
+readiness answers **503** as soon as a data driver stops answering.
+[Docker](/docs/deploy/docker) and [Kubernetes](/docs/deploy/kubernetes)
+show which probe goes where.
 
 ### Build by chat — the AI Builder
 
