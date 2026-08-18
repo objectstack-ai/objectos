@@ -201,9 +201,19 @@ criteria shares nothing — it is not a match-all. See
 
 ### Surface
 
-One of the HTTP entry points a running ObjectOS exposes:
-`/` (REST API), `/_console/` (the UI, which hosts the Setup app), and
-`/_account/` (sign-in, registration, and account management).
+One of the HTTP entry points a running ObjectOS exposes: `/` (REST API)
+and `/_console/` (the UI). There are two, not three — account is **not** a
+surface of its own. Sign-in, registration and account self-service are all
+routes inside the UI:
+
+| Account surface | Where it lives |
+|---|---|
+| Sign in | `/_console/login` — where every protected page sends you when you are not signed in |
+| Register | `/_console/register` — unless the deployment disables self-service sign-up |
+| Account self-service | `/_console/apps/account` — the Account app, alongside Setup at `/_console/apps/setup` |
+
+There is no `/_account/` surface. It was retired when the standalone
+account portal was removed, and those URLs now return 404.
 
 ### System Context
 
