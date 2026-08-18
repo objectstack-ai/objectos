@@ -44,7 +44,7 @@ available to you — it is not just a matter of packaging.
 
 | Shape | The app comes from | Use it when |
 |---|---|---|
-| **Shipped runtime** | The image's own bundled application | A single-organization deployment; the default the Compose stack configures. |
+| **Config-authored** | The image's own bundled application — the metadata authored in the image, plus anything installed into it | A single-organization deployment; the default the Compose stack configures, and the shape that needs no configuration. |
 | **Artifact-pinned** | A published app artifact named by URL, resolved before any deployment config runs | You run one published app and want app upgrades to be an environment change and a restart, with no image rebuild. Note that the deployment's enterprise plugins do **not** load on this path. |
 | **Composed** | A published app artifact composed *with* this deployment's enterprise plugins | Several organizations share one database. This is the hosted single-app SaaS shape — and it is **air-gap-licensed only**, enforced at startup. |
 

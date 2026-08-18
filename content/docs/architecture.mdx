@@ -118,7 +118,7 @@ carries the exact contract for each.
 |---|---|---|
 | **Config-authored** | The shipped shape. Single app, evaluation, air-gapped, most production deployments | The runtime boots the metadata authored in the image, plus anything installed into it |
 | **Artifact-pinned** | The app is released on its own cadence, separately from the runtime image | One variable names a published artifact by URL, with an optional integrity pin. Upgrading the app is a change to that variable plus a restart |
-| **Composed** | Several organizations behind the isolation wall, sharing one database, running a published app | The same artifact reference, consumed from the deployment's own configuration so the enterprise plugins load alongside it. Air-gap licensed only |
+| **Composed** | Several organizations behind the isolation wall, sharing one database, running a published app — the hosted single-app SaaS shape | The same artifact reference, consumed from the deployment's own configuration so the enterprise plugins load alongside it. Air-gap licensed only, and [refused at startup](/docs/deploy/air-gapped) otherwise |
 
 Whether the deployment also talks to a **control plane** is a separate
 decision, made by the cloud-posture variable — a connected deployment can be
