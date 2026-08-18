@@ -37,7 +37,7 @@ Track at least:
 | Request duration | Detect latency regressions |
 | 5xx errors | Alert on runtime failures |
 | Auth failures | Detect configuration or attack patterns |
-| Artifact/kernel cache misses | Understand cold-start behavior |
+| Readiness transitions | The process reports ready only once its kernel is built, and `/api/v1/ready` answers 503 when a data driver stops |
 
 ### Minimal Prometheus example
 
@@ -72,13 +72,11 @@ groups:
         for: 10m
         annotations:
           summary: "Sustained auth failure rate — check for misconfiguration or attack"
-
-      - alert: ObjectOSKernelColdStartHigh
-        expr: rate(kernel_cache_misses_total[15m]) > 1
-        for: 15m
-        annotations:
-          summary: "Frequent project kernel cold starts — consider raising OS_KERNEL_CACHE_SIZE"
 ```
+
+Cold starts are not on that list. The kernel is built once, at startup, and
+the process reports [ready](/docs/deploy/docker) only afterwards — there is
+no steady-state cache-miss signal to alert on, so alert on readiness instead.
 
 For OpenTelemetry, set `OS_OBS_EXPORTER=otlp` **and** `OS_OTLP_ENDPOINT`
 (e.g. `https://<collector>/otlp`) and ObjectOS will emit traces and metrics

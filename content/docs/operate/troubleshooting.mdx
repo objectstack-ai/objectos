@@ -63,14 +63,13 @@ Check:
 - public URL and callback URL match;
 - OIDC discovery URL is reachable from ObjectOS;
 - trusted origins include the public domain;
-- cookies are scoped to the correct project hostname;
-- the project kernel has auth enabled.
+- cookies are scoped to the deployment's public hostname.
 
 ## User cannot see records
 
 Check:
 
-1. Correct project hostname.
+1. Correct deployment hostname.
 2. User belongs to the expected organization.
 3. Object `read` permission.
 4. Row-level security.
