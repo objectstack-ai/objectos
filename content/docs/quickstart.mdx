@@ -10,7 +10,8 @@ There are two ways to start, depending on what you're doing.
 | Trying ObjectOS for the first time, or running it in production | [Path A — `os start`](#path-a--os-start-operator-first-time-evaluator) |
 | Building or customizing an app in code | [Path B — `os init`](#path-b--os-init-developer) |
 
-Both produce a running server with the UI + Account. The
+Both produce a running server with the UI — account sign-in, registration
+and self-service are routes inside that UI, not a separate surface. The
 difference is whether you scaffold source files.
 
 ## Prerequisites
@@ -37,28 +38,42 @@ You'll see:
 ◆ ObjectStack
 ────────────────────────────────────────
 🏠 Home: ~/.objectstack
-📦 Artifact: none (empty kernel — install apps via Console marketplace)
+📦 Artifact: none (empty kernel — install apps via the Console marketplace)
 🗄️ Database: file:~/.objectstack/data/objectstack.db
+🎯 Environment: env_local
+🖥️ Console: http://localhost:3000/_console/
+  → Starting server...
 
   ✓ Server is ready
 
   ➜  API:       http://localhost:3000/
-  ➜  Console:    http://localhost:3000/_console/
-  ➜  Account:   http://localhost:3000/_account/
   ➜  Console:   http://localhost:3000/_console/
+  ➜  MCP:       http://localhost:3000/api/v1/mcp
+      connect an AI client (Claude Code, Cursor, …) · skill: http://localhost:3000/api/v1/mcp/skill
 
-  Plugins: 23 loaded
+  Config:  objectstack.config.ts
+  Mode:    production
+  Driver:  SqlDriver(better-sqlite3)  → ~/.objectstack/data/objectstack.db
+  Tenancy: single
+  Plugins: 30 loaded
+
+  Press Ctrl+C to stop
 ```
 
 That's it. You're running ObjectOS.
+
+That block is transcribed from `@objectstack/cli` 17.0.0 booting an empty
+kernel. Home paths show as `~/…` — the CLI prints yours expanded. Your own boot
+also prints startup advisories (local storage driver, dev crypto key) and the
+full list of loaded plugin names, both of which depend on your environment.
 
 ### What's running
 
 | URL | What it is |
 |---|---|
-| http://localhost:3000/_account/register | Create your first account |
+| http://localhost:3000/_console/register | Create your first account |
 | http://localhost:3000/_console/ | The generated UI — and the **app marketplace** |
-| http://localhost:3000/_console/ | **Setup** — users, roles, audit log, settings |
+| http://localhost:3000/_console/apps/setup | **Setup** — users, roles, audit log, settings |
 | http://localhost:3000/api/v1/health | Liveness — is the process up |
 | http://localhost:3000/api/v1/ready | Readiness — is it up **and** serving data |
 
@@ -135,6 +150,14 @@ cd my-app
 pnpm dev
 ```
 
+> **Warning:** On `@objectstack/cli` 17.0.0 — the currently published
+> `latest` — this sequence does not reach a dev server. The project
+> `init` scaffolds declares no `sharingModel`, which the CLI's own
+> `security-owd-unset` author-time rule rejects, so `pnpm dev` exits 1
+> during compile instead of starting. The fix is merged and awaiting a
+> release —
+> [objectstack#9666](https://github.com/objectstack-ai/objectstack/issues/9666).
+
 You'll see:
 
 ```text
@@ -148,8 +171,6 @@ You'll see:
   ✓ Server is ready
 
   ➜  API:       http://localhost:3002/
-  ➜  Console:    http://localhost:3002/_console/
-  ➜  Account:   http://localhost:3002/_account/
   ➜  Console:   http://localhost:3002/_console/
 ```
 
@@ -219,11 +240,13 @@ Each template is < 2500 LOC, readable in one sitting, runs standalone.
 
 ## What's loaded out of the box
 
-Either path gives you these 23 plugins automatically:
+Either path gives you these plugins automatically:
 
-> Auth, Security (RBAC + RLS + FLS), Audit, REST API, Console UI,
-> Account UI, Console UI, AI Service, Queue, Jobs, Cache, Settings,
-> Email, Storage, Marketplace, Metadata, ObjectQL, plus the SQL driver.
+> HTTP server, REST API, Dispatcher, MCP server, Auth, Security (RBAC + RLS +
+> FLS), Audit, Sharing, Platform objects, Metadata, ObjectQL, the default
+> datasource plus the external-datasource and datasource-admin services, Queue,
+> Jobs, Cache, Settings, Email, SMS, Messaging, Storage, Analytics, external
+> validation, Marketplace, the Setup and Account apps, and the Console UI.
 
 You don't import or wire any of them — they activate when something
 declares it needs them.
