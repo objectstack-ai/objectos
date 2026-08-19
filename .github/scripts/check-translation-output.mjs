@@ -821,11 +821,15 @@ const CASES = [
     xx: (s) => `${s}\n{/* offene Notiz ohne Ende\nDer Wert javascript:alert(1) ist verboten.\n`,
   },
   {
+    // The marker opens inside the fence and a closer sits in prose further
+    // down, so an implementation that stripped comments BEFORE separating
+    // fences would swallow the fence and the `javascript:` with it.
     name: 'a comment marker inside a code fence is code',
     expect: ['unsafe'],
     en: (s) => s.replace('os lint --rule', '# {/* siehe unten\nos lint --rule'),
     xx: (s) =>
-      `${s.replace('os lint --rule', '# {/* siehe unten\nos lint --rule')}\nDer Wert javascript:alert(1) ist verboten.\n`,
+      `${s.replace('os lint --rule', '# {/* siehe unten\nos lint --rule')}\n` +
+      'Der Wert javascript:alert(1) ist verboten.\nEnde der Notiz */}\n',
   },
   {
     name: 'a comment inside an inline code span is prose',
