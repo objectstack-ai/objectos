@@ -27,6 +27,7 @@
  *   node .github/scripts/check-translation-ownership.mjs --actor <login> --files <list>
  *
  * <list> is a file containing one changed path per line (`git diff --name-only`).
+ * <login> is required whenever `TRANSLATION_BOT_LOGIN` is set — see `main()`.
  */
 import { readFileSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
@@ -64,10 +65,10 @@ function isTranslationArtifact(path) {
  *
  * So argument validation throws this class and the entry point below prints the
  * message plus the usage line, no stack, exit 1. Everything else — an
- * unparseable i18n.ts, an unreadable list file, a bug in here — is a genuine
- * internal failure and keeps its stack, which is what a real fault needs.
- * The exit status is unchanged in both cases: a misinvocation is still a
- * failure, never a silent pass.
+ * unparseable i18n.ts, a list file that exists but cannot be read, a bug in
+ * here — is a genuine internal failure and keeps its stack, which is what a
+ * real fault needs. The exit status is unchanged in both cases: a
+ * misinvocation is still a failure, never a silent pass.
  */
 class UsageError extends Error {}
 
@@ -75,8 +76,28 @@ const USAGE = [
   'usage: node .github/scripts/check-translation-ownership.mjs --actor <login> --files <path>',
   '',
   '  --actor <login>  PR author login (workflows pass github.event.pull_request.user.login)',
+  '                   required whenever TRANSLATION_BOT_LOGIN is set',
   '  --files <path>   file listing one changed path per line (git diff --name-only)',
 ].join('\n');
+
+/**
+ * The changed-path list, with a path that is simply not there answered as the
+ * misinvocation it is. Naming a file that does not exist is the same class of
+ * mistake as omitting `--files` altogether, and it used to surface as a raw
+ * seven-line ENOENT stack — which reads as "this script is broken". Every
+ * other way the read can fail (a directory, a permission error, a bad mount)
+ * is a real fault and keeps its stack.
+ */
+function readChangedList(listFile) {
+  const path = resolve(ROOT, listFile);
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    const where = path === listFile ? '' : ` (resolved to ${path})`;
+    throw new UsageError(`--files ${listFile} does not exist${where}`);
+  }
+}
 
 function main() {
   const argv = process.argv.slice(2);
@@ -89,12 +110,29 @@ function main() {
   const listFile = value('files');
   if (!listFile) throw new UsageError('--files <path> is required');
 
-  const changed = readFileSync(resolve(ROOT, listFile), 'utf8')
+  const botLogin = (process.env.TRANSLATION_BOT_LOGIN ?? '').trim();
+
+  // `--actor` is documented, but the implementation defaulted it to '' and
+  // then judged the PR anyway. An empty actor can never equal a non-empty
+  // bot login, so `isBot` is false and a translation-account PR invoked
+  // without the flag is rejected as a hand-written one: a confident verdict
+  // reached with the discriminator the whole check rests on absent, and
+  // nothing saying so.
+  //
+  // Required exactly while the bot login is set, which is the only condition
+  // under which the actor is read at all. With it unset the check is inert by
+  // design — it reports and passes so this could land before the account
+  // existed — the actor is never consulted, and demanding an argument nothing
+  // reads would be noise on an invocation whose meaning is settled elsewhere.
+  if (botLogin && !actor) {
+    throw new UsageError('--actor <login> is required when TRANSLATION_BOT_LOGIN is set');
+  }
+
+  const changed = readChangedList(listFile)
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const botLogin = (process.env.TRANSLATION_BOT_LOGIN ?? '').trim();
   const isBot = botLogin !== '' && actor.toLowerCase() === botLogin.toLowerCase();
 
   const artifacts = changed.filter(isTranslationArtifact);
