@@ -78,7 +78,7 @@ Components are the building blocks inside regions:
   properties: { chartType: 'line', dataset: 'sales',
                 dimensions: ['close_month'], values: ['revenue'] },
   events: { onClick: "navigate_to('opportunity_detail', { id: $event.id })" },
-  visibility: "'sales_manager' in os.user.positions",
+  visibleWhen: "'sales_manager' in os.user.positions",
 }
 ```
 
@@ -95,7 +95,7 @@ parse error since 16.0, not a silently ignored no-op.
 | `id` | `string` | Unique component instance id |
 | `properties` | `object` | Component-specific configuration |
 | `events` | `object` | Event handlers (action expressions) |
-| `visibility` | `string` | CEL visibility predicate |
+| `visibleWhen` | `string` | CEL visibility predicate — component rendered only when TRUE. (`visibility` is a deprecated alias, still accepted and normalized to `visibleWhen`.) |
 | `style` / `className` | — | Ad-hoc CSS |
 | `responsiveStyles` | `object` | **Preferred** styling channel: desktop-first per-breakpoint style maps (`large` base, then `medium` / `small` / `xsmall` overrides), compiled to scoped CSS — prefer design tokens like `var(--space-8)` |
 
