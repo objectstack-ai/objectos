@@ -80,8 +80,38 @@ per-user preferences filter delivery.
 | Field | Purpose |
 |---|---|
 | `topic` | The topic being subscribed to |
-| `principal` | Role, team, or user that receives the topic |
+| `principal` | Role, team, or user that receives the topic — a selector string; see [What to type in `principal`](#what-to-type-in-principal) |
 | `enabled` | Boolean — activate or pause the subscription |
+
+### What to type in `principal`
+
+`principal` is a single text field, not a picker: the value is a **selector
+string**, and its prefix decides what the value is matched against. A value
+with no recognized prefix is read as a bare user id — so typing
+`sales_manager` (or `Sales team`) addresses a user that does not exist, rather
+than the group you meant.
+
+| Value | Who it resolves to | Example |
+|---|---|---|
+| `role:name` | Everyone whose organization-membership tier is that name, within the organization (`sys_member.role`) | `role:admin` |
+| `team:id` | Every member of that team, matched on the team **id**, not its label (`sys_team_member.team_id`) | `team:team_123` |
+| `user:id` | That one user, by user id | `user:usr_123` |
+| `id` | No prefix — the whole value is taken as a bare user id | `usr_123` |
+
+> **`role:` here means the organization-membership tier, not a job function.**
+> The tiers are `owner`, `admin`, `delegated_admin`, and `member` — the standing
+> a user holds in the organization. Job function is a
+> [position](/docs/configure/permissions/positions), and position names are not
+> addressable here: `role:sales_manager` matches nobody. *Role* is retired
+> vocabulary everywhere else in ObjectOS (capability is a permission set,
+> distribution is a position); the organization-membership tier is the one
+> exception, and this selector spells it the same way.
+
+Directory lookups behind a selector are deliberately best-effort — an event is
+never failed because a lookup missed. A selector that matches nothing therefore
+resolves to **zero recipients silently**: the subscription row stays valid and
+enabled, and nothing is reported on it. When a topic reaches no one, check the
+prefix and the spelling of the value first.
 
 ## Notification Templates
 
