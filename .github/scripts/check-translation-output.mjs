@@ -171,9 +171,109 @@ const topLevelKeys = (block) =>
     .filter(Boolean);
 
 /**
- * Split a document into fenced code blocks and the prose around them. The
- * fence marker and info string are part of the compared text: a translated
- * ```bash is as much a defect as a translated comment inside it.
+ * An MDX expression comment — `{/*` … `*\/}` — and the index just past its
+ * closing brace, or -1 if the run starting at `from` is not one.
+ *
+ * Deliberately strict, because over-stripping is the dangerous direction: the
+ * text this removes stops being scanned by `unsafe`, and a safety rule that
+ * silently skips real prose is far worse than the false positive being fixed.
+ * So only the exact construction MDX treats as an EMPTY EXPRESSION is removed:
+ * the block comment must end at its first `*\/`, and the expression must close
+ * on that same `*\/` (horizontal whitespace allowed). `{/* a *\/ b *\/}` holds an
+ * expression that is not just a comment, `{/* x *\/\n}` closes on the next
+ * line, and neither is stripped — they keep today's behaviour rather than
+ * gamble prose on a guess. An UNTERMINATED `{/*` is likewise left in prose: it
+ * is the one shape where a wrong answer swallows the rest of the page, and MDX
+ * itself refuses to compile it, so nothing renders from a file that has one.
+ */
+function commentEnd(text, from) {
+  if (!text.startsWith('{/*', from)) return -1;
+  const star = text.indexOf('*/', from + 3);
+  if (star === -1) return -1;
+  let i = star + 2;
+  while (text[i] === ' ' || text[i] === '\t') i += 1;
+  return text[i] === '}' ? i + 1 : -1;
+}
+
+/**
+ * The index just past the inline code span opening at `i`, or just past the
+ * opening backtick run if nothing closes it on that line.
+ *
+ * Code spans are skipped whole, so a `{/*` inside one is never read as a
+ * comment. That is not a technicality: a page documenting MDX comments writes
+ * `` `{/* … *\/}` `` in a code span, and there the characters DO reach the
+ * reader. Same single-line model as `scannable()` — a run of n backticks
+ * closed by a run of exactly n.
+ */
+function codeSpanEnd(text, i) {
+  let n = 1;
+  while (text[i + n] === '`') n += 1;
+  const nl = text.indexOf('\n', i + n);
+  const limit = nl === -1 ? text.length : nl;
+  let j = i + n;
+  while (j < limit) {
+    if (text[j] !== '`') {
+      j += 1;
+      continue;
+    }
+    let m = 1;
+    while (text[j + m] === '`') m += 1;
+    if (m === n) return j + m;
+    j += m;
+  }
+  return i + n; // unclosed on this line: the backtick run is literal text
+}
+
+/**
+ * Pull MDX expression comments out of prose, left to right, code spans first.
+ *
+ * Removed rather than blanked, because that is what the page renders: in
+ * `foo{/* c *\/}bar` the expression yields nothing and the reader sees `foobar`,
+ * so the scanned text should read `foobar` too.
+ */
+function separateComments(text) {
+  const comments = [];
+  let out = '';
+  let last = 0;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '`') {
+      i = codeSpanEnd(text, i);
+      continue;
+    }
+    if (c === '{') {
+      const end = commentEnd(text, i);
+      if (end === -1) {
+        i += 1;
+        continue;
+      }
+      out += text.slice(last, i);
+      comments.push(text.slice(i, end));
+      last = end;
+      i = end;
+      continue;
+    }
+    i += 1;
+  }
+  return { comments, prose: out + text.slice(last) };
+}
+
+/**
+ * Split a document into fenced code blocks, MDX expression comments, and the
+ * prose around them. The fence marker and info string are part of the compared
+ * text: a translated ```bash is as much a defect as a translated comment inside
+ * it.
+ *
+ * Comments are separated HERE, beside fences, and for the same reason: every
+ * rule below reads `.prose`, so one seam decides what "the text of this page"
+ * is. Teaching `proseLength()` and `checkUnsafe()` about comments one at a time
+ * is how two rules end up disagreeing about what text is.
+ *
+ * Fences win over comments: the fence machine runs first, so a `{/*` inside a
+ * code sample is code, never an opening marker. Nothing hides in the gap — a
+ * comment that opens in prose and closes after a fence removes the prose around
+ * that fence, while `fence` still pins the fence bytes to the English source.
  */
 function split(text) {
   const fences = [];
@@ -201,7 +301,8 @@ function split(text) {
     prose.push(line);
   }
   if (open) fences.push(open.buf.join('\n')); // unterminated: compare what there is
-  return { fences, prose: prose.join('\n') };
+  const { comments, prose: body } = separateComments(prose.join('\n'));
+  return { fences, comments, prose: body };
 }
 
 const URL_PATTERNS = [
@@ -394,6 +495,15 @@ function survey() {
 /** Every rule this script enforces; the self-test asserts each one has a red fixture. */
 const RULES = ['fence', 'url', 'frontmatter', 'component', 'unsafe', 'length'];
 
+/**
+ * The rules whose answer depends on what `split()` decided the text of the
+ * page is. Each must also ship a fixture declaring it stays SILENT (`ignores`
+ * in the case table): a rule that quietly stops firing is invisible to a suite
+ * that only ever asserts rules can fire, and that is exactly how comment text
+ * was measured as prose for as long as it was.
+ */
+const PROSE_RULES = ['url', 'component', 'unsafe', 'length'];
+
 const SAFETY = new Set(['unsafe']);
 const ADVISORY = new Set(['uncalibrated']);
 
@@ -568,6 +678,14 @@ Eine Position ist ein Knoten im Baum der Geschäftseinheiten, und jeder Benutzer
 const FILLER_EN = 'Positions are inherited down the tree unless a permission set overrides them. ';
 const FILLER_XX = 'Positionen werden im Baum vererbt, sofern ein Berechtigungssatz sie nicht überschreibt. ';
 
+/**
+ * A maintenance note in the shape the corpus carries one, and long enough that
+ * measuring it as prose moves the ratio out of band on its own — which is what
+ * makes the English-comment fixture red without the fix.
+ */
+const NOTE_LINE = '  Naming decided under the ADR; do not rewrite it while translating this page.\n';
+const NOTE = `{/*\n${NOTE_LINE.repeat(14)}*/}`;
+
 /** English fixture, padded so every locale's target length is reachable. */
 const fixtureEn = () => CORE_EN + FILLER_EN.repeat(14) + '\n';
 
@@ -655,6 +773,113 @@ const CASES = [
   },
   { name: 'body truncated to half', expect: ['length'], scale: 0.5 },
   { name: 'body padded with invented content', expect: ['length'], scale: 1.5 },
+
+  /* MDX expression comments. The cases above assert that every rule CAN fire;
+   * by construction they say nothing about what a rule must stay silent on,
+   * which is the blind spot that let comment text be measured as prose. The
+   * `ignores` field below is that missing half, and `PROSE_RULES` makes it
+   * mandatory rather than optional. The `expect`-carrying cases in this group
+   * are the other direction: over-stripping blinds a blocking safety rule, so
+   * each shape that must NOT be read as a comment gets prose a rule has to
+   * still find.
+   */
+  {
+    name: 'MDX comment in the English source (renders nothing)',
+    expect: [],
+    ignores: ['length'],
+    en: (s) => s.replace('Positions describe', `${NOTE}\nPositions describe`),
+  },
+  {
+    name: 'javascript: URL inside an MDX comment',
+    expect: [],
+    ignores: ['unsafe'],
+    xx: (s) => `${s}\n{/* Nicht dokumentieren: javascript:alert(1) ist verboten. */}\n`,
+  },
+  {
+    name: 'script tag inside a multi-line MDX comment',
+    expect: [],
+    ignores: ['unsafe'],
+    xx: (s) =>
+      `${s}\n{/*\n  Verbotenes Markup, nur als Notiz:\n  <script>fetch("https://x.invalid")</script>\n  Ende der Notiz.\n*/}\n`,
+  },
+  {
+    name: 'two MDX comments on one prose line',
+    expect: [],
+    ignores: ['unsafe'],
+    xx: (s) => `${s}\nEin {/* javascript:alert(1) */} Satz {/* <script>x</script> */} Ende.\n`,
+  },
+  {
+    name: 'component and link inside an MDX comment',
+    expect: [],
+    ignores: ['component', 'url'],
+    xx: (s) =>
+      `${s}\n{/* Alt: <Callout type="note" title="Alt">siehe [X](https://example.invalid/de)</Callout> */}\n`,
+  },
+  {
+    name: 'unterminated MDX comment does not swallow the page',
+    expect: ['unsafe'],
+    xx: (s) => `${s}\n{/* offene Notiz ohne Ende\nDer Wert javascript:alert(1) ist verboten.\n`,
+  },
+  {
+    // The marker opens inside the fence and a closer sits in prose further
+    // down, so an implementation that stripped comments BEFORE separating
+    // fences would swallow the fence and the `javascript:` with it.
+    name: 'a comment marker inside a code fence is code',
+    expect: ['unsafe'],
+    en: (s) => s.replace('os lint --rule', '# {/* siehe unten\nos lint --rule'),
+    xx: (s) =>
+      `${s.replace('os lint --rule', '# {/* siehe unten\nos lint --rule')}\n` +
+      'Der Wert javascript:alert(1) ist verboten.\nEnde der Notiz */}\n',
+  },
+  {
+    name: 'a comment inside an inline code span is prose',
+    expect: ['url'],
+    xx: (s) => `${s}\nBeispiel: \`{/* siehe https://example.invalid/de */}\`\n`,
+  },
+  {
+    name: 'a comment closer in prose with nothing opened',
+    expect: ['unsafe'],
+    xx: (s) =>
+      `${s}\nDer Marker */} und "a */ b" stehen als Text.\nDer Wert javascript:alert(1) ist verboten.\n`,
+  },
+];
+
+/**
+ * Direct assertions on the seam, independent of any rule. The fixtures above
+ * prove the consequences; these pin the semantics — above all the shapes that
+ * must NOT be treated as a comment, where a wrong answer deletes real prose
+ * from a blocking safety scan.
+ */
+const SPLIT_CASES = [
+  { name: 'comment mid-line, removed as rendered', doc: 'foo{/* c */}bar', comments: ['{/* c */}'], prose: 'foobar' },
+  {
+    name: 'two comments on one line',
+    doc: 'a {/* x */} b {/* y */} c',
+    comments: ['{/* x */}', '{/* y */}'],
+    prose: 'a  b  c',
+  },
+  {
+    name: 'comment spanning many lines',
+    doc: 'a\n{/* one\ntwo\nthree */}\nb',
+    comments: ['{/* one\ntwo\nthree */}'],
+    prose: 'a\n\nb',
+  },
+  { name: 'unterminated comment stays prose', doc: 'a\n{/* open forever\nb', comments: [], prose: 'a\n{/* open forever\nb' },
+  { name: 'comment inside a code fence is code', doc: '```js\n{/* c */}\n```\nb', comments: [], prose: '\n\nb' },
+  {
+    name: 'comment inside an inline code span is prose',
+    doc: 'Write `{/* c */}` to hide text.',
+    comments: [],
+    prose: 'Write `{/* c */}` to hide text.',
+  },
+  {
+    name: 'closer in prose with nothing opened',
+    doc: 'The marker */} and "a */ b" are text.',
+    comments: [],
+    prose: 'The marker */} and "a */ b" are text.',
+  },
+  { name: 'expression that is not only a comment', doc: 'x {/* a */ b */} y', comments: [], prose: 'x {/* a */ b */} y' },
+  { name: 'comment closing with a space before the brace', doc: 'a {/* c */ } b', comments: ['{/* c */ }'], prose: 'a  b' },
 ];
 
 function selfTest() {
@@ -676,7 +901,14 @@ function selfTest() {
         ]),
       ].sort();
       const want = [...c.expect].sort();
-      const ok = fired.join(',') === want.join(',');
+      let ok = fired.join(',') === want.join(',');
+      // A case cannot both expect and ignore a rule: `ignores` is a claim that
+      // the rule stayed silent, and it only counts as coverage if it is one.
+      const mislabelled = (c.ignores ?? []).filter((r) => want.includes(r));
+      if (mislabelled.length) {
+        ok = false;
+        console.error(`  case declares ignores [${mislabelled.join(' ')}] that it also expects`);
+      }
       if (!ok) failed += 1;
       console.log(
         `${ok ? '✓' : '✗'} ${c.name.padEnd(46)} fired [${fired.join(' ') || '—'}]` +
@@ -687,6 +919,18 @@ function selfTest() {
     rmSync(dir, { recursive: true, force: true });
   }
   console.log('');
+  for (const c of SPLIT_CASES) {
+    const got = split(c.doc);
+    const ok = JSON.stringify(got.comments) === JSON.stringify(c.comments) && got.prose === c.prose;
+    if (!ok) failed += 1;
+    console.log(`${ok ? '✓' : '✗'} split: ${c.name.padEnd(39)} ${JSON.stringify(got.comments)}`);
+    if (!ok) {
+      console.error(`    comments ${JSON.stringify(got.comments)} expected ${JSON.stringify(c.comments)}`);
+      console.error(`    prose    ${JSON.stringify(got.prose)} expected ${JSON.stringify(c.prose)}`);
+    }
+  }
+
+  console.log('');
   const covered = new Set(CASES.flatMap((c) => c.expect));
   for (const rule of RULES) {
     if (!covered.has(rule)) {
@@ -694,11 +938,21 @@ function selfTest() {
       failed += 1;
     }
   }
+  const silent = new Set(CASES.flatMap((c) => c.ignores ?? []));
+  for (const rule of PROSE_RULES) {
+    if (!silent.has(rule)) {
+      console.error(`✗ rule "${rule}" has no fixture that proves it stays silent`);
+      failed += 1;
+    }
+  }
   if (failed) {
     console.error(`\n✗ self-test: ${failed} case(s) did not behave as declared`);
     process.exit(1);
   }
-  console.log(`✓ self-test: ${CASES.length} case(s) on locale "${locale}", every rule demonstrated able to fail`);
+  console.log(
+    `✓ self-test: ${CASES.length} rule case(s) and ${SPLIT_CASES.length} split case(s) on locale ` +
+      `"${locale}" — every rule demonstrated able to fail, every prose rule demonstrated able to stay silent`,
+  );
 }
 
 main();
