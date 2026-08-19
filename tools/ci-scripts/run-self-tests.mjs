@@ -57,7 +57,7 @@ const ROOT = resolve(HERE, '../..');
 const SCRIPTS = join(ROOT, '.github/scripts');
 
 /** Scripts whose `--self-test` mode this step runs. Never let this go empty. */
-const SELF_TESTED = ['check-translation-output.mjs'];
+const SELF_TESTED = ['check-translation-output.mjs', 'check-node-floor.mjs'];
 
 /**
  * The argv dispatch, in the two shapes the scripts here use: a quoted

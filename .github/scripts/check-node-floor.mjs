@@ -71,7 +71,7 @@
  *   node .github/scripts/check-node-floor.mjs --self-test  # prove every rule can fail
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -83,7 +83,23 @@ const ROOT = resolve(HERE, '../..');
 const DECLARATION_FILES = ['package.json', 'apps/docs/package.json'];
 
 /** Every rule this script enforces; the self-test asserts each one has a red fixture. */
-const RULES = ['lockfile', 'declarations', 'node-version', 'range', 'coverage'];
+const RULES = ['lockfile', 'declarations', 'node-version', 'range', 'coverage', 'ungoverned'];
+
+/**
+ * Reported, never blocking — the same split `check-translations.mjs` already
+ * makes between blocking and reported findings.
+ *
+ * `ungoverned` names this gate's own blind spot. `DECLARATION_FILES` is an
+ * explicit list, so a workspace package that declares `engines.node` outside
+ * it is simply not checked, and a gate silently covering two of three
+ * declarations is the same structurally-silent shape this one exists to end.
+ * It is advisory rather than blocking because "this file is not governed" is
+ * not a claim that its value is WRONG: `tools/ci-scripts` declares `>=20.0.0`
+ * and has no dependencies of its own, so that may well be correct in
+ * isolation. Whether the workspace should hold one floor or several is a
+ * decision for the seat, not something for this script to force by going red.
+ */
+const ADVISORY = new Set(['ungoverned']);
 
 /**
  * Rules that must ALSO ship a fixture proving they stay silent. A rule that
@@ -93,7 +109,7 @@ const RULES = ['lockfile', 'declarations', 'node-version', 'range', 'coverage'];
  * overwhelmingly common case, and a rule that fired on it would be reverted
  * within a day.
  */
-const SILENT_RULES = ['lockfile', 'declarations', 'node-version'];
+const SILENT_RULES = ['lockfile', 'declarations', 'node-version', 'ungoverned'];
 
 /* ------------------------------------------------------- semver, a subset --
  * Only what `engines.node` ranges actually use, and only the LOWER bound —
@@ -196,6 +212,52 @@ function scanLockfile(text) {
   return { entries, unreadable, raw };
 }
 
+/* ------------------------------------------------- workspace discovery -- */
+
+/** The `packages:` globs from `pnpm-workspace.yaml`. */
+function workspaceGlobs(root) {
+  const path = join(root, 'pnpm-workspace.yaml');
+  if (!existsSync(path)) return [];
+  const globs = [];
+  let inPackages = false;
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
+    if (/^packages:\s*$/.test(line)) {
+      inPackages = true;
+      continue;
+    }
+    if (!inPackages) continue;
+    const item = /^\s+-\s*['"]?([^'"#\s]+)['"]?\s*$/.exec(line);
+    if (item) globs.push(item[1]);
+    else if (/^\S/.test(line)) inPackages = false;
+  }
+  return globs;
+}
+
+/**
+ * Every workspace `package.json`, plus the globs that could not be expanded.
+ * Only the `dir/*` shape is expanded — anything else is reported rather than
+ * silently skipped, so the blind spot stays visible.
+ */
+function workspacePackages(root) {
+  const files = ['package.json'];
+  const unexpanded = [];
+  for (const glob of workspaceGlobs(root)) {
+    const m = /^([^*!]+)\/\*$/.exec(glob);
+    if (!m) {
+      unexpanded.push(glob);
+      continue;
+    }
+    const dir = join(root, m[1]);
+    if (!existsSync(dir)) continue;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const rel = `${m[1]}/${entry.name}/package.json`;
+      if (existsSync(join(root, rel))) files.push(rel);
+    }
+  }
+  return { files, unexpanded };
+}
+
 /* --------------------------------------------------------------- inputs -- */
 
 /** Read the declared surface off disk. Missing inputs are findings, not throws. */
@@ -217,6 +279,21 @@ function collect(root) {
     }
     declarations.push({ source: file, value: parsed?.engines?.node ?? null });
   }
+  // Declarations this gate does NOT govern, reported so the blind spot is visible.
+  const ungoverned = [];
+  const { files: wsFiles, unexpanded } = workspacePackages(root);
+  for (const file of wsFiles) {
+    if (DECLARATION_FILES.includes(file)) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(readFileSync(join(root, file), 'utf8'));
+    } catch {
+      continue;
+    }
+    const value = parsed?.engines?.node;
+    if (value) ungoverned.push({ source: file, value });
+  }
+
   const nvPath = join(root, '.node-version');
   const lockPath = join(root, 'pnpm-lock.yaml');
   if (!existsSync(nvPath)) missing.push('.node-version');
@@ -226,12 +303,14 @@ function collect(root) {
     nodeVersion: existsSync(nvPath) ? readFileSync(nvPath, 'utf8') : null,
     lock: existsSync(lockPath) ? readFileSync(lockPath, 'utf8') : null,
     missing,
+    ungoverned,
+    unexpanded,
   };
 }
 
 /* ---------------------------------------------------------------- rules -- */
 
-function evaluate({ declarations, nodeVersion, lock, missing = [] }) {
+function evaluate({ declarations, nodeVersion, lock, missing = [], ungoverned = [], unexpanded = [] }) {
   const findings = [];
   const add = (rule, detail) => findings.push({ rule, detail });
 
@@ -339,14 +418,38 @@ function evaluate({ declarations, nodeVersion, lock, missing = [] }) {
     }
   }
 
+  for (const u of ungoverned) {
+    add(
+      'ungoverned',
+      `${u.source} declares engines.node ${JSON.stringify(u.value)}, which this gate does not check — ` +
+        `it governs ${DECLARATION_FILES.join(' and ')} only`,
+    );
+  }
+  for (const g of unexpanded) {
+    add(
+      'ungoverned',
+      `pnpm-workspace.yaml pattern ${JSON.stringify(g)} is not a shape this gate expands, so any ` +
+        'package.json it matches was not inspected for an engines.node declaration',
+    );
+  }
+
   return { findings, required, requiredBy, floors, scan };
 }
 
 /* --------------------------------------------------------------- output -- */
 
+/** Split findings into what fails the job and what is only reported. */
+function classify(findings) {
+  const blocking = [];
+  const advisory = [];
+  for (const f of findings) (ADVISORY.has(f.rule) ? advisory : blocking).push(f);
+  return { blocking, advisory };
+}
+
 function gate() {
   const inputs = collect(ROOT);
   const { findings, required, requiredBy, floors, scan } = evaluate(inputs);
+  const { blocking, advisory } = classify(findings);
 
   console.log('## Node floor');
   console.log('');
@@ -366,15 +469,27 @@ function gate() {
   }
   console.log('');
 
-  if (findings.length) {
-    console.log(`❌ ${findings.length} finding(s).`);
+  if (blocking.length) {
+    console.log(`❌ ${blocking.length} finding(s).`);
     console.log('');
-    for (const f of findings) console.log(`- **${f.rule}** — ${f.detail}`);
-    console.error(`\n✗ node floor: ${findings.length} finding(s)`);
-    for (const f of findings) console.error(`    [${f.rule}] ${f.detail}`);
+    for (const f of blocking) console.log(`- **${f.rule}** — ${f.detail}`);
+    console.log('');
+  } else {
+    console.log('✅ Every declared floor clears what the dependency tree requires, and the declarations agree.');
+    console.log('');
+  }
+
+  if (advisory.length) {
+    console.log(`ℹ️ ${advisory.length} note(s), reported and not blocking:`);
+    console.log('');
+    for (const f of advisory) console.log(`- **${f.rule}** — ${f.detail}`);
+  }
+
+  if (blocking.length) {
+    console.error(`\n✗ node floor: ${blocking.length} finding(s)`);
+    for (const f of blocking) console.error(`    [${f.rule}] ${f.detail}`);
     process.exit(1);
   }
-  console.log('✅ Every declared floor clears what the dependency tree requires, and the declarations agree.');
 }
 
 /* ------------------------------------------------------------ self-test --
@@ -422,8 +537,9 @@ const CASES = [
   {
     name: 'clean baseline',
     expect: [],
-    // ">=22" and ">=22.0.0" are byte-different and identical as floors.
-    ignores: ['declarations'],
+    // ">=22" and ">=22.0.0" are byte-different and identical as floors, and
+    // every workspace package.json that declares a floor is a governed one.
+    ignores: ['declarations', 'ungoverned'],
   },
   {
     name: 'declared floor below what the tree requires',
@@ -491,6 +607,16 @@ const CASES = [
     lock: CLEAN_LOCK.replace("    engines: {node: '>=10'}", "    engines:\n      node: '>=24'"),
     expect: ['coverage'],
   },
+  {
+    name: 'a workspace package outside the governed set',
+    extra: { 'tools/thing/package.json': { engines: { node: '>=20.0.0' } } },
+    expect: ['ungoverned'],
+  },
+  {
+    name: 'a workspace glob shape this gate cannot expand',
+    workspace: 'packages:\n  - apps/*\n  - tools/**\n',
+    expect: ['ungoverned'],
+  },
 ];
 
 /** The reduction, pinned on the exact range shapes this repo's lockfile contains. */
@@ -530,6 +656,14 @@ function selfTest() {
       );
       writeFileSync(join(dir, '.node-version'), `${c.nodeVersion ?? '22'}\n`);
       writeFileSync(join(dir, 'pnpm-lock.yaml'), c.lock ?? CLEAN_LOCK);
+      // A real workspace file, so the baseline exercises the governed-file
+      // exclusion rather than skipping discovery altogether.
+      writeFileSync(join(dir, 'pnpm-workspace.yaml'), c.workspace ?? 'packages:\n  - apps/*\n  - tools/*\n');
+      rmSync(join(dir, 'tools'), { recursive: true, force: true });
+      for (const [rel, body] of Object.entries(c.extra ?? {})) {
+        mkdirSync(dirname(join(dir, rel)), { recursive: true });
+        writeFileSync(join(dir, rel), JSON.stringify(body));
+      }
 
       const { findings } = evaluate(collect(dir));
       const fired = [...new Set(findings.map((f) => f.rule))].sort();
@@ -560,6 +694,17 @@ function selfTest() {
     const ok = got === expected;
     if (!ok) failed += 1;
     console.log(`${ok ? '✓' : '✗'} range ${JSON.stringify(range).padEnd(38)} -> ${got ?? 'unparseable'}` + (ok ? '' : `  expected ${expected ?? 'unparseable'}`));
+  }
+
+  console.log('');
+  // An advisory rule that quietly became blocking would turn this gate red on
+  // a repo it was never meant to judge, so the split is asserted, not assumed.
+  for (const rule of RULES) {
+    const { blocking, advisory } = classify([{ rule, detail: 'probe' }]);
+    const wantAdvisory = ADVISORY.has(rule);
+    const ok = wantAdvisory ? advisory.length === 1 && blocking.length === 0 : blocking.length === 1 && advisory.length === 0;
+    if (!ok) failed += 1;
+    console.log(`${ok ? '✓' : '✗'} classify ${rule.padEnd(14)} -> ${wantAdvisory ? 'advisory (reported)' : 'blocking'}`);
   }
 
   console.log('');
