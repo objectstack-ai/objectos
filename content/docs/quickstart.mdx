@@ -150,6 +150,14 @@ cd my-app
 pnpm dev
 ```
 
+> **Warning:** On `@objectstack/cli` 17.0.0 — the currently published
+> `latest` — this sequence does not reach a dev server. The project
+> `init` scaffolds declares no `sharingModel`, which the CLI's own
+> `security-owd-unset` author-time rule rejects, so `pnpm dev` exits 1
+> during compile instead of starting. The fix is merged and awaiting a
+> release —
+> [objectstack#9666](https://github.com/objectstack-ai/objectstack/issues/9666).
+
 You'll see:
 
 ```text
