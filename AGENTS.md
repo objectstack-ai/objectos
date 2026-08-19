@@ -76,7 +76,7 @@ node .github/scripts/check-translations.mjs --worklist  # what the next pass wil
 ## Commands
 
 From `apps/docs/`:
-- `npm run dev` — dev server on http://localhost:3001
+- `npm run dev` — dev server on http://localhost:3000
 - `npm run type-check` — `fumadocs-mdx && next typegen && tsc --noEmit`
 - `npm run build` — production build
 
