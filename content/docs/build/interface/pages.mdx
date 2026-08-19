@@ -78,7 +78,7 @@ Components are the building blocks inside regions:
   properties: { chartType: 'line', dataset: 'sales',
                 dimensions: ['close_month'], values: ['revenue'] },
   events: { onClick: "navigate_to('opportunity_detail', { id: $event.id })" },
-  visibility: "os.user.profile == 'sales_manager'",
+  visibility: "'sales_manager' in os.user.positions",
 }
 ```
 
