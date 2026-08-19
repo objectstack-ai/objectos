@@ -27,7 +27,7 @@
  *   node .github/scripts/check-translation-ownership.mjs --actor <login> --files <list>
  *
  * <list> is a file containing one changed path per line (`git diff --name-only`).
- * <login> is required whenever `TRANSLATION_BOT_LOGIN` is set — see `main()`.
+ * Both arguments are required; see `main()` for why the actor is not optional.
  */
 import { readFileSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
@@ -76,7 +76,6 @@ const USAGE = [
   'usage: node .github/scripts/check-translation-ownership.mjs --actor <login> --files <path>',
   '',
   '  --actor <login>  PR author login (workflows pass github.event.pull_request.user.login)',
-  '                   required whenever TRANSLATION_BOT_LOGIN is set',
   '  --files <path>   file listing one changed path per line (git diff --name-only)',
 ].join('\n');
 
@@ -110,29 +109,25 @@ function main() {
   const listFile = value('files');
   if (!listFile) throw new UsageError('--files <path> is required');
 
-  const botLogin = (process.env.TRANSLATION_BOT_LOGIN ?? '').trim();
-
-  // `--actor` is documented, but the implementation defaulted it to '' and
-  // then judged the PR anyway. An empty actor can never equal a non-empty
-  // bot login, so `isBot` is false and a translation-account PR invoked
-  // without the flag is rejected as a hand-written one: a confident verdict
-  // reached with the discriminator the whole check rests on absent, and
-  // nothing saying so.
+  // The actor is the discriminator this whole check is built on, and the
+  // header documents it as part of the invocation — so it is enforced the way
+  // `--files` is. The implementation used to default it to '' and judge the PR
+  // anyway: an empty actor can never equal a non-empty bot login, so `isBot`
+  // was false and a translation-account PR invoked without the flag came back
+  // rejected as hand-written — a confident verdict reached with the
+  // discriminator absent, and nothing saying so. Declared, therefore enforced.
   //
-  // Required exactly while the bot login is set, which is the only condition
-  // under which the actor is read at all. With it unset the check is inert by
-  // design — it reports and passes so this could land before the account
-  // existed — the actor is never consulted, and demanding an argument nothing
-  // reads would be noise on an invocation whose meaning is settled elsewhere.
-  if (botLogin && !actor) {
-    throw new UsageError('--actor <login> is required when TRANSLATION_BOT_LOGIN is set');
-  }
+  // This answers a malformed invocation, not the question of what the check
+  // means once it is well formed: a call that passes both arguments with
+  // `TRANSLATION_BOT_LOGIN` unset still reports and passes, untouched.
+  if (!actor) throw new UsageError('--actor <login> is required');
 
   const changed = readChangedList(listFile)
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const botLogin = (process.env.TRANSLATION_BOT_LOGIN ?? '').trim();
   const isBot = botLogin !== '' && actor.toLowerCase() === botLogin.toLowerCase();
 
   const artifacts = changed.filter(isTranslationArtifact);
