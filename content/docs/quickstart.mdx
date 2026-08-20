@@ -51,7 +51,6 @@ You'll see:
   ➜  MCP:       http://localhost:3000/api/v1/mcp
       connect an AI client (Claude Code, Cursor, …) · skill: http://localhost:3000/api/v1/mcp/skill
 
-  Config:  objectstack.config.ts
   Mode:    production
   Driver:  SqlDriver(better-sqlite3)  → ~/.objectstack/data/objectstack.db
   Tenancy: single
@@ -62,10 +61,11 @@ You'll see:
 
 That's it. You're running ObjectOS.
 
-That block is transcribed from `@objectstack/cli` 17.0.0 booting an empty
+That block is transcribed from `@objectstack/cli` 17.1.0 booting an empty
 kernel. Home paths show as `~/…` — the CLI prints yours expanded. Your own boot
-also prints startup advisories (local storage driver, dev crypto key) and the
-full list of loaded plugin names, both of which depend on your environment.
+also prints startup advisories (local storage driver, dev crypto key, boot
+diagnostics) and the full list of loaded plugin names, both of which depend on
+your environment.
 
 ### What's running
 
@@ -150,32 +150,55 @@ cd my-app
 pnpm dev
 ```
 
-> **Warning:** On `@objectstack/cli` 17.0.0 — the currently published
-> `latest` — this sequence does not reach a dev server. The project
-> `init` scaffolds declares no `sharingModel`, which the CLI's own
-> `security-owd-unset` author-time rule rejects, so `pnpm dev` exits 1
-> during compile instead of starting. The fix is merged and awaiting a
-> release —
-> [objectstack#9666](https://github.com/objectstack-ai/objectstack/issues/9666).
-
 You'll see:
 
 ```text
-✓ Project initialized!
+◆ Development Mode
+────────────────────────────────────────
+📂 Config: my-app/objectstack.config.ts
+  → Compiling objectstack.config.ts → dist/objectstack.json...
 
 ◆ Compile
-  ✓ Build complete (462ms)
+────────────────────────────────────────
+  ✓ Build complete (117ms)
+
   Data: 1 Objects  3 Fields
 
-◆ Development Mode
+  Artifact: my-app/dist/objectstack.json (1.9 KB)
+
+  → Starting dev server (local mode)...
+🎯 Environment ID: env_local
+📦 Artifact: dist/objectstack.json
+🗄️ Database: file:my-app/.objectstack/data/objectstack.db
+  👁  watching objectstack.config.ts, src — rebuild + restart on change
+
   ✓ Server is ready
 
-  ➜  API:       http://localhost:3002/
-  ➜  Console:   http://localhost:3002/_console/
+  ➜  API:       http://localhost:3000/
+  ➜  Console:   http://localhost:3000/_console/
+  ➜  MCP:       http://localhost:3000/api/v1/mcp
+      connect an AI client (Claude Code, Cursor, …) · skill: http://localhost:3000/api/v1/mcp/skill
+
+  🔑  Dev admin: admin@objectos.ai / admin123
+      seeded on empty DB · dev only — do not use in production
+
+  Config:  objectstack.config.ts
+  Mode:    development
+  Driver:  SqlDriver(better-sqlite3)  → my-app/.objectstack/data/objectstack.db
+  Tenancy: single
+  Plugins: 30 loaded
+
+  Press Ctrl+C to stop
 ```
 
-Note the dev server uses port **3002** to avoid colliding with a
-running `os start` on 3000.
+That block is transcribed from `pnpm dev` on a scaffold created by
+`@objectstack/cli` 17.1.0. Project paths show as `my-app/…` — the CLI prints
+yours expanded — and it also prints per-step compile progress and the full
+list of loaded plugin names.
+
+Note the dev server asks for port **3000**, the same port `os start` uses. If
+that port is taken it binds the next free one and says so:
+`↪ server bound to port 3001 (requested 3000)`.
 
 ### Add your own object
 
