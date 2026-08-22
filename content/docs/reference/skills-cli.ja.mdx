@@ -1,6 +1,10 @@
 ---
 title: skills CLI
 description: ObjectOS のスキルバンドルをコーディングエージェントにインストールする npx コマンド。
+translation:
+  source_sha: ab92f8b9ec6ba4e89662faf8d688e2cf621fbdb2765c8b919e28f053cdf4a331
+  guide_rev: 1
+  mode: auto
 ---
 
 [`skills`](https://www.npmjs.com/package/skills) CLI
@@ -14,12 +18,12 @@ description: ObjectOS のスキルバンドルをコーディングエージェ�
 ## インストール
 
 ```bash
-npx skills add objectstack-ai/framework
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 初回実行時には、`npx` 経由で npm から
 [`skills`](https://www.npmjs.com/package/skills) パッケージをダウンロードし、
-続いて [github.com/objectstack-ai/framework](https://github.com/objectstack-ai/framework)
+続いて [github.com/objectstack-ai/objectstack](https://github.com/objectstack-ai/objectstack)
 （`skills/<name>/` フォルダ）からスキルバンドルを取得して、プロジェクトの
 エージェント設定に書き込みます。
 
@@ -31,7 +35,7 @@ npx skills add objectstack-ai/framework
 
 | エージェント | 書き込まれるパス |
 |:--|:--|
-| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| Claude Code | `.claude/skills/<name>/` → symlink to `.agents/skills/<name>/` |
 | Cursor | `.cursor/rules/<name>.mdc` |
 | GitHub Copilot | `.github/copilot-instructions.md`（統合） |
 | Codex / Codex CLI | `AGENTS.md`（統合） |
@@ -61,7 +65,7 @@ CLI が書き込もうとする内容を確認するには `npx skills detect` �
 
 ```bash
 npx skills add <org>/<repo>        # add a skill bundle from a GitHub repo
-npx skills add <org>/<repo>@<ref>  # pin to a tag / branch / SHA
+npx skills add https://github.com/<org>/<repo>/tree/<ref>/<path>  # pin to a tag / branch / SHA
 npx skills list                    # list installed skills
 npx skills remove <name>           # remove a skill
 npx skills detect                  # show which agents the CLI will write to
@@ -71,7 +75,7 @@ npx skills --help                  # full options
 再現可能な CI のためにバージョンを固定する場合：
 
 ```bash
-npx skills add objectstack-ai/framework@v5.0.0
+npx skills add https://github.com/objectstack-ai/objectstack/tree/<commit-sha>/skills
 ```
 
 ## 出力をどこにコミットするか
@@ -83,7 +87,7 @@ npx skills add objectstack-ai/framework@v5.0.0
 ## 更新
 
 ```bash
-npx skills add objectstack-ai/framework      # pulls latest matching the spec version range
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 `@objectstack/spec` をアップグレードした後に再実行すると、エージェントが
@@ -94,4 +98,4 @@ npx skills add objectstack-ai/framework      # pulls latest matching the spec ve
 - [Build → IDE Skills](/docs/build/ai-skills) — 概念的な概要、AI Builder とスキルの比較
 - [Build → AI Builder](/docs/build/ai-builder) — Console 内の対応機能
 - [vercel-labs/skills](https://github.com/vercel-labs/skills) — 上流の CLI
-- [objectstack-ai/framework/skills](https://github.com/objectstack-ai/framework/tree/main/skills) — すべてのスキルのソースオブトゥルース
+- [objectstack-ai/objectstack/skills](https://github.com/objectstack-ai/objectstack/tree/main/skills) — すべてのスキルのソースオブトゥルース

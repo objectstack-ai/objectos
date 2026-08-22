@@ -1,0 +1,180 @@
+#!/usr/bin/env node
+/**
+ * "Humans write English, the bot writes translations" — as a machine rule.
+ *
+ * English is the only authored language (AGENTS.md). Translations are produced
+ * in a separate periodic pass by a dedicated account. Both halves of that split
+ * have to be enforced or neither holds:
+ *
+ *   - A content PR that also hand-edits six locale siblings is the cost this
+ *     design removes — 86% of the diff in a typical docs PR used to be
+ *     translation churn. Left as a convention it comes back on the first
+ *     rushed PR.
+ *   - A translation PR that also edits English (or anything outside
+ *     `content/docs/`) is a generated-content PR carrying an unreviewed
+ *     behavioural change. An agent with an editor will "helpfully" fix a typo,
+ *     repair a link, or restructure a table while translating.
+ *
+ * So: the translation account may ONLY touch locale artifacts, and everyone
+ * else may only touch everything else.
+ *
+ * The discriminator is the PR author's login, not a label — a label can be
+ * forgotten or edited, an author cannot be forged. Set the repo variable
+ * `TRANSLATION_BOT_LOGIN` to the dedicated account. Until it is set the check
+ * reports and passes, so this can land before the account exists.
+ *
+ * Usage:
+ *   node .github/scripts/check-translation-ownership.mjs --actor <login> --files <list>
+ *
+ * <list> is a file containing one changed path per line (`git diff --name-only`).
+ * Both arguments are required; see `main()` for why the actor is not optional.
+ */
+import { readFileSync } from 'node:fs';
+import { join, dirname, resolve, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, '../..');
+const I18N = join(ROOT, 'apps/docs/lib/i18n.ts');
+
+function locales() {
+  const m = readFileSync(I18N, 'utf8').match(/languages:\s*\[([^\]]+)\]/);
+  if (!m) throw new Error(`could not parse languages[] out of ${relative(ROOT, I18N)}`);
+  return m[1]
+    .split(',')
+    .map((s) => s.trim().replace(/['"]/g, ''))
+    .filter((l) => l && l !== 'en');
+}
+
+const LOCALES = locales();
+
+/** `content/docs/**\/*.<locale>.mdx` and `content/docs/**\/meta.<locale>.json`. */
+function isTranslationArtifact(path) {
+  if (!path.startsWith('content/docs/')) return false;
+  return LOCALES.some((l) => path.endsWith(`.${l}.mdx`) || path.endsWith(`meta.${l}.json`));
+}
+
+/**
+ * A misinvocation, not a fault in the check.
+ *
+ * A missing required argument used to surface as an uncaught throw: Node prints
+ * the source frame and a seven-line stack, and the reader's first conclusion is
+ * "this script is broken" rather than "I called it wrong". That is not
+ * hypothetical — a dispatch prompt listed the bare command as a check to run,
+ * and the stack read as a regression until it was diffed against main.
+ *
+ * So argument validation throws this class and the entry point below prints the
+ * message plus the usage line, no stack, exit 1. Everything else — an
+ * unparseable i18n.ts, a list file that exists but cannot be read, a bug in
+ * here — is a genuine internal failure and keeps its stack, which is what a
+ * real fault needs. The exit status is unchanged in both cases: a
+ * misinvocation is still a failure, never a silent pass.
+ */
+class UsageError extends Error {}
+
+const USAGE = [
+  'usage: node .github/scripts/check-translation-ownership.mjs --actor <login> --files <path>',
+  '',
+  '  --actor <login>  PR author login (workflows pass github.event.pull_request.user.login)',
+  '  --files <path>   file listing one changed path per line (git diff --name-only)',
+].join('\n');
+
+/**
+ * The changed-path list, with a path that is simply not there answered as the
+ * misinvocation it is. Naming a file that does not exist is the same class of
+ * mistake as omitting `--files` altogether, and it used to surface as a raw
+ * seven-line ENOENT stack — which reads as "this script is broken". Every
+ * other way the read can fail (a directory, a permission error, a bad mount)
+ * is a real fault and keeps its stack.
+ */
+function readChangedList(listFile) {
+  const path = resolve(ROOT, listFile);
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    const where = path === listFile ? '' : ` (resolved to ${path})`;
+    throw new UsageError(`--files ${listFile} does not exist${where}`);
+  }
+}
+
+function main() {
+  const argv = process.argv.slice(2);
+  const value = (name) => {
+    const i = argv.indexOf(`--${name}`);
+    return i >= 0 ? argv[i + 1] : argv.find((a) => a.startsWith(`--${name}=`))?.split('=').slice(1).join('=');
+  };
+
+  const actor = (value('actor') ?? '').trim();
+  const listFile = value('files');
+  if (!listFile) throw new UsageError('--files <path> is required');
+
+  // The actor is the discriminator this whole check is built on, and the
+  // header documents it as part of the invocation — so it is enforced the way
+  // `--files` is. The implementation used to default it to '' and judge the PR
+  // anyway: an empty actor can never equal a non-empty bot login, so `isBot`
+  // was false and a translation-account PR invoked without the flag came back
+  // rejected as hand-written — a confident verdict reached with the
+  // discriminator absent, and nothing saying so. Declared, therefore enforced.
+  //
+  // This answers a malformed invocation, not the question of what the check
+  // means once it is well formed: a call that passes both arguments with
+  // `TRANSLATION_BOT_LOGIN` unset still reports and passes, untouched.
+  if (!actor) throw new UsageError('--actor <login> is required');
+
+  const changed = readChangedList(listFile)
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const botLogin = (process.env.TRANSLATION_BOT_LOGIN ?? '').trim();
+  const isBot = botLogin !== '' && actor.toLowerCase() === botLogin.toLowerCase();
+
+  const artifacts = changed.filter(isTranslationArtifact);
+  const others = changed.filter((p) => !isTranslationArtifact(p));
+
+  if (!botLogin) {
+    console.log(
+      '⚠ TRANSLATION_BOT_LOGIN is not set — ownership is not enforced yet.\n' +
+        '  Set it to the dedicated translation account (Settings → Variables) to turn this on.',
+    );
+    console.log(`  This PR touches ${artifacts.length} translation artifact(s) and ${others.length} other file(s).`);
+    return;
+  }
+
+  if (isBot) {
+    if (others.length) {
+      console.error(
+        `✗ translation PRs may only touch translation artifacts.\n` +
+          `  @${actor} is the translation account, but this PR also changes:\n` +
+          others.map((p) => `    ${p}`).join('\n') +
+          `\n\n  English sources and site code are authored by humans. Split them out.`,
+      );
+      process.exit(1);
+    }
+    console.log(`✓ translation PR by @${actor}: ${artifacts.length} artifact(s), nothing else touched.`);
+    return;
+  }
+
+  if (artifacts.length) {
+    console.error(
+      `✗ translations are generated, not hand-written.\n` +
+        `  This PR edits ${artifacts.length} translation artifact(s):\n` +
+        artifacts.map((p) => `    ${p}`).join('\n') +
+        `\n\n  Edit the English source instead — the translation pass will follow.\n` +
+        `  See docs/TRANSLATION.md. To retire a page, delete its English source and\n` +
+        `  the siblings go with it (the freshness gate reports them as orphaned).`,
+    );
+    process.exit(1);
+  }
+
+  console.log(`✓ ${changed.length} file(s) changed, no translation artifacts touched.`);
+}
+
+try {
+  main();
+} catch (error) {
+  if (!(error instanceof UsageError)) throw error;
+  console.error(`✗ ${error.message}\n\n${USAGE}`);
+  process.exit(1);
+}

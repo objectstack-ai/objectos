@@ -3,9 +3,10 @@ title: Validation Rules
 description: Required fields, unique constraints, and CEL-powered rules that stop bad data at the platform level — with error messages you control.
 ---
 
-**Validation runs on every write path.** REST, Console forms, ObjectQL
+**Validation runs on every write path.** REST, forms, ObjectQL
 — the same rules fire everywhere, so there is no back door for bad
-data. A validation rule is a deterministic, synchronous, side-effect-free
+data. Since 16.0 that includes multi-row updates: a bulk update
+evaluates the rules once per matched row. A validation rule is a deterministic, synchronous, side-effect-free
 predicate over a single record: decidable from the incoming write (and,
 on update, the prior record) with no I/O.
 
@@ -18,7 +19,7 @@ Validation is layered — use the lowest layer that can express the rule:
 | **Conditional modifiers** | Context-dependent presence | ``requiredWhen: P`record.amount > 10000` `` |
 | **Object validation rules** | Cross-field business logic | "Discount cannot exceed total" |
 | **Unique indexes** | Composite / scoped uniqueness | `{ fields: ['code', 'organization'], unique: true }` |
-| **Lifecycle hooks** | Arbitrary validation code | `beforeInsert` / `beforeUpdate` |
+| **Lifecycle hooks** | Arbitrary validation code, delete guards | `beforeInsert` / `beforeUpdate` / `beforeDelete` |
 
 ## Field-level: required, unique, constraints
 
@@ -106,7 +107,7 @@ Every rule type shares this base shape:
 | `message` | yes | User-facing error message |
 | `type` | yes | `script`, `state_machine`, `format`, `cross_field`, `json_schema`, `conditional` |
 | `severity` | no | `error` (blocks save, default), `warning` (allows save), `info` |
-| `events` | no | `insert`, `update`, `delete` — default `['insert', 'update']` |
+| `events` | no | `insert`, `update` — default `['insert', 'update']`. The `delete` event was removed in 16.0: the evaluator never ran on delete (a delete carries no record payload), so it was a silent no-op — guard deletions with a `beforeDelete` hook |
 | `priority` | no | 0–9999, lower runs first (default 100) |
 | `active` | no | Toggle without deleting (default `true`) |
 
@@ -115,7 +116,7 @@ Every rule type shares this base shape:
 | Type | Checks | Key config |
 |---|---|---|
 | `script` | Any CEL predicate | `condition` (TRUE = invalid) |
-| `state_machine` | Allowed status transitions | `field`, `transitions` map |
+| `state_machine` | Allowed status transitions | `field`, `transitions` map, optional `initialStates` |
 | `format` | One field against regex or built-in format | `field`, `regex` or `format: 'email' \| 'url' \| 'phone' \| 'json'` |
 | `cross_field` | Relationship between fields | `fields`, `condition` |
 | `json_schema` | JSON field against a JSON Schema | `field`, `schema` |
@@ -139,7 +140,8 @@ Two rules you'll reach for constantly:
     cancelled: [],
     completed: [],
   },
-  events: ['update'],
+  initialStates: ['draft'],  // new in 16.0: states a record may be CREATED in
+  events: ['insert', 'update'],  // include 'insert' so initialStates is checked
 }
 
 // Cross-field — dates in order
@@ -153,6 +155,15 @@ Two rules you'll reach for constantly:
   events: ['insert', 'update'],
 }
 ```
+
+**New in 16.0:** `state_machine` rules can declare `initialStates` —
+the states a record may be *created* in. An insert whose state field
+carries a value outside the list is rejected (`invalid_initial_state`).
+`transitions` only governs updates, and a `select` field permits any
+declared option as an initial value, so without `initialStates` a
+record can be born mid-flow (e.g. created already `approved`). Omit it
+to keep the legacy behavior (no initial-state check on insert). The
+rule's `events` must include `insert` for the check to run.
 
 In update-time conditions, `previous` holds the pre-change snapshot —
 `record.stage != previous.stage` detects a change.
@@ -177,12 +188,12 @@ indexes: [
 The same logic excludes async/remote validation (a client-form concern
 and an SSRF/latency hazard on the write path) and custom handlers —
 arbitrary validation code belongs in a `beforeInsert` / `beforeUpdate`
-lifecycle hook.
+lifecycle hook, and delete-time guards in a `beforeDelete` hook.
 
 ## Custom error messages
 
 The `message` is what the user sees when the rule fires — in the
-Console form and in the API error response. Make it actionable:
+form and in the API error response. Make it actionable:
 
 | Weak | Strong |
 |---|---|

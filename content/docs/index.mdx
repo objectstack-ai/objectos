@@ -5,7 +5,7 @@ description: The runtime for internal tools that stays in your network. One comm
 
 **ObjectOS is a self-hosted runtime for building internal tools, admin
 panels, and back-office apps without giving up your data.** Describe
-what you need to the in-Console AI Builder — or fork a template — and
+what you need to the built-in AI Builder — or fork a template — and
 get REST APIs, a generated admin UI, authentication, RBAC, audit logs,
 file storage, background jobs, webhooks, and AI integration. All
 running in your network, on your database.
@@ -21,7 +21,7 @@ os start
 ```
 
 Open **http://localhost:3000** and you have a working ObjectOS with
-Console and Account, an audit log, and a SQLite database — zero
+its UI and Account portal, an audit log, and a SQLite database — zero
 configuration, zero scaffolding.
 
 Then either:
@@ -29,7 +29,7 @@ Then either:
 - **Talk to the AI Builder** — *"I need to track support tickets with
   priority and assignee"* — and watch the metadata get generated. See
   [Build → AI Builder](/docs/build/ai-builder).
-- **Install a template** from the in-Console marketplace (Todo,
+- **Install a template** from the built-in marketplace (Todo,
   Contracts, Helpdesk, …) and have a real app in one click.
 - **Fork a [template](/docs/build/templates)** if you want TypeScript
   source under your control.
@@ -48,8 +48,8 @@ Then either:
 | Surface | What it is |
 |---|---|
 | **Auto REST API** | Every object you declare gets `/api/v1/data/<object>` with filter/sort/paginate |
-| **Console** (`/_console/`) | Generated admin UI: browse and edit records, manage users/roles/permission sets, view audit log, sessions, API keys, settings |
-| **Account** (`/_account/`) | Login, register, password reset, OAuth, OIDC/SSO, passkeys, 2FA |
+| **The UI** (`/_console/`) | Generated screens: browse and edit records, and **Setup** to manage users/roles/permission sets, view audit log, sessions, API keys, settings |
+| **Account** ([inside the UI](/docs/resources/glossary#surface)) | Login, register, password reset, OAuth, OIDC/SSO, passkeys, 2FA |
 | **20+ plugins** | RBAC + row-level security, audit, file storage, queues, jobs, email, AI, webhooks — declarative, on demand |
 
 ## What you keep control of
@@ -96,7 +96,7 @@ matches how you use ObjectOS:
 ## License & pricing
 
 ObjectOS is a **commercial product** built on the open-source (Apache-2.0)
-**[ObjectStack framework](https://github.com/objectstack-ai/framework)** — the
+**[ObjectStack framework](https://github.com/objectstack-ai/objectstack)** — the
 framework is free to use in commercial products, embed, and self-host, with
 no per-seat fee and no license server. ObjectOS adds the embedded in-UI AI,
 governance, and official operations, priced **per AI seat only** (viewers and

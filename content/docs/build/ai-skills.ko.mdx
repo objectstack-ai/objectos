@@ -1,6 +1,10 @@
 ---
 title: IDE Skills (Claude Code / Cursor / Copilot)
 description: 코딩 에이전트에 ObjectOS skills를 설치하여 Claude Code, Cursor, Copilot, Codex 등이 ObjectOS 메타데이터를 올바르게 작성하는 방법을 알도록 하세요.
+translation:
+  source_sha: 13dc900bd554134c9584ba12f7505b6c43049269fbf5d0fa94e125e5584021dc
+  guide_rev: 1
+  mode: auto
 ---
 
 [AI Builder](./ai-builder)는 Console 안에서 동작하며 테넌트의
@@ -20,7 +24,7 @@ opencode** 및 그 외 약 50개의 에이전트와 함께 작동합니다.
 `@objectstack/*` 패키지를 사용하는 모든 프로젝트에서:
 
 ```bash
-npx skills add objectstack-ai/framework
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 CLI는 어떤 에이전트가 구성되어 있는지(`.claude/`,
@@ -54,7 +58,7 @@ skill에게 위임할지 에이전트에게 알려주므로, Claude가 platform 
 ## 작동 방식
 
 모든 skill은
-[framework repo](https://github.com/objectstack-ai/framework/tree/main/skills)의
+[framework repo](https://github.com/objectstack-ai/objectstack/tree/main/skills)의
 `skills/` 아래에 있는 폴더입니다:
 
 ```
@@ -103,7 +107,7 @@ Builder를, 그리고 **게시할 의도가 있는 패키지** 작업에는 IDE 
 ## 업데이트
 
 Skills는 `@objectstack/spec` 버전을 따릅니다. spec 패키지를 업그레이드한
-후 `npx skills add objectstack-ai/framework`를 다시 실행하여 에이전트를
+후 `npx skills add objectstack-ai/objectstack/skills`를 다시 실행하여 에이전트를
 최신 Zod 스키마, CEL 헬퍼, 메타데이터 어휘와 동기화 상태로 유지하세요.
 
 ## 관련 항목

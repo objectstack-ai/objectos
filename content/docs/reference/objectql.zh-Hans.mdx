@@ -1,6 +1,10 @@
 ---
 title: ObjectQL
 description: /api/v1/data/*、视图、报表和 AI 工具使用的结构化查询格式。
+translation:
+  source_sha: 29bd6373d9a973635fa9dd4f236231bfdbfe4684f29f16849e47a721f13f5efd
+  guide_rev: 1
+  mode: auto
 ---
 
 ObjectQL 是数据引擎消费的 JSON 查询格式。它是 `/api/v1/data/:object` 接受的内容、视图编译的目标、报表的序列化形式,以及 AI `query_data` 工具产生的内容。
@@ -30,7 +34,7 @@ ObjectQL 是数据引擎消费的 JSON 查询格式。它是 `/api/v1/data/:obje
 }
 ```
 
-Schema 源码：[`packages/spec/src/data/query.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/query.zod.ts)。
+Schema 源码：[`packages/spec/src/data/query.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/query.zod.ts)。
 
 ## 过滤器
 
@@ -194,4 +198,4 @@ GET /api/v1/data/ticket?limit=50&offset=200
 - [REST API](./rest-api) —— 消费 ObjectQL 的端点
 - [字段类型](./field-types) —— 可查询的内容
 - [CEL](./cel) —— `$cel` 过滤器内使用的表达式语言
-- [`@objectstack/spec/data/query.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/query.zod.ts) —— 权威 schema
+- [`@objectstack/spec/data/query.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/query.zod.ts) —— 权威 schema

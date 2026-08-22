@@ -1,6 +1,10 @@
 ---
 title: ObjectQL
 description: Le format de requête structuré utilisé par /api/v1/data/*, les vues, les rapports et les outils d'IA.
+translation:
+  source_sha: 29bd6373d9a973635fa9dd4f236231bfdbfe4684f29f16849e47a721f13f5efd
+  guide_rev: 1
+  mode: auto
 ---
 
 ObjectQL est le format de requête JSON consommé par le moteur de données. C'est ce que
@@ -35,7 +39,7 @@ Deux formes :
 }
 ```
 
-Source du schéma : [`packages/spec/src/data/query.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/query.zod.ts).
+Source du schéma : [`packages/spec/src/data/query.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/query.zod.ts).
 
 ## Filtres
 
@@ -210,4 +214,4 @@ sont configurées sur le spec de l'objet.
 - [REST API](./rest-api) — points de terminaison qui consomment ObjectQL
 - [Field types](./field-types) — ce qui est interrogeable
 - [CEL](./cel) — langage d'expression utilisé dans les filtres `$cel`
-- [`@objectstack/spec/data/query.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/query.zod.ts) — schéma faisant autorité
+- [`@objectstack/spec/data/query.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/query.zod.ts) — schéma faisant autorité

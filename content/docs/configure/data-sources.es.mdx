@@ -1,6 +1,10 @@
 ---
 title: Fuentes de datos
 description: Conecta ObjectOS a tus bases de datos de negocio existentes, enruta objetos hacia ellas y deja que la IA consulte los datos — de forma nativa.
+translation:
+  source_sha: c1e0954576877e1498f592a5b73c5848b9cefbfe3e27a962bd809d3b2db132b9
+  guide_rev: 1
+  mode: auto
 ---
 
 Un **datasource** es una conexión con nombre a un almacén de datos externo.
@@ -231,7 +235,7 @@ El flujo anterior — conectar una base de datos, modelar objetos, generarlos
 con un agente de codificación — funciona hoy con los bloques de construcción
 incluidos. Una experiencia de **federación llave en mano** más rica está en
 diseño activo bajo
-[ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)
+[ADR-0015](https://github.com/objectstack-ai/objectstack/blob/main/docs/adr/0015-external-datasource-federation.md)
 (estado: *Propuesto*). Previsto, pero **aún no disponible**:
 
 - Un `schemaMode` (`managed` / `external` / `validate-only`) para que
@@ -254,4 +258,4 @@ copia que no sea de producción.
 - [AI Service](/docs/configure/ai) — chat, embeddings, RAG, MCP
 - [AI Agents](/docs/build/agents) — agents declarativos sobre tus objetos
 - [Objects](/docs/build/objects) — la superficie de autoría `ObjectSchema.create`
-- [datasources de `examples/app-crm`](https://github.com/objectstack-ai/framework/tree/main/examples/app-crm/src/datasources) — un ejemplo real de datasource + enrutamiento
+- [datasources de `examples/app-crm`](https://github.com/objectstack-ai/objectstack/tree/main/examples/app-crm/src/datasources) — un ejemplo real de datasource + enrutamiento

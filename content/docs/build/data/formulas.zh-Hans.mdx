@@ -1,6 +1,10 @@
 ---
 title: 公式
 description: 计算字段、动态默认值与条件逻辑 —— 元数据需要"思考"的地方，都用同一门 CEL 表达式语言。
+translation:
+  source_sha: e665dc6fce9b0f27d22e829919a1ec41bec1d4ea6c7f82b23a1c2a44d7d95bf0
+  guide_rev: 1
+  mode: auto
 ---
 
 **一门表达式语言，覆盖所有场景。**只要有一段元数据需要计算值或求值条件，ObjectOS 就使用 [CEL](/docs/reference/cel)（谷歌的 Common Expression Language）—— 公式字段、动态默认值、条件可见性、验证条件、流程决策。语法学一次，处处能用。
@@ -86,6 +90,13 @@ Field.formula({
 ```
 
 > **提示：**CEL 遇到 `null + string` 会抛错，所以拼接时把可能为空的操作数包进 `coalesce(record.x, '')` —— 或者直接用 `joinNonEmpty`，省掉这套仪式。
+
+### 16.0 新增
+
+- **日期与数字做算术现在是构建期错误。**像 `record.end_date - record.start_date + 1` 或 `today() + 30` 这样的表达式过去总在运行时出错（静默求值为 null）；现在构建会直接拒绝，并在报错中指向 `daysBetween(a, b)`（求跨度）以及 `daysFromNow(n)` / `addDays(d, n)` / `addMonths(d, n)`（移动日期）。
+- **空值守卫三元表达式可以编译了。**`cond ? value : null` —— 例如 `record.end_date != null ? daysBetween(record.start_date, record.end_date) + 1 : null` —— 是让公式在输入就绪前保持空白的推荐写法。
+- **注册了 `floor(x)` / `ceil(x)`。**它们分别向 −∞ / +∞ 取整（所以 `floor(-1.2) == -2`）—— 不像整数除法那样向零取整。
+- **日期与 `today()` 的相等比较现在能匹配了。**时间值会在比较前先做类型归一，因此 `record.due_date == today()` 和 `daysBetween(today(), record.due_date) == 0` 都能按预期工作。
 
 ### 公式作为记录标题
 

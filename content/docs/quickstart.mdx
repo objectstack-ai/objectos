@@ -10,12 +10,13 @@ There are two ways to start, depending on what you're doing.
 | Trying ObjectOS for the first time, or running it in production | [Path A — `os start`](#path-a--os-start-operator-first-time-evaluator) |
 | Building or customizing an app in code | [Path B — `os init`](#path-b--os-init-developer) |
 
-Both produce a running server with Console + Account. The
+Both produce a running server with the UI — account sign-in, registration
+and self-service are routes inside that UI, not a separate surface. The
 difference is whether you scaffold source files.
 
 ## Prerequisites
 
-- **Node.js 20 or newer** — `node --version`
+- **Node.js 22 or newer** — `node --version`
 - A terminal
 
 That's it. No Docker. No database. No account signup.
@@ -37,37 +38,60 @@ You'll see:
 ◆ ObjectStack
 ────────────────────────────────────────
 🏠 Home: ~/.objectstack
-📦 Artifact: none (empty kernel — install apps via Console marketplace)
+📦 Artifact: none (empty kernel — install apps via the Console marketplace)
 🗄️ Database: file:~/.objectstack/data/objectstack.db
+🎯 Environment: env_local
+🖥️ Console: http://localhost:3000/_console/
+  → Starting server...
 
   ✓ Server is ready
 
   ➜  API:       http://localhost:3000/
-  ➜  Console:    http://localhost:3000/_console/
-  ➜  Account:   http://localhost:3000/_account/
   ➜  Console:   http://localhost:3000/_console/
+  ➜  MCP:       http://localhost:3000/api/v1/mcp
+      connect an AI client (Claude Code, Cursor, …) · skill: http://localhost:3000/api/v1/mcp/skill
 
-  Plugins: 23 loaded
+  Mode:    production
+  Driver:  SqlDriver(better-sqlite3)  → ~/.objectstack/data/objectstack.db
+  Tenancy: single
+  Plugins: 30 loaded
+
+  Press Ctrl+C to stop
 ```
 
 That's it. You're running ObjectOS.
+
+That block is transcribed from `@objectstack/cli` 17.1.0 booting an empty
+kernel. Home paths show as `~/…` — the CLI prints yours expanded. Your own boot
+also prints startup advisories (local storage driver, dev crypto key, boot
+diagnostics) and the full list of loaded plugin names, both of which depend on
+your environment.
 
 ### What's running
 
 | URL | What it is |
 |---|---|
-| http://localhost:3000/_account/register | Create your first account |
-| http://localhost:3000/_console/ | The admin UI — and the **app marketplace** |
-| http://localhost:3000/_console/ | Users, roles, audit log, settings |
-| http://localhost:3000/health | Liveness probe |
+| http://localhost:3000/_console/register | Create your first account |
+| http://localhost:3000/_console/ | The generated UI — and the **app marketplace** |
+| http://localhost:3000/_console/apps/setup | **Setup** — users, roles, audit log, settings |
+| http://localhost:3000/api/v1/health | Liveness — is the process up |
+| http://localhost:3000/api/v1/ready | Readiness — is it up **and** serving data |
 
 The runtime boots into an **empty kernel** — no objects, no apps —
 and exposes the marketplace so you can install ready-made apps in
 seconds.
 
+Both probes answer 200 here, and locally there is nothing to wire them
+to — but they are not interchangeable, and it is worth knowing which is
+which before you deploy. Liveness reports only that the process is
+executing, so it stays green straight through a database outage;
+readiness answers **503** as soon as a data driver stops answering.
+[Docker](/docs/deploy/docker) and [Kubernetes](/docs/deploy/kubernetes)
+show which probe goes where.
+
 ### Build by chat — the AI Builder
 
-Once you're signed in, open the AI assistant in Console (top-right
+Once you're signed in, open the AI assistant (top-right
 sparkle icon) and describe what you need:
 
 > *"I need to track customer support tickets. Each has a subject,
@@ -75,11 +99,11 @@ sparkle icon) and describe what you need:
 > assignee. Add a kanban view grouped by status."*
 
 The AI proposes a plan, you approve, and the metadata is live —
-REST endpoints, Console views, audit log entries, permission gates.
+REST endpoints, generated views, audit log entries, permission gates.
 No file edited, no restart. See [Build → AI Builder](/docs/build/ai-builder)
 for the full vocabulary.
 
-> **Hand-coding in your IDE?** Run `npx skills add objectstack-ai/framework`
+> **Hand-coding in your IDE?** Run `npx skills add objectstack-ai/objectstack/skills`
 > to teach Claude Code / Cursor / Copilot / Codex how to author
 > ObjectOS metadata against the real Zod schemas. See
 > [Build → IDE Skills](/docs/build/ai-skills).
@@ -129,23 +153,54 @@ pnpm dev
 You'll see:
 
 ```text
-✓ Project initialized!
+◆ Development Mode
+────────────────────────────────────────
+📂 Config: my-app/objectstack.config.ts
+  → Compiling objectstack.config.ts → dist/objectstack.json...
 
 ◆ Compile
-  ✓ Build complete (462ms)
+────────────────────────────────────────
+  ✓ Build complete (117ms)
+
   Data: 1 Objects  3 Fields
 
-◆ Development Mode
+  Artifact: my-app/dist/objectstack.json (1.9 KB)
+
+  → Starting dev server (local mode)...
+🎯 Environment ID: env_local
+📦 Artifact: dist/objectstack.json
+🗄️ Database: file:my-app/.objectstack/data/objectstack.db
+  👁  watching objectstack.config.ts, src — rebuild + restart on change
+
   ✓ Server is ready
 
-  ➜  API:       http://localhost:3002/
-  ➜  Console:    http://localhost:3002/_console/
-  ➜  Account:   http://localhost:3002/_account/
-  ➜  Console:   http://localhost:3002/_console/
+  ➜  API:       http://localhost:3000/
+  ➜  Console:   http://localhost:3000/_console/
+  ➜  MCP:       http://localhost:3000/api/v1/mcp
+      connect an AI client (Claude Code, Cursor, …) · skill: http://localhost:3000/api/v1/mcp/skill
+
+  🔑  Dev admin: admin@objectos.ai / admin123
+      seeded on empty DB · dev only — do not use in production
+
+  Config:  objectstack.config.ts
+  Mode:    development
+  Driver:  SqlDriver(better-sqlite3)  → my-app/.objectstack/data/objectstack.db
+  Tenancy: single
+  Plugins: 30 loaded
+
+  Press Ctrl+C to stop
 ```
 
-Note the dev server uses port **3002** to avoid colliding with a
-running `os start` on 3000.
+That block is transcribed from `pnpm dev` on a scaffold created by
+`@objectstack/cli` 17.1.0. Project paths show as `my-app/…` — the CLI prints
+yours expanded. Your own run also prints pnpm's script header above the block,
+per-step compile progress, startup advisories (configuration load, dev
+secret-field crypto), the full list of loaded plugin names, and an MCP
+connection trailer below the banner.
+
+Note the dev server asks for port **3000**, the same port `os start` uses. If
+that port is taken it binds the next free one and says so:
+`↪ server bound to port 3001 (requested 3000)`.
 
 ### Add your own object
 
@@ -170,8 +225,8 @@ export const Task = ObjectSchema.create({
 Save. The dev server recompiles and you immediately have:
 
 - **`/api/v1/data/task`** — full CRUD with filter/sort/paginate
-- **A "Task" view in Console** — list, form, detail, all generated
-- **Permission rows in Console** — grant read/write per role
+- **A "Task" view** — list, form, detail, all generated
+- **Permission rows in Setup** — grant read/write per role
 - **Audit log entries** — every create/update/delete recorded
 
 No migrations. No code generation. No restarting.
@@ -210,11 +265,13 @@ Each template is < 2500 LOC, readable in one sitting, runs standalone.
 
 ## What's loaded out of the box
 
-Either path gives you these 23 plugins automatically:
+Either path gives you these plugins automatically:
 
-> Auth, Security (RBAC + RLS + FLS), Audit, REST API, Console UI,
-> Account UI, Console UI, AI Service, Queue, Jobs, Cache, Settings,
-> Email, Storage, Marketplace, Metadata, ObjectQL, plus the SQL driver.
+> HTTP server, REST API, Dispatcher, MCP server, Auth, Security (RBAC + RLS +
+> FLS), Audit, Sharing, Platform objects, Metadata, ObjectQL, the default
+> datasource plus the external-datasource and datasource-admin services, Queue,
+> Jobs, Cache, Settings, Email, SMS, Messaging, Storage, Analytics, external
+> validation, Marketplace, the Setup and Account apps, and the Console UI.
 
 You don't import or wire any of them — they activate when something
 declares it needs them.

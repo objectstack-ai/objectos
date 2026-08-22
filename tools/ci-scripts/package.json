@@ -1,0 +1,13 @@
+{
+  "name": "@objectos/ci-scripts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Runs the self-tests declared by the repository's CI scripts (.github/scripts/*.mjs)",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node run-self-tests.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

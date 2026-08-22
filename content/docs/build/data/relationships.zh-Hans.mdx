@@ -1,6 +1,10 @@
 ---
 title: 关系
 description: 用查找（lookup）与主从（master-detail）连接对象 —— 级联规则、过滤选择器、层级结构、连接对象与汇总字段。
+translation:
+  source_sha: 37812edbd83d2dffc155de2c29d7e697182eec51f002be23773e4201082bffe8
+  guide_rev: 1
+  mode: auto
 ---
 
 **关系就是一个字段。**把 `lookup` 或 `masterDetail` 字段指向另一个对象，ObjectOS 会把上层的一切都接好：外键完整性、Console 里的记录选择器、父记录页面上的相关列表，以及查询中的 `expand`。
@@ -59,7 +63,7 @@ contact: Field.lookup('contact', {
 })
 ```
 
-> **警告：**旧的 `referenceFilters: string[]` 属性（如 `['is_active = true']`）虽然能通过 Schema 校验，但**记录选择器 UI 并不读取它** —— 它什么都不过滤。请始终使用上面展示的结构化 `lookupFilters` + `dependsOn`。
+> **警告：**旧的 `referenceFilters: string[]` 属性（如 `['is_active = true']`）**已在 16.0 中移除** —— 解析时会被直接剥离；而且即使在移除之前，记录选择器 UI 也从未读取过它，它什么都不过滤。上面展示的结构化 `lookupFilters` + `dependsOn` 是唯一受支持的形式。
 
 ## 主从（有归属的子记录）
 
@@ -143,11 +147,17 @@ total_lines: {
     object: 'order_line',    // 要聚合的子对象
     field: 'quantity',       // 要聚合的字段
     function: 'sum',         // count | sum | min | max | avg
+    filter: { status: 'active' },  // 16.0 新增：只聚合匹配的子记录
   },
 }
 ```
 
 Summary 字段是只读的，由子记录计算得出 —— 你永远不会直接写它。
+
+**16.0 新增：**可选的 `filter` 是一个查询式 `where` 谓词 —— 只有匹配它
+的子记录才会被聚合（例如只统计 `status == 'active'` 的子记录）；当某条
+子记录进入或离开该谓词范围时，汇总会重新聚合。它还让多个 summary 字段
+可以对*同一个*子对象汇总出不同的总计。
 
 ## 跨关系查询
 

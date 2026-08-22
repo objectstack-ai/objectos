@@ -18,7 +18,7 @@ parses:
 ```
 
 Schema source:
-[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts).
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts).
 
 ## The five tagged templates
 
@@ -66,7 +66,7 @@ CEL expressions evaluate in a context with these top-level variables:
 | `record` | almost always | The current record being evaluated |
 | `previous` | on update hooks / change-detection | The pre-change state of the record (or `null`) |
 | `input` | actions, flow steps | The user-supplied input payload |
-| `os.user` | always | `{ id, roles: string[], permissions: string[] }` |
+| `os.user` | always | `{ id, name, email, positions: string[], organizationId }` |
 | `os.org` | always | Organisation / tenant context |
 | `os.env` | always | Environment variables exposed to expressions |
 
@@ -76,7 +76,7 @@ CEL expressions evaluate in a context with these top-level variables:
 ## Standard library
 
 Registered in
-[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts).
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts).
 The most-used built-ins:
 
 ### Time
@@ -121,7 +121,7 @@ Native CEL string helpers (`.contains(...)`, `.startsWith(...)`,
 **Visibility** — show field only to managers:
 
 ```ts
-{ visibleIf: P`'manager' in os.user.roles` }
+{ visibleIf: P`'manager' in os.user.positions` }
 ```
 
 **Flow guard** — skip step when amount is small:
@@ -163,5 +163,5 @@ quietly corrupting a formula value or a guard decision.
 - [Field types](./field-types) — formula and conditional-required fields
 - [Build → Data model](/docs/build/data) — validations and predicates
 - [Build → Flows](/docs/build/automation/flows) — guards and schedules
-- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — schema
-- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — built-ins
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts) — schema
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts) — built-ins

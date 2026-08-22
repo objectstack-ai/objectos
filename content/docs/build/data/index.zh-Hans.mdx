@@ -1,6 +1,10 @@
 ---
 title: 数据模型
 description: 对象、字段、关系、校验、索引 —— 描述给 AI，或者用 TypeScript 写。
+translation:
+  source_sha: 212c8e723195aa898b7942afad5cc47073f4661161aecd0da62b89223a34e462
+  guide_rev: 1
+  mode: auto
 ---
 
 数据模型是你应用的唯一事实来源。一旦对象存在,ObjectOS 就免费给你 REST API、Console 视图、RBAC 检查点、审计日志条目和 AI 工具暴露。
@@ -208,10 +212,17 @@ ObjectSchema.create({
     feeds: true,              // sys_comment / @提及（默认 true）
     activities: true,         // CRUD 镜像到 sys_activity 时间线（默认 true）
     files: true,              // 附件面板（需显式开启，默认 false）
-    softDelete: true,         // 软删除而非硬删除
+    trash: true,              // 软删除并可恢复（默认 true）
   },
 });
 ```
+
+> **16.0 变更：**对象级 `softDelete` 属性已被移除 —— 再传入它，
+> `ObjectSchema.create` 会抛出带定位信息的错误。对应的现行能力是
+> `enable: { trash: true }`（软删除并可恢复），默认开启。同一轮清理还
+> 移除了 `versioning`、`search`（改用顶层 `searchableFields`）、
+> `recordName`（改用作为 `nameField` 的自动编号字段）、`keyPrefix`、
+> `tags`、`active` 和 `abstract`。
 
 自 ObjectStack 14 起，`enable.*` 开关是**强制执行**的，而不再只是声明：
 `feeds: false` 会以 403 `FEEDS_DISABLED` 拒绝评论创建；`files` 必须显式开启
@@ -274,4 +285,4 @@ ObjectSchema.create({
 - [Flows / Automation](/docs/build/automation/flows) —— 对记录变更做出反应
 - [API Access](/docs/configure/api-access) —— 调用生成的 REST
 - [`os explain`](/docs/reference/cli) —— 打印渲染后的 Schema
-- [`@objectstack/spec` 源码](https://github.com/objectstack-ai/framework/tree/main/packages/spec) —— Schema 即契约;此处的一切都从它派生
+- [`@objectstack/spec` 源码](https://github.com/objectstack-ai/objectstack/tree/main/packages/spec) —— Schema 即契约;此处的一切都从它派生

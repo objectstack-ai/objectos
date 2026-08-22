@@ -1,9 +1,9 @@
 ---
 title: Views
-description: List, Form, Kanban, Calendar, Gantt and more — how every object surface in Console is declared.
+description: List, Form, Kanban, Calendar, Gantt and more — how every object surface is declared.
 ---
 
-A **view** is how a user sees and edits records in Console. Views are
+A **view** is how a user sees and edits records. Views are
 declarative metadata — same lifecycle as objects: declare them once,
 ship them with your package, render anywhere.
 
@@ -14,7 +14,7 @@ Two kinds:
   wizard, …)
 
 Schema source:
-[`packages/spec/src/ui/view.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/ui/view.zod.ts).
+[`packages/spec/src/ui/view.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/ui/view.zod.ts).
 
 ## The shortest possible declaration
 
@@ -246,7 +246,7 @@ You usually don't write view metadata by hand. Tell the AI Builder:
 > amber / green by status."*
 
 It calls the metadata tools, queues the diff, and once you approve the
-view shows up in Console. See [AI Builder](/docs/build/ai-builder).
+view shows up. See [AI Builder](/docs/build/ai-builder).
 
 ## See also
 
@@ -254,4 +254,4 @@ view shows up in Console. See [AI Builder](/docs/build/ai-builder).
 - [Actions](./actions) — what `rowActions` / `bulkActions` reference
 - [ObjectQL](/docs/reference/objectql) — what `filter` / `sort` compile to
 - [CEL](/docs/reference/cel) — `conditionalFormatting`, `visibleOn`
-- [`@objectstack/spec/ui/view.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/ui/view.zod.ts) — schema
+- [`@objectstack/spec/ui/view.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/ui/view.zod.ts) — schema

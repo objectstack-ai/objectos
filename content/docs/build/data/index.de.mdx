@@ -1,6 +1,10 @@
 ---
 title: Datenmodell
 description: Objekte, Felder, Beziehungen, Validierung, Indizes — der KI beschrieben oder in TypeScript geschrieben.
+translation:
+  source_sha: 212c8e723195aa898b7942afad5cc47073f4661161aecd0da62b89223a34e462
+  guide_rev: 1
+  mode: auto
 ---
 
 Das Datenmodell ist die zentrale Quelle der Wahrheit für Ihre App. Sobald
@@ -216,7 +220,7 @@ ObjectSchema.create({
     apiEnabled: true,         // generated REST endpoints
     trackHistory: true,       // audit log of field changes
     feeds: true,              // sys_comment / sys_activity / @mentions
-    softDelete: true,         // tombstone instead of hard delete
+    trash: true,              // soft-delete with restore (default true)
   },
 });
 ```
@@ -257,4 +261,4 @@ Sie verdrahten diese nicht pro Objekt — sie sind auf der Plattform polymorph.
 - [Flows / Automatisierung](/docs/build/automation/flows) — auf Datensatzänderungen reagieren
 - [API-Zugriff](/docs/configure/api-access) — Ihre generierte REST aufrufen
 - [`os explain`](/docs/reference/cli) — das gerenderte Schema ausgeben
-- [`@objectstack/spec`-Quelle](https://github.com/objectstack-ai/framework/tree/main/packages/spec) — das Schema ist der Vertrag; alles hier wird daraus abgeleitet
+- [`@objectstack/spec`-Quelle](https://github.com/objectstack-ai/objectstack/tree/main/packages/spec) — das Schema ist der Vertrag; alles hier wird daraus abgeleitet

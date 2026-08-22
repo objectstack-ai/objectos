@@ -1,6 +1,10 @@
 ---
 title: CEL 표현식
 description: 수식, 술어, 스케줄, 템플릿 문자열에 사용되는 표현식 언어 — 다섯 가지 태그드 템플릿으로 제공됩니다.
+translation:
+  source_sha: 9489636c35a7a16dd066125812e7e218008b3e558ba4c8dd92d6d3126e60f234
+  guide_rev: 1
+  mode: auto
 ---
 
 ObjectOS는 작고 안전하며 샌드박스화된 표현식이 필요한 모든 곳에서
@@ -16,7 +20,7 @@ ObjectOS는 작고 안전하며 샌드박스화된 표현식이 필요한 모든
 ```
 
 스키마 소스:
-[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts).
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts).
 
 ## 다섯 가지 태그드 템플릿
 
@@ -72,7 +76,7 @@ CEL 표현식은 다음과 같은 최상위 변수를 가진 컨텍스트에서 
 
 ## 표준 라이브러리
 
-[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts)에
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts)에
 등록되어 있습니다. 가장 많이 사용되는 빌트인:
 
 ### 시간
@@ -160,5 +164,5 @@ did-you-mean 힌트 포함)와 함께 `os compile`에서 실패합니다. 런타
 - [필드 타입](./field-types) — 수식 및 조건부 필수 필드
 - [Build → 데이터 모델](/docs/build/data) — 검증 및 술어
 - [Build → 플로우](/docs/build/automation/flows) — 가드 및 스케줄
-- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — 스키마
-- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — 빌트인
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts) — 스키마
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts) — 빌트인

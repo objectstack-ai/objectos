@@ -49,9 +49,9 @@ cd my-crm
 pnpm dev
 ```
 
-### From Console
+### From the UI
 
-**Console → Packages → New Package** — name, id, version, namespace.
+**Packages → New Package** — name, id, version, namespace.
 
 ## Active package
 
@@ -101,12 +101,19 @@ os compile                     # → dist/objectstack.json
 os package publish             # → ObjectStack cloud catalog
 ```
 
-`os package publish` uploads the compiled manifest to the cloud
-control plane configured by `OS_CLOUD_URL`. Authentication comes from
-`os cloud login` (interactive) or, for CI, an `OS_CLOUD_API_KEY` bearer
-token. For private / air-gapped distribution, skip publishing and hand
-the compiled `dist/objectstack.json` directly to the target install
-(see Installing below). See [Marketplace](/docs/build/marketplace).
+`os package publish` uploads the compiled manifest to the catalog named
+by `OS_CLOUD_URL`. Authentication comes from `os cloud login`
+(interactive) or, for CI, an `OS_CLOUD_API_KEY` bearer token. For
+private / air-gapped distribution, skip publishing and hand the
+compiled `dist/objectstack.json` directly to the target install (see
+Installing below). See [Marketplace](/docs/build/marketplace).
+
+> **These two variables configure the publishing identity of your build
+> machine** — the CLI's credential for a package catalog. They are not how a
+> *deployment* connects to a control plane: a running deployment authenticates
+> with a token minted when it was bound, and has no API key to configure. Check
+> [Environment Variables](/docs/reference/environment-variables) before copying
+> either name into a deployment's configuration.
 
 ## Installing
 
@@ -117,7 +124,7 @@ environment login. You never need to know an environment id to install.
 
 | Path | How |
 |---|---|
-| Console (recommended) | Sign in to the environment → **Marketplace** → pick the package → **Install**. Installs into the current environment. |
+| In the UI (recommended) | Sign in to the environment → **Marketplace** → pick the package → **Install**. Installs into the current environment. |
 | CLI → running runtime | `os package install com.acme.crm --runtime <url>` — the runtime resolves the package from its configured catalog and merges it into its own kernel |
 | CLI air-gapped | `os package install ./dist/objectstack.json --runtime <url>` — compiled artifact sent inline, no catalog round-trip |
 | REST | `POST /api/v1/marketplace/install-local` (body: `{ packageId, versionId? }` or `{ manifest }`) |

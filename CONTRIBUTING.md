@@ -7,8 +7,11 @@ Read this before opening a PR.
 ## What belongs here
 
 - **Documentation** for installing, configuring, upgrading, and operating
-  ObjectOS (`content/docs/`), authored **English-first** — other locales are
-  derived translations (see [AGENTS.md](AGENTS.md)).
+  ObjectOS (`content/docs/`), authored **English-first**. English is the only
+  language we accept edits in — every `*.<locale>.mdx` file is generated and
+  refreshed by an automated pass, and CI rejects PRs that hand-edit one. Spotted
+  a bad translation? Open an issue, or fix the English source and the next pass
+  carries it through. See [docs/TRANSLATION.md](docs/TRANSLATION.md).
 - **Docs site** improvements (`apps/docs/` — Next.js + Fumadocs).
 - **Issues**: bug reports and feature requests for ObjectOS Cloud and
   ObjectOS Enterprise.
@@ -19,7 +22,7 @@ Read this before opening a PR.
   behavior as an issue instead.
 - **Framework changes** — protocol schemas, kernel internals, drivers, and
   community plugins live in
-  [`objectstack-ai/framework`](https://github.com/objectstack-ai/framework)
+  [`objectstack-ai/objectstack`](https://github.com/objectstack-ai/objectstack)
   (open source, Apache-2.0). Open PRs there.
 
 ## History

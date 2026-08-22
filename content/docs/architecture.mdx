@@ -22,15 +22,15 @@ metadata after a HITL approval.
 
 ## What you deploy
 
-One Node.js process per ObjectOS instance. That's it.
+One Node.js process, serving one app. That's it.
 
 ```text
 ┌─────────────────────────────────────────────────────┐
 │                  ObjectOS process                   │
 │  ┌───────────────────────────────────────────────┐  │
-│  │   HTTP dispatcher  (/ · /api · /_console …)    │  │
+│  │   HTTP dispatcher  (/ · /api · /_console …)   │  │
 │  ├───────────────────────────────────────────────┤  │
-│  │   Per-project ObjectKernel (LRU cached)       │  │
+│  │   ObjectKernel — this deployment's app        │  │
 │  │   ├─ Auth (Better Auth)                       │  │
 │  │   ├─ Security (RBAC + row-level + field)      │  │
 │  │   ├─ ObjectQL (data engine, generates SQL)    │  │
@@ -48,6 +48,13 @@ One Node.js process per ObjectOS instance. That's it.
 It's a single statically-linked binary's worth of complexity. No
 sidecar, no Kafka, no separate cache layer required. Add those when you
 need them; don't pay for them on day one.
+
+**A deployment serves one app.** Which app is a deployment-level
+decision — see [Boot modes](#boot-modes) — and it is the same app for
+everyone the deployment serves, including a walled deployment where
+several organizations share it. You grow the deployment by running more
+identical replicas of the same process, not by packing more apps into
+one; see [Docker](/docs/deploy/docker).
 
 ## Where your data lives
 
@@ -67,18 +74,21 @@ internet access entirely, it keeps running indefinitely. See
 ## How a request is served
 
 ```text
-1. Ingress / TLS termination     (your load balancer)
-2. HTTP dispatcher               (security headers, request id)
-3. Hostname → project resolution (cached, TTL configurable)
-4. Get or build per-project kernel from LRU
-5. AuthPlugin    — session cookie, bearer token, or API key
-6. SecurityPlugin — RBAC + row-level + field-level checks
-7. Route handler — generated REST, declarative action, or custom
-8. Data driver   — ObjectQL compiles to SQL / Mongo query
-9. Response with X-Request-Id propagated
+1. Ingress / TLS termination      (your load balancer)
+2. HTTP dispatcher                (security headers, request id)
+3. AuthPlugin     — session cookie, bearer token, or API key
+4. SecurityPlugin — RBAC + row-level + field-level checks
+5. Route handler  — generated REST, declarative action, or custom
+6. Data driver    — ObjectQL compiles to SQL / Mongo query
+7. Response with X-Request-Id propagated
 ```
 
-Steps 4-8 typically execute in < 5ms once the kernel is warm.
+The app is already resolved before the first request arrives: the
+kernel is built during startup, and the process does not report itself
+[ready](/docs/deploy/docker) until it is. So a served request carries no
+step that decides *which* app it belongs to, and there is no per-app
+warmup for a reader to plan around — what a request costs is
+authentication, the permission checks, and one compiled query.
 
 ## The three layers (only matters if you're integrating)
 
@@ -93,36 +103,54 @@ you want to know where the artifact comes from:
 
 If you're shipping a single app, you don't need a control plane —
 compile `objectstack.config.ts → dist/objectstack.json` in your CI and
-ship the JSON in the image. If you're running an internal app
-marketplace with many tenants and apps, the control plane is where the
-catalog lives.
+ship the JSON in the image. If you publish apps that several
+deployments install, the control plane is where that catalog lives.
 
 ## Boot modes
 
-| Mode | When | How |
-|---|---|---|
-| **Standalone** | Single app, dev, evaluation, air-gapped, most production deployments | `pnpm dev` or run `dist/objectstack.json` from disk |
-| **File-backed** | Production with externally-managed artifacts | Set `OS_ARTIFACT_PATH=/path/to/objectstack.json` |
-| **Cloud-connected** | Multi-tenant / multi-app deployments fed by a control plane | Set `OS_CLOUD_URL` + `OS_CLOUD_API_KEY` |
+Where the running app comes from is one decision, and the deployment declares
+it. The shipped default needs no configuration; each of the other modes is
+selected by naming a published artifact, and the
+[Environment Variables](/docs/reference/environment-variables) reference
+carries the exact contract for each.
 
-Mode is auto-detected from environment variables.
+| Mode | When | How the app arrives |
+|---|---|---|
+| **Config-authored** | The shipped shape. Single app, evaluation, air-gapped, most production deployments | The runtime boots the metadata authored in the image, plus anything installed into it |
+| **Artifact-pinned** | The app is released on its own cadence, separately from the runtime image | One variable names a published artifact by URL, with an optional integrity pin. Upgrading the app is a change to that variable plus a restart |
+| **Composed** | Several organizations behind the isolation wall, sharing one database, running a published app — the hosted single-app SaaS shape | The same artifact reference, consumed from the deployment's own configuration so the enterprise plugins load alongside it. Air-gap licensed only, and [refused at startup](/docs/deploy/air-gapped) otherwise |
+
+Whether the deployment also talks to a **control plane** is a separate
+decision, made by the cloud-posture variable — a connected deployment can be
+any of the modes above. A self-hosted runtime authenticates to a control plane
+with a token minted when the deployment was **bound** to it, not with a key
+pasted into a file, and pairing the wrong licence mode with the wrong cloud
+posture is [refused at startup](/docs/deploy/air-gapped).
 
 ## Performance characteristics
 
-| Metric | Number |
+**This page publishes no latency or memory figures.** What you run is a
+digest-pinned image serving *your* app against *your* database, and the
+only numbers worth sizing a deployment against are the ones you measure
+on that. What this page can give you is the shape — where each cost
+comes from, and what to measure it as.
+
+| Characteristic | Where it comes from, and how to measure it |
 |---|---|
-| Cold start (process up, ready for traffic) | ~1 second |
-| Per-kernel warmup (first request to a project) | 50-300ms depending on capabilities |
-| Warm request latency (CRUD via REST) | typically < 10ms + database latency |
-| Memory footprint | ~150MB base; ~10-30MB per active project kernel |
-| Concurrent projects per instance | Limited by `OS_KERNEL_CACHE_SIZE` (default 32) |
+| **Startup** | The process starts, builds the kernel for this deployment's app, and only then reports ready. Measure it as time to a 200 from `/api/v1/ready` on your own image and artifact; a larger app and more loaded capabilities give it more to do. |
+| **Request latency** | Authentication, the permission checks, and one query compiled by ObjectQL. Nothing per-request resolves which app to serve, so the database round trip is the part that usually moves; measure it at your own percentiles, against your own data volume. |
+| **Memory** | One resident copy of this deployment's metadata, plus the capabilities the app loads — they are optional plugins, so a deployment that loads fewer holds less — plus whatever your concurrency has in flight. Measure the container's RSS under your own load, not at idle. |
+| **Growing past one process** | Replicas of the same process, each serving the same app. Past one replica the cluster driver and identical shared secrets stop being optional — see [Docker](/docs/deploy/docker). |
 
 ## Why this shape
 
 - **One Node process, no sidecars** → fits in a `docker run`, fits in a
-  systemd unit, fits in a Lambda-like environment.
-- **Per-project kernel, LRU cached** → one instance can serve many
-  small apps without paying the warmup cost on every request.
+  systemd unit, fits in a long-lived container or VM.
+- **One app per deployment** → the metadata is resolved once at
+  startup rather than per request, so there is no cache sizing to get
+  right; where several organizations share a deployment, they share its
+  app and the isolation wall between them is enforced inside the
+  runtime.
 - **Generated APIs on top of declared metadata** → there's no codegen
   step in your CI, no client SDK to publish; the API matches your data
   model by construction.

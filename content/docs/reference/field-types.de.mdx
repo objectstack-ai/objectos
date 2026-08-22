@@ -1,10 +1,14 @@
 ---
 title: Feldtypen
 description: Jeder Feldtyp, den du auf einem Objekt deklarieren kannst — was er speichert, welche Optionen er akzeptiert, wie er in REST, Console und im AI Builder erscheint.
+translation:
+  source_sha: 85f1e4084c729f1e824875a2a0ada5196de0df6ed7c070e38827d7e9a1ab7167
+  guide_rev: 1
+  mode: auto
 ---
 
 48 integrierte Feldtypen, gruppiert nach Familie. Das vollständige Zod-Schema befindet sich in
-[`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — diese Seite ist eine praktische Zusammenfassung.
+[`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/field.zod.ts) — diese Seite ist eine praktische Zusammenfassung.
 
 ## Kerneigenschaften (jedes Feld)
 
@@ -18,11 +22,9 @@ description: Jeder Feldtyp, den du auf einem Objekt deklarieren kannst — was e
 | `searchable` | boolean | `false` | Indexiert für `/api/v1/search` |
 | `multiple` | boolean | `false` | Speichert ein Array von Werten |
 | `defaultValue` | unknown | — | Anfangswert (Literal oder CEL) |
-| `columnName` | string | = `name` | Überschreibt physische DB-Spalte |
 | `hidden` | boolean | `false` | In Standard-Console-Ansichten ausblenden |
 | `readonly` | boolean | `false` | In Formularen deaktivieren |
 | `system` | boolean | `false` | Automatisch eingefügt (id, created_at, …) |
-| `index` | boolean | `false` | Erstellt einen DB-Index |
 | `externalId` | boolean | `false` | Für Upsert über externen Schlüssel geeignet |
 | `inlineHelpText` | string | — | Tooltip / Hilfetext |
 | `conditionalRequired` | `P`-Prädikat | — | Erforderlich, wenn CEL wahr ist |
@@ -102,7 +104,9 @@ Häufige Optionen:
 {
   type: 'lookup',
   reference: 'account',                       // target object name
-  referenceFilters: ['status:active'],        // narrow the lookup picker
+  lookupFilters: [                            // narrow the lookup picker
+    { field: 'status', operator: 'eq', value: 'active' }
+  ],
   deleteBehavior: 'set_null'                  // 'set_null' | 'cascade' | 'restrict'
 }
 ```
@@ -112,7 +116,7 @@ Häufige Optionen:
 | Typ | Funktion | Wichtige Option |
 |:--|:--|:--|
 | `formula` | Abgeleiteter Wert, beim Lesen oder Neuberechnen ausgewertet | `expression: F\`record.qty * record.unit_price\`` — siehe [CEL](./cel) |
-| `summary` | Aggregation über eine untergeordnete Beziehung | `summaryOperations: { object, field, function }` (`count` \| `sum` \| `avg` \| `min` \| `max`) |
+| `summary` | Aggregation über eine untergeordnete Beziehung | `summaryOperations: { object, field, function, filter? }` (`count` \| `sum` \| `avg` \| `min` \| `max`; optionaler `filter` — eine Query-`where`-Bedingung, z. B. `{ status: 'received' }` — aggregiert nur passende Kind-Zeilen, 16.0+) |
 | `autonumber` | Automatisch hochzählende Anzeigenummer | `format` (z. B. `TKT-{0000}`), `startAt` |
 
 Formel-Beispiel:
@@ -129,19 +133,18 @@ Formel-Beispiel:
 
 | Typ | Verwendung für | Wichtige Option |
 |:--|:--|:--|
-| `image` | Bildanhänge | `fileAttachmentConfig` (siehe unten) |
+| `image` | Bildanhänge | `multiple` / `accept` / `maxSize` (siehe unten) |
 | `file` | beliebige Datei | dasselbe |
 | `avatar` | Profilbilder | quadratischer Zuschnitt, sinnvolle Standardwerte |
 | `video` | Video-Uploads | Dauer + Thumbnail-Erfassung |
 | `audio` | Audio | Wellenform-Vorschau |
 
 ```ts
-fileAttachmentConfig: {
-  maxSize: 10_000_000,                        // bytes
-  allowedTypes: ['image/png','image/jpeg'],
-  virusScan: true,
-  storageProvider: 's3',                       // see Configure → Storage
-  imageValidation: { minWidth: 200, maxWidth: 4096, generateThumbnails: ['sm','md','lg'] }
+{
+  type: 'file',
+  multiple: true,                             // store an array of attachments
+  accept: ['image/png', 'image/jpeg'],        // MIME types / extensions
+  maxSize: 10_000_000                         // bytes
 }
 ```
 
@@ -167,7 +170,7 @@ fileAttachmentConfig: {
 | `qrcode` | rendert den Wert als QR-Code oder Barcode (EAN / UPC / Code128) |
 | `progress` | abgeleiteter Prozentwert als Balken dargestellt |
 | `tags` | frei wählbares Tag-Array mit Autovervollständigung |
-| `vector` | Embedding-Spalte — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
+| `vector` | Embedding-Spalte — flaches `dimensions` (z. B. `1536` für OpenAI-Embeddings); das verschachtelte `vectorConfig` (`distanceMetric`/`indexed`/`indexType`) wurde in 16.0 entfernt |
 
 ## Systemfelder (automatisch auf jedem Objekt eingefügt)
 
@@ -201,4 +204,4 @@ Diese deklarierst du nicht — deaktiviere sie pro Objekt mit
 - [CEL](./cel) — `expression`, `conditionalRequired`, Validierungen
 - [ObjectQL](./objectql) — diese Felder abfragen
 - [REST API](./rest-api) — Endpunkte, die sie erzeugen / konsumieren
-- [`@objectstack/spec/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — maßgebliches Schema
+- [`@objectstack/spec/data/field.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/field.zod.ts) — maßgebliches Schema

@@ -1,6 +1,10 @@
 ---
 title: 流程与自动化
 description: 声明式业务逻辑 —— 无论是描述给 AI 还是用 TypeScript 编写，运行时执行的都是同一份产物。
+translation:
+  source_sha: f08495495034c8de3d9e0e09657c815b81252441b23af0c849670f7c8c2e2c1e
+  guide_rev: 1
+  mode: auto
 ---
 
 Flow 是你不写服务端就能表达业务逻辑的方式。每个 Flow 都是声明式元数据，由运行时执行 —— 与对象、视图一样。这意味着 Flow 会同时出现在 `os diff`、审计日志、Console 的流程构建器以及 [AI Builder](/docs/build/ai-builder) 中。
@@ -20,12 +24,13 @@ export default defineStack({
 });
 ```
 
-## 三种流程类型
+## 流程类型
 
 | 类型 | 触发方式 | 用于 |
 |---|---|---|
 | **Autolaunched** | 记录变更(insert/update/delete) | "用户注册时发欢迎邮件" |
 | **Scheduled** | Cron 表达式或间隔 | "每晚 2 点标记过期任务" |
+| **Time-relative** *(16.0)* | 日期字段与今天的距离，经由每日扫描 | "合同到期前 60 天提醒我" |
 | **Manual** | 用户在 Console 点按钮，或 API 调用 | "审批发票"等 Action |
 
 ## Autolaunched：对记录变更做出反应
@@ -95,6 +100,64 @@ export const nightlyCleanup = defineFlow({
 ```
 
 由 `@objectstack/service-job` 能力承载 —— 见 [Runtime Capabilities](/docs/reference/runtime-capabilities)。
+
+## Time-relative：相对日期字段触发（16.0）
+
+"合同到期前 60 天提醒我"以前只能写成一个用 `record.end_date == daysFromNow(60)` 做门控的记录变更流程 —— 这个谓词只有在记录*恰好被修改*时才会求值，无人照看时几乎永远不会触发。别这么写。改为声明**时间相对触发器**：流程的开始节点携带一个 `config.timeRelative` 描述符，运行时按计划扫描该对象，并为**每条匹配记录各启动一次**流程：
+
+```ts
+export const renewalReminder = defineFlow({
+  name: 'contract_renewal_reminder',
+  type: 'schedule',
+  status: 'active',
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      config: {
+        timeRelative: {
+          object: 'contracts',
+          dateField: 'end_date',
+          offsetDays: [60, 30, 7],       // T-minus thresholds
+          filter: { status: 'active' },  // AND-ed with the date window
+        },
+        // Optional sweep cadence — defaults to daily at 08:00 UTC.
+        schedule: { type: 'cron', expression: '0 8 * * *' },
+      },
+    },
+    { id: 'notify_owner', type: 'notify', label: 'Notify Owner' },
+    { id: 'end', type: 'end' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'notify_owner' },
+    { id: 'e2', source: 'notify_owner', target: 'end' },
+  ],
+});
+```
+
+| 键 | 声明什么 |
+|---|---|
+| `object` | 扫描其记录的对象（机器名） |
+| `dateField` | 相对今天求值的 `date` / `datetime` 字段（按天粒度） |
+| `offsetDays` | **偏移模式** —— 当 `dateField` 恰好等于今天 + 所列各偏移时触发（`[60, 30, 7]`；负数 = 过去，如 `[-1]` 表示次日） |
+| `withinDays` | **区间模式** —— `dateField` 落在距今天 N 天内的每一天都触发：正数 = 即将到来（"即将过期"），负数 = 有界的逾期回看，`0` = 今天到期 |
+| `filter` | 可选的 ObjectQL where 映射，与计算出的日期窗口做 AND（如 `{ status: 'active' }`） |
+| `maxRecords` | 每次扫描启动流程的记录数上限（默认 1000；触发收拢时扫描会记日志） |
+
+`offsetDays` 与 `withinDays` 必须**恰好设置一个**。另外两种常见形态：
+
+```ts
+// "Expiring soon" — fires every day a document is within 30 days of expiry.
+timeRelative: { object: 'hr_document', dateField: 'expires_on', withinDays: 30 }
+
+// Overdue sweep — fires for POs up to 14 days past due (bounded lookback).
+timeRelative: { object: 'purchase_order', dateField: 'due_date',
+                withinDays: -14, filter: { status: 'open' } }
+```
+
+每次启动都会把匹配记录放到自动化上下文中，因此开始节点的 `condition` 和 `{record.<field>}` 插值与记录变更流程完全一致。发现查询以 system 身份运行，并做按记录的故障隔离。`os validate` 新增就绪性检查 —— 当 `timeRelative.object` 指向 stack 未定义的对象、或自动触发的流程停留在 `draft` 状态时都会警告。
+
+> **真正的"当天"检查现在没问题了（#3183）。**16.0 中 `record.due_date == today()` 能匹配了 —— 引擎会对时间类 `==` / `!=` 比较做强制转换，让日期字段与 `today()` 正确比较。真正的"今天到期"条件用它；而任何"某日期前/后 N 天"形态的需求，用 `timeRelative`。
 
 ## Manual：Action 与审批
 
@@ -205,4 +268,4 @@ os test --scenario "welcome email fires on signup"
 - [Email](/docs/configure/email) —— `send_email` Action 的传输层
 - [AI Service](/docs/configure/ai) —— 用于 LLM 步骤的 `ai_call` Action
 - [API Access](/docs/configure/api-access) —— 从外部系统调用手动流程
-- [@objectstack/service-automation](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-automation) —— 执行引擎源码
+- [@objectstack/service-automation](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-automation) —— 执行引擎源码

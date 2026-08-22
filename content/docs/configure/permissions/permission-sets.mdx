@@ -13,10 +13,10 @@ resolving immediately.
 
 | Permission type | Examples |
 |---|---|
-| Application access | User can open CRM or Console |
+| Application access | User can open CRM or Setup |
 | Object permissions | Create, read, update, delete records |
 | Field permissions | Read or update selected fields |
-| System permissions | Access Console, run reports, export data |
+| System permissions | Access Setup, run reports, view audit logs |
 | Integration permissions | Use API keys, webhooks, or admin actions |
 
 ## Object permissions
@@ -36,6 +36,7 @@ plugin's permission evaluator):
 | `allowCreate` | Create records |
 | `allowEdit` | Update records allowed by record access rules |
 | `allowDelete` | Delete records allowed by record access rules |
+| `allowExport` | Take a bulk, machine-readable copy of the object's records |
 | `viewAllRecords` | Read every record for the object, bypassing record access |
 | `modifyAllRecords` | Update or delete every record for the object, bypassing record access; implies `viewAllRecords` for reads |
 
@@ -45,15 +46,54 @@ row-level boundary. Reserve those flags for
 administrative permission sets — they are effectively a tenant-wide
 super-user grant for that object.
 
+### Export is its own grant
+
+Export is an **object permission**, not a system permission, and it is
+**opt-in**:
+
+| `allowExport` | Result |
+|---|---|
+| unset | export **denied** |
+| `false` | denied |
+| `true` | allowed (still bounded by `allowRead`) |
+
+Unset used to mean "inherit read". Since ObjectStack 17.0 it means
+denied, and `viewAllRecords` / `modifyAllRecords` no longer confer it
+either — "may see all data" and "may take a bulk copy of it" are
+deliberately different grants.
+
+```ts
+objects: {
+  deal: { allowRead: true, allowExport: true },   // ← add the grant
+}
+```
+
+Three consequences worth planning for:
+
+- **Package-shipped sets are re-seeded on upgrade**, so
+  `admin_full_access` and `organization_admin` carry `allowExport: true`
+  for you. **Environment-authored sets are not** — edit any custom set
+  whose users export.
+- **`member_default` deliberately does not carry the grant**, so ordinary
+  authenticated users lose export until an admin grants it. That is the
+  point of the flip, not an oversight.
+- **A set carrying `allowExport` is high-privilege**, so it cannot be
+  bound to the `everyone` or `guest` audience anchors — otherwise the
+  opt-in would be defeatable by binding an exporting set to an anonymous
+  anchor.
+
+Merge is most-permissive, exactly like the CRUD bits: any assigned set
+granting `true` grants export, and `false` and unset produce the same
+outcome. Reports are covered by the same axis.
+
 ## System permissions
 
 System permissions are for platform actions such as:
 
-- Console access;
+- Setup access;
 - manage users;
 - manage positions and permission sets;
 - run reports;
-- export reports;
 - manage integrations;
 - view audit logs.
 
@@ -103,13 +143,13 @@ read a record, individual fields can be hidden or made read-only.
 
 | Mode | Effect |
 |---|---|
-| **Hidden** | Field is stripped from API responses and Console views entirely |
+| **Hidden** | Field is stripped from API responses and generated views entirely |
 | **Read-only** | Field is returned but writes are rejected |
 
 ### Where it's enforced
 
 The same evaluator that checks object permissions applies field rules
-on every path — REST, ObjectQL, generated Console forms, exports. There
+on every path — REST, ObjectQL, generated forms, exports. There
 is no "back door" through a lower-level API.
 
 ### Typical patterns

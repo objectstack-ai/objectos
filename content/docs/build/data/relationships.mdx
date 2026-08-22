@@ -5,7 +5,7 @@ description: Connect objects with lookups and master-detail — cascade rules, f
 
 **A relationship is just a field.** Point a `lookup` or `masterDetail`
 field at another object and ObjectOS wires up everything on top:
-foreign-key integrity, the record picker in Console, related lists on
+foreign-key integrity, the record picker, related lists on
 the parent page, and `expand` in queries.
 
 | Type | Cardinality | Delete default | Use for |
@@ -68,9 +68,10 @@ contact: Field.lookup('contact', {
 ```
 
 > **Warning:** The legacy `referenceFilters: string[]` property (e.g.
-> `['is_active = true']`) is accepted by the schema but **not read by
-> the record-picker UI** — it filters nothing. Always use the
-> structured `lookupFilters` + `dependsOn` shown above.
+> `['is_active = true']`) is **removed in 16.0** — it is stripped at
+> parse time, and even before removal the record-picker UI never read
+> it, so it filtered nothing. The structured `lookupFilters` +
+> `dependsOn` shown above is the only supported form.
 
 ## Master-detail (owned children)
 
@@ -117,7 +118,7 @@ that loops back on itself is not automatically rejected.
 
 > **Tip:** Pair a `tree` / self-lookup field with a
 > [tree list view](/docs/build/interface/views) to render the hierarchy
-> as nested rows in Console.
+> as nested rows.
 
 ## Related lists
 
@@ -167,12 +168,19 @@ total_lines: {
     object: 'order_line',    // child object to aggregate
     field: 'quantity',       // field to aggregate
     function: 'sum',         // count | sum | min | max | avg
+    filter: { status: 'active' },  // new in 16.0: aggregate only matching children
   },
 }
 ```
 
 Summary fields are read-only and computed from the children — you never
 write them directly.
+
+**New in 16.0:** the optional `filter` is a query-style `where`
+predicate — only child rows matching it are aggregated (e.g. count only
+`status == 'active'` children), and the roll-up re-aggregates when a
+child moves in or out of the predicate. It also lets several summaries
+roll up the *same* child object into different totals.
 
 ## Querying across relationships
 

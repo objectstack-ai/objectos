@@ -39,15 +39,15 @@ plane `OS_CLOUD_URL` points at. Once an app is installed it lives in
 your runtime's own kernel — nothing at runtime depends on the catalog
 staying reachable.
 
-When you open Console (`/_console/`), the marketplace tab queries the
+When you open ObjectOS (`/_console/`), the marketplace tab queries the
 configured app catalog and shows installable apps.
 
 ```text
-You ─→ Console ─→ Marketplace tab ─→ pick app ─→ Install
+You ─→ ObjectOS ─→ Marketplace tab ─→ pick app ─→ Install
                                                   ↓
                                        Artifact merged into kernel
                                                   ↓
-                                       Console re-renders with new
+                                       The page re-renders with new
                                        objects / views / permissions
                                                   ↓
                                        Done — no restart
@@ -67,7 +67,7 @@ vars; see [Runtime Configuration](/docs/configure/runtime).
 
 ## What's in the default catalog
 
-These apps are ready to install with one click in Console:
+These apps are ready to install with one click:
 
 | App | What it gives you |
 |---|---|
@@ -86,11 +86,11 @@ clone any of them as a starting point for a custom app.
 
 ## Install flow
 
-1. **Open Console** — http://localhost:3000/_console/
-2. **Sign in** — if no account exists yet, register one at `/_account/register`
+1. **Open ObjectOS** — http://localhost:3000/_console/
+2. **Sign in** — if no account exists yet, register one at `/_console/register`
 3. **Navigate to the marketplace tab**
 4. **Pick an app, click Install**
-5. **Reload Console** — the new app's objects, views, and flows appear
+5. **Reload the page** — the new app's objects, views, and flows appear
 
 Behind the scenes, the marketplace fetches the app's compiled artifact,
 merges it into the running kernel, and registers its objects with
@@ -99,7 +99,7 @@ install.
 
 ## Uninstall
 
-From Console → Marketplace → installed app → Uninstall. The app's
+From **Marketplace → installed app → Uninstall**. The app's
 objects are removed from the kernel and its tables are marked for
 cleanup (data is retained by default; you choose whether to drop
 tables).
@@ -124,12 +124,12 @@ at your own.
 
 Every published app is immutable. Updates produce a new version. The
 runtime tracks installed version + available updates per app. Users see
-an "Update available" badge in Console when a new version is published
+an "Update available" badge when a new version is published
 to a catalog they're tracking.
 
 ## Installing from the CLI
 
-Console is the primary install surface, but the same install-local
+The marketplace tab is the primary install surface, but the same install-local
 endpoint is scriptable for CI and air-gapped operations:
 
 ```bash
@@ -143,7 +143,7 @@ os package install ./dist/objectstack.json --runtime http://localhost:3000 \
 ```
 
 The credentials are an account on the **target runtime** (not your
-cloud login) — the same authorization Console install uses.
+cloud login) — the same authorization the in-app install uses.
 
 ## Permissions
 

@@ -1,6 +1,10 @@
 ---
 title: 데이터 소스
 description: ObjectOS를 기존 비즈니스 데이터베이스에 연결하고, 객체를 해당 데이터베이스로 라우팅하며, AI가 데이터를 네이티브하게 쿼리하도록 하세요.
+translation:
+  source_sha: c1e0954576877e1498f592a5b73c5848b9cefbfe3e27a962bd809d3b2db132b9
+  guide_rev: 1
+  mode: auto
 ---
 
 **datasource**는 외부 데이터 저장소에 대한 이름이 지정된 연결입니다. 데이터 소스를 선언함으로써 ObjectOS를 비즈니스가 이미 운영 중인 데이터베이스 — 프로덕션 PostgreSQL, 리포팅용 MySQL 복제본, MongoDB 클러스터 — 로 지정한 다음, 객체를 거기에 바인딩합니다. 객체가 일단 바인딩되면 플랫폼의 나머지 모든 것(REST/GraphQL API, 권한, 플로우, 대시보드, 그리고 **AI 에이전트**)이 행이 물리적으로 어디에 있는지 신경 쓰지 않고 해당 데이터에 대해 균일하게 동작합니다.
@@ -158,7 +162,7 @@ export default defineStack({
 
 ## 로드맵: 제품 내 외부 데이터 소스 페더레이션
 
-위의 흐름 — 데이터베이스 연결, 객체 모델링, 코딩 에이전트로 생성 — 은 기본 제공 빌딩 블록으로 오늘날 동작합니다. 더 풍부한 **턴키(turn-key) 페더레이션** 경험이 [ADR-0015](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0015-external-datasource-federation.md)(상태: *Proposed*) 아래에서 활발히 설계되고 있습니다. 계획되어 있지만 **아직 출시되지 않은** 것들:
+위의 흐름 — 데이터베이스 연결, 객체 모델링, 코딩 에이전트로 생성 — 은 기본 제공 빌딩 블록으로 오늘날 동작합니다. 더 풍부한 **턴키(turn-key) 페더레이션** 경험이 [ADR-0015](https://github.com/objectstack-ai/objectstack/blob/main/docs/adr/0015-external-datasource-federation.md)(상태: *Proposed*) 아래에서 활발히 설계되고 있습니다. 계획되어 있지만 **아직 출시되지 않은** 것들:
 
 - ObjectOS가 소유하지 **않은** 테이블을 마이그레이션하려 시도하지 않고 바인딩할 수 있도록 하는 `schemaMode`(`managed` / `external` / `validate-only`).
 - 객체 필드를 기존 컬럼에 매핑하는 객체의 `external` 바인딩 하위 레코드.
@@ -173,4 +177,4 @@ export default defineStack({
 - [AI 서비스](/docs/configure/ai) — 채팅, 임베딩, RAG, MCP
 - [AI Agents](/docs/build/agents) — 객체에 대한 선언적 에이전트
 - [Objects](/docs/build/objects) — `ObjectSchema.create` 작성 인터페이스
-- [`examples/app-crm` 데이터 소스](https://github.com/objectstack-ai/framework/tree/main/examples/app-crm/src/datasources) — 실제 데이터 소스 + 라우팅 예제
+- [`examples/app-crm` 데이터 소스](https://github.com/objectstack-ai/objectstack/tree/main/examples/app-crm/src/datasources) — 실제 데이터 소스 + 라우팅 예제

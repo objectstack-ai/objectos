@@ -1,6 +1,10 @@
 ---
 title: CLI de skills
 description: El comando npx que instala paquetes de skills de ObjectOS en tu agente de programación.
+translation:
+  source_sha: ab92f8b9ec6ba4e89662faf8d688e2cf621fbdb2765c8b919e28f053cdf4a331
+  guide_rev: 1
+  mode: auto
 ---
 
 La CLI de [`skills`](https://www.npmjs.com/package/skills) (de
@@ -15,12 +19,12 @@ consulta [Build → IDE Skills](/docs/build/ai-skills).
 ## Instalación
 
 ```bash
-npx skills add objectstack-ai/framework
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 La primera ejecución descarga el paquete [`skills`](https://www.npmjs.com/package/skills)
 desde npm mediante `npx`, luego obtiene el paquete de skills desde
-[github.com/objectstack-ai/framework](https://github.com/objectstack-ai/framework)
+[github.com/objectstack-ai/objectstack](https://github.com/objectstack-ai/objectstack)
 (carpetas `skills/<name>/`) y los escribe en la configuración del
 agente de tu proyecto.
 
@@ -32,7 +36,7 @@ Se detecta automáticamente según lo que haya en tu proyecto:
 
 | Agente | Ruta escrita |
 |:--|:--|
-| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| Claude Code | `.claude/skills/<name>/` → symlink to `.agents/skills/<name>/` |
 | Cursor | `.cursor/rules/<name>.mdc` |
 | GitHub Copilot | `.github/copilot-instructions.md` (consolidado) |
 | Codex / Codex CLI | `AGENTS.md` (consolidado) |
@@ -62,7 +66,7 @@ agente cargarlo y cuándo delegar en uno hermano.
 
 ```bash
 npx skills add <org>/<repo>        # add a skill bundle from a GitHub repo
-npx skills add <org>/<repo>@<ref>  # pin to a tag / branch / SHA
+npx skills add https://github.com/<org>/<repo>/tree/<ref>/<path>  # pin to a tag / branch / SHA
 npx skills list                    # list installed skills
 npx skills remove <name>           # remove a skill
 npx skills detect                  # show which agents the CLI will write to
@@ -72,7 +76,7 @@ npx skills --help                  # full options
 Fija una versión para una CI reproducible:
 
 ```bash
-npx skills add objectstack-ai/framework@v5.0.0
+npx skills add https://github.com/objectstack-ai/objectstack/tree/<commit-sha>/skills
 ```
 
 ## Dónde confirmar la salida
@@ -85,7 +89,7 @@ incluirías en el control de versiones de todos modos.
 ## Actualización
 
 ```bash
-npx skills add objectstack-ai/framework      # pulls latest matching the spec version range
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 Vuelve a ejecutarlo después de actualizar `@objectstack/spec` para que
@@ -97,4 +101,4 @@ helpers de CEL y vocabulario de metadatos.
 - [Build → IDE Skills](/docs/build/ai-skills) — visión conceptual, AI Builder frente a skills
 - [Build → AI Builder](/docs/build/ai-builder) — la contraparte dentro de Console
 - [vercel-labs/skills](https://github.com/vercel-labs/skills) — CLI original
-- [objectstack-ai/framework/skills](https://github.com/objectstack-ai/framework/tree/main/skills) — fuente de verdad para cada skill
+- [objectstack-ai/objectstack/skills](https://github.com/objectstack-ai/objectstack/tree/main/skills) — fuente de verdad para cada skill

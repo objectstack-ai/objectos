@@ -16,7 +16,7 @@ const homePage = {
   regions: [
     { name: 'header', width: 'full', components: [
       { type: 'metric_card', id: 'total_revenue', label: 'Total Revenue',
-        properties: { object: 'opportunity', field: 'amount', aggregate: 'sum', format: 'currency' } },
+        properties: { dataset: 'sales', values: ['revenue'], format: 'currency' } },
     ]},
     { name: 'main', width: 'large', components: [
       { type: 'list_view', id: 'recent_deals', label: 'Recent Deals',
@@ -75,12 +75,19 @@ Components are the building blocks inside regions:
   type: 'chart',
   id: 'revenue_chart',
   label: 'Revenue Trend',
-  properties: { chartType: 'line', object: 'opportunity',
-                categoryField: 'close_date', valueField: 'amount' },
+  properties: { chartType: 'line', dataset: 'sales',
+                dimensions: ['close_month'], values: ['revenue'] },
   events: { onClick: "navigate_to('opportunity_detail', { id: $event.id })" },
-  visibility: "os.user.profile == 'sales_manager'",
+  visibleWhen: "'sales_manager' in os.user.positions",
 }
 ```
+
+Analytics-bearing components (`chart`, `metric_card`) bind a named
+**dataset** and select its `dimensions` + `values` by name — the same
+ADR-0021 shape as [dashboard](/docs/build/interface/dashboards) widgets
+and Studio's only output. The removed inline-analytics shape (`object` +
+`categoryField` + `valueField` + `aggregate` on the component) is a
+parse error since 16.0, not a silently ignored no-op.
 
 | Property | Type | Description |
 |:--|:--|:--|
@@ -88,7 +95,7 @@ Components are the building blocks inside regions:
 | `id` | `string` | Unique component instance id |
 | `properties` | `object` | Component-specific configuration |
 | `events` | `object` | Event handlers (action expressions) |
-| `visibility` | `string` | CEL visibility predicate |
+| `visibleWhen` | `string` | CEL visibility predicate — component rendered only when TRUE. (`visibility` is a deprecated alias, still accepted and normalized to `visibleWhen`.) |
 | `style` / `className` | — | Ad-hoc CSS |
 | `responsiveStyles` | `object` | **Preferred** styling channel: desktop-first per-breakpoint style maps (`large` base, then `medium` / `small` / `xsmall` overrides), compiled to scoped CSS — prefer design tokens like `var(--space-8)` |
 
@@ -135,7 +142,7 @@ navigation entry, or make it the app's landing page via `homePageId`.
 
 A **doc** is a page of package documentation: plain Markdown files in a
 flat `src/docs/` directory, compiled into the package artifact and
-rendered in the console at `/docs/<name>`. Docs also ground the AI
+rendered in the UI at `/docs/<name>`. Docs also ground the AI
 assistant when it answers questions about your package.
 
 ```
@@ -152,7 +159,7 @@ resolve by basename, never by path.
 |:--|:--|
 | Naming | `snake_case`, and the build lint requires a **namespace prefix** (`crm_user_guide`, not `user_guide`) |
 | Frontmatter | Optional; `title` and `description` are read. Title resolves: frontmatter → first `#` heading → doc name |
-| Cross-references | Plain relative links (`[overview](./crm_index.md)`) — rewritten to `/docs/<target>` in console, native on GitHub. **Broken same-package links fail the build** |
+| Cross-references | Plain relative links (`[overview](./crm_index.md)`) — rewritten to `/docs/<target>` in the UI, native on GitHub. **Broken same-package links fail the build** |
 | Markdown | CommonMark + GFM: tables, fenced code with highlighting, heading anchors, GitHub alerts (`> [!TIP]`) |
 | Rejected at build | **MDX / embedded components** (docs are data, not code — a trust boundary) and **image references** (no asset service yet; fail fast beats broken images) |
 

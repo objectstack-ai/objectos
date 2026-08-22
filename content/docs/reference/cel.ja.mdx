@@ -1,6 +1,10 @@
 ---
 title: CEL 式
 description: 数式、述語、スケジュール、テンプレート文字列に使用される式言語 — 5 つのタグ付きテンプレートを通じて提供されます。
+translation:
+  source_sha: 9489636c35a7a16dd066125812e7e218008b3e558ba4c8dd92d6d3126e60f234
+  guide_rev: 1
+  mode: auto
 ---
 
 ObjectOS は、小さく安全でサンドボックス化された式が必要なあらゆる場所で [CEL](https://github.com/google/cel-spec)（Common
@@ -14,7 +18,7 @@ Expression Language）を使用します。対象は、数式フィールド、�
 ```
 
 スキーマソース:
-[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts)。
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts)。
 
 ## 5 つのタグ付きテンプレート
 
@@ -67,7 +71,7 @@ CEL 式は、次のトップレベル変数を持つコンテキスト内で評�
 
 ## 標準ライブラリ
 
-[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts)
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts)
 に登録されています。
 最もよく使われる組み込み関数:
 
@@ -154,5 +158,5 @@ CEL にはネイティブの `timestamp(...)`、`duration(...)`、
 - [Field types](./field-types) — 数式フィールドと条件付き必須フィールド
 - [Build → Data model](/docs/build/data) — 検証と述語
 - [Build → Flows](/docs/build/automation/flows) — ガードとスケジュール
-- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — スキーマ
-- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — 組み込み関数
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts) — スキーマ
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts) — 組み込み関数

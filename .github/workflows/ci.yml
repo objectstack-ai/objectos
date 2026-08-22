@@ -5,16 +5,51 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
 
 jobs:
+  # The three Node floor declarations (root `engines.node`, `apps/docs`
+  # `engines.node`, `.node-version`) are read by nothing in the install path:
+  # `.npmrc` sets no `engine-strict`, pnpm does not enforce `engines` by
+  # default, and every workflow here pins `node-version` explicitly instead of
+  # consulting them. This job is what makes them mechanically checkable. It
+  # needs no install — the script is zero-dependency and reads the lockfile as
+  # text — so it stays a seconds-long job that can run alongside `build`.
+  node-floor:
+    name: Node floor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # 裁决 (PR #74): a validator observed only green is indistinguishable
+      # from one that cannot go red. The fixtures run before the real scan, so
+      # a rule that stopped being able to fail fails the job on its own.
+      - name: Self-test
+        shell: bash
+        run: node .github/scripts/check-node-floor.mjs --self-test
+
+      # `shell: bash` is load-bearing here, not tidiness. The DEFAULT shell for
+      # a `run:` step is `bash -e {0}` with no pipefail, so in `node ... | tee`
+      # the step takes tee's exit status and a gate that exits 1 passes the job
+      # silently. Naming the shell gets `bash --noprofile --norc -eo pipefail
+      # {0}`, which propagates it.
+      - name: Check
+        shell: bash
+        run: node .github/scripts/check-node-floor.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run type-check --continue

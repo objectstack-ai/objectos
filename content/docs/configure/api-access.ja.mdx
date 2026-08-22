@@ -1,6 +1,10 @@
 ---
 title: API アクセス
 description: 統合のために生成される REST API、認証、API キーについて。
+translation:
+  source_sha: 59e07888e7a8e425689a077f85312f83e2d9e55cf1cfe435d37dc30856f2d0a5
+  guide_rev: 1
+  mode: auto
 ---
 
 アーティファクトで宣言されたすべてのオブジェクトは、生成された REST API
@@ -23,7 +27,8 @@ https://<project-domain>/api/v1
 | `/api/v1/auth/*` | 認証（サインイン、セッション、OAuth、OIDC） |
 | `/api/v1/meta/*` | 有効化されている場合のメタデータ API（オブジェクト、フィールド、ビュー） |
 | `/api/v1/keys` | 呼び出しユーザー向けに一度だけ表示される `sys_api_key` を発行（POST） |
-| `/api/v1/mcp` | `OS_MCP_SERVER_ENABLED=true` のとき、Streamable HTTP 経由の Model Context Protocol サーバー |
+| `/api/v1/batch` | オブジェクト横断のトランザクショナルバッチ（POST）— アトミックのみ、各操作をオブジェクト単位でゲート |
+| `/api/v1/mcp` | Streamable HTTP 経由の Model Context Protocol サーバー — デフォルトで有効。`OS_MCP_SERVER_ENABLED=false` で無効化 |
 | `/api/v1/health` | 死活／準備状態のプローブ（認証不要） |
 
 プレフィックスのデフォルトは `/api/v1`（API の `basePath` である `/api` と

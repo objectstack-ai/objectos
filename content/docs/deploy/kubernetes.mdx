@@ -1,104 +1,94 @@
 ---
 title: Kubernetes
-description: Deploy ObjectOS in a Kubernetes environment.
+description: The properties any orchestrator must preserve when running the licensed ObjectOS image — digest pinning, migration ordering, probes, and what multi-replica makes mandatory.
 ---
 
-Use Kubernetes for production deployments that need managed secrets,
-ingress, probes, rolling upgrades, and customer-managed databases.
+**We ship a Compose stack, not a Helm chart or Kubernetes manifests.** The
+deploy bundle in your release is the supported, tested configuration. If you
+run ObjectOS on Kubernetes, you are assembling the manifests yourself — so
+this page states the properties that stack has, each of which the runtime
+either depends on or enforces. Reproduce the properties; the YAML around them
+is yours.
 
-ObjectOS does not yet ship a packaged Helm chart, so the guidance below
-describes the manifests to assemble around the published container image.
+Everything on [Docker](/docs/deploy/docker) applies unchanged: same image,
+same licence rules, same cloud posture rules. Nothing about the orchestrator
+changes what the deployment is entitled to.
 
-## Deployment shape
+## Properties to preserve
 
-A production ObjectOS deployment normally includes:
+### The image is pinned by digest
 
-| Component | Recommendation |
-|---|---|
-| Deployment | One ObjectOS container image |
-| Service | ClusterIP service for HTTP traffic |
-| Ingress | TLS termination and customer hostname routing |
-| Secret | `OS_AUTH_SECRET`, control-plane token, database credentials |
-| ConfigMap | Non-secret runtime configuration |
-| Persistent storage | Only when using local file artifacts or SQLite evaluation data |
-| External database | Recommended for production business data |
+Reference the image by `@sha256:` digest in the pod spec, not by tag. On an
+orchestrator this matters more than on a single host: an image pull policy
+plus a moving tag means two replicas of the "same" deployment can be running
+different builds. Pulling needs a pull secret holding your licensed registry
+credentials.
 
-## Required configuration
+### Migrations run once, to completion, before replicas serve
 
-At minimum configure:
+The Compose stack runs a one-shot migration container that must finish before
+any application replica starts. On Kubernetes that is a Job (or an equivalent
+pre-serve hook), not an init container on every replica — the point is that
+schema changes run **once**, not once per replica in parallel. The image
+supports a migrate-and-exit mode for exactly this; the bundle names the
+variable.
 
-```yaml
-env:
-  - name: PORT
-    value: "3000"
-  - name: OS_AUTH_SECRET
-    valueFrom:
-      secretKeyRef:
-        name: objectos-secrets
-        key: auth-secret
-```
+### Probes address the right endpoints
 
-For cloud-connected mode:
+`/api/v1/ready` is readiness. `/api/v1/health` is liveness. They answer
+different questions, and using one for both means either routing traffic at a
+replica that is not ready, or restarting a replica that is merely busy.
 
-```yaml
-env:
-  - name: OS_CLOUD_URL
-    value: "https://cloud.example.com"
-  - name: OS_CLOUD_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: objectos-secrets
-        key: cloud-api-key
-```
+Since ObjectStack 17.0 readiness is backed by the data layer:
+`/api/v1/ready` answers **503** when a data driver stops answering, so a
+readiness probe pointed at it will correctly pull a replica out of the
+Service endpoints when its database goes away. Keep it off the liveness
+probe for exactly that reason — a shared database outage would otherwise
+restart every replica at once instead of draining traffic.
 
-For file-backed mode, mount the artifact and set:
+### Every replica gets identical secrets
 
-```yaml
-env:
-  - name: OS_ARTIFACT_FILE
-    value: "/artifacts/objectstack.json"
-```
+Multi-replica is not a matter of raising the replica count:
 
-## Probes
+- The **cluster driver** must be on, backed by Redis.
+- A **shared secret key** becomes mandatory. Without a cluster driver each
+  replica mints its own; across replicas those would diverge, and rather than
+  diverge, **the runtime refuses to start**. One value, mounted into every
+  replica.
+- The **auth secret** must likewise be identical across replicas.
 
-ObjectOS exposes a built-in `GET /health` endpoint that responds before
-the project kernel is fully resolved, which makes it the right target
-for both liveness and readiness probes:
+So the secret material belongs in a `Secret` mounted identically by every
+pod — never generated per pod, never templated from a pod-unique value.
 
-```yaml
-readinessProbe:
-  httpGet:
-    path: /health
-    port: 3000
-  initialDelaySeconds: 5
-  periodSeconds: 10
-livenessProbe:
-  httpGet:
-    path: /health
-    port: 3000
-  initialDelaySeconds: 15
-  periodSeconds: 20
-```
+### Licence and cloud posture are deployment-wide
 
-For stricter readiness checks, point an additional probe at an
-application-specific generated API route — this confirms the artifact
-loaded and the kernel is serving requests.
+The licence key, the licence mode, and the cloud-posture setting are part of
+the deployment's identity. They must be the same in every replica, and their
+supported combinations are checked **at startup** — a mismatched pod does not
+run degraded, it exits. See [Air-gapped](/docs/deploy/air-gapped) for the
+combinations.
 
-## Ingress and CORS
+Multi-node and high availability are Enterprise capabilities — see
+[License & Pricing](/docs/resources/license).
 
-Terminate TLS at the edge or ingress. Configure CORS explicitly for the
-front-end origins used by the customer. Do not combine wildcard origins
-with credentialed requests.
+### Business data lives outside the cluster
 
-When ObjectOS runs behind a proxy, make sure the proxy strips
-client-supplied `X-Forwarded-For` values before setting its own. Rate
-limiting and audit trails depend on trustworthy caller identity.
+Point the deployment at a managed PostgreSQL (and Redis). Persistent volumes
+inside the cluster are not the intended home for business data.
 
-## Rolling upgrades
+### Rolling upgrades change the digest
 
-ObjectOS image versions and application artifact versions are separate.
-Roll them independently:
+Upgrading is a change of image digest, with the migration Job running to
+completion before the new replicas serve. Schema migrations are forward-only:
+rolling the image back does not roll the schema back, so take a backup first
+and keep the previous digest to roll back to. The app itself, when it is
+delivered as a published artifact, versions independently of the image — see
+the run shapes on [Deployment](/docs/deploy).
 
-- ObjectOS image: upgrade by changing the container tag.
-- Application artifact: publish or mount a new immutable artifact.
-- Rollback: restore the previous image tag or artifact pointer.
+## Ingress
+
+Terminate TLS at the edge. Configure CORS explicitly for the front-end origins
+you serve; do not combine wildcard origins with credentialed requests. When
+the runtime sits behind a proxy, make sure the proxy replaces any
+client-supplied forwarded-for header with its own — rate limiting and audit
+trails depend on the caller identity being trustworthy.

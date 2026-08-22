@@ -1,10 +1,14 @@
 ---
 title: 필드 타입
 description: 객체에 선언할 수 있는 모든 필드 타입 — 저장하는 값, 허용하는 옵션, 그리고 REST, Console, AI Builder에 노출되는 방식.
+translation:
+  source_sha: 85f1e4084c729f1e824875a2a0ada5196de0df6ed7c070e38827d7e9a1ab7167
+  guide_rev: 1
+  mode: auto
 ---
 
 패밀리별로 분류된 48가지 기본 제공 필드 타입. 전체 Zod 스키마는
-[`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts)에 있으며, 이 페이지는 실용적인 요약입니다.
+[`packages/spec/src/data/field.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/field.zod.ts)에 있으며, 이 페이지는 실용적인 요약입니다.
 
 ## 핵심 속성 (모든 필드)
 
@@ -18,11 +22,9 @@ description: 객체에 선언할 수 있는 모든 필드 타입 — 저장하�
 | `searchable` | boolean | `false` | `/api/v1/search`용 인덱싱 |
 | `multiple` | boolean | `false` | 값의 배열로 저장 |
 | `defaultValue` | unknown | — | 초기값 (리터럴 또는 CEL) |
-| `columnName` | string | = `name` | 물리적 DB 컬럼 재정의 |
 | `hidden` | boolean | `false` | 기본 Console 뷰에서 숨김 |
 | `readonly` | boolean | `false` | 폼에서 비활성화 |
 | `system` | boolean | `false` | 자동 주입됨 (id, created_at, …) |
-| `index` | boolean | `false` | DB 인덱스 생성 |
 | `externalId` | boolean | `false` | 외부 키를 통한 upsert 대상 |
 | `inlineHelpText` | string | — | 툴팁 / 도움말 텍스트 |
 | `conditionalRequired` | `P` 술어 | — | CEL이 true일 때 필수 |
@@ -102,7 +104,9 @@ options: [
 {
   type: 'lookup',
   reference: 'account',                       // target object name
-  referenceFilters: ['status:active'],        // narrow the lookup picker
+  lookupFilters: [                            // narrow the lookup picker
+    { field: 'status', operator: 'eq', value: 'active' }
+  ],
   deleteBehavior: 'set_null'                  // 'set_null' | 'cascade' | 'restrict'
 }
 ```
@@ -112,7 +116,7 @@ options: [
 | 타입 | 동작 | 주요 옵션 |
 |:--|:--|:--|
 | `formula` | 파생 값, 읽기 또는 재계산 시 평가됨 | `expression: F\`record.qty * record.unit_price\`` — [CEL](./cel) 참조 |
-| `summary` | 자식 관계에 대한 롤업 | `summaryOperations: { object, field, function }` (`count` \| `sum` \| `avg` \| `min` \| `max`) |
+| `summary` | 자식 관계에 대한 롤업 | `summaryOperations: { object, field, function, filter? }` (`count` \| `sum` \| `avg` \| `min` \| `max`; 선택적 `filter` — 쿼리 `where` 조건, 예: `{ status: 'received' }` — 는 조건에 맞는 자식 행만 집계, 16.0+) |
 | `autonumber` | 자동 증가 표시 번호 | `format` (예: `TKT-{0000}`), `startAt` |
 
 수식 예시:
@@ -129,19 +133,18 @@ options: [
 
 | 타입 | 용도 | 주요 옵션 |
 |:--|:--|:--|
-| `image` | 이미지 첨부 | `fileAttachmentConfig` (아래 참조) |
+| `image` | 이미지 첨부 | `multiple` / `accept` / `maxSize` (아래 참조) |
 | `file` | 모든 파일 | 동일 |
 | `avatar` | 프로필 사진 | 정사각형 크롭, 합리적인 기본값 |
 | `video` | 비디오 업로드 | 재생 시간 + 썸네일 캡처 |
 | `audio` | 오디오 | 파형 미리보기 |
 
 ```ts
-fileAttachmentConfig: {
-  maxSize: 10_000_000,                        // bytes
-  allowedTypes: ['image/png','image/jpeg'],
-  virusScan: true,
-  storageProvider: 's3',                       // see Configure → Storage
-  imageValidation: { minWidth: 200, maxWidth: 4096, generateThumbnails: ['sm','md','lg'] }
+{
+  type: 'file',
+  multiple: true,                             // store an array of attachments
+  accept: ['image/png', 'image/jpeg'],        // MIME types / extensions
+  maxSize: 10_000_000                         // bytes
 }
 ```
 
@@ -167,7 +170,7 @@ fileAttachmentConfig: {
 | `qrcode` | 값을 QR 또는 바코드(EAN / UPC / Code128)로 렌더링 |
 | `progress` | 막대로 렌더링되는 파생 백분율 |
 | `tags` | 자동 완성이 있는 자유 형식 태그 배열 |
-| `vector` | 임베딩 컬럼 — `vectorConfig: { dimensions, distanceMetric: 'cosine' \| 'euclidean', indexed, indexType: 'hnsw' \| 'ivfflat' }` |
+| `vector` | 임베딩 컬럼 — 평탄한 `dimensions` (예: OpenAI 임베딩은 `1536`); 중첩된 `vectorConfig`(`distanceMetric`/`indexed`/`indexType`)는 16.0에서 제거됨 |
 
 ## 시스템 필드 (모든 객체에 자동 주입됨)
 
@@ -201,4 +204,4 @@ fileAttachmentConfig: {
 - [CEL](./cel) — `expression`, `conditionalRequired`, 검증
 - [ObjectQL](./objectql) — 이 필드들을 쿼리하기
 - [REST API](./rest-api) — 이를 생성/소비하는 엔드포인트
-- [`@objectstack/spec/data/field.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/field.zod.ts) — 권위 있는 스키마
+- [`@objectstack/spec/data/field.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/field.zod.ts) — 권위 있는 스키마

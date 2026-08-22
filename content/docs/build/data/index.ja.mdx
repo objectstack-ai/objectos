@@ -1,6 +1,10 @@
 ---
 title: データモデル
 description: オブジェクト、フィールド、リレーションシップ、バリデーション、インデックス — AI に説明するか、TypeScript で記述します。
+translation:
+  source_sha: 212c8e723195aa898b7942afad5cc47073f4661161aecd0da62b89223a34e462
+  guide_rev: 1
+  mode: auto
 ---
 
 データモデルは、アプリにとって唯一の信頼できる情報源です。オブジェクトが
@@ -216,7 +220,7 @@ ObjectSchema.create({
     apiEnabled: true,         // generated REST endpoints
     trackHistory: true,       // audit log of field changes
     feeds: true,              // sys_comment / sys_activity / @mentions
-    softDelete: true,         // tombstone instead of hard delete
+    trash: true,              // soft-delete with restore (default true)
   },
 });
 ```
@@ -258,4 +262,4 @@ ObjectSchema.create({
 - [フロー / 自動化](/docs/build/automation/flows) — レコードの変更に反応
 - [API アクセス](/docs/configure/api-access) — 生成された REST を呼び出す
 - [`os explain`](/docs/reference/cli) — レンダリングされたスキーマを出力
-- [`@objectstack/spec` ソース](https://github.com/objectstack-ai/framework/tree/main/packages/spec) — スキーマが契約であり、ここに記載されているものはすべてそこから派生します
+- [`@objectstack/spec` ソース](https://github.com/objectstack-ai/objectstack/tree/main/packages/spec) — スキーマが契約であり、ここに記載されているものはすべてそこから派生します

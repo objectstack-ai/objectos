@@ -1,6 +1,10 @@
 ---
 title: ObjectQL
 description: /api/v1/data/* 、ビュー、レポート、AI ツールで使用される構造化クエリ形式。
+translation:
+  source_sha: 29bd6373d9a973635fa9dd4f236231bfdbfe4684f29f16849e47a721f13f5efd
+  guide_rev: 1
+  mode: auto
 ---
 
 ObjectQL は、データエンジンが消費する JSON クエリ形式です。
@@ -35,7 +39,7 @@ ObjectQL は、データエンジンが消費する JSON クエリ形式です�
 }
 ```
 
-スキーマのソース: [`packages/spec/src/data/query.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/query.zod.ts)。
+スキーマのソース: [`packages/spec/src/data/query.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/query.zod.ts)。
 
 ## フィルター
 
@@ -210,4 +214,4 @@ GET /api/v1/data/ticket?limit=50&offset=200
 - [REST API](./rest-api) — ObjectQL を消費するエンドポイント
 - [Field types](./field-types) — クエリ可能なもの
 - [CEL](./cel) — `$cel` フィルター内で使用される式言語
-- [`@objectstack/spec/data/query.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/data/query.zod.ts) — 正式なスキーマ
+- [`@objectstack/spec/data/query.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/data/query.zod.ts) — 正式なスキーマ

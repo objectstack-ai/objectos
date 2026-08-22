@@ -14,7 +14,7 @@ enabled by default in standalone and project boots.
 
 | Surface | Behavior |
 |---|---|
-| Console file/image fields | Browser uploads directly to storage via presigned URLs |
+| File / image fields in the UI | Browser uploads directly to storage via presigned URLs |
 | REST `/api/v1/storage/*` | Programmatic upload/download endpoints |
 | Object `file` / `image` fields | Render as upload widgets; metadata persists in `sys_file` |
 
@@ -163,7 +163,7 @@ storage-layer ACLs.
 ## Live configuration
 
 When the settings service is enabled (it is by default), an admin can
-swap storage adapter in **Console → Configuration → Storage** without
+swap storage adapter in **Setup → Configuration → Storage** without
 restarting:
 
 - pick adapter, bucket, region, endpoint;
@@ -187,4 +187,4 @@ The change applies to the next request — no restart needed.
   configuration and the settings service used by storage swaps
 - [Production Readiness](/docs/operate/production) — checklist that
   includes object storage durability and backup
-- [`@objectstack/service-storage` on GitHub](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-storage) — source and full option reference
+- [`@objectstack/service-storage` on GitHub](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-storage) — source and full option reference

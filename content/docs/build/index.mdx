@@ -1,6 +1,6 @@
 ---
 title: Build
-description: How apps come to life in ObjectOS — by chatting with AI, by clicking in Console, or by forking a template.
+description: How apps come to life in ObjectOS — by chatting with AI, by clicking through forms, or by forking a template.
 ---
 
 In ObjectOS the customer doesn't write metadata. **They describe what
@@ -10,7 +10,7 @@ most people actually use the platform:
 | Path | Who's it for | Output |
 |---|---|---|
 | **[AI Builder](/docs/build/ai-builder)** (primary) | Business users, product owners, anyone | Live metadata in your tenant, queued for approval |
-| **Console click-build** (fallback) | Admins who prefer forms | The same live metadata |
+| **Click-build** (fallback) | Admins who prefer forms | The same live metadata |
 | **[Template fork](/docs/build/templates)** (dev path) | Engineers who want code under source control | A TypeScript package shipped via the marketplace |
 
 All three paths produce **the same artifact shape** — packages of
@@ -26,14 +26,14 @@ Every app is composed from the same primitives. Learn these once.
 | **[Package](/docs/build/packages)** | The unit of organization — `com.acme.crm`, versioned, installable | Packages |
 | **[Data model](/docs/build/data)** | Objects + fields + relationships + state machines | Data Model |
 | **[Interface](/docs/build/interface)** | Apps, views, forms, dashboards, and pages — what your users see | Interface |
-| **[Actions](/docs/build/interface/actions)** | Named operations callable from REST, Console buttons, flows, or AI agents | Actions |
+| **[Actions](/docs/build/interface/actions)** | Named operations callable from REST, buttons, flows, or AI agents | Actions |
 | **[Flows](/docs/build/automation/flows)** | Declarative business logic (autolaunched / scheduled / manual) | Flows |
 | **[Agents](/docs/build/agents)** | End-user AI assistants — Agent → Skill → Tool | Agents |
 | **[Marketplace](/docs/build/marketplace)** | Ready-made packages anyone can install in one click | Marketplace |
 
 ## Where to start
 
-1. **Just exploring?** → Open Console, start the [AI Builder](/docs/build/ai-builder),
+1. **Just exploring?** → Open ObjectOS, start the [AI Builder](/docs/build/ai-builder),
    say *"I need to track customer support tickets with priority, status, and assignee."*
    You'll have a working object in under 30 seconds.
 
@@ -49,12 +49,12 @@ Every app is composed from the same primitives. Learn these once.
 ## What you'll never have to do
 
 - Write a REST endpoint. The platform generates one per object.
-- Wire a Console form. The form renders from the schema.
+- Wire a form. The form renders from the schema.
 - Write RBAC checks. Permissions are declared, not coded.
-- Build an admin UI. Console + Account cover both system and business admin.
+- Build an admin UI. Setup and Account cover system administration and sign-in.
 - Generate types. `@objectstack/spec` derives them from the schema.
 
 ObjectOS is opinionated about this on purpose: **once metadata
-exists, every surface (REST, Console, ObjectQL, audit, AI tools)
+exists, every surface (REST, the UI, ObjectQL, audit, AI tools)
 appears for free.** That's why the AI Builder works — it only needs
 to produce metadata, and the platform handles the rest.

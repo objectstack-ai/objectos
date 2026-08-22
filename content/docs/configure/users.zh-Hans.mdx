@@ -1,6 +1,10 @@
 ---
 title: 用户与组织
 description: 搭建业务单元树、添加和邀请用户、管理成员资格与团队，以及开通服务账号。
+translation:
+  source_sha: 8c40f55f61ac88836e5cd989d96833070804ccfdb99d13b180487d1eba6cac90
+  guide_rev: 1
+  mode: auto
 ---
 
 关于你的部署中*都有谁*的一切——人员、他们所在的组织树、他们协作的团队，以及代表他们行事的服务账号——都在 **Setup → People & Organization**（人员与组织，`/apps/setup`）中管理。
@@ -37,7 +41,7 @@ description: 搭建业务单元树、添加和邀请用户、管理成员资格�
 |---|---|---|
 | **Invite User**（邀请用户，工具栏） | 此人有可达的邮箱 | 发送邀请；对方接受时自行设置密码 |
 | **Create User**（创建用户，工具栏） | 不想走邮件流程——或只有手机号的员工 | 创建可直接登录的账户（邮箱和/或手机号）；生成的临时密码只显示**一次**，并强制首次登录时修改密码 |
-| **Import**（导入，工具栏） | 从 CSV/Excel 批量入职 | 带列映射和 dry-run 预览的向导；每批最多 500 行。可选择登录策略：无密码（首次通过 OTP/魔法链接/重置链接登录）、发送邀请，或一次性临时密码 |
+| **Import**（导入，工具栏） | 从 CSV/Excel 批量入职 | 带列映射和 dry-run 预览的向导；每批最多 500 行。可选择登录策略——默认的 **auto**（16.0）会邀请所有可送达的行，仅对无法送达的行回退到一次性临时密码；也可以显式选择：无密码（首次通过 OTP/魔法链接/重置链接登录）、发送邀请，或一次性临时密码 |
 
 待接受的邀请列在 **Setup → People & Organization → Invitations**（邀请）下。
 
@@ -50,6 +54,8 @@ curl -X POST https://crm.example.com/api/v1/auth/admin/create-user
 # 批量导入行 / CSV / XLSX（最多 500 行），支持 dry-run 和 upsert 模式
 curl -X POST https://crm.example.com/api/v1/auth/admin/import-users
 ```
+
+自 16.0 起，导入的默认策略是 `passwordPolicy: 'auto'`：具有可送达通道的行（真实邮箱且已接通邮件服务，或手机号且具备短信邀请通道）会被**邀请**；只有确实无法触达的行才会得到临时密码（仅返回一次，`must_change_password`）。想要旧的仅建身份行为，须显式传入 `passwordPolicy: 'none'`；每行结果在 `rows[].delivery` 上给出，并附 `summary.delivery` 汇总。
 
 请求体、密码策略和仅手机号账户的细节，参见[认证 → 管理员用户管理](/docs/configure/authentication#admin-user-management-objectstack-143)。
 

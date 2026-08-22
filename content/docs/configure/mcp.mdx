@@ -34,6 +34,10 @@ claude mcp add --transport http my-app http://localhost:3000/api/v1/mcp
 claude mcp add --transport http my-app https://your-deployment.example.com/api/v1/mcp
 ```
 
+> On a local dev server you don't even have to type this: since 16.0 the
+> `os dev` startup banner prints the MCP endpoint, the agent-skill URL,
+> and a ready-to-paste `claude mcp add` command.
+
 For headless use (CI, containers) skip OAuth and attach an
 [API key](#headless-api-keys) instead:
 
@@ -91,14 +95,35 @@ For a long-lived integration, bind the key to a dedicated service user
 with a minimal permission set — see
 [Service accounts & API keys](/docs/configure/users#service-accounts--api-keys).
 
+## The stdio transport (16.0)
+
+Besides HTTP, the runtime can serve MCP over **stdio** for hosts that
+spawn the server as a child process. Since 16.0 (ADR-0101) stdio has its
+own switch and always runs under a real identity:
+
+- **`OS_MCP_STDIO_ENABLED=true`** turns stdio auto-start on (default
+  **off**). `OS_MCP_SERVER_ENABLED` now governs only the HTTP surface —
+  the legacy behavior where `OS_MCP_SERVER_ENABLED=true` also started
+  stdio still works for one release, with a deprecation warning.
+- Stdio **requires `OS_MCP_STDIO_API_KEY=osk_...`**. The key is resolved
+  through the same verify + authorization chain as HTTP and REST, so
+  object permissions, record access, field-level security, and tenant
+  scoping apply to stdio calls exactly as on `/api/v1/mcp` — and the key
+  is re-resolved per read, so revoking it takes effect immediately.
+- The transport is **fail-closed**: enabling auto-start without a
+  resolvable key refuses to boot, and there is deliberately no unscoped
+  fallback and no `system` bypass. For full authority, mint the key on a
+  platform-admin or dedicated service identity.
+
 ## What the agent gets
 
-Ten data and action tools, generated from your metadata:
+Eleven data, action, and authoring tools, generated from your metadata:
 
 | Tool | What it does |
 |---|---|
 | `list_objects` / `describe_object` | Discover which objects exist and their fields |
 | `query_records` / `get_record` | Read data (list queries are capped at 50 rows per page by default) |
+| `validate_expression` | Lint a formula against the real object schema *before* saving it (16.0): errors (bare field refs, unknown fields with did-you-mean), warnings (type-soundness, date-equality pitfalls), the in-scope field/function inventory, and the inferred result type. Read-only, `data:read`-scoped, fail-closed on `sys_*` |
 | `aggregate_records` | Grouped aggregation (registered when the active driver supports it) |
 | `create_record` / `update_record` / `delete_record` | Write data |
 | `list_actions` / `run_action` | Discover and invoke your business actions by name |
@@ -157,6 +182,7 @@ fully operational.
 |---|---|
 | `404` on `/api/v1/mcp` | The surface is disabled — unset `OS_MCP_SERVER_ENABLED` (default is on) |
 | `501 Not Implemented` | The MCP plugin isn't part of this build — check your stack's plugins |
+| Boot refuses with stdio enabled | Stdio is fail-closed (16.0) — set `OS_MCP_STDIO_API_KEY` to a resolvable `osk_` key, or turn `OS_MCP_STDIO_ENABLED` off |
 | `401` on every call | Anonymous or invalid credentials. Interactive clients: complete the browser login. Headless: check the `osk_` key and header spelling |
 | `403 insufficient_scope` | The OAuth token lacks the scope for that tool family (e.g. writes without `data:write`) — reconnect and grant the scope |
 | An action is missing from `list_actions` | `ai.exposed` is not `true`, `ai.description` is shorter than 40 characters, the type isn't headless-callable (`url` / `modal` / `form` never appear), it targets a `sys_*` object, or the caller fails its `requiredPermissions` |

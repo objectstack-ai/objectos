@@ -1,6 +1,10 @@
 ---
 title: 审批流程
 description: 把记录路由给人签核 —— 同时不让自动化悄悄绕过行级安全。
+translation:
+  source_sha: 891d4c828930b407ad51b3e042559255011956548b0c0b1c5d388804b9ca8de5
+  guide_rev: 1
+  mode: auto
 ---
 
 **审批就是带审批节点的[流程](/docs/build/automation/flows)：流程暂停，直到有人批准或拒绝，然后沿匹配的分支继续。**没有需要另学的独立审批引擎 —— 触发器、分支、错误处理都与任何其他流程完全一致。本页新增的内容是审批节点本身，以及两个与路由同样重要的访问决策。
@@ -51,11 +55,47 @@ description: 把记录路由给人签核 —— 同时不让自动化悄悄绕�
 | 配置 | 作用 |
 |---|---|
 | `approvers` | 谁必须决策 —— 具名用户、岗位，或从记录字段解析出的用户（如提交人的经理） |
-| `behavior` | 多个审批人如何聚合，如 `'unanimous'`（一致同意） |
+| `behavior` | 多个审批人如何聚合：`'first_response'`（默认）、`'unanimous'`、`'quorum'`、`'per_group'` |
+| `minApprovals` | 所需批准数 —— `quorum` 为总数（N 中取 M），`per_group` 为每组所需数（默认 1） |
 | `approvalStatusField` | 可选的记录字段，插件把请求状态镜像进去 |
 | `lockRecord` | 请求待定期间锁定记录、禁止编辑 |
 
-> **警告 —— `position` vs `role`。**`{ type: 'position', value: 'finance_manager' }` 路由给某个岗位的持有者（`sys_user_position`）。而 `role` 审批人类型是组织成员层级（`sys_member.role`：`owner`/`admin`/`member`）—— 把岗位名写成 `type: 'role'` 谁也匹配不上，请求就会卡住。`os lint` 会标记这个问题（`approval-role-not-membership-tier`）。
+> **警告 —— `position` 与成员层级。**`{ type: 'position', value: 'finance_manager' }` 路由给某个岗位的持有者（`sys_user_position`）。组织成员层级（`sys_member.role`：`owner`/`admin`/`member`）自 16.0 起写作 `type: 'org_membership_level'`；旧写法 `role` 是**保留一个版本的弃用别名** —— 仍能加载并按相同方式解析，但会给出警告，下个大版本移除。把岗位名写成成员层级类型谁也匹配不上，请求就会卡住。`os lint` 对两种情况都会标记（`approval-approver-not-membership-tier`、`approval-approver-type-deprecated`）；如果值是岗位名，正确写法是 `type: 'position'`。
+
+### 法定人数与会签（16.0）
+
+在 `first_response` 和 `unanimous` 之外，16.0 新增两种聚合模式。**Quorum（法定人数）**在达到 N 中取 M 个批准时定案：
+
+```ts
+config: {
+  approvers: [
+    { type: 'user', value: 'director_a' },
+    { type: 'user', value: 'director_b' },
+    { type: 'user', value: 'director_c' },
+  ],
+  behavior: 'quorum',
+  minApprovals: 2, // 3 人中任意 2 人批准
+}
+```
+
+**Per-group（会签）**要求*每个*带标签的组都签核 —— 用 `group` 给审批人打标签，只有当每个组都达到 `minApprovals` 个批准（默认每组 1 个）时节点才会前进：
+
+```ts
+config: {
+  approvers: [
+    { type: 'position', value: 'legal_counsel',   group: 'legal' },
+    { type: 'position', value: 'finance_manager', group: 'finance' },
+  ],
+  behavior: 'per_group', // 法务一个签核，且财务一个签核
+}
+```
+
+对所有模式都成立的语义：
+
+- 审批人集合按**开启时快照**统计，并带休假（OOO）替补 —— 谁必须响应在请求开启时就已确定，休假的审批人会被替补而不是卡住请求。
+- **单个拒绝仍然是一票否决**：在任何模式下它都把节点定案为 `rejected`。
+- 阈值在运行时**收拢（clamp）**到可解析的审批人数量，因此配置错误的 `minApprovals` 永远不会让请求死锁。
+- 没有 `group` 标签的审批人各自成组，所以普通的审批人列表在 `per_group` 下依然行为合理。
 
 ## 一个完整的审批流程
 
@@ -114,7 +154,10 @@ export const opportunityApproval = defineFlow({
 1. 插件持久化请求（`sys_approval_request`）以及针对它的每个决策（`sys_approval_action`）—— 你的审批历史是可查询的数据。
 2. 设置 `lockRecord: true` 时，记录被锁定、禁止编辑，直到决策落地。
 3. 如果设置了 `approvalStatusField`，记录自身的字段会镜像请求状态，视图和报表就能按它筛选。
-4. 审批人批准或拒绝；插件沿匹配的边恢复被暂停的流程。
+4. 审批人批准或拒绝；插件沿匹配的边恢复被暂停的流程。自 16.0 起，决策可以携带**文件附件**（持久化在 `sys_approval_action.attachments`，贯通决策/评论路由与客户端 SDK）—— 签署的 PDF 和证据材料与决策存放在一起。
+5. 请求暴露服务端计算的 **`decision_progress`** —— `unanimous`/`quorum` 为已获批准数 vs. 所需数，`per_group` 为按组明细 —— 收件箱和你自己的 UI 直接渲染进度，无需重新实现计票。
+
+**决策即声明式操作（16.0）。**完整的决策集合 —— 批准、拒绝、转办、退回修改（`/revise`）、补充材料、催办、撤回、重新提交 —— 以 `type: 'api'` 操作的形式声明在 `sys_approval_request` 上，带类型化参数、仅待定时可见的门控，以及提交人 vs 审批人谓词（如 `record.submitter_id == ctx.user.id`）。Console 审批收件箱渲染的是这些声明的操作，而不是手写按钮，因此新的决策能力以元数据形式发布 —— 无需客户端发版。
 
 批准本身也是被门控的操作。把"可以批准"建模为一个能力（如 `approve_invoice`），由审批人的权限集授予，并把批准操作的 `requiredPermissions` 建立在它之上 —— 这样门控就在 **UI 和服务端**两侧同时强制，而不只是从屏幕上藏起来。
 

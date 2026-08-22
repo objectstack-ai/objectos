@@ -4,7 +4,7 @@ description: Objects, fields, relationships, validation, indexes — described t
 ---
 
 The data model is the single source of truth for your app. Once an
-object exists, ObjectOS gives you REST APIs, a Console view, RBAC
+object exists, ObjectOS gives you REST APIs, a generated view, RBAC
 checkpoints, audit log entries, and AI tool exposure — for free.
 
 **Most customers never write the schema by hand.** They describe what
@@ -18,7 +18,7 @@ is generating and can edit it directly when you want to.
 | Path | Looks like |
 |---|---|
 | **AI Builder** (primary) | *"Create a `support_ticket` object with subject, description, priority, status, assignee."* |
-| **Console click-build** | Console → Objects → New Object → forms |
+| **Click-build** | **Objects → New Object** → forms |
 | **TypeScript (`*.object.ts`)** | The TS shown below — typically inside a forked [template](/docs/build/templates) |
 
 All three produce the same schema. The schema is canonical; everything
@@ -74,7 +74,7 @@ export default defineStack({
 ```
 
 That's all you need. `os dev` recompiles, and `/api/v1/data/todo_task`,
-the Console Task view, and the Console permission row all appear.
+the generated Task view, and its permission row all appear.
 
 ## Field types
 
@@ -167,7 +167,7 @@ ObjectSchema.create({
 });
 ```
 
-Validation runs on every write — REST, Console, ObjectQL — so there's
+Validation runs on every write — REST, the UI, ObjectQL — so there's
 no "back door."
 
 ## Indexes & performance
@@ -187,7 +187,7 @@ The driver creates real DB indexes on schema sync.
 
 ## Field groups
 
-For long forms, group fields in Console:
+For long forms, group fields:
 
 ```ts
 ObjectSchema.create({
@@ -212,15 +212,61 @@ ObjectSchema.create({
   ownership: 'own',          // 'own' | 'shared' | 'system'
   sharingModel: 'private',   // OWD — custom objects default to private (v13)
   enable: {
-    apiEnabled: true,         // generated REST endpoints
-    trackHistory: true,       // History tab + field-level diffs (default true)
+    apiEnabled: true,         // generated REST endpoints (default true)
+    searchable: true,         // index records for global search (default true)
+    trackHistory: true,       // History tab + field-level diffs (opt-in, default false)
     feeds: true,              // sys_comment / @mentions (default true)
     activities: true,         // mirror CRUD to sys_activity timeline (default true)
-    files: true,              // Attachments panel (opt-in, default false)
-    softDelete: true,         // tombstone instead of hard delete
+    files: false,             // Attachments panel (opt-in, default false)
+    clone: true,              // record deep cloning (default true)
   },
 });
 ```
+
+`enable` is a **closed vocabulary** — the block is strict, so an
+unrecognized flag (a typo like `feedEnabled`, or a key that used to
+exist) is a parse error naming the key, not a silently dropped setting.
+The seven flags above are the whole of it, plus one more key:
+
+```ts
+enable: {
+  apiMethods: ['get', 'list', 'create', 'update'],  // no delete over the API
+}
+```
+
+`apiMethods` whitelists which API operations the object exposes. The
+authorable vocabulary is exactly six primitives — `get`, `list`,
+`create`, `update`, `delete`, `bulk`. Omit the key for unrestricted
+access; `[]` means deny-all. The eight legacy values (`upsert`,
+`import`, `export`, `aggregate`, `search`, `history`, `restore`,
+`purge`) are *derived* effective operations, not things you declare:
+a stored one still parses but is stripped with a warning naming its
+replacement (`upsert` → `create` + `update`, `export`/`aggregate`/
+`search` → `list`, `history` → `get`; `restore` and `purge` derive from
+nothing and are simply deleted). Watch one cliff — a whitelist of
+*only* legacy values strips to `[]`, which closes the object's API
+rather than widening it.
+
+> **There is no soft delete — `enable.trash` was removed.**
+> Earlier docs pointed at `enable: { trash: true }` as the replacement
+> for the retired object-level `softDelete` prop. That was wrong in a way
+> worth stating plainly: `trash` never had a runtime consumer. Every
+> delete has always been a hard delete, so a default-true flag promising
+> a recycle bin was a false affordance — authors wrote `trash: false`
+> believing they were opting out of a soft delete that never ran. The key
+> (and its neighbour `enable.mru`) is now **rejected at parse time** with
+> guidance rather than ignored. Delete it from your source, or run
+> `os migrate meta --from 16` to rewrite it for you.
+>
+> For recoverability, use per-field `trackHistory` (an audit trail of what
+> changed) or a [`lifecycle`](#data-lifecycle-retention) policy. A real
+> recycle bin is not a shipped capability today.
+
+> **Also removed from the object surface:** `softDelete`, `versioning`,
+> `search` (use top-level `searchableFields`), `recordName` (use an
+> autonumber field as `nameField`), `keyPrefix`, `tags`, `active`, and
+> `abstract` — `ObjectSchema.create` throws a located error naming the
+> replacement if you pass one.
 
 Since ObjectStack 14 the `enable.*` flags are **enforced**, not
 advisory: `feeds: false` rejects comment creation with 403
@@ -288,4 +334,4 @@ You don't wire these per object — they're polymorphic on the platform.
 - [Flows / Automation](/docs/build/automation/flows) — react to record changes
 - [API Access](/docs/configure/api-access) — call your generated REST
 - [`os explain`](/docs/reference/cli) — print the rendered schema
-- [`@objectstack/spec` source](https://github.com/objectstack-ai/framework/tree/main/packages/spec) — the schema is the contract; everything here is derived from it
+- [`@objectstack/spec` source](https://github.com/objectstack-ai/objectstack/tree/main/packages/spec) — the schema is the contract; everything here is derived from it

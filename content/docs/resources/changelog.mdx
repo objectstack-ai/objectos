@@ -23,18 +23,23 @@ version number — they're tested as a matrix, not independently.
 | ObjectOS image ↔ compiled artifact | Same minor version. A 14.7.x image runs a 14.7.x artifact; a 14.7 artifact may use features unavailable in a 14.0 image. The protocol handshake (`PROTOCOL_VERSION`, 12.0+) rejects incompatible packages at install time. |
 | ObjectOS ↔ CLI | Same minor version recommended. The CLI in `npm i -g` writes scaffolds pinned to its own version. |
 | ObjectOS ↔ database driver | Driver pinned by image build; verify Postgres ≥ 13 / MongoDB ≥ 5 / Turso (any current). |
-| Node.js | **20 LTS or newer**. 22 LTS recommended for new deployments. |
+| Node.js | **22 or newer** — `engines.node` is `>=22.0.0` across every published `@objectstack/*` package since 17.0. Node 20 reached end-of-life on 2026-04-30. |
 
 ## Support windows
 
-| Branch | Status | Until |
-|---|---|---|
-| **14.x** (current) | Active development; new features and fixes | At least 12 months after 15.0 ships |
-| **13.x** | Security fixes only | EOL on 15.0 release |
-| **≤ 12.x** | Unsupported | Already EOL |
+Support is defined **relative to the current major**, not against a
+fixed calendar:
+
+| Branch | Status |
+|---|---|
+| Current major (17.x today) | Active development; new features and fixes |
+| Previous major (16.x today) | Security fixes only |
+| Older majors | Unsupported |
 
 Critical security fixes are backported to the current and previous
-major. Everything else lands on `main`.
+major. Everything else lands on `main`. Dates attached to a specific
+major are published with that major's
+[release notes](https://docs.objectstack.ai/docs/releases).
 
 ## Release notes
 
@@ -42,16 +47,158 @@ Released ObjectOS versions and their CHANGELOG entries are published at:
 
 - **npm**: [`@objectstack/runtime`](https://www.npmjs.com/package/@objectstack/runtime)
 - **GitHub**: [github.com/objectstack-ai/objectos/releases](https://github.com/objectstack-ai/objectos/releases)
-- **Source CHANGELOG**: [`CHANGELOG.md`](https://github.com/objectstack-ai/framework/blob/main/CHANGELOG.md)
-- **Long-form release notes**: [`RELEASE_NOTES.md`](https://github.com/objectstack-ai/framework/blob/main/RELEASE_NOTES.md)
+- **Source CHANGELOG**: [`CHANGELOG.md`](https://github.com/objectstack-ai/objectstack/blob/main/CHANGELOG.md)
+- **Long-form release notes**: [`RELEASE_NOTES.md`](https://github.com/objectstack-ai/objectstack/blob/main/RELEASE_NOTES.md)
 
 Subscribe to releases on GitHub to get notified.
 
 ## Recent highlights
 
-### 14.x — current release train
+### 17.0
 
-ObjectOS One and the bundled server now ship on `@objectstack` **14.7.0**.
+`@objectstack` **17.0.0** (released 2026-08-14) is a truth-telling
+release: where 16.0 made *declared metadata* honest, 17.0 does the same
+for the surfaces around it. Full notes:
+[docs.objectstack.ai/docs/releases/v17](https://docs.objectstack.ai/docs/releases/v17).
+What moved:
+
+- **Node.js 22 is the floor** (breaking) — `engines.node` moves from
+  `>=18.0.0` to `>=22.0.0` across all 50 published manifests. CI, the
+  release pipeline, and every shipped Docker image already ran 22; the
+  promise now matches the evidence. On Node 22+ nothing changes. If your
+  CI pins Node, pin it to 22.
+- **Bulk export is its own privilege** (breaking) — `allowExport` unset
+  used to mean "inherit read"; it now means **denied**, and
+  `viewAllRecords` / `modifyAllRecords` no longer confer it either.
+  Package-shipped sets are re-seeded on upgrade, so `admin_full_access`
+  and `organization_admin` keep exporting — **environment-authored sets
+  are not**. Add `allowExport: true` to any custom set whose users
+  export. See [Permission Sets](/docs/configure/permissions/permission-sets).
+- **A file is a record, not a blob in a column** — media fields
+  (`file`/`image`/`avatar`/`video`/`audio`) store an opaque `sys_file`
+  id; the `{ url, name, size, … }` object becomes the *read* (expanded)
+  form. Because the platform owns the bytes, `accept` / `maxSize` are
+  declarable **and server-enforced** rather than browser-side hints.
+  `os migrate files-to-references` performs the conversion. See
+  [Field Types](/docs/reference/field-types#media).
+- **The GraphQL surface is removed** (breaking) — it was schema-only from
+  day one: the handler answered 501 unconditionally because the service
+  was never assigned. `/graphql` now returns 404. Unaffected: `graphql`
+  as a protocol for an **external** datasource, which is someone else's
+  API rather than one ObjectOS serves.
+- **A sharing rule with no criteria shares nothing, and a disabled RLS
+  policy is disabled** (breaking, security) — a rule stored without
+  criteria used to evaluate as *every record of the object*, and an RLS
+  policy switched off with `enabled: false` kept contributing its
+  OR-branch grant. Both now fail closed. See
+  [Record Access](/docs/configure/permissions/record-access).
+- **An approval request is visible to its participants** (security) —
+  `getRequest` / `listRequests` / `countRequests` applied only the tenant
+  half of the visibility rule, so any authenticated user could read any
+  request in their tenant: payload snapshot, decision history, and
+  attachments.
+- **Approvers can be routed dynamically** — approval nodes gain
+  `expression` approvers (CEL over `current.*` / `trigger.*` / `vars.*`),
+  a node-level `onEmptyApprovers` policy, and author-declared decision
+  outputs that resume the run as `<nodeId>.<key>` flow variables. See
+  [Approvals](/docs/build/automation/approvals).
+- **A broken datasource is loud at boot** — a datasource that objects
+  bind to must connect or the boot fails, `objectql.init()` refuses to
+  start on a dead data driver, and `/api/v1/ready` answers 503 when one
+  stops answering. Previously such a boot started clean, exited zero, and
+  then failed every read and write of the bound objects.
+- **`enable.apiMethods` shrinks to six primitives** (breaking) — the
+  authorable enum is exactly `get`, `list`, `create`, `update`, `delete`,
+  `bulk`. The eight legacy values are *derived* effective operations;
+  a stored one is stripped at parse with a warning naming its
+  replacement.
+- **The dead-metadata sweep continues** (breaking) — `object.enable.trash`
+  and `enable.mru`, `tool.requiresConfirmation`, `agent.tools[]`,
+  `agent.knowledge`, `SkillSchema.permissions`, report `aria` /
+  `performance`, `flow.active`, and a long tail of parsed-but-ignored
+  keys are removed. Each rejects at parse time with its upgrade
+  prescription rather than being silently stripped. Run
+  `os migrate meta --from 16` to rewrite your sources.
+- **The authorable surface is closed** — every authorable metadata type
+  now rejects unknown keys with a named prescription, on the parse path
+  and not only in `create()`. A typo is a located error instead of a
+  setting that quietly never took effect.
+
+### 16.0
+
+`@objectstack` **16.0.0** converges the developer surface and makes
+declared metadata honest: one blessed name for the caller's org, real
+multi-approver governance, time-relative automations that actually fire,
+and a platform-wide sweep that turns silently-ignored metadata into loud
+errors at authoring time. Full notes:
+[docs.objectstack.ai/docs/releases](https://docs.objectstack.ai/docs/releases).
+What moved:
+
+- **`tenantId` alias removed from hook/action `ctx`** (16.0, breaking) —
+  read the caller's org as `ctx.user.organizationId` /
+  `ctx.session.organizationId` in every `*.hook.ts` / `*.action.ts` body
+  (the value is unchanged; `ctx.user` is `undefined` for system writes).
+  The driver-layer tenancy axis (`ExecutionContext.tenantId`) is a
+  different concept and is untouched.
+- **Approvals: quorum, per-group sign-off (会签), and a metadata-driven
+  inbox** — approval steps support M-of-N quorum (`minApprovals`) and
+  one-approver-from-each-group steps, tallied against an open-time
+  snapshot with OOO substitution; a single rejection still vetoes, and
+  thresholds clamp so misconfiguration can never deadlock. Decisions
+  carry file attachments, progress ("2 of 3 · finance pending") is
+  computed server-side, and approve / reject / reassign / send-back /
+  request-info / remind / recall / resubmit are declared `type:'api'`
+  actions on `sys_approval_request` — the approvals inbox renders them
+  through its generic action runtime instead of hand-written buttons.
+- **Time-relative automations** — a flow start node can declare
+  `timeRelative` (`offsetDays: [60, 30, 7]` or `withinDays`); a daily
+  sweep launches the flow once per matching record, so "remind me 60
+  days before the contract ends" finally just works — no more
+  date-equality conditions that only fire on a lucky edit.
+- **Filtered roll-ups** — `summaryOperations.filter` lets a parent total
+  aggregate only the matching child rows, and re-aggregates when a child
+  moves in or out of the predicate.
+- **Strict dashboard widgets** (16.0, breaking) —
+  `DashboardWidgetSchema` is `.strict()`: an undeclared key (typo or
+  removed inline-analytics key) is a parse error naming the key and
+  pointing at the dataset shape (`dataset` + `dimensions` + `values`)
+  instead of silently rendering nothing.
+- **MCP: stdio gets an identity, agents get a linter** — stdio
+  auto-start moves to its own `OS_MCP_STDIO_ENABLED` switch (default
+  off) and requires an `OS_MCP_STDIO_API_KEY=osk_...` principal,
+  fail-closed, resolved through the same authorization chain as HTTP
+  (RLS/FLS/tenant apply; no `system` bypass). A new
+  `validate_expression` tool lets agents lint a formula against the real
+  object schema before saving it.
+- **Enforce-or-remove sweep** (16.0, breaking) — declared-but-unenforced
+  metadata is now loud: dead field/object/agent props are removed or
+  tombstoned with guidance, hook events collapse 18 → 8, validation
+  rules lose the never-evaluated `'delete'` event, webhook `undelete` /
+  `api` triggers are removed, and unknown `requires` capability tokens
+  are rejected at authoring (the `aiStudio` / `aiSeat` aliases are gone —
+  use kebab-case `ai-studio` / `ai-seat`).
+- **Engine-owned system rows are read-only through the generic data API**
+  (ADR-0103) — jobs, notifications, approval-runtime rows, sharing rows,
+  audit trails, secrets, and the like are locked to `get`/`list`, with a
+  fail-closed guard rejecting user-context writes through `/data`.
+  Third-party `system` objects that legitimately take user writes must
+  declare `userActions`.
+- **Date logic stops lying** — `record.due_date == today()` now matches
+  (temporal equality comparisons are rewritten to coerce the field
+  operand), while date *arithmetic* in formulas (`end - start + 1`,
+  `today() + 30`) becomes a build-time error pointing at `daysBetween` /
+  `daysFromNow` / `addDays` / `addMonths` — those expressions always
+  faulted to `null` at runtime anyway.
+- **Bulk user import defaults to `passwordPolicy: 'auto'`** — rows with
+  a deliverable channel (real email + wired email service, or phone +
+  SMS invite path) are invited; only unreachable rows get a one-time
+  temporary password (`must_change_password`). Pass
+  `passwordPolicy: 'none'` explicitly for the old identity-only
+  behavior; per-row outcomes are on `rows[].delivery`.
+
+### 14.x
+
+ObjectOS One and the bundled server shipped on `@objectstack` **14.7.0**.
 The runtime boot contract is unchanged — `createStandaloneStack` takes the
 same artifact, environment, and database settings — but 13.0 and 14.0 both
 land breaking changes in the authorization vocabulary, so **review your
@@ -256,8 +403,10 @@ ObjectOS One and the bundled server shipped on `@objectstack` **8.0.1**.
   reports bridge to it and fail closed when the scope cannot be applied.
 - **Standalone host stack** — the runtime ships a single-tenant
   `createStandaloneStack` host; the 7.x cloud-connected, hostname-routed
-  `createObjectOSStack` wrapper was removed. A cloud deployment now points
-  `OS_ARTIFACT_FILE` at a published artifact URL.
+  `createObjectOSStack` wrapper was removed. A deployment that runs a
+  separately published app names that artifact by **URL** from then on. For the
+  variable that does this today, and the retired spellings that do not, see
+  [Environment Variables](/docs/reference/environment-variables#retired-names).
 
 ### 5.0 — `project` → `environment` rename (shipped)
 
@@ -267,7 +416,8 @@ throughout. Affected:
 - CLI flags: `--environment` / `-e`
 - HTTP paths: `/api/v1/environments/:environmentId/...`
 - Headers: `X-Environment-Id`
-- Env vars: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` kept as a deprecated alias)
+- Env vars: `OS_ENVIRONMENT_ID` (`OS_PROJECT_ID` was kept as a deprecated
+  alias at the time; it is no longer read)
 - DB columns: `environment_id`
 - JSON schemas: `EnvironmentArtifact`
 

@@ -1,6 +1,10 @@
 ---
 title: 데이터 모델
 description: 객체, 필드, 관계, 유효성 검사, 인덱스 — AI에게 설명하거나 TypeScript로 작성합니다.
+translation:
+  source_sha: 212c8e723195aa898b7942afad5cc47073f4661161aecd0da62b89223a34e462
+  guide_rev: 1
+  mode: auto
 ---
 
 데이터 모델은 앱의 단일 진실 공급원(single source of truth)입니다. 객체가
@@ -214,7 +218,7 @@ ObjectSchema.create({
     apiEnabled: true,         // generated REST endpoints
     trackHistory: true,       // audit log of field changes
     feeds: true,              // sys_comment / sys_activity / @mentions
-    softDelete: true,         // tombstone instead of hard delete
+    trash: true,              // soft-delete with restore (default true)
   },
 });
 ```
@@ -255,4 +259,4 @@ ObjectSchema.create({
 - [플로우 / 자동화](/docs/build/automation/flows) — 레코드 변경에 반응합니다
 - [API 접근](/docs/configure/api-access) — 생성된 REST를 호출합니다
 - [`os explain`](/docs/reference/cli) — 렌더링된 스키마를 출력합니다
-- [`@objectstack/spec` 소스](https://github.com/objectstack-ai/framework/tree/main/packages/spec) — 스키마가 계약이며, 여기의 모든 것은 그로부터 파생됩니다
+- [`@objectstack/spec` 소스](https://github.com/objectstack-ai/objectstack/tree/main/packages/spec) — 스키마가 계약이며, 여기의 모든 것은 그로부터 파생됩니다

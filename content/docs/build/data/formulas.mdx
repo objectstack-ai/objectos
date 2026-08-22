@@ -99,6 +99,22 @@ Field.formula({
 > `coalesce(record.x, '')` when concatenating — or use `joinNonEmpty`
 > and skip the ceremony.
 
+### New in 16.0
+
+- **Date arithmetic against numbers is a build-time error.** Expressions
+  like `record.end_date - record.start_date + 1` or `today() + 30`
+  always faulted at runtime (silently evaluating to null); the build now
+  rejects them with an error pointing at `daysBetween(a, b)` for spans
+  and `daysFromNow(n)` / `addDays(d, n)` / `addMonths(d, n)` for shifts.
+- **The null-guard ternary compiles.** `cond ? value : null` — e.g.
+  `record.end_date != null ? daysBetween(record.start_date, record.end_date) + 1 : null`
+  — is the blessed way to keep a formula blank until its inputs exist.
+- **`floor(x)` / `ceil(x)` are registered.** They round toward −∞ / +∞
+  (so `floor(-1.2) == -2`) — not toward zero like integer division.
+- **Date equality against `today()` now matches.** Temporal values are
+  coerced before comparison, so `record.due_date == today()` and
+  `daysBetween(today(), record.due_date) == 0` both work as expected.
+
 ### Formula as record title
 
 Since ADR-0079, a record's title is a designated field via `nameField`

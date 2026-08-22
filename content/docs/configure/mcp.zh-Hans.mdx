@@ -1,6 +1,10 @@
 ---
 title: 接入 AI 工具（MCP）
 description: 把 Claude Code、Claude Desktop 或任意 MCP 客户端指向你的 ObjectOS 应用，让 Agent 在你的权限模型约束下处理你的数据。
+translation:
+  source_sha: a41183fbf103bf1e51a569bc44279678a6aca9a4988384edeceecb985041f110
+  guide_rev: 1
+  mode: auto
 ---
 
 每个 ObjectOS 部署天生就是一个 MCP 服务器。运行时在 **`/api/v1/mcp`** 上提供 [Model Context Protocol](https://modelcontextprotocol.io) 服务——默认开启，无需安装插件，无需配置步骤。你的对象和已暴露的操作在定义的那一刻就成为带类型的工具；剩下唯一要做的就是接入一个客户端并验证它能用。
@@ -20,6 +24,8 @@ claude mcp add --transport http my-app http://localhost:3000/api/v1/mcp
 # 已部署的实例
 claude mcp add --transport http my-app https://your-deployment.example.com/api/v1/mcp
 ```
+
+> 在本地开发服务器上，这条命令甚至不用你亲手输入：自 16.0 起，`os dev` 的启动横幅会打印 MCP 端点、agent skill 的 URL，以及一条可直接复制粘贴的 `claude mcp add` 命令。
 
 无头场景（CI、容器）跳过 OAuth，改为附加 [API Key](#headless-api-keys)：
 
@@ -69,14 +75,23 @@ curl -b cookies.txt -X POST https://your-deployment.example.com/api/v1/keys
 
 对于长期集成，把 Key 绑定到带最小权限集的专用服务用户——参见[服务账号与 API Key](/docs/configure/users#service-accounts--api-keys)。
 
+## stdio 传输（16.0）
+
+除了 HTTP，运行时还可以通过 **stdio** 提供 MCP 服务，供以子进程方式拉起服务器的宿主使用。自 16.0（ADR-0101）起，stdio 拥有自己的开关，并且始终以真实身份运行：
+
+- **`OS_MCP_STDIO_ENABLED=true`** 开启 stdio 自动启动（默认**关闭**）。`OS_MCP_SERVER_ENABLED` 现在只管 HTTP 入口——`OS_MCP_SERVER_ENABLED=true` 同时拉起 stdio 的旧行为还会保留一个版本，并伴随弃用警告。
+- stdio **必须配置 `OS_MCP_STDIO_API_KEY=osk_...`**。该 Key 通过与 HTTP、REST 完全相同的验证 + 授权链解析，因此对象权限、记录访问、字段级安全和租户隔离对 stdio 调用的作用与 `/api/v1/mcp` 完全一致——并且每次读取都会重新解析 Key，吊销立即生效。
+- 该传输是 **fail-closed** 的：开启自动启动却没有可解析的 Key，启动会直接被拒绝；刻意不提供任何无身份回退，也没有 `system` 旁路。若需要完整权限，请在平台管理员或专用服务身份上签发 Key。
+
 ## Agent 能得到什么
 
-十个数据与操作工具，由你的元数据生成：
+十一个数据、操作与创作工具，由你的元数据生成：
 
 | 工具 | 用途 |
 |---|---|
 | `list_objects` / `describe_object` | 发现有哪些对象及其字段 |
 | `query_records` / `get_record` | 读取数据（列表查询默认每页上限 50 行） |
+| `validate_expression` | 在保存*之前*对照真实对象 schema 校验公式（16.0）：错误（裸字段引用、未知字段并给出 did-you-mean）、警告（类型健全性、日期相等陷阱）、作用域内的字段/函数清单，以及推断的结果类型。只读、`data:read` scope、对 `sys_*` fail-closed |
 | `aggregate_records` | 分组聚合（当前驱动支持时才注册） |
 | `create_record` / `update_record` / `delete_record` | 写入数据 |
 | `list_actions` / `run_action` | 按名称发现并调用你的业务操作 |
@@ -111,6 +126,7 @@ What objects does this app have, and what fields does the main one carry?
 |---|---|
 | `/api/v1/mcp` 返回 `404` | 入口被禁用——取消设置 `OS_MCP_SERVER_ENABLED`（默认开启） |
 | `501 Not Implemented` | 此构建不包含 MCP 插件——检查你的栈的插件配置 |
+| 开启 stdio 后启动被拒绝 | stdio 是 fail-closed 的（16.0）——把 `OS_MCP_STDIO_API_KEY` 设为可解析的 `osk_` Key，或关闭 `OS_MCP_STDIO_ENABLED` |
 | 每次调用都 `401` | 匿名或凭据无效。交互式客户端：完成浏览器登录。无头场景：检查 `osk_` Key 和请求头拼写 |
 | `403 insufficient_scope` | OAuth token 缺少该工具族所需的 scope（例如没有 `data:write` 却尝试写入）——重新连接并授予该 scope |
 | 某个操作没出现在 `list_actions` 中 | `ai.exposed` 不为 `true`、`ai.description` 短于 40 个字符、类型不可无头调用（`url` / `modal` / `form` 永远不会出现）、目标是 `sys_*` 对象，或调用者未通过其 `requiredPermissions` |

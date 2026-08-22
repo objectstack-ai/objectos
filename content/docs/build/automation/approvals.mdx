@@ -56,16 +56,156 @@ The node declares **who approves** and how their decisions aggregate:
 
 | Config | What it does |
 |---|---|
-| `approvers` | Who must decide — a named user, a position, or a user resolved from a record field (e.g. the submitter's manager) |
-| `behavior` | How multiple approvers aggregate, e.g. `'unanimous'` |
+| `approvers` | Who must decide — see the approver types below |
+| `behavior` | How multiple approvers aggregate: `'first_response'` (default), `'unanimous'`, `'quorum'`, `'per_group'` |
+| `minApprovals` | Approvals required — total for `quorum` (M of N), per group for `per_group` (default 1) |
+| `onEmptyApprovers` | What happens when approver resolution yields nobody: `'admin_rescue'` (default), `'fail'`, `'auto_approve'` |
+| `decisionOutputs` | Keys a decision may carry back into the flow as structured outputs |
 | `approvalStatusField` | Optional record field the plugin mirrors the request status into |
 | `lockRecord` | Lock the record against edits while the request is pending |
 
-> **Warning — `position` vs `role`.** `{ type: 'position', value: 'finance_manager' }`
-> routes to the holders of a position (`sys_user_position`). The `role` approver
-> type is the org-membership tier (`sys_member.role`: `owner`/`admin`/`member`) —
-> a position name authored as `type: 'role'` matches nobody and the request
-> stalls. `os lint` flags this (`approval-role-not-membership-tier`).
+Each entry in `approvers` names a `type` and a `value`:
+
+| `type` | Resolves to |
+|---|---|
+| `manager` | The submitter's manager (`sys_user.manager_id`) — takes no value |
+| `position` | Holders of an org position |
+| `department` | Members of a business unit **and all descendant units** |
+| `team` | Members of a flat collaboration team |
+| `field` | The user id held in a field on the triggering record |
+| `user` | One named user id |
+| `org_membership_level` | An org-membership tier (`owner` / `admin` / `member`) |
+| `expression` | A CEL expression resolved at node entry — see below |
+
+Prefer the indirect bindings (`manager`, `position`, `department`,
+`team`) over a literal `user` id: they survive the person changing team
+or leaving, and a hard-coded id silently routes approvals to someone who
+should no longer see them.
+
+> **Warning — `position` vs the membership tier.**
+> `{ type: 'position', value: 'finance_manager' }` routes to the holders of a
+> position (`sys_user_position`). The org-membership tier (`sys_member.role`:
+> `owner`/`admin`/`member`) is addressed as `type: 'org_membership_level'`
+> since 16.0; the old spelling `role` is a **deprecated alias for one
+> release** — it still loads and resolves identically, with a warning, and is
+> removed in the next major. A position name authored as the membership-tier
+> type matches nobody and the request stalls. `os lint` flags both cases
+> (`approval-approver-not-membership-tier`,
+> `approval-approver-type-deprecated`); if the value names an org position,
+> the fix is `type: 'position'`.
+
+### Quorum and per-group sign-off (16.0)
+
+Beyond `first_response` and `unanimous`, 16.0 adds two aggregation modes.
+**Quorum** finalizes on M-of-N approvals:
+
+```ts
+config: {
+  approvers: [
+    { type: 'user', value: 'director_a' },
+    { type: 'user', value: 'director_b' },
+    { type: 'user', value: 'director_c' },
+  ],
+  behavior: 'quorum',
+  minApprovals: 2, // any 2 of the 3 approve
+}
+```
+
+**Per-group** requires a sign-off from *each* labeled group (会签) — label
+approvers with `group`, and the node advances only once every group has
+`minApprovals` approvals (default 1 per group):
+
+```ts
+config: {
+  approvers: [
+    { type: 'position', value: 'legal_counsel',   group: 'legal' },
+    { type: 'position', value: 'finance_manager', group: 'finance' },
+  ],
+  behavior: 'per_group', // one sign-off from legal AND one from finance
+}
+```
+
+Semantics that hold across every mode:
+
+- Approver sets are tallied against an **open-time snapshot** with
+  out-of-office substitution — who must respond is fixed when the request
+  opens, and OOO approvers are substituted rather than stalling it.
+- A **single rejection is still a veto**: it finalizes the node as
+  `rejected` in every mode.
+- Thresholds **clamp** at runtime to the resolvable approver count, so a
+  misconfigured `minApprovals` can never deadlock a request.
+- Approvers without a `group` label each form their own group, so a plain
+  approver list still behaves sensibly under `per_group`.
+
+### Dynamic routing: an approver picks the next approver (17.0)
+
+Three additions in 17.0 let a node decide its approvers from what the
+run has produced so far, instead of from a fixed declaration.
+
+**`expression` approvers** resolve a CEL expression at node entry
+against three explicit roots — `current.*` (the record's live state),
+`trigger.*` (the submit-time snapshot), and `vars.*` (flow variables,
+including upstream node outputs). The result becomes the approver
+slate:
+
+```ts
+config: {
+  approvers: [
+    { type: 'expression', value: 'vars.legal_review.picked_departments' },
+  ],
+  resolveAs: 'department',   // each value is a department id, fanned out to its members
+}
+```
+
+`resolveAs` (`'user'` by default, or `'department'` / `'position'` /
+`'team'`) says what kind of id the expression returned, and expands each
+through the same graph lookups the static approver types use. Under
+`behavior: 'per_group'`, each returned value forms its own group — one
+sign-off per returned department.
+
+`record` and bare field names are deliberately **not** available: on
+every other platform surface `record` means "the record at event time",
+and reusing it here would silently alias one of the two times.
+
+**`decisionOutputs`** is what feeds an expression like the one above.
+The *author* declares which keys a decision may carry; approvers only
+fill in values. Accepted outputs resume the run as
+`<nodeId>.<key>` flow variables — never bare names, so an approver
+cannot shadow an author's variable:
+
+```ts
+{
+  id: 'legal_review',
+  type: 'approval',
+  config: {
+    approvers: [{ type: 'position', value: 'legal_counsel' }],
+    decisionOutputs: [
+      { key: 'picked_departments', type: 'department', multiple: true },
+    ],
+  },
+}
+```
+
+An entry is either a bare key (rendered as a plain text input in the
+decision UI) or a typed declaration — `{ key, type, multiple }` — which
+tells the decision UI to render a record picker instead:
+`user` / `department` / `position` / `team` each get the matching
+system-object picker, and `multiple: true` collects an id array. A
+decision carrying undeclared keys is rejected; `decision` and
+`requestId` are reserved.
+
+**`onEmptyApprovers`** decides what happens when resolution yields no
+concrete person — an empty expression result, an unstaffed position, an
+empty multi-select field:
+
+| Value | Behavior |
+|---|---|
+| `'admin_rescue'` (default) | Open the request anyway and warn loudly; a privileged admin can take it over via Reassign. The only option that neither waves the record through nor kills the run |
+| `'fail'` | The node fails (fault edge / run failure). Choose when an empty slate can only mean a configuration bug |
+| `'auto_approve'` | Skip the request and continue down the `approve` edge with `output.autoApproved = true`. Opt-in, because it silently waves the record through |
+
+The default is deliberate: approval's job is to gatekeep, so an empty
+slate must never silently pass.
 
 ## A complete approval flow
 
@@ -133,7 +273,23 @@ While a request is pending:
 3. If you set `approvalStatusField`, the record's own field mirrors the request
    status, so views and reports can filter on it.
 4. The approver approves or rejects; the plugin resumes the paused flow down
-   the matching edge.
+   the matching edge. Since 16.0 a decision can carry **file attachments**
+   (persisted on `sys_approval_action.attachments`, threaded through the
+   decide/comment routes and the client SDK) — signed PDFs and evidence live
+   with the decision.
+5. The request exposes a server-computed **`decision_progress`** —
+   approvals got vs. needed for `unanimous`/`quorum`, a per-group breakdown
+   for `per_group` — so the inbox and your own UIs render progress without
+   re-implementing the tally.
+
+**Decisions are declared actions (16.0).** The full decision set — approve,
+reject, reassign, send-back for revision (`/revise`), request-info, remind,
+recall, resubmit — is declared as `type: 'api'` actions on
+`sys_approval_request`, with typed params, pending-only visibility gates, and
+submitter-vs-approver predicates (e.g. `record.submitter_id == ctx.user.id`).
+The approvals inbox renders those declared actions instead of
+hand-written buttons, so new decision capabilities ship as metadata — no
+client release required.
 
 Approving is itself a gated action. Model "may approve" as a capability (e.g.
 `approve_invoice`) granted by the approver's permission set, and gate the

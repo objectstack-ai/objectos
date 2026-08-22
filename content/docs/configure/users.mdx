@@ -60,7 +60,7 @@ first-class:
 |---|---|---|
 | **Invite User** (toolbar) | The person has a reachable email | Sends an invitation; they set their own password on accept |
 | **Create User** (toolbar) | No email flow wanted — or phone-only staff | Creates a sign-in-ready account (email and/or phone); a generated temporary password is shown **once**, with password change forced on first login |
-| **Import** (toolbar) | Bulk onboarding from CSV/Excel | Wizard with column mapping and dry-run preview; up to 500 rows per batch. Pick the sign-in policy: no password (first sign-in via OTP/magic/reset link), send invitations, or one-time temporary passwords |
+| **Import** (toolbar) | Bulk onboarding from CSV/Excel | Wizard with column mapping and dry-run preview; up to 500 rows per batch. Pick the sign-in policy — the default **auto** (16.0) invites every reachable row and falls back to a one-time temporary password only for unreachable ones; or choose explicitly: no password (first sign-in via OTP/magic/reset link), send invitations, or one-time temporary passwords |
 
 Pending invitations are listed under
 **Setup → People & Organization → Invitations**.
@@ -75,6 +75,14 @@ curl -X POST https://crm.example.com/api/v1/auth/admin/create-user
 # Bulk-import rows / CSV / XLSX (max 500 rows), with dry-run and upsert modes
 curl -X POST https://crm.example.com/api/v1/auth/admin/import-users
 ```
+
+Since 16.0 the import default is `passwordPolicy: 'auto'`: rows with a
+deliverable channel (a real email plus a wired email service, or a phone
+number with the SMS invite path) are **invited**; only unreachable rows
+get a temporary password (returned once, `must_change_password`). Pass
+`passwordPolicy: 'none'` explicitly for the old identity-only behavior;
+per-row outcomes surface on `rows[].delivery`, with a `summary.delivery`
+breakdown.
 
 Payloads, password policies, and phone-only accounts are covered in
 [Authentication → Admin user management](/docs/configure/authentication#admin-user-management-objectstack-143).

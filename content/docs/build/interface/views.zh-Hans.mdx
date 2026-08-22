@@ -1,6 +1,10 @@
 ---
 title: 视图
 description: List、Form、Kanban、Calendar、Gantt 等等 —— Console 中每个对象表面是如何声明的。
+translation:
+  source_sha: 7fe2a7f72a3951df0b657558e4d93a551d264827b33a6041988fefaefd2ec24c
+  guide_rev: 1
+  mode: auto
 ---
 
 **view** 是用户在 Console 中查看和编辑记录的方式。视图是声明式元数据 —— 生命周期与对象相同：声明一次,随你的 package 发布,在任何地方渲染。
@@ -10,7 +14,7 @@ description: List、Form、Kanban、Calendar、Gantt 等等 —— Console 中�
 - **List 视图** —— 可视化多条记录(grid、kanban、calendar……)
 - **Form 视图** —— 查看 / 编辑单条记录(simple、tabbed、wizard……)
 
-Schema 来源：[`packages/spec/src/ui/view.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/ui/view.zod.ts)。
+Schema 来源：[`packages/spec/src/ui/view.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/ui/view.zod.ts)。
 
 ## 最短声明
 
@@ -237,4 +241,4 @@ view: {
 - [Actions](./actions) —— `rowActions` / `bulkActions` 引用的内容
 - [ObjectQL](/docs/reference/objectql) —— `filter` / `sort` 编译到什么
 - [CEL](/docs/reference/cel) —— `conditionalFormatting`、`visibleIf`
-- [`@objectstack/spec/ui/view.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/ui/view.zod.ts) —— Schema
+- [`@objectstack/spec/ui/view.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/ui/view.zod.ts) —— Schema

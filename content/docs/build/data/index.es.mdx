@@ -1,6 +1,10 @@
 ---
 title: Modelo de datos
 description: Objetos, campos, relaciones, validación, índices — descritos a la IA o escritos en TypeScript.
+translation:
+  source_sha: 212c8e723195aa898b7942afad5cc47073f4661161aecd0da62b89223a34e462
+  guide_rev: 1
+  mode: auto
 ---
 
 El modelo de datos es la única fuente de verdad de tu aplicación. Una vez
@@ -215,7 +219,7 @@ ObjectSchema.create({
     apiEnabled: true,         // generated REST endpoints
     trackHistory: true,       // audit log of field changes
     feeds: true,              // sys_comment / sys_activity / @mentions
-    softDelete: true,         // tombstone instead of hard delete
+    trash: true,              // soft-delete with restore (default true)
   },
 });
 ```
@@ -256,4 +260,4 @@ No conectas esto por cada objeto — es polimórfico en la plataforma.
 - [Flujos / Automatización](/docs/build/automation/flows) — reacciona a los cambios en los registros
 - [Acceso a la API](/docs/configure/api-access) — llama a tu REST generado
 - [`os explain`](/docs/reference/cli) — imprime el esquema renderizado
-- [Código fuente de `@objectstack/spec`](https://github.com/objectstack-ai/framework/tree/main/packages/spec) — el esquema es el contrato; todo lo aquí descrito se deriva de él
+- [Código fuente de `@objectstack/spec`](https://github.com/objectstack-ai/objectstack/tree/main/packages/spec) — el esquema es el contrato; todo lo aquí descrito se deriva de él

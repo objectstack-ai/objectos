@@ -52,7 +52,7 @@ In a multi-tenant deployment:
 - Control-plane users are **not** automatically business users — they
   must be mapped in via platform SSO or explicit provisioning.
 
-You create/manage these from **Console** (`/_console/`) at runtime, or
+You create/manage these from **Setup** (`/_console/`) at runtime, or
 seed them in `objectstack.config.ts` for fresh environments.
 
 ## Layer 2 — Positions
@@ -80,7 +80,7 @@ to users directly or via positions.
 | Application access | Open CRM, open the support portal |
 | Object permissions | Create / read / update / delete records of an object |
 | Field permissions | Read or update specific fields |
-| System permissions | Access Console, run reports, export data, view audit log |
+| System permissions | Access Setup, run reports, view audit log |
 | Integration permissions | Use API keys, configure webhooks, run admin actions |
 
 ### Object permission flags
@@ -93,12 +93,22 @@ These are the exact flag names the security plugin checks:
 | `allowCreate` | Create new records |
 | `allowEdit` | Update records the user can see |
 | `allowDelete` | Delete records the user can see |
+| `allowExport` | Take a bulk, machine-readable copy of the object's records |
 | `viewAllRecords` | Read **every** record for the object, ignoring record-access rules |
 | `modifyAllRecords` | Update/delete **every** record; implies `viewAllRecords` |
 
 `viewAllRecords` and `modifyAllRecords` are tenant-wide super-user
 grants for that object. Reserve them for explicit administrative
 permission sets and keep them out of any user-facing position.
+
+**Export is its own opt-in grant.** `allowExport` unset means
+**denied** — it does not inherit from `allowRead`, and `viewAllRecords` /
+`modifyAllRecords` do **not** confer it. Reading a record and taking a
+machine-readable copy of a whole table are different acts, and this is
+the segregation-of-duties axis that separates them. Grant it explicitly
+on the object entry (or the `'*'` wildcard) of every set whose holders
+should export. See
+[Permission Sets](/docs/configure/permissions/permission-sets#export-is-its-own-grant).
 
 See [Permission Sets](/docs/configure/permissions/permission-sets).
 
@@ -134,7 +144,7 @@ Field security is per object + per permission set. Typical use:
 - Make `external_account_id` readable but not editable to support reps.
 
 It's enforced in the same evaluator as object permissions, so it
-applies uniformly across REST, ObjectQL, and Console.
+applies uniformly across REST, ObjectQL, and the UI.
 
 ## Where to start
 
@@ -151,7 +161,7 @@ applies uniformly across REST, ObjectQL, and Console.
 - The **explain engine** (`explain(principal, object, operation)`)
   reports the verdict of every layer in order — required permissions,
   object CRUD, field security, OWD baseline, sharing, row-level
-  security — with per-layer attribution. Console surfaces it as the
+  security — with per-layer attribution. It surfaces as the
   "Why can this user access?" panel. Explaining another user requires
   the `manage_users` capability.
 - `/_console/` shows the effective permissions of any user as they're

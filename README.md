@@ -1,8 +1,20 @@
 # ObjectOS
 
-> **The official runtime environment for ObjectStack applications** — operated
-> for end-user organizations as **ObjectOS Cloud** (managed) and
-> **ObjectOS Enterprise** (self-managed).
+> ## Build & ask online. Keep the data you own.
+>
+> ObjectOS is the **commercial runtime environment for
+> [ObjectStack](https://github.com/objectstack-ai/objectstack) apps — built
+> and operated entirely in the browser**: tell the built-in AI Builder what
+> your business needs — a helpdesk, an approval flow, a CRM — and it's running
+> immediately, with a generated admin Console, REST APIs, SSO, RBAC, and audit
+> logs. No local toolchain, nothing to deploy. Run it as **ObjectOS Cloud**
+> (we operate it) or **ObjectOS Enterprise** (self-managed: your servers, your
+> database, your data — never ours).
+
+[Website](https://www.objectos.ai) ·
+[Documentation](https://docs.objectos.ai) ·
+[License & Pricing](https://docs.objectos.ai/docs/resources/license) ·
+[ObjectStack — the open-source framework](https://github.com/objectstack-ai/objectstack)
 
 ObjectOS is a **commercial product**. This repository is its public home:
 
@@ -32,15 +44,15 @@ capabilities, deployment, and operations documentation.
 ## Building and running your own apps? That's ObjectStack — and it's open source
 
 Everything you need to **build, run, and self-host your own applications** is
-the open-source (Apache-2.0) **[ObjectStack framework](https://github.com/objectstack-ai/framework)**:
+the open-source (Apache-2.0) **[ObjectStack framework](https://github.com/objectstack-ai/objectstack)**:
 
 ```
-ObjectStack  →  for builders  — the open-source protocol, toolkit, and production runtime
-ObjectOS     →  for end users — the commercial runtime environment (Cloud & Enterprise)
+ObjectStack  →  build & ask with Claude Code — in your repo, with your coding agent (Apache-2.0)
+ObjectOS     →  build & ask online — in the browser, on a governed platform (Cloud & Enterprise)
 ```
 
 `os start` — or the official Docker image
-[`ghcr.io/objectstack-ai/objectstack`](https://github.com/objectstack-ai/framework/tree/main/docker) —
+[`ghcr.io/objectstack-ai/objectstack`](https://github.com/objectstack-ai/objectstack/tree/main/docker) —
 serves your compiled app in production with the Console, permissions, and
 audit included. No commercial license required.
 

@@ -1,6 +1,10 @@
 ---
 title: Webhooks
 description: 出站 webhook 投递、签名与重试。
+translation:
+  source_sha: 2340439a0cc171b6947e5e3bafdfa52f4dc5420de43807d081095feb9bd0b33e
+  guide_rev: 1
+  mode: auto
 ---
 
 ObjectOS 为出站 webhook 采用持久化的 **outbox** 模型。当 webhook 插件启用时，业务变更会将一条投递记录入队，由后台 dispatcher 带重试地完成投递——因此响应缓慢或不可用的接收方永远不会阻塞发起方事务。

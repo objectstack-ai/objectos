@@ -1,6 +1,10 @@
 ---
 title: Expressions CEL
 description: Le langage d'expression utilisé pour les formules, les prédicats, les planifications et les chaînes à modèle — exposé via cinq tagged templates.
+translation:
+  source_sha: 9489636c35a7a16dd066125812e7e218008b3e558ba4c8dd92d6d3126e60f234
+  guide_rev: 1
+  mode: auto
 ---
 
 ObjectOS utilise [CEL](https://github.com/google/cel-spec) (Common
@@ -18,7 +22,7 @@ runtime analyse :
 ```
 
 Source du schéma :
-[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts).
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts).
 
 ## Les cinq tagged templates
 
@@ -78,7 +82,7 @@ variables de premier niveau :
 ## Bibliothèque standard
 
 Enregistrée dans
-[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts).
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts).
 Les fonctions intégrées les plus utilisées :
 
 ### Temps
@@ -168,5 +172,5 @@ d'un formule ou la décision d'une garde.
 - [Types de champs](./field-types) — champs de formule et à exigence conditionnelle
 - [Build → Modèle de données](/docs/build/data) — validations et prédicats
 - [Build → Flux](/docs/build/automation/flows) — gardes et planifications
-- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — schéma
-- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — fonctions intégrées
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts) — schéma
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts) — fonctions intégrées

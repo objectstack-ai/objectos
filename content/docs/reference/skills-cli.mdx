@@ -14,12 +14,12 @@ This page is a reference card. For the conceptual overview see
 ## Install
 
 ```bash
-npx skills add objectstack-ai/framework
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 The first run downloads the [`skills`](https://www.npmjs.com/package/skills)
 package from npm via `npx`, then fetches the skill bundle from
-[github.com/objectstack-ai/framework](https://github.com/objectstack-ai/framework)
+[github.com/objectstack-ai/objectstack](https://github.com/objectstack-ai/objectstack)
 (`skills/<name>/` folders) and writes them into your project's agent
 config.
 
@@ -31,7 +31,7 @@ Detected automatically based on what's in your project:
 
 | Agent | Path written |
 |:--|:--|
-| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| Claude Code | `.claude/skills/<name>/` → symlink to `.agents/skills/<name>/` |
 | Cursor | `.cursor/rules/<name>.mdc` |
 | GitHub Copilot | `.github/copilot-instructions.md` (consolidated) |
 | Codex / Codex CLI | `AGENTS.md` (consolidated) |
@@ -50,7 +50,7 @@ Run `npx skills detect` to see what the CLI plans to write.
 | `objectstack-ui` | [Views](/docs/build/interface/views), Apps, Pages, Dashboards, Reports, Charts, Actions |
 | `objectstack-automation` | Flows, Workflows, Triggers, Approvals, schedules, webhooks |
 | `objectstack-ai` | Agents, Tools, Skills, Conversations, Model Registry, MCP |
-| `objectstack-api` | REST/GraphQL endpoints, auth, realtime, error envelopes |
+| `objectstack-api` | REST endpoints, auth providers, realtime channels, error envelopes, batch/versioning contracts |
 | `objectstack-i18n` | Translation bundles, locale fallback |
 | `objectstack-formula` | [CEL](./cel) expressions — formula fields, predicates, conditions, schedules |
 
@@ -61,7 +61,7 @@ load it and when to defer to a sibling.
 
 ```bash
 npx skills add <org>/<repo>        # add a skill bundle from a GitHub repo
-npx skills add <org>/<repo>@<ref>  # pin to a tag / branch / SHA
+npx skills add https://github.com/<org>/<repo>/tree/<ref>/<path>  # pin to a tag / branch / SHA
 npx skills list                    # list installed skills
 npx skills remove <name>           # remove a skill
 npx skills detect                  # show which agents the CLI will write to
@@ -71,7 +71,7 @@ npx skills --help                  # full options
 Pin a version for reproducible CI:
 
 ```bash
-npx skills add objectstack-ai/framework@v5.0.0
+npx skills add https://github.com/objectstack-ai/objectstack/tree/<commit-sha>/skills
 ```
 
 ## Where to commit the output
@@ -84,7 +84,7 @@ anyway.
 ## Updating
 
 ```bash
-npx skills add objectstack-ai/framework      # pulls latest matching the spec version range
+npx skills add objectstack-ai/objectstack/skills
 ```
 
 Re-run after upgrading `@objectstack/spec` so the agent stays in sync
@@ -93,6 +93,6 @@ with the latest Zod schemas, CEL helpers, and metadata vocabulary.
 ## See also
 
 - [Build → IDE Skills](/docs/build/ai-skills) — conceptual overview, AI Builder vs skills
-- [Build → AI Builder](/docs/build/ai-builder) — the in-Console counterpart
+- [Build → AI Builder](/docs/build/ai-builder) — the in-browser counterpart
 - [vercel-labs/skills](https://github.com/vercel-labs/skills) — upstream CLI
-- [objectstack-ai/framework/skills](https://github.com/objectstack-ai/framework/tree/main/skills) — source of truth for every skill
+- [objectstack-ai/objectstack/skills](https://github.com/objectstack-ai/objectstack/tree/main/skills) — source of truth for every skill

@@ -1,6 +1,10 @@
 ---
 title: API-Zugriff
 description: Generierte REST-APIs, Authentifizierung und API-Schlüssel für Integrationen.
+translation:
+  source_sha: 59e07888e7a8e425689a077f85312f83e2d9e55cf1cfe435d37dc30856f2d0a5
+  guide_rev: 1
+  mode: auto
 ---
 
 Jedes im Artefakt deklarierte Objekt wird über eine generierte
@@ -24,7 +28,8 @@ Wichtige Schnittstellen:
 | `/api/v1/auth/*` | Authentifizierung (Anmeldung, Sitzungen, OAuth, OIDC) |
 | `/api/v1/meta/*` | Metadaten-APIs (Objekte, Felder, Ansichten), sofern aktiviert |
 | `/api/v1/keys` | Erzeugt einen nur einmal angezeigten `sys_api_key` für den aufrufenden Benutzer (POST) |
-| `/api/v1/mcp` | Model-Context-Protocol-Server über Streamable HTTP, wenn `OS_MCP_SERVER_ENABLED=true` |
+| `/api/v1/batch` | Transaktionaler objektübergreifender Batch (POST) — ausschließlich atomar, jede Operation pro Objekt geprüft |
+| `/api/v1/mcp` | Model-Context-Protocol-Server über Streamable HTTP — standardmäßig aktiv; deaktivierbar mit `OS_MCP_SERVER_ENABLED=false` |
 | `/api/v1/health` | Liveness-/Readiness-Probe (keine Authentifizierung) |
 
 Das Präfix lautet standardmäßig `/api/v1` (der API-`basePath` von `/api` plus

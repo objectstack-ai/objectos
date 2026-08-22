@@ -1,6 +1,10 @@
 ---
 title: Expresiones CEL
 description: El lenguaje de expresiones usado para fórmulas, predicados, programaciones y cadenas con plantilla — expuesto mediante cinco plantillas etiquetadas.
+translation:
+  source_sha: 9489636c35a7a16dd066125812e7e218008b3e558ba4c8dd92d6d3126e60f234
+  guide_rev: 1
+  mode: auto
 ---
 
 ObjectOS usa [CEL](https://github.com/google/cel-spec) (Common
@@ -18,7 +22,7 @@ que el runtime analiza:
 ```
 
 Fuente del esquema:
-[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts).
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts).
 
 ## Las cinco plantillas etiquetadas
 
@@ -76,7 +80,7 @@ Las expresiones CEL se evalúan en un contexto con estas variables de nivel supe
 ## Biblioteca estándar
 
 Registrada en
-[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts).
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts).
 Las funciones integradas más usadas:
 
 ### Tiempo
@@ -165,5 +169,5 @@ guarda.
 - [Tipos de campo](./field-types) — campos de fórmula y de obligatoriedad condicional
 - [Build → Modelo de datos](/docs/build/data) — validaciones y predicados
 - [Build → Flujos](/docs/build/automation/flows) — guardas y programaciones
-- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/spec/src/shared/expression.zod.ts) — esquema
-- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/framework/blob/main/packages/formula/src/stdlib.ts) — funciones integradas
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts) — esquema
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts) — funciones integradas

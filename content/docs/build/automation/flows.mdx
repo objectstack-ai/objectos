@@ -6,7 +6,7 @@ description: Declarative business logic — described to AI or written in TypeSc
 Flows are how you express business logic without writing a server.
 Every flow is declarative metadata that the runtime executes — same
 as objects and views. That means flows show up in `os diff`, the
-audit log, Console's flow builder, and the [AI Builder](/docs/build/ai-builder)
+audit log, the flow builder, and the [AI Builder](/docs/build/ai-builder)
 all at once.
 
 Most customers create flows by asking the AI:
@@ -26,13 +26,14 @@ export default defineStack({
 });
 ```
 
-## Three flow types
+## Flow types
 
 | Type | Triggered by | Use for |
 |---|---|---|
 | **Autolaunched** | A record change (insert/update/delete) | "Send welcome email when user registers" |
 | **Scheduled** | Cron expression or interval | "Mark stale tasks every night at 2am" |
-| **Manual** | User clicks a button in Console, or an API call | "Approve invoice" actions |
+| **Time-relative** *(16.0)* | A date field's proximity to today, via a daily sweep | "Remind me 60 days before the contract ends" |
+| **Manual** | User clicks a button, or an API call | "Approve invoice" actions |
 
 ## Autolaunched: react to a record change
 
@@ -107,6 +108,80 @@ export const nightlyCleanup = defineFlow({
 Backed by the `@objectstack/service-job` capability — see
 [Runtime Capabilities](/docs/reference/runtime-capabilities).
 
+## Time-relative: fire relative to a date field (16.0)
+
+"Remind me 60 days before the contract ends" used to be authored as a
+record-change flow gated on `record.end_date == daysFromNow(60)` — a
+predicate that is only evaluated when the record *happens to change*, so
+unattended it fires almost never. Don't write that. Declare a
+**time-relative trigger** instead: the flow's start node carries a
+`config.timeRelative` descriptor, and the runtime sweeps the object on a
+schedule and launches the flow **once per matching record**:
+
+```ts
+export const renewalReminder = defineFlow({
+  name: 'contract_renewal_reminder',
+  type: 'schedule',
+  status: 'active',
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      config: {
+        timeRelative: {
+          object: 'contracts',
+          dateField: 'end_date',
+          offsetDays: [60, 30, 7],       // T-minus thresholds
+          filter: { status: 'active' },  // AND-ed with the date window
+        },
+        // Optional sweep cadence — defaults to daily at 08:00 UTC.
+        schedule: { type: 'cron', expression: '0 8 * * *' },
+      },
+    },
+    { id: 'notify_owner', type: 'notify', label: 'Notify Owner' },
+    { id: 'end', type: 'end' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'notify_owner' },
+    { id: 'e2', source: 'notify_owner', target: 'end' },
+  ],
+});
+```
+
+| Key | What it declares |
+|---|---|
+| `object` | Object (machine name) whose records the sweep queries |
+| `dateField` | `date` / `datetime` field evaluated relative to today (day-granular) |
+| `offsetDays` | **Offset mode** — fire when `dateField` is exactly today + each listed offset (`[60, 30, 7]`; negative = past, e.g. `[-1]` the day after) |
+| `withinDays` | **Range mode** — fire every day `dateField` is within N days of today: positive = upcoming ("expiring soon"), negative = bounded overdue lookback, `0` = due today |
+| `filter` | Optional ObjectQL where-map AND-ed with the computed date window (e.g. `{ status: 'active' }`) |
+| `maxRecords` | Cap on records launched per sweep (default 1000; the sweep logs when it clamps) |
+
+Exactly **one** of `offsetDays` or `withinDays` must be set. The two other
+common shapes:
+
+```ts
+// "Expiring soon" — fires every day a document is within 30 days of expiry.
+timeRelative: { object: 'hr_document', dateField: 'expires_on', withinDays: 30 }
+
+// Overdue sweep — fires for POs up to 14 days past due (bounded lookback).
+timeRelative: { object: 'purchase_order', dateField: 'due_date',
+                withinDays: -14, filter: { status: 'open' } }
+```
+
+Each launch puts the matching record on the automation context, so the
+start-node `condition` and `{record.<field>}` interpolation work exactly
+as they do for record-change flows. The discovery query runs as system,
+with per-record failure isolation. `os validate` gains readiness checks —
+it warns when `timeRelative.object` names an object the stack doesn't
+define, and when an auto-triggered flow is left in `draft` status.
+
+> **Genuine same-day checks are fine now (#3183).** In 16.0
+> `record.due_date == today()` matches — the engine coerces temporal
+> `==` / `!=` comparisons so a date field compares correctly against
+> `today()`. Use that for a real "due today" condition; use
+> `timeRelative` for anything of the form "N days before/after a date".
+
 ## Manual: actions and approvals
 
 ```ts
@@ -127,7 +202,7 @@ export const approveInvoice = defineFlow({
 });
 ```
 
-Surface it in Console as a button on the Invoice view, or call it via
+Surface it as a button on the Invoice view, or call it via
 REST:
 
 ```bash
@@ -201,7 +276,7 @@ auditable in the flow builder.
 
 ## Visual builder
 
-Console ships a visual flow builder that round-trips with the
+ObjectOS ships a visual flow builder that round-trips with the
 declarative metadata — non-engineers can edit a flow, and it serializes
 back to the same shape as the TypeScript you'd hand-author.
 
@@ -231,5 +306,5 @@ os test --scenario "welcome email fires on signup"
 - [AI Service](/docs/configure/ai) — `ai_call` action for LLM steps
 - [API Access](/docs/configure/api-access) — invoke manual flows from
   external systems
-- [@objectstack/service-automation](https://github.com/objectstack-ai/framework/tree/main/packages/services/service-automation)
+- [@objectstack/service-automation](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-automation)
   — source for the execution engine

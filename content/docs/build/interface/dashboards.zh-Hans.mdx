@@ -1,6 +1,10 @@
 ---
 title: 仪表盘
 description: 由绑定具名数据集的图表组件构成的分析页面 —— 带全局筛选、自动刷新，以及到底层记录的下钻。
+translation:
+  source_sha: e78323eca34fb899bfca8d42c29c8504444845bed49522f9d3f58e00ad1620f9
+  guide_rev: 1
+  mode: auto
 ---
 
 **仪表盘是一张组件网格；每个组件都绑定到一个数据集。**数据集是语义层：它拥有基础对象、连接、维度和经过认证的度量。组件按名称选用它们，因此"revenue"在每个用到它的仪表盘和报表上含义都相同。
@@ -71,7 +75,7 @@ export const salesDataset = defineDataset({
 
 运行时，数据集查询经由分析服务执行，并自动把调用者的行级安全范围应用到基础对象和被连接的对象上 —— 仪表盘绝不会向用户展示其[权限](/docs/configure/permissions)不允许看的记录。
 
-> 旧的内联查询形态（在组件上直接写 `object` + `categoryField` + `valueField` + `aggregate`）已经移除。请定义数据集并把组件绑定上去。
+> 自 16.0 起，组件 Schema 是**严格**的：任何未声明的顶层键 —— 打错的键、幻觉出来的键，或已移除的内联查询键（`object` + `categoryField` + `valueField` + `aggregate`，以及透视表的 `rowField` / `columnField`）—— 都是**指名道姓的解析错误**，并指向数据集形态，而不再被悄悄剥掉、留下一个什么都不渲染的组件。请定义数据集并把组件绑定上去；`options` 仍是渲染器专属额外配置的自由格式逃生口。
 
 ## 组件
 
