@@ -10,9 +10,24 @@ You manage people and their permissions day to day; the applications,
 objects, and permission sets themselves ship with the platform and the
 app packages you install.
 
-> **Permissions are designed in Studio, assigned in Setup.** Most
-> administration never leaves Setup — you enter Studio only to author
-> permission sets or to run the explain engine.
+## Setup and Studio
+
+**Permissions are designed in Studio, assigned in Setup.** That
+sentence is the canonical statement of a split that runs through the
+whole product, not a rule about permissions alone: Setup *operates* a
+running deployment, Studio *authors* the metadata that deployment runs.
+Both live inside the same UI at `/_console/`; neither is a surface of
+its own.
+
+| | Setup | Studio |
+|---|---|---|
+| Answers | Who is here, and what may they do? | What does this app consist of? |
+| Where | `/_console/apps/setup` | `/_console/studio` |
+| Gated by | `setup.access` | `studio.access` |
+| For | System administrators | Implementers and developers |
+
+Most administration never leaves Setup — you enter Studio only to
+author permission sets or to run the explain engine.
 
 ## The Setup app
 

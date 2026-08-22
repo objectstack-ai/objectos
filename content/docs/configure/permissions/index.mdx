@@ -161,9 +161,9 @@ applies uniformly across REST, ObjectQL, and the UI.
 - The **explain engine** (`explain(principal, object, operation)`)
   reports the verdict of every layer in order — required permissions,
   object CRUD, field security, OWD baseline, sharing, row-level
-  security — with per-layer attribution. It surfaces as the
-  "Why can this user access?" panel. Explaining another user requires
-  the `manage_users` capability.
+  security — with per-layer attribution. Studio's **Access** pillar
+  surfaces it as the "Why can this user access?" panel. Explaining
+  another user requires the `manage_users` capability.
 - `/_console/` shows the effective permissions of any user as they're
   evaluated.
 - Audit log (`sys_audit_log`) records permission-sensitive changes —
