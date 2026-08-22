@@ -199,6 +199,19 @@ query time, compiled into row-level filters. A rule stored **without**
 criteria shares nothing — it is not a match-all. See
 [Record Access](/docs/configure/permissions/record-access#both-switches-fail-closed).
 
+### Studio
+
+The built-in metadata-authoring surface, at `/studio` inside the UI
+served at `/_console/`, gated by the `studio.access` permission.
+Where the metadata itself is *designed* — packages, objects, apps,
+flows and permission sets — one package at a time, across four pillars:
+Data, Automations, Interfaces, Access. Peer of **Setup**, not part of
+it: Setup operates a running deployment (its people, their grants, its
+configuration), Studio authors what that deployment runs — hence
+**permissions are designed in Studio, assigned in Setup**. Unlike
+Setup it is not an app under `/apps/`; the UI serves it as its own
+route subtree. See [Administration](/docs/configure#setup-and-studio).
+
 ### Surface
 
 One of the HTTP entry points a running ObjectOS exposes: `/` (REST API)
