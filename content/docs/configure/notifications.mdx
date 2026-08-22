@@ -1,30 +1,32 @@
 ---
 title: Notifications
-description: Configure how ObjectOS routes events into user inboxes — subscriptions, per-user preferences, and render templates.
+description: Configure how ObjectOS routes events into user inboxes — the audience a producer emits to, per-user preferences, and render templates.
 ---
 
 This page covers the **administrator side** of notifications: how events become
-messages, and the three system-managed objects you use to route and render
-them. For the recipient's view of the inbox — reading and muting notifications —
-see [Notifications](/docs/use/notifications) under *Use*.
+messages, and the three system-managed objects that stand behind them. For the
+recipient's view of the inbox — reading and muting notifications — see
+[Notifications](/docs/use/notifications) under *Use*.
 
 ## The notification pipeline
 
 A notification is not a single record. It flows through four stages:
 
 ```text
-emit()  →  Notification Event  →  routed by Subscription + Preference + Template  →  Inbox Message
+emit() + explicit audience  →  Notification Event  →  recipients, filtered by Preference  →  Inbox Message
 ```
 
 1. **`emit()`** — Application code raises an event (an approval submitted, a
-   record shared, an invitation sent).
+   record shared, an invitation sent) and **names its audience**. The audience
+   is a required input, and it is what decides who is notified.
 2. **Notification Event** (`sys_notification`) — Each `emit()` writes one
    ingress row. This is the diagnostic log of *what happened*, before any
    delivery decision. See [Audit Logs](/docs/operate/audit-logs) for how to
    read it.
-3. **Routing** — For each event, ObjectOS resolves who should be notified
-   (**Subscriptions**), whether each recipient allows that topic on that channel
-   (**Preferences**), and how the message should be rendered (**Templates**).
+3. **Routing** — For each event, ObjectOS expands the audience the producer
+   passed into recipients, checks whether each recipient allows that topic on
+   that channel (**Preferences**), and renders the message for the recipient's
+   channel and locale (**Templates**).
 4. **Inbox Message** (`sys_inbox_message`) — The materialized, per-user result
    the recipient actually sees in their inbox.
 
@@ -33,18 +35,41 @@ configuration. Inbox Messages are the user-side output.
 
 ### How routing resolves
 
-For a single event, the three objects each answer one question:
+For a single event, these are the inputs that decide who gets what:
 
-| Object | Question it answers |
+| Input | Question it answers |
 |---|---|
-| Notification Subscription | *Who is interested?* — which principals stand subscribed to the topic |
-| Notification Preference | *Does this recipient allow it here?* — the per-user mute/allow for the topic and channel |
+| The audience passed to `emit()` | *Who receives this?* — the producer names the recipients, and this is the only input that puts anyone on the list |
+| Notification Preference | *Does this recipient allow it here?* — the per-user mute/allow for the topic and channel, applied to every (recipient × channel) pair |
 | Notification Template | *How is it written?* — the subject and body to render for the recipient's channel and locale |
+| Notification Subscription | *Who declared standing interest?* — admin-authored rows, **not consulted when an event is routed** |
 
-Only when a recipient is subscribed **and** their preference for the
-topic/channel is enabled does a template render and an inbox message
-materialize. All three objects are seeded and maintained by the platform, so
-the list views mostly show system-generated rows.
+A recipient reaches the inbox when the producer's audience resolves to them and
+their preference does not mute that topic on that channel. Allow is the
+default, so a recipient with no preference row still receives the notification,
+and mandatory topics (security alerts and the like) bypass preferences
+altogether.
+
+> **Warning:** Subscription rows do not route anything. The
+> subscription-to-recipient expansion is **not wired**: `emit()` requires an
+> explicit audience, and nothing in the pipeline above expands a topic's
+> subscriptions into recipients. Every delivery comes from the audience the
+> producer passed, which makes the Setup **Notification Subscriptions** grid
+> admin-authored data, not a live routing control — pausing a row
+> (`enabled = false`) stops nothing, and adding one delivers nothing.
+
+That is a statement about the notification pipeline described on this page. It
+is not a claim about what a capability or integration running on top of
+ObjectOS may do with these rows for its own purposes. ADR-0012 and ADR-0030
+describe subscription-driven
+routing as the **target state**, not today's behaviour: the expansion that
+would make these rows routing-relevant was not built, and it is not scheduled.
+If it is ever built, the behaviour described here changes with it.
+
+Preferences and Templates are seeded and maintained by the platform, so those
+list views mostly show system-generated rows. Subscription rows are the ones an
+admin authors from Setup, which is what makes that grid read like a routing
+control.
 
 ## Notification Preferences
 
@@ -73,30 +98,40 @@ channel.
 
 At **Setup → Configuration → Notification Subscriptions** (`sys_notification_subscription`).
 
-A **standing subscription** of a principal (role, team, or user) to a
-notification topic. Subscriptions answer *who is interested* in a topic before
-per-user preferences filter delivery.
+A **standing subscription** of a principal to a notification topic: the row
+records that someone declared interest in the topic. It is reference data — no
+part of the delivery path reads it, so a subscription row neither adds a
+recipient nor removes one (see [How routing resolves](#how-routing-resolves)).
 
 | Field | Purpose |
 |---|---|
 | `topic` | The topic being subscribed to |
-| `principal` | Role, team, or user that receives the topic — a selector string; see [What to type in `principal`](#what-to-type-in-principal) |
-| `enabled` | Boolean — activate or pause the subscription |
+| `principal` | The subscriber — a selector string; see [What to type in `principal`](#what-to-type-in-principal) |
+| `enabled` | Boolean — marks the row active or paused. No delivery consults it |
 
 ### What to type in `principal`
 
 `principal` is a single text field, not a picker: the value is a **selector
-string**, and its prefix decides what the value is matched against. A value
-with no recognized prefix is read as a bare user id — so typing
-`sales_manager` (or `Sales team`) addresses a user that does not exist, rather
-than the group you meant.
+string**, and its prefix decides what the value is matched against. The forms
+below are what the platform's recipient resolver **accepts** for any selector
+string — the same grammar an `emit()` audience is written in. A value with no
+recognized prefix is read as a bare user id — so typing `sales_manager` (or
+`Sales team`) addresses a user that does not exist, rather than the group you
+meant.
 
 | Value | Who it resolves to | Example |
 |---|---|---|
 | `role:name` | Everyone whose organization-membership tier is that name, within the organization (`sys_member.role`) | `role:admin` |
 | `team:id` | Every member of that team, matched on the team **id**, not its label (`sys_team_member.team_id`) | `team:team_123` |
 | `user:id` | That one user, by user id | `user:usr_123` |
-| `id` | No prefix — the whole value is taken as a bare user id | `usr_123` |
+| `owner_of:object:id` | Whoever owns that one record — the first owner/assignee field the record carries | `owner_of:invoice:inv_123` |
+| An email address | The user whose email matches it. **An address that matches no user is kept verbatim** as the recipient id rather than rejected | `ada@example.com` |
+| `id` | No recognized prefix — the whole value is taken as a bare user id | `usr_123` |
+
+That list is what the resolver accepts, not a designed contract for
+subscription rows: `owner_of:` and the email form are there because every
+selector string goes through the same resolver. Whether either belongs in a
+standing subscription is an open question the platform has not settled.
 
 > **`role:` here means the organization-membership tier, not a job function.**
 > The tiers are `owner`, `admin`, `delegated_admin`, and `member` — the standing
@@ -109,9 +144,11 @@ than the group you meant.
 
 Directory lookups behind a selector are deliberately best-effort — an event is
 never failed because a lookup missed. A selector that matches nothing therefore
-resolves to **zero recipients silently**: the subscription row stays valid and
-enabled, and nothing is reported on it. When a topic reaches no one, check the
-prefix and the spelling of the value first.
+resolves to **zero recipients silently**: the row stays valid and enabled, and
+nothing is reported on it. An unmatched email is the sharper edge — it is kept
+as the recipient id itself, so a typo becomes a recipient that can never be
+reached. When a topic reaches no one, check the prefix and the spelling of the
+value first.
 
 ## Notification Templates
 
