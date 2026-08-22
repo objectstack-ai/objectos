@@ -8,6 +8,6 @@
     "test": "node run-self-tests.mjs"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   }
 }

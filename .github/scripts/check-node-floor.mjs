@@ -5,11 +5,12 @@
  *
  * ## Why this exists
  *
- * Three files declare the Node floor:
+ * Four files declare the Node floor:
  *
- *     package.json            engines.node
- *     apps/docs/package.json  engines.node
- *     .node-version
+ *     package.json                  engines.node
+ *     apps/docs/package.json        engines.node
+ *     tools/ci-scripts/package.json engines.node
+ *     .node-version                 a version-manager pin, not a range
  *
  * Nothing in the install path reads any of them. `.npmrc` does not set
  * `engine-strict=true` and pnpm does not enforce `engines` by default, so
@@ -93,8 +94,16 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
 
-/** The `package.json` files whose `engines.node` this gate governs. */
-const DECLARATION_FILES = ['package.json', 'apps/docs/package.json'];
+/**
+ * The `package.json` files whose `engines.node` this gate governs — every
+ * workspace package that declares one.
+ *
+ * `.node-version` is deliberately absent. It is a version-manager pin rather
+ * than a range, it is checked by the `node-version` rule below, and adding it
+ * here would send a bare `22` through a range parser that would read it as the
+ * floor 22.0.0 and call the repo's own `>=22.12.0` a disagreement.
+ */
+const DECLARATION_FILES = ['package.json', 'apps/docs/package.json', 'tools/ci-scripts/package.json'];
 
 /** Every rule this script enforces; the self-test asserts each one has a red fixture. */
 const RULES = ['lockfile', 'unsupported', 'declarations', 'node-version', 'range', 'coverage', 'ungoverned'];
@@ -105,13 +114,20 @@ const RULES = ['lockfile', 'unsupported', 'declarations', 'node-version', 'range
  *
  * `ungoverned` names this gate's own blind spot. `DECLARATION_FILES` is an
  * explicit list, so a workspace package that declares `engines.node` outside
- * it is simply not checked, and a gate silently covering two of three
+ * it is simply not checked, and a gate silently covering some of the
  * declarations is the same structurally-silent shape this one exists to end.
- * It is advisory rather than blocking because "this file is not governed" is
- * not a claim that its value is WRONG: `tools/ci-scripts` declares `>=20.0.0`
- * and has no dependencies of its own, so that may well be correct in
- * isolation. Whether the workspace should hold one floor or several is a
- * decision for the seat, not something for this script to force by going red.
+ *
+ * Every workspace package that declares a floor today is governed, so this
+ * fires on nothing — it is here for the NEXT package to declare one. That the
+ * workspace holds a single floor rather than a floor per package is a decided
+ * policy: one lockfile installs under one Node, so a per-package floor nothing
+ * installs separately is a claim nobody can act on. `tools/ci-scripts` used to
+ * declare `>=20.0.0` on the reasoning that it has no dependencies of its own;
+ * it now carries the workspace floor like everything else.
+ *
+ * It stays advisory rather than blocking because "this file is not governed"
+ * is not a claim that its value is WRONG, and a new package appearing with a
+ * defensible floor of its own should surface a decision, not a red build.
  */
 const ADVISORY = new Set(['ungoverned']);
 
@@ -692,6 +708,7 @@ const CASES = [
     name: 'declared floor below what the tree requires',
     root: '>=20',
     docs: '>=20.0.0',
+    ci: '>=20.0.0',
     nodeVersion: '20',
     // Both rules fire, and that is structural rather than sloppy: a floor
     // below the max-of-minimums necessarily fails to satisfy the range that
@@ -773,6 +790,7 @@ const CASES = [
     name: 'a floor inside a gap in a disjunctive range',
     root: '>=22',
     docs: '>=22.0.0',
+    ci: '>=22.0.0',
     expect: ['unsupported'],
   },
   {
@@ -782,7 +800,18 @@ const CASES = [
     name: 'an exclusive floor lands in the same gap',
     root: '>22.0.0',
     docs: '>22.0.0',
+    ci: '>22.0.0',
     expect: ['unsupported'],
+  },
+  {
+    // The regression test for governing `tools/ci-scripts`: this disagreement
+    // is invisible unless that third file is actually read as a declaration.
+    // A minor-level difference keeps it isolated — the bare-major
+    // `.node-version` pin compares majors only, and both values clear the
+    // lockfile's gap, so `declarations` fires alone.
+    name: 'the tools/ci-scripts declaration disagrees',
+    ci: '>=22.13.0',
+    expect: ['declarations'],
   },
   {
     name: 'a workspace package outside the governed set',
@@ -864,18 +893,26 @@ function selfTest() {
     for (const c of CASES) {
       const root = 'root' in c ? c.root : '>=22.12.0';
       const docs = 'docs' in c ? c.docs : '>=22.12';
+      const ci = 'ci' in c ? c.ci : '>=22.12.0';
+      // Cleared first, so a previous case's `extra` package cannot linger and
+      // so the governed third declaration below survives into the fixture.
+      rmSync(join(dir, 'tools'), { recursive: true, force: true });
       mkdirSync(join(dir, 'apps/docs'), { recursive: true });
+      mkdirSync(join(dir, 'tools/ci-scripts'), { recursive: true });
       writeFileSync(join(dir, 'package.json'), JSON.stringify(root === null ? {} : { engines: { node: root } }));
       writeFileSync(
         join(dir, 'apps/docs/package.json'),
         JSON.stringify(docs === null ? {} : { engines: { node: docs } }),
+      );
+      writeFileSync(
+        join(dir, 'tools/ci-scripts/package.json'),
+        JSON.stringify(ci === null ? {} : { engines: { node: ci } }),
       );
       writeFileSync(join(dir, '.node-version'), `${c.nodeVersion ?? '22'}\n`);
       writeFileSync(join(dir, 'pnpm-lock.yaml'), c.lock ?? CLEAN_LOCK);
       // A real workspace file, so the baseline exercises the governed-file
       // exclusion rather than skipping discovery altogether.
       writeFileSync(join(dir, 'pnpm-workspace.yaml'), c.workspace ?? 'packages:\n  - apps/*\n  - tools/*\n');
-      rmSync(join(dir, 'tools'), { recursive: true, force: true });
       for (const [rel, body] of Object.entries(c.extra ?? {})) {
         mkdirSync(dirname(join(dir, rel)), { recursive: true });
         writeFileSync(join(dir, rel), JSON.stringify(body));
