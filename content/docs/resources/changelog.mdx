@@ -54,6 +54,105 @@ Subscribe to releases on GitHub to get notified.
 
 ## Recent highlights
 
+### 17.1
+
+`@objectstack` **17.1.0** (released 2026-08-20) is the current release of
+the v17 line. Where 17.0 made the *authorable surface* loud, 17.1 makes
+the runtime's answers loud: a flag that promised to revoke access now
+revokes it, a read that failed stops being served as an empty one, a flow
+that never dispatched stops being reported as a run that failed, and a
+credential that was never meant to be readable stops being served. Full
+notes:
+[docs.objectstack.ai/docs/releases/v17](https://docs.objectstack.ai/docs/releases/v17).
+
+> **Warning:** 17.1.0 is a minor by version number, not by blast radius.
+> Several of its security corrections change who can read or write on an
+> existing deployment, with no migration step to notice. Work through the
+> 17.1.0 upgrade checklist in the full notes before rolling forward.
+
+What moved:
+
+- **Deactivating a permission set or a position now actually stops
+  granting access** (security) — both objects ship a Deactivate action
+  whose dialog promises that access stops, and nothing read the column: a
+  position seeded `active: false` still granted its permission sets, and
+  a permission set seeded `active: false` still returned a platform-admin
+  posture. A sharing rule reached users by a second road that never
+  passed that seam, so a rule sharing records with a deactivated position
+  kept sharing them — those shares are revoked on the next reconcile. A
+  row whose `active` column is absent or NULL is unaffected. On a
+  deployment that used the switch believing it was inert this is a real
+  revocation on live data, so audit your deactivated rows first. See
+  [Permission Sets](/docs/configure/permissions/permission-sets).
+- **The shipped admin sets no longer grant export on the `*` wildcard**
+  (breaking) — `admin_full_access`, `organization_admin` and the derived
+  `organization_admin_no_bypass` carried `objects['*'].allowExport: true`,
+  which made the 17.0 export axis undeniable: an application could
+  declare an object exportable by nobody and the platform exported it
+  anyway. Export is now granted per object, in an app's own permission
+  set; there is deliberately no automatic replacement. Read is untouched
+  — this narrows bulk egress only.
+- **Partial field masking** — `FieldSchema` declares `maskingRule`: the
+  closed preset enum `phone` / `id_card` / `bank_account` / `email` /
+  `name`, plus a `{ keepHead, keepTail }` escape hatch. A field declaring
+  a rule is served masked-but-recognizable (`138****5678`) to every
+  non-system caller, with the field's `requiredPermissions` as the unmask
+  gate. Masking rides the single runtime channel, so API callers, browser
+  users and the CSV/XLSX export route all see the same value; a masked
+  caller cannot filter, sort, group or aggregate on the field. See
+  [Field-Level Security](/docs/configure/permissions/field-level-security).
+- **`sys_audit_log` can answer "who viewed this record"** — the ledger
+  covered writes only; it gains a `read` action, its writer, and a
+  `record_views` list view. Record-detail reads only, per-object opt-in
+  with no global switch, batched off the request path, and **never any
+  field values** — read auditing runs ahead of field masking, so copying
+  values in would mint a plaintext copy of exactly what field-level
+  security withholds. See [Audit Logs](/docs/operate/audit-logs).
+- **Read-only approval visibility, per object, default off** — an object
+  can be named so that a user who can read a business record may also see
+  that record's approval requests and full action history. Omitted or
+  empty leaves visibility exactly as it is; on an object you do name it is
+  not a no-op — a supervisor who holds full read but never appears in the
+  approval used to get an empty list, and now sees the request row, every
+  actor and decision, the action's comment text (意见正文), and decision
+  attachments. The tier is read-only and introduces no new permission
+  concept: the service reads the record as the caller, so ordinary CRUD
+  and record access decide. See
+  [Approvals](/docs/build/automation/approvals).
+- **All three flow doors answer one honest status table** — a refused
+  dispatch stops being reported as a failed run: `404` not found, `409`
+  `FLOW_DISABLED`, `422` `FLOW_NO_START_NODE`, and `400` `FLOW_FAILED`
+  for a run that actually ran and was rejected. The automation `trigger`
+  routes, the actions door, and declared `type: 'flow'` endpoints now
+  read one shared definition instead of three private copies, and an
+  `outputMapping` is no longer applied to a failure. Callers should
+  branch on the HTTP status, not on an inner `success` flag. See
+  [Flows](/docs/build/automation/flows).
+- **`error.code` is a closed vocabulary at every door** — a thrown code
+  outside the platform's standard set no longer reaches `error.code`; it
+  rides the new optional `declaredCode` instead, so an application's own
+  spellings survive without widening the platform vocabulary.
+- **A failed read stops reading as an empty one** — a recurring class
+  closed across the metadata protocol, the roll-up summary index, and the
+  cascade-delete and registry probes: a read that *failed* used to be
+  indistinguishable from one that legitimately found nothing, so an
+  upsert pre-load turned every update into an insert and "what would
+  break if I delete this" answered "nothing". No `catch` is removed —
+  each is discriminated by error type, so an unprovisioned table stays
+  benign and everything else surfaces.
+- **Author-time gates reach the runtime publish door** — rules that only
+  `os build` / `os validate` ran now also judge a runtime write, so
+  Studio and the metadata API cannot land what the CLI refuses. Re-run
+  `os build` / `os validate` after upgrading: several new refusals can
+  fail a stack that built clean on 17.0, including an unknown top-level
+  stack key, a dashboard header `modal` action whose target is not a
+  declared page, and a list-view `sort` naming a formula field or no
+  field at all.
+- **Console (Studio)** — two objectui pin moves bring dashboard component
+  re-keying, the retirement of the structured `confirm` object on
+  actions, `I18nLabel` on metric widgets, and host-performed
+  `submitBehavior.url` redirects for consoles mounted at a sub-path.
+
 ### 17.0
 
 `@objectstack` **17.0.0** (released 2026-08-14) is a truth-telling
