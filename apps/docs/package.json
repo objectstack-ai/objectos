@@ -37,7 +37,7 @@
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.7.0",
-    "wrangler": "^4.50.0"
+    "wrangler": "^4.124.0"
   },
   "engines": {
     "node": ">=22.12.0"
