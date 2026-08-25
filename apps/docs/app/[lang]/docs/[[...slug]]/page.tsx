@@ -9,7 +9,7 @@ import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { LLMCopyButton, ViewOptions } from '@/components/ai/page-actions';
 import { gitConfig } from '@/lib/layout.shared';
-import { languageAlternates, localeUrl } from '@/lib/seo';
+import { languageAlternates, localeUrl, translatedLocales } from '@/lib/seo';
 
 export default async function Page(props: {
   params: Promise<{ lang: string; slug?: string[] }>;
@@ -69,7 +69,10 @@ export async function generateMetadata(props: {
     description: page.data.description,
     alternates: {
       canonical: localeUrl(params.lang, path),
-      languages: languageAlternates(path),
+      // Only the locales that really have this page. The cluster is keyed by
+      // the logical path, not by params.lang, so every page in it advertises
+      // the same reciprocal set.
+      languages: languageAlternates(path, translatedLocales(page.slugs)),
     },
   };
 }
