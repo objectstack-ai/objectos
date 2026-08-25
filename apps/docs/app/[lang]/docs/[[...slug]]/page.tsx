@@ -1,4 +1,4 @@
-import { source } from '@/lib/source';
+import { SITE_NAME, getPageImage, source } from '@/lib/source';
 import type { Metadata } from 'next';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
 import { notFound } from 'next/navigation';
@@ -9,7 +9,118 @@ import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { LLMCopyButton, ViewOptions } from '@/components/ai/page-actions';
 import { gitConfig } from '@/lib/layout.shared';
-import { languageAlternates, localeUrl, translatedLocales } from '@/lib/seo';
+import { SITE_URL, languageAlternates, localeUrl, translatedLocales } from '@/lib/seo';
+import type { InferPageType } from 'fumadocs-core/source';
+
+/**
+ * The page type the loader actually produces, frontmatter schema included.
+ *
+ * Deliberately inferred rather than hand-written: a structural annotation like
+ * `{ data: { seoTitle?: string } }` would type-check whether or not the schema
+ * extension in `source.config.ts` ever reached the generated collection types,
+ * which is exactly the thing that has to be true for `seoTitle` to arrive.
+ * Inferring it means `tsc` fails if the field is not really there.
+ */
+type DocsPageData = InferPageType<typeof source>;
+
+/** Logical, locale-independent path of a docs page, e.g. `docs/build/interface/views`. */
+function docsPath(slugs: string[]): string {
+  return ['docs', ...slugs].join('/');
+}
+
+/**
+ * The string the `<title>` tag should carry. A page may declare `seoTitle` when
+ * its H1 noun is too short to match anything a reader would search for; most
+ * pages declare nothing and fall back to `title`, rendering byte-identically to
+ * before this field existed. `??` is safe rather than lax because the schema
+ * rejects an empty or whitespace-only `seoTitle` at build time.
+ */
+function seoTitleOf(page: DocsPageData): string {
+  return page.data.seoTitle ?? page.data.title;
+}
+
+/** Absolute URL of the generated 1200x630 share card for a page. */
+function shareCardUrl(page: DocsPageData): string {
+  return `${SITE_URL}${getPageImage(page).url}`;
+}
+
+/**
+ * Open Graph wants `language_TERRITORY`. Our locale tags carry no territory
+ * (`en`, `zh-Hans`, `ja`, …), so the honest mapping is the tag with the
+ * separator swapped — the same one the marketing site emits, which keeps
+ * og:locale consistent across the two properties.
+ */
+function ogLocale(lang: string): string {
+  return lang.replace('-', '_');
+}
+
+/** `record-access` -> `Record access`, for a path segment with no page to name it. */
+function humanizeSegment(segment: string): string {
+  const spaced = segment.replace(/-/g, ' ');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * Serialize a JSON-LD node for injection into a `<script>` tag.
+ *
+ * Every `<` is rewritten to the six-character JSON escape backslash-u-0-0-3-c,
+ * which parses back to the same character but cannot be read as markup. Without
+ * it a closing script tag inside a title or description would end the block
+ * early and drop the rest of the JSON into the document as markup.
+ */
+function jsonLdHtml(value: Record<string, unknown>): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+/**
+ * `BreadcrumbList` over the page's own ancestry: the docs root, then every
+ * prefix of its slugs. Each crumb is named by the page that actually sits at
+ * that path so the name matches what a reader sees in the sidebar; a folder
+ * with no index page falls back to its humanized segment.
+ */
+function breadcrumbListLd(lang: string, slugs: string[]): Record<string, unknown> {
+  const trails = [[] as string[], ...slugs.map((_, i) => slugs.slice(0, i + 1))];
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: trails.map((trail, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name:
+        source.getPage(trail, lang)?.data.title ??
+        humanizeSegment(trail[trail.length - 1] ?? 'docs'),
+      item: localeUrl(lang, docsPath(trail)),
+    })),
+  };
+}
+
+/**
+ * `TechArticle` for a docs page.
+ *
+ * Deliberately carries no `publisher`/`author`: those are entity-level claims
+ * about the organization, and which entity this site speaks for is the open
+ * question on the positioning card. A TechArticle without them is valid; a
+ * TechArticle asserting the wrong entity would have to be retracted.
+ */
+function techArticleLd(args: {
+  lang: string;
+  title: string;
+  description?: string;
+  url: string;
+  image: string;
+}): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: args.title,
+    ...(args.description ? { description: args.description } : {}),
+    url: args.url,
+    image: args.image,
+    inLanguage: args.lang,
+    isAccessibleForFree: true,
+  };
+}
 
 export default async function Page(props: {
   params: Promise<{ lang: string; slug?: string[] }>;
@@ -20,33 +131,58 @@ export default async function Page(props: {
 
   const MDX = page.data.body;
 
+  // Structured data. Emitted from the page rather than from `generateMetadata`,
+  // which can only produce meta/link elements — the Metadata API has no channel
+  // for a JSON-LD script. Google reads `application/ld+json` from either the
+  // head or the body, so rendering it here is a supported placement, not a
+  // workaround.
+  const jsonLd = [
+    breadcrumbListLd(params.lang, page.slugs),
+    techArticleLd({
+      lang: params.lang,
+      title: seoTitleOf(page),
+      description: page.data.description,
+      url: localeUrl(params.lang, docsPath(page.slugs)),
+      image: shareCardUrl(page),
+    }),
+  ];
+
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
-      <div className="flex flex-row gap-2 items-center border-b pb-6">
-        <LLMCopyButton markdownUrl={`${page.url}.mdx`} />
-        <ViewOptions
-          markdownUrl={`${page.url}.mdx`}
-          githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
+    <>
+      {jsonLd.map((item) => (
+        <script
+          key={item['@type'] as string}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(item) }}
         />
-      </div>
-      <DocsBody>
-        <MDX
-          components={getMDXComponents({
-            a: createRelativeLink(source, page),
-            Step,
-            Steps,
-            File,
-            Folder,
-            Files,
-            FileTree: Files,
-            Tab,
-            Tabs,
-          })}
-        />
-      </DocsBody>
-    </DocsPage>
+      ))}
+      <DocsPage toc={page.data.toc} full={page.data.full}>
+        <DocsTitle>{page.data.title}</DocsTitle>
+        <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
+        <div className="flex flex-row gap-2 items-center border-b pb-6">
+          <LLMCopyButton markdownUrl={`${page.url}.mdx`} />
+          <ViewOptions
+            markdownUrl={`${page.url}.mdx`}
+            githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
+          />
+        </div>
+        <DocsBody>
+          <MDX
+            components={getMDXComponents({
+              a: createRelativeLink(source, page),
+              Step,
+              Steps,
+              File,
+              Folder,
+              Files,
+              FileTree: Files,
+              Tab,
+              Tabs,
+            })}
+          />
+        </DocsBody>
+      </DocsPage>
+    </>
   );
 }
 
@@ -62,17 +198,40 @@ export async function generateMetadata(props: {
   if (!page) notFound();
 
   // Logical path is locale-independent; reconstruct each locale URL from slugs.
-  const path = ['docs', ...page.slugs].join('/');
+  const path = docsPath(page.slugs);
+  const canonical = localeUrl(params.lang, path);
+  const title = seoTitleOf(page);
+  const description = page.data.description;
+  const image = shareCardUrl(page);
 
   return {
-    title: page.data.title,
-    description: page.data.description,
+    title,
+    description,
     alternates: {
-      canonical: localeUrl(params.lang, path),
+      canonical,
       // Only the locales that really have this page. The cluster is keyed by
       // the logical path, not by params.lang, so every page in it advertises
       // the same reciprocal set.
       languages: languageAlternates(path, translatedLocales(page.slugs)),
+    },
+    openGraph: {
+      type: 'article',
+      url: canonical,
+      siteName: SITE_NAME,
+      // Set explicitly rather than inherited: the root layout's `%s | ObjectOS`
+      // template belongs on the title tag, where the brand suffix helps. Here
+      // `siteName` already carries the brand, so repeating it would render
+      // "Views | ObjectOS — ObjectOS" in a share preview.
+      title,
+      description,
+      locale: ogLocale(params.lang),
+      images: [{ url: image, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [image],
     },
   };
 }
