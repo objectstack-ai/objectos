@@ -86,12 +86,6 @@ function ogLocale(lang: string): string {
   return lang.replace('-', '_');
 }
 
-/** `record-access` -> `Record access`, for a path segment with no page to name it. */
-function humanizeSegment(segment: string): string {
-  const spaced = segment.replace(/-/g, ' ');
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
 /**
  * Serialize a JSON-LD node for injection into a `<script>` tag.
  *
@@ -106,27 +100,55 @@ function jsonLdHtml(value: Record<string, unknown>): string {
 
 /**
  * `BreadcrumbList` over the page's own ancestry: the docs root, then every
- * prefix of its slugs. Each crumb is named by the page that actually sits at
- * that path so the name matches what a reader sees in the sidebar; a folder
- * with no index page falls back to its humanized segment.
+ * prefix of its slugs *that has a page of its own*. Each crumb is named by the
+ * page sitting at that path, so the name matches what a reader sees in the
+ * sidebar.
  *
- * `item` is each crumb's own canonical URL, resolved crumb by crumb: a
- * breadcrumb entry is a claim about where *that* page lives, and pointing it at
- * a locale URL that only serves an English fallback is the same untruth the
- * page's own canonical would be telling.
+ * A prefix with no page is not emitted at all. `content/docs/meta.json`
+ * declares `reference` and `resources` as sidebar folders and neither has an
+ * `index.mdx`, so a trail through them was advertising a path that 404s in
+ * every locale. `item` is defined as the URL of the page the crumb names, so a
+ * crumb whose URL resolves to nothing is not a weaker claim than a good one but
+ * a false one — and a consumer may drop the whole trail rather than the single
+ * entry. Keeping the step and omitting only its `item` is schema.org-legal, but
+ * it trades a false URL for a `ListItem` missing a field that is expected on
+ * every entry except the last, so the crumb goes rather than the URL.
+ *
+ * Positions are assigned after the drop, so a trail that lost a middle crumb is
+ * numbered 1..n with no hole. `position` is an ordinal within this list — 1
+ * signifies the beginning of the trail — not an index into the folder
+ * hierarchy: a gap would assert an element the consumer was not sent, which is
+ * the same false claim moved into a different field.
+ *
+ * The check costs nothing at request time. `source.getPage()` is the in-memory
+ * resolver this function already called to name each crumb; it is now called
+ * once per crumb and answers both questions. Because fumadocs seeds every
+ * locale's file system from English and lets real translations overwrite it
+ * (see `translatedLocales`), it resolves whenever *any* locale has the page —
+ * so a crumb is dropped only where the path has no page anywhere, and the
+ * surviving trail is identical across the seven locales. Give those two folders
+ * an `index.mdx` later and their crumbs reappear with no change here.
+ *
+ * Existence and translation are separate questions, asked in that order. A
+ * crumb that survives is then pointed at its own canonical URL crumb by crumb:
+ * a breadcrumb entry is a claim about where *that* page lives, so it names this
+ * locale's URL when the locale really has that page and the English URL when it
+ * would only be serving the English fallback.
  */
 function breadcrumbListLd(lang: string, slugs: string[]): Record<string, unknown> {
   const trails = [[] as string[], ...slugs.map((_, i) => slugs.slice(0, i + 1))];
+  const crumbs = trails.flatMap((trail) => {
+    const page = source.getPage(trail, lang);
+    return page ? [{ trail, page }] : [];
+  });
 
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
-    itemListElement: trails.map((trail, index) => ({
+    itemListElement: crumbs.map(({ trail, page }, index) => ({
       '@type': 'ListItem',
       position: index + 1,
-      name:
-        source.getPage(trail, lang)?.data.title ??
-        humanizeSegment(trail[trail.length - 1] ?? 'docs'),
+      name: page.data.title,
       item: canonicalUrl(lang, trail),
     })),
   };
