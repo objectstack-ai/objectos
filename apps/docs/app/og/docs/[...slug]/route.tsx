@@ -1,4 +1,4 @@
-import { getPageImage, source } from '@/lib/source';
+import { SITE_NAME, getPageImage, source } from '@/lib/source';
 import { notFound } from 'next/navigation';
 import { ImageResponse } from 'next/og';
 import { generate as DefaultImage } from 'fumadocs-ui/og';
@@ -17,7 +17,7 @@ export async function GET(
     <DefaultImage
       title={page.data.title}
       description={page.data.description}
-      site="ObjectStack Protocol"
+      site={SITE_NAME}
     />,
     {
       width: 1200,
