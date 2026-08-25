@@ -9,8 +9,12 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      // Generated text endpoints duplicate page content; keep them out of the index.
-      disallow: ['/api/', '/llms.txt', '/llms-full.txt'],
+      // `/llms.txt` and `/llms-full.txt` are deliberately crawlable. They exist to be
+      // fetched by AI crawlers and answer engines, which is the audience a blanket
+      // `User-agent: *` disallow shuts out; and a plain-text endpoint does not compete
+      // with the HTML page for a position in a result list the way a duplicate HTML
+      // page would. `/api/` stays out: it serves the search index, not readable content.
+      disallow: ['/api/'],
     },
     sitemap: `${BASE}/sitemap.xml`,
     host: BASE,
