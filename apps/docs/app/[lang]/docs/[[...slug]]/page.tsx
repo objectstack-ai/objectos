@@ -10,6 +10,7 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { LLMCopyButton, ViewOptions } from '@/components/ai/page-actions';
 import { gitConfig } from '@/lib/layout.shared';
 import { SITE_URL, languageAlternates, localeUrl, translatedLocales } from '@/lib/seo';
+import { i18n } from '@/lib/i18n';
 import type { InferPageType } from 'fumadocs-core/source';
 
 /**
@@ -45,6 +46,37 @@ function shareCardUrl(page: DocsPageData): string {
 }
 
 /**
+ * The locale a page's content actually lives in, as seen from `lang`.
+ *
+ * `lang` when that locale really has a translation of `slugs`; the default
+ * language otherwise, because fumadocs serves the English body under every
+ * unprefixed locale route (`fallbackLanguage` resolves to `defaultLanguage` —
+ * see `translatedLocales`). `/ja/docs/operate/backup` has no Japanese source,
+ * so the content sitting at that URL is the English page and every field that
+ * names where this content lives has to say so.
+ *
+ * `translated` is passed in rather than looked up so a caller that already
+ * needs the list — `generateMetadata` builds the hreflang cluster from it —
+ * computes it once.
+ */
+function canonicalLocale(lang: string, translated: readonly string[]): string {
+  return translated.includes(lang) ? lang : i18n.defaultLanguage;
+}
+
+/**
+ * Absolute URL of the page at `slugs` as seen from `lang`: its own locale URL
+ * when it is really translated there, the English URL when it is a fallback.
+ *
+ * Resolved per page, not once per request, because translation status is a
+ * property of the individual page. A translated page can sit under an
+ * untranslated ancestor and vice versa, so the breadcrumb trail has to ask
+ * about each crumb separately.
+ */
+function canonicalUrl(lang: string, slugs: string[]): string {
+  return localeUrl(canonicalLocale(lang, translatedLocales(slugs)), docsPath(slugs));
+}
+
+/**
  * Open Graph wants `language_TERRITORY`. Our locale tags carry no territory
  * (`en`, `zh-Hans`, `ja`, …), so the honest mapping is the tag with the
  * separator swapped — the same one the marketing site emits, which keeps
@@ -77,6 +109,11 @@ function jsonLdHtml(value: Record<string, unknown>): string {
  * prefix of its slugs. Each crumb is named by the page that actually sits at
  * that path so the name matches what a reader sees in the sidebar; a folder
  * with no index page falls back to its humanized segment.
+ *
+ * `item` is each crumb's own canonical URL, resolved crumb by crumb: a
+ * breadcrumb entry is a claim about where *that* page lives, and pointing it at
+ * a locale URL that only serves an English fallback is the same untruth the
+ * page's own canonical would be telling.
  */
 function breadcrumbListLd(lang: string, slugs: string[]): Record<string, unknown> {
   const trails = [[] as string[], ...slugs.map((_, i) => slugs.slice(0, i + 1))];
@@ -90,7 +127,7 @@ function breadcrumbListLd(lang: string, slugs: string[]): Record<string, unknown
       name:
         source.getPage(trail, lang)?.data.title ??
         humanizeSegment(trail[trail.length - 1] ?? 'docs'),
-      item: localeUrl(lang, docsPath(trail)),
+      item: canonicalUrl(lang, trail),
     })),
   };
 }
@@ -131,6 +168,13 @@ export default async function Page(props: {
 
   const MDX = page.data.body;
 
+  // The locale this page's content really lives in — `params.lang` for a real
+  // translation, English for a fumadocs fallback. `url` and `inLanguage` are
+  // properties of one `TechArticle` node, so they resolve together: a node that
+  // named the English URL while claiming `inLanguage: "ja"` would assert that
+  // the English page is Japanese.
+  const contentLang = canonicalLocale(params.lang, translatedLocales(page.slugs));
+
   // Structured data. Emitted from the page rather than from `generateMetadata`,
   // which can only produce meta/link elements — the Metadata API has no channel
   // for a JSON-LD script. Google reads `application/ld+json` from either the
@@ -139,10 +183,10 @@ export default async function Page(props: {
   const jsonLd = [
     breadcrumbListLd(params.lang, page.slugs),
     techArticleLd({
-      lang: params.lang,
+      lang: contentLang,
       title: seoTitleOf(page),
       description: page.data.description,
-      url: localeUrl(params.lang, docsPath(page.slugs)),
+      url: localeUrl(contentLang, docsPath(page.slugs)),
       image: shareCardUrl(page),
     }),
   ];
@@ -199,7 +243,12 @@ export async function generateMetadata(props: {
 
   // Logical path is locale-independent; reconstruct each locale URL from slugs.
   const path = docsPath(page.slugs);
-  const canonical = localeUrl(params.lang, path);
+  const translated = translatedLocales(page.slugs);
+  // Where this content lives. An untranslated locale route serves the English
+  // body (fumadocs falls back), so it points at the English URL instead of
+  // declaring itself canonical — the fallback copy is not a separate page.
+  const contentLang = canonicalLocale(params.lang, translated);
+  const canonical = localeUrl(contentLang, path);
   const title = seoTitleOf(page);
   const description = page.data.description;
   const image = shareCardUrl(page);
@@ -211,11 +260,16 @@ export async function generateMetadata(props: {
       canonical,
       // Only the locales that really have this page. The cluster is keyed by
       // the logical path, not by params.lang, so every page in it advertises
-      // the same reciprocal set.
-      languages: languageAlternates(path, translatedLocales(page.slugs)),
+      // the same reciprocal set. Untouched by the fallback rule above: an
+      // untranslated locale is already absent from it, which is #169's settled
+      // shape and stays correct whatever `canonical` points at.
+      languages: languageAlternates(path, translated),
     },
     openGraph: {
       type: 'article',
+      // og:url is Open Graph's permanent id for the object, so it tracks
+      // `canonical` — an object identified by the English URL and by this
+      // locale's URL at the same time is two objects.
       url: canonical,
       siteName: SITE_NAME,
       // Set explicitly rather than inherited: the root layout's `%s | ObjectOS`
@@ -224,7 +278,11 @@ export async function generateMetadata(props: {
       // "Views | ObjectOS — ObjectOS" in a share preview.
       title,
       description,
-      locale: ogLocale(params.lang),
+      // The locale of the object og:url names, which is the English page when
+      // this route is a fallback. Not the same claim as `<html lang>`: that one
+      // describes the document being served, chrome included, and #181 settled
+      // it on the route segment.
+      locale: ogLocale(contentLang),
       images: [{ url: image, width: 1200, height: 630, alt: title }],
     },
     twitter: {
