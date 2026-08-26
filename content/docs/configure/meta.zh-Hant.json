@@ -1,0 +1,5 @@
+{
+  "title": "配置",
+  "defaultOpen": false,
+  "pages": ["index", "users", "runtime", "data-sources", "authentication", "permissions", "storage", "ai", "mcp", "system-settings", "localization", "notifications", "api-access", "webhooks", "email"]
+}

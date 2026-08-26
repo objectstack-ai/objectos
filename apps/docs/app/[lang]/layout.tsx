@@ -6,6 +6,7 @@ import { DocsRootProvider } from './root-provider';
 const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English',
   'zh-Hans': '简体中文',
+  'zh-Hant': '繁體中文',
   ja: '日本語',
   de: 'Deutsch',
   es: 'Español',

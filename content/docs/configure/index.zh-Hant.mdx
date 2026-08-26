@@ -1,0 +1,62 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 管理
+description: 系統管理員在哪裡管理使用者、訪問、設定與整合 —— 以及哪個頁面解決哪類任務。
+translation:
+  source_sha: b8fa9980d709254db66ee46fa6978bf3a1df09b57fcf013268b32513919dd6f6
+  guide_rev: 1
+  mode: auto
+---
+
+本章面向 ObjectOS 部署的**系統管理員**：負責使用者入職、授予訪問許可權、接通登入、郵件、儲存與整合，並保持系統健康運轉的人。你日常管理的是人和他們的許可權；應用、物件和許可權集本身則隨平臺及你安裝的應用包一起交付。
+
+> **許可權在 Studio 中設計，在 Setup 中分配。**絕大多數管理工作都不會離開 Setup（管理後臺）——只有編寫許可權集或執行解釋引擎時才需要進入 Studio。
+
+## Setup 控制台
+
+內建的管理控制台位於 **`/apps/setup`**，需要 `setup.access` 許可權。其左側導航由執行時已載入的能力外掛動態提供，因此你看到的選單精確反映當前部署所執行的內容——未啟用的能力不貢獻任何選單項，其分組保持為空。
+
+穩定的導航分組：
+
+| 分組 | 裡面有什麼 |
+|---|---|
+| **Overview**（概覽） | System Overview 系統概覽儀表盤 |
+| **People & Organization**（人員與組織） | 使用者、業務單元、團隊、組織、邀請 |
+| **Access Control**（訪問控制） | 崗位、許可權集、共享規則、記錄共享、API Key |
+| **Approvals**（審批） | 審批流程（載入 approvals 外掛時） |
+| **Configuration**（配置） | 全部設定、品牌、認證、郵件、檔案儲存、AI 與 Embedder、知識庫、功能開關 |
+| **Diagnostics**（診斷） | 會話、通知事件、審計日誌 |
+| **Integrations**（整合） | Webhooks |
+| **Advanced**（高階） | OAuth 應用、簽名金鑰（JWKS）、身份關聯、使用者偏好 |
+
+## 任務地圖
+
+| 我需要 …… | 閱讀 |
+|---|---|
+| 新增使用者、搭建組織樹、管理團隊 | [使用者與組織](/docs/configure/users) |
+| 為某人辦理入職、離職或調整訪問許可權 | [許可權分配](/docs/configure/permissions/managing-access) |
+| 理解整套訪問模型 | [許可權](/docs/configure/permissions) |
+| 配置登入、OAuth、SSO、雙因素認證 | [認證](/docs/configure/authentication) |
+| 修改執行時和租戶設定 | [系統設定](/docs/configure/system-settings) |
+| 配置事務性郵件傳送 | [郵件](/docs/configure/email) |
+| 配置檔案儲存（S3、本地磁碟） | [儲存](/docs/configure/storage) |
+| 連線外部業務資料庫 | [資料來源](/docs/configure/data-sources) |
+| 使用 REST API 和 API Key | [API 訪問](/docs/configure/api-access) |
+| 傳送出站 Webhook | [Webhooks](/docs/configure/webhooks) |
+| 配置 AI Provider、Embedder、RAG | [AI 服務](/docs/configure/ai) |
+| 接入 Claude 或其他 MCP 客戶端 | [接入 AI 工具（MCP）](/docs/configure/mcp) |
+| 配置製品載入、資料庫、快取 | [執行時配置](/docs/configure/runtime) |
+| 規劃備份與災難恢復 | [備份](/docs/operate/backup) |
+| 安全地升級或回滾 | [升級](/docs/operate/upgrade) |
+| 為生產環境加固 | [生產就緒](/docs/operate/production) |
+| 檢視日誌、指標和審計記錄 | [可觀測性](/docs/operate/observability) |
+| 診斷故障部署 | [故障排查](/docs/operate/troubleshooting) |
+
+## 下一步
+
+| 任務 | 頁面 |
+|---|---|
+| 你的第一項管理任務：新增人員並搭建結構 | [使用者與組織](/docs/configure/users) |
+| 給新員工開通訪問許可權 | [許可權分配](/docs/configure/permissions/managing-access) |
+| 學習分層訪問模型 | [許可權](/docs/configure/permissions) |
+| 上線前檢查清單 | [生產就緒](/docs/operate/production) |

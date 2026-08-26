@@ -1,0 +1,204 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 公式
+description: 計算欄位、動態預設值與條件邏輯 —— 後設資料需要"思考"的地方，都用同一門 CEL 表示式語言。
+translation:
+  source_sha: e665dc6fce9b0f27d22e829919a1ec41bec1d4ea6c7f82b23a1c2a44d7d95bf0
+  guide_rev: 1
+  mode: auto
+---
+
+**一門表示式語言，覆蓋所有場景。**只要有一段後設資料需要計算值或求值條件，ObjectOS 就使用 [CEL](/docs/reference/cel)（谷歌的 Common Expression Language）—— 公式欄位、動態預設值、條件可見性、驗證條件、流程決策。語法學一次，處處能用。
+
+| 場景 | CEL 在那裡做什麼 |
+|---|---|
+| **公式欄位**（`type: 'formula'`） | 讀取時由其他欄位計算出一個值 |
+| **動態預設值**（``defaultValue: cel`...` ``） | 在插入時求值，而不是編譯時 |
+| **欄位謂詞**（`visibleWhen`、`readonlyWhen`、`requiredWhen`） | 按條件顯示 / 鎖定 / 必填某個欄位 |
+| **[驗證規則](/docs/build/data/validation-rules)**（`condition`） | 標記無效記錄 |
+| **[檢視](/docs/build/interface/views)**（`visibleOn`、`conditionalFormatting`） | 條件區塊與行樣式 |
+| **[流程](/docs/build/automation/flows)**（決策、Hook 條件） | 按記錄狀態分支 |
+
+本頁講構建者如何*使用*公式。完整的語言 —— 運算子、標準庫、`Expression` 信封 —— 見 [CEL 參考](/docs/reference/cel)。
+
+## 公式欄位
+
+公式欄位在讀取時由一條 CEL 表示式計算出它的值。它是隻讀的 —— 永遠不能直接寫入：
+
+```ts
+import { F } from '@objectstack/spec';
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Invoice = ObjectSchema.create({
+  name: 'invoice',
+  fields: {
+    subtotal: Field.decimal({ label: 'Subtotal' }),
+    tax_rate: Field.decimal({ label: 'Tax Rate' }),
+
+    total: Field.formula({
+      label: 'Total',
+      returnType: 'number',
+      expression: F`record.subtotal + record.subtotal * record.tax_rate`,
+    }),
+  },
+});
+```
+
+兩個關鍵的鍵：
+
+| 鍵 | 作用 |
+|---|---|
+| `expression` | CEL 原始碼 —— 執行時**唯一**求值的鍵 |
+| `returnType` | 公式返回什麼：`'number'`、`'text'`、`'boolean'`、`'date'` —— 供儀表盤與格式化讀取 |
+
+> **警告：**公式欄位的 `type` 永遠是 `formula`。**不要**給 `Field.formula` 傳 `type: 'currency'` 或 `type: 'number'` —— 那會覆蓋 `type: 'formula'`，欄位就靜默地永遠不再計算。值的型別請用 `returnType` 宣告。
+
+### 日常模式
+
+```ts
+// 分档标签
+Field.formula({
+  label: 'Discount Tier',
+  returnType: 'text',
+  expression: `
+    record.amount > 1000000 ? "Platinum" :
+    record.amount > 500000 ? "Gold" :
+    record.amount > 100000 ? "Silver" : "Bronze"
+  `,
+})
+
+// 距关闭还有几天
+Field.formula({
+  label: 'Days to Close',
+  returnType: 'number',
+  expression: 'daysBetween(record.close_date, today())',
+})
+
+// 全名 —— joinNonEmpty 会跳过空白部分
+Field.formula({
+  label: 'Full Name',
+  returnType: 'text',
+  expression: F`joinNonEmpty([record.salutation, record.first_name, record.last_name], ' ')`,
+})
+
+// 毛利率，保留 2 位小数
+Field.formula({
+  label: 'Gross Margin %',
+  returnType: 'number',
+  expression: 'record.revenue > 0 ? ((record.revenue - record.cost) / record.revenue) * 100 : 0',
+  scale: 2,
+})
+```
+
+> **提示：**CEL 遇到 `null + string` 會拋錯，所以拼接時把可能為空的運算元包進 `coalesce(record.x, '')` —— 或者直接用 `joinNonEmpty`，省掉這套儀式。
+
+### 16.0 新增
+
+- **日期與數字做算術現在是構建期錯誤。**像 `record.end_date - record.start_date + 1` 或 `today() + 30` 這樣的表示式過去總在執行時出錯（靜默求值為 null）；現在構建會直接拒絕，並在報錯中指向 `daysBetween(a, b)`（求跨度）以及 `daysFromNow(n)` / `addDays(d, n)` / `addMonths(d, n)`（移動日期）。
+- **空值守衛三元表示式可以編譯了。**`cond ? value : null` —— 例如 `record.end_date != null ? daysBetween(record.start_date, record.end_date) + 1 : null` —— 是讓公式在輸入就緒前保持空白的推薦寫法。
+- **註冊了 `floor(x)` / `ceil(x)`。**它們分別向 −∞ / +∞ 取整（所以 `floor(-1.2) == -2`）—— 不像整數除法那樣向零取整。
+- **日期與 `today()` 的相等比較現在能匹配了。**時間值會在比較前先做型別歸一，因此 `record.due_date == today()` 和 `daysBetween(today(), record.due_date) == 0` 都能按預期工作。
+
+### 公式作為記錄標題
+
+自 ADR-0079 起，記錄的標題由 `nameField` 指定的欄位決定 —— 組合式標題可以用文本公式：
+
+```ts
+ObjectSchema.create({
+  name: 'invoice',
+  nameField: 'display_title',
+  fields: {
+    display_title: Field.formula({
+      returnType: 'text',
+      expression: F`"Invoice " + string(record.invoice_no) + " – " + record.customer.name`,
+    }),
+  },
+});
+```
+
+## 動態預設值
+
+包在 `` cel`...` `` 裡的 `defaultValue` 在**插入時**求值 —— 用的是使用者的時鐘和身份，不是你筆記本的：
+
+```ts
+import { cel } from '@objectstack/spec';
+
+issued_date: Field.date({
+  defaultValue: cel`today()`,
+}),
+due_date: Field.date({
+  defaultValue: cel`daysFromNow(30)`,
+}),
+```
+
+同樣的技巧也適用於種子資料：一條帶 ``close_date: cel`daysFromNow(45)` `` 的種子記錄會在包安裝時解析，因此演示資料永遠新鮮，而不是把編譯時的時間戳固化進包裡。
+
+## 條件式欄位行為
+
+謂詞讓欄位隨記錄的其餘部分而變化：
+
+```ts
+import { P } from '@objectstack/spec';
+
+po_number: Field.text({
+  label: 'PO Number',
+  requiredWhen: P`record.amount > 10000`,
+}),
+rating: Field.select({
+  label: 'Rating',
+  options: [ /* ... */ ],
+  visibleWhen: P`record.status == 'qualified'`,
+}),
+notes: Field.textarea({
+  readonlyWhen: P`record.status == 'approved'`,
+}),
+```
+
+`F`（公式）、`P`（謂詞）、`cel` 這幾個標籤模板 helper 可以互換 —— 在呼叫處哪個讀起來順就用哪個。
+
+## 30 秒學會 CEL
+
+| 概念 | 語法 |
+|---|---|
+| 當前記錄的欄位 | `record.amount` |
+| 更新前的值 | `previous.status` |
+| 相等 / 邏輯 | `==` `!=` `&&` `\|\|` `!` |
+| 條件表示式 | `cond ? then : else` |
+| 成員判斷 | `record.region in ['us', 'eu']` |
+| 空白檢查 | `isBlank(record.phone)` |
+| 日期 | `today()`、`now()`、`daysBetween(a, b)`、`addDays(d, n)` |
+| 字串 | `upper`、`lower`、`trim`、`contains`、`matches` |
+
+完整的運算子表與標準庫：[CEL 參考](/docs/reference/cel)。
+
+> **警告：**謂詞是裸 CEL —— 千萬別把欄位引用包進花括號。`{record.rating} >= 4` 是一個 **map 字面量**，會導致解析錯誤；應寫成 `record.rating >= 4`。花括號只屬於 `{{ … }}` 文本模板。畸形的表示式會導致構建失敗並在執行時拋錯 —— 它絕不會靜默地求值為 `false`。
+
+> **提示：**`has(record.x)` 只要鍵存在就為 true —— 哪怕值是 `null`。要檢查"非空白"，用 `isBlank(...)` 或 `record.x != null`。
+
+## 最佳實踐
+
+| 應該 | 不應該 |
+|---|---|
+| 保持公式簡潔易讀 | 製造迴圈引用 |
+| 測試邊界情況（null、零、空） | 把三元表示式巢狀五層深 |
+| 用 `coalesce` / `isBlank` 處理空值 | 把公式用在頻繁變化的資料上 |
+| 給每個公式宣告 `returnType` | 重新實現本該由驗證規則負責的邏輯 |
+
+## 用對話構建
+
+你很少需要手寫公式。告訴 [AI Builder](/docs/build/ai-builder)：
+
+> *"在 opportunity 上加一個 Days to Close 公式：close_date 與今天之間的天數。"*
+
+它會生成 CEL，推斷並寫好 `returnType`，表示式在釋出前會先經過校驗 —— 無效的公式會帶著定位資訊使構建失敗。
+
+## 下一步
+
+| 頁面 | 原因 |
+|---|---|
+| [CEL 參考](/docs/reference/cel) | 完整的語言：運算子、標準庫、表示式信封 |
+| [資料模型](/docs/build/data) | 公式欄位所在的地方 |
+| [驗證規則](/docs/build/data/validation-rules) | 用 CEL 條件攔截壞寫入 |
+| [檢視](/docs/build/interface/views) | `visibleOn` 與 `conditionalFormatting` 中的 CEL |
+| [流程](/docs/build/automation/flows) | 決策與 Hook 條件中的 CEL |
+| [欄位型別](/docs/reference/field-types) | `formula`、`summary`、`autonumber` 等 |

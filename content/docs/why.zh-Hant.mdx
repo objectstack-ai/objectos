@@ -1,0 +1,113 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 為什麼選 ObjectOS
+description: 老實話 —— 什麼時候應該用它，什麼時候不應該，以及它的不同之處。
+translation:
+  source_sha: ff0ca5df2635d1d00748f9f434d140c5713792157c936a7a639a6bfce552444c
+  guide_rev: 1
+  mode: auto
+---
+
+這一頁存在的意義是：讓你不必在其他文件之間反覆揣摩，就能判斷 ObjectOS 是否適合你。
+
+## 這個賭注的形狀
+
+ObjectOS 押下了一個觀點鮮明的賭注：**AI 編寫你應用的後設資料，你擁有執行它的執行時。**
+
+你不再一個檔案一個檔案地手寫物件、欄位、檢視、流程和許可權。使用者用自然語言向 Console 內建的 [AI Builder](/docs/build/ai-builder) 描述需求；它呼叫一小組受審計的工具，將每次變更排隊等待人工審批，結果立刻上線 —— REST 端點、Console 介面、RBAC、審計日誌，全部由同一份後設資料生成。
+
+執行時位於**你的** VPC、**你的**資料庫、**你的** Apache-2.0 fork。模型只與沙箱化的後設資料 API 對話，不接觸你的資料倉儲。
+
+這就是全部主張。本頁其餘部分是關於誰適合、誰不適合。
+
+## 如果你…… 就用 ObjectOS
+
+- 需要一個內部工具、管理後臺或後辦公應用，**且**
+- 希望使用它的人（或代表他們的 AI Agent）能在不開工單的情況下*擴充套件*它，**且**
+- 不能（或不願）把資料放到別人的雲上，**且**
+- 不想第十次重建認證 + RBAC + 審計 + 檔案上傳 + 任務 + Webhook。
+
+常見的適用場景：
+
+| 場景 | 為什麼合適 |
+|---|---|
+| 因為安全評審提到資料主權而要替換 Retool / Appsmith 應用 | ObjectOS 跑在你的 VPC 裡；資料從不離開 |
+| 為受監管業務構建合規 / 風險 / 供應商管理工具 | 審計日誌、RBAC、欄位安全、行級隔離都是頭等公民 —— 每次 AI 驅動的變更本身也是一條審計 |
+| 為 SaaS 產品建立內部管理後臺 | 一個 Node 程序，與你現有服務並列 |
+| 為企業客戶做氣隙或本地部署 | 頭等部署目標，無需出網（自帶本地模型） |
+| 多租戶內部門戶（一個執行時，多個小應用） | 按專案核心 + LRU 快取正是為此設計 |
+| 你希望使用者安全地 "vibe-code" 自己的擴充套件 | AI Builder + HITL 審批佇列 + 審計日誌就是核心 |
+
+## 如果你…… 別用 ObjectOS
+
+- 在構建高流量的消費級產品 → 用傳統 Web 框架，你能掌控更多。
+- 需要為終端使用者打造畫素級定製 UI → ObjectOS 的 Console 面向管理/內部用途；把它和你自己的前端通過 REST 配對使用。
+- 想要給非工程師用的無程式碼拖拽生成器 + 託管雲 → 用 Retool、Bubble 或 Airtable。ObjectOS 是程式碼優先、AI 驅動、自託管的。
+- 需要 Figma 風格的即時協作編輯 → 不是 realtime 外掛要解決的問題。
+
+## 與你現在大機率在用的東西對比
+
+### vs. Retool / Appsmith / Internal
+
+| | Retool | ObjectOS |
+|---|---|---|
+| 資料位置 | 他們的雲（高階可自託管） | 始終在你的網路中 |
+| UI 構建器 | 拖拽，非常打磨 | 後設資料驅動、自動生成；定製空間更小 |
+| 價格 | 按使用者計費，擴張痛苦 | 自託管，Apache-2.0 |
+| 工作流 / 觸發器 | 他們的工作流引擎 | 宣告式流程 + 外掛 |
+| 後端邏輯 | 限於他們的查詢編輯器 | 完整 TypeScript，完整 Node 生態 |
+| 最適合 | 在現有 API 上做快速儀表盤 | *擁有自己資料*的應用 |
+
+### vs. Supabase / Firebase
+
+| | Supabase | ObjectOS |
+|---|---|---|
+| 啟動時間 | ~30 秒 | ~30 秒 |
+| 資料庫 | Postgres，他們的（可自託管） | 任意 Postgres / MySQL / SQLite / Turso / Mongo，**你的** |
+| 認證 | 內建 | 內建 |
+| 生成的 API | PostgREST | ObjectQL 生成的 REST |
+| 管理 UI | Console（基礎） | Console + Account |
+| RBAC | 基於 Postgres RLS 的行級 | RBAC + 行級 + 欄位級，宣告式 |
+| 審計日誌 | DIY | 頭等支援 |
+| 廠商鎖定 | 他們的認證 + 儲存 + realtime | 無 —— 每一層都是外掛 |
+| 最適合 | 想要 BaaS 的新應用 | 需要擁有執行時的應用 |
+
+### vs. Salesforce / NetSuite / ServiceNow
+
+| | Salesforce | ObjectOS |
+|---|---|---|
+| 資料模型 | 物件 + 欄位 + 關係 | 一致 |
+| 許可權 | Profile + permission sets + sharing rules + FLS | **同樣的詞彙**，宣告式 TypeScript |
+| 每使用者成本 | 150-300 美元/使用者/月 | 0 美元 |
+| 定製 | Apex + Lightning + flows | TypeScript + flows |
+| 執行位置 | 他們的雲，沒得選 | 你的基礎設施 |
+| 到達 "歸我所有" 的時間 | 幾個月的諮詢工作 | 一個下午 |
+| 最適合 | 願意為生態付費的銷售導向公司 | 想要模型但不想交稅的團隊 |
+
+### vs. 自己拼（Next.js + Prisma + NextAuth）
+
+| | DIY | ObjectOS |
+|---|---|---|
+| 第一個 REST 端點 | 幾個小時 | 60 秒 |
+| 認證（郵箱 + OAuth + OIDC + Passkey + 2FA） | 數週 | 已包含 |
+| 每個物件的管理 UI | 逐個構建 | 自動生成 |
+| 審計日誌 | DIY | 外掛，宣告式 |
+| 帶許可權的 S3 檔案上傳 | DIY | 外掛 |
+| 後臺任務 + 重試 + 死信 | DIY | 外掛 |
+| 多租戶 | DIY（你會做錯兩次） | 內建 |
+| 最適合 | 有定製 UX 的對外應用 | 速度優先的內部工具 |
+
+## 老實說的權衡
+
+- **比 Retool 的 UI 自由度低。** Console 是從後設資料生成的。你可以把它與定製前端配對（REST API 就是 Console 在用的那一個），但如果你需要手工打磨畫素級 UI，那就自己寫前端，把 ObjectOS 當作後端。
+- **TypeScript 優先。** 非工程師不會直接編寫物件。Salesforce 管理員習慣了通過 UI 構建器點選；這裡靠 `git`。
+- **比 Salesforce 年輕。** Salesforce 有 25 年的邊緣案例文件。我們只有幾百條。協議穩定；生態在成長。
+- **Apache-2.0。** 可用於商業產品、可嵌入、可私自修改。無 copyleft 驚喜。可選商業支援單獨提供。
+
+## 現實檢驗
+
+最小可用的 ObjectOS 部署是一個 `pnpm dev` 或一個 SQLite Docker 容器。目前生產中最大的部署使用 Postgres + S3 + Redis，在多個區域為數萬名內部使用者提供服務。兩者是同一份軟體。
+
+用 `npx @objectstack/cli init my-app` 啟動，五分鐘內做決定。如果不合適，你只花了五分鐘。
+
+[**試試 Quickstart →**](/docs/quickstart)

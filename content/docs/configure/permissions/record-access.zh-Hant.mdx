@@ -1,0 +1,79 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 記錄訪問
+description: 控制使用者可以看到或修改哪些記錄。
+translation:
+  source_sha: 17abeb2628a200cbbc2bf0a1297c94858fc37405d52019fe2adc6c58c6af5d7a
+  guide_rev: 1
+  mode: auto
+---
+
+記錄訪問控制物件許可權允許某操作之後，使用者可以看到或修改的具體行。
+
+## 機制
+
+| 機制 | 用途 |
+|---|---|
+| 行級安全 | 強制租戶或組織隔離 |
+| 共享規則 | 按宣告式條件授予訪問 |
+| 記錄共享 | 授予某使用者、崗位或"單元及下級單元"對特定記錄的訪問 |
+| 所有權/層級 | 通過所有者和業務單元樹授予訪問 |
+
+## 共享模型預設值
+
+每個物件都宣告（或繼承）一個 `sharingModel`，用於設定組織級預設值：`private`、`public_read`、`public_read_write` 或 `controlled_by_parent`。
+
+自 ObjectStack 13 起，帶有所有者欄位但未宣告 `sharingModel` 的自定義物件預設使用**私有**模型——記錄僅對其所有者（和管理員）可見，直到共享規則、記錄共享或更寬的預設值將其開放。需要開放行為時請顯式宣告：
+
+```ts
+defineObject({
+  name: 'crm_lead',
+  sharingModel: 'public_read_write',
+  // …
+});
+```
+
+13 之前的別名 `read`、`read_write`、`full` 已被移除；`os compile` 會通過 `security-owd-unset` 與 `security-owd-alias` 校驗規則標記未設定或使用別名的模型。
+
+## 預設租戶隔離
+
+security 外掛通過當前使用者的上下文強制租戶隔離。對標準平臺物件，預設規則保護那些不帶常規組織欄位的全域性表。
+
+客戶的現實期望是：
+
+```text
+Users only see records that belong to their organization or records
+explicitly shared with them.
+```
+
+## 共享規則
+
+把共享規則用於可複用的業務策略：
+
+- 所有大區經理可以讀取本區的 account；
+- 支援經理可以檢視升級的 case；
+- 財務可以讀取已批准的發票；
+- 審計員可以讀取標記為審計審查的記錄。
+
+## 記錄共享
+
+把記錄共享用於例外情況：
+
+- 把一個 opportunity 共享給某專家；
+- 在升級期間臨時授予訪問；
+- 把某條記錄的訪問授予一個外部整合。
+
+## 排查可見性
+
+當用戶看不到一條記錄時，按順序檢查：
+
+1. 使用者是否已認證並處於預期組織？
+2. 使用者是否擁有物件 `read` 許可權？
+3. 該物件的 `sharingModel` 是什麼（自 ObjectStack 13 起自定義物件預設 `private`）？
+4. 行級安全是否允許該記錄？
+5. 是否有共享規則應當生效？
+6. 是否存在直接的記錄共享？
+7. 該記錄是否歸屬於預期業務單元子樹中的使用者？
+8. 使用者是否在正確的專案/主機名下？
+
+[解釋引擎](/docs/configure/permissions#診斷與審計)可以一次性回答上述所有問題——它報告每一層的判定結果，以及是哪條授權（或缺失的授權）決定了最終結果。

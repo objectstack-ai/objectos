@@ -1,0 +1,88 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: ObjectOS
+description: 留在你網路內的內部工具執行時。一條命令啟動，你的資料庫、你的認證、你的資料 —— 永遠不歸我們所有。
+translation:
+  source_sha: efeebee6085cb07619dc92dcba84bc59eb43037c3dd7ebfab29006dc0a4903e1
+  guide_rev: 1
+  mode: auto
+---
+
+**ObjectOS 是一個自託管執行時，用於構建內部工具、管理後臺和後辦公應用，且不必交出你的資料。** 向 Console 內建的 AI Builder 描述你要的東西 —— 或者 fork 一個模板 —— 你就能得到 REST API、生成的管理 UI、認證、RBAC、審計日誌、檔案儲存、後臺任務、Webhook 和 AI 整合。所有這些都執行在你的網路中，使用你的資料庫。
+
+如果 Retool、Supabase 和 Salesforce 生了一個孩子並讓它執行在你的防火牆內 —— 由 AI 替你構建應用 —— 那大概就是它的樣子。
+
+## 60 秒內啟動
+
+```bash
+npm i -g @objectstack/cli
+os start
+```
+
+開啟 **http://localhost:3000**，你就擁有了一個可工作的 ObjectOS，包含 Console、Account、審計日誌和一個 SQLite 資料庫 —— 零配置、零腳手架。
+
+然後你可以：
+
+- **與 AI Builder 對話** —— *"我需要追蹤支援工單，包含優先順序和負責人"* —— 看著後設資料被生成。參見 [Build → AI Builder](/docs/build/ai-builder)。
+- 從 Console 內建市場**安裝模板**（Todo、Contracts、Helpdesk……），一鍵就能擁有一個真實可用的應用。
+- 如果你想要 TypeScript 原始碼歸你控制，可以 **fork 一個 [模板](/docs/build/templates)**。
+
+## 為什麼選 ObjectOS 而不是 ……
+
+| 你在用 | 痛點 | ObjectOS 給你的 |
+|---|---|---|
+| **Retool / Appsmith** | UI 構建器很好，但你的資料在他們的雲上，價格隨使用者數膨脹 | 資料從不離開你的網路；Apache-2.0，無人頭稅 |
+| **Supabase / Firebase** | BaaS 很快但被供應商鎖定；本質上是多租戶 SaaS | 同樣的 DX（自動 API、認證、儲存），但你擁有執行時和資料庫 |
+| **Salesforce / NetSuite** | 平臺強大，定製痛苦，每席位成本驚人 | 同樣的後設資料驅動模型（物件、欄位、角色、共享規則），自託管，無人頭稅 |
+| **自己造輪子（Next + Prisma + NextAuth）** | 你每次都在重新實現 RBAC、審計、檔案上傳、設定、Webhook、任務 | 直接寫業務邏輯；平臺底座已就緒 |
+
+## 開箱即用
+
+| 入口 | 是什麼 |
+|---|---|
+| **自動 REST API** | 你宣告的每個物件都自動獲得 `/api/v1/data/<object>`，支援過濾/排序/分頁 |
+| **Console** (`/_console/`) | 生成的管理 UI:瀏覽/編輯記錄,管理使用者/角色/許可權集,檢視審計日誌、會話、API Key、設定 |
+| **Account** (`/_account/`) | 登入、註冊、密碼重置、OAuth、OIDC/SSO、Passkey、2FA |
+| **23 個外掛** | RBAC + 行級安全、審計、檔案儲存、佇列、任務、郵件、AI、Webhook —— 宣告式、按需啟用 |
+
+## 你保留控制的部分
+
+| 資產 | 存放位置 |
+|---|---|
+| 業務資料 | **你的**資料庫（Postgres、SQLite、MySQL、Turso、MongoDB） |
+| 使用者身份與會話 | **你的**資料庫 |
+| 審計日誌 | **你的**資料庫 |
+| 檔案 | **你的**儲存（本地磁碟、S3、R2） |
+| 金鑰 | **你的**金鑰管理器 |
+| 執行時本身 | **你的**伺服器、容器或筆記本 |
+
+ObjectOS 從不回傳資料。無遙測。無授權伺服器。氣隙網路是頭等部署目標 —— 參見 [Air-gapped](/docs/deploy/air-gapped)。
+
+## 按角色找文件
+
+本文件服務三類人群 —— 從與你使用 ObjectOS 的方式匹配的部分開始：
+
+| 你是… | 你想… | 從這裡開始 |
+|---|---|---|
+| **普通使用者** | 在應用中工作：記錄、檢視、儀表盤、審批 | [使用](/docs/use) |
+| **構建者** | 建立應用：資料模型、介面、自動化、AI Agent | [構建](/docs/build) |
+| **管理員** | 執行平臺：使用者、許可權、設定、部署 | [管理](/docs/configure)、[部署](/docs/deploy)、[運維](/docs/operate/production) |
+
+## 下一步去哪裡
+
+| 如果你想…… | 閱讀 |
+|---|---|
+| 看它真正執行起來 | [Quickstart](/docs/quickstart) |
+| 理解盒子裡有什麼 | [Architecture](/docs/architecture) |
+| 用 Docker 執行 | [Docker](/docs/deploy/docker) |
+| 部署到 Kubernetes | [Kubernetes](/docs/deploy/kubernetes) |
+| 接到 Postgres / 你的資料庫 | [Runtime Configuration](/docs/configure/runtime) |
+| 配置 SSO | [Authentication](/docs/configure/authentication) |
+| 鎖定誰能看到什麼 | [Permissions](/docs/configure/permissions) |
+| 從另一個服務呼叫它 | [API Access](/docs/configure/api-access) |
+| 向其他系統傳送事件 | [Webhooks](/docs/configure/webhooks) |
+| 上線生產 | [Production Readiness](/docs/operate/production) |
+
+## 許可與定價
+
+ObjectOS 是構建在開源（Apache-2.0）**[ObjectStack 框架](https://github.com/objectstack-ai/objectstack)** 之上的**商業產品** —— 框架可免費用於商業產品、可嵌入、可自託管，沒有按席位收費，也沒有許可證伺服器。ObjectOS 在其上增加內嵌的介面內 AI、治理與官方運維，**僅按 AI 席位**計價（只讀使用者與不使用 AI 的使用者免費）—— 沒有 "起價 5 萬美元/年"。參見 [許可與定價](/docs/resources/license)。

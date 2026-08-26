@@ -1,0 +1,79 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 支援
+description: 到哪裡尋求幫助、如何上報 bug、響應預期。
+translation:
+  source_sha: f6f76ab1e3037f16decdccd28977c380bb353dc9ad8d086e666f9c117b3981fa
+  guide_rev: 1
+  mode: auto
+---
+
+## 不同事情去哪裡
+
+| 如果你…… | 前往 |
+|---|---|
+| 有 "怎麼做" 的問題 | [GitHub Discussions](https://github.com/objectstack-ai/objectos/discussions) —— 社群 + 維護者 |
+| 發現了 bug | [GitHub Issues](https://github.com/objectstack-ai/objectos/issues) —— 請附版本、復現步驟、期望 vs 實際 |
+| 發現了安全漏洞 | **security@objectstack.ai** —— **不要**開公開 issue |
+| 需要商業支援 / SLA | **sales@objectstack.ai** |
+| 想和使用者與維護者聊聊 | [Discord](https://discord.gg/objectstack)（社群運營） |
+| 想關注發版 | Watch [github.com/objectstack-ai/objectos](https://github.com/objectstack-ai/objectos) → Releases |
+| 想付費實現某個特性 | 開一個 Discussion → 加上 `funding` 標籤 |
+
+## 寫一份好的 bug 報告
+
+30 秒版本：
+
+```text
+ObjectOS version:           14.7.0 (or sha-abc123)
+Node version:               22.4.0
+Install method:             docker / npm -g / source
+Database:                   postgres 16 / sqlite / turso / mongo
+Repro steps:                1. ...  2. ...  3. ...
+Expected:                   ...
+Actual:                     ...
+Logs:                       (sanitized, last 30 lines)
+```
+
+對配置類問題，請附上 `os doctor` 的輸出 —— 它能獨立診斷 80% 的
+錯誤配置。
+
+## 響應預期
+
+| 渠道 | 盡力而為的響應時間 |
+|---|---|
+| 安全郵件 | 1 個工作日 |
+| GitHub Issues —— 帶復現的 bug | 3 個工作日內分流，下一趟釋出列車修復 |
+| GitHub Issues —— 特性請求 | 7 個工作日內分流 |
+| GitHub Discussions | 社群驅動;維護者會定期參與 |
+| 商業支援 | 按你的支援合同 |
+
+以上為盡力而為，並非 SLA。商業支援合同會帶正式 SLA。
+
+## 商業支援與服務
+
+ObjectStack 團隊可提供：
+
+- 帶響應時間 SLA 的**商業支援**。
+- **託管服務** —— 我們替你運維。
+- **架構評審** —— 部署前的合理性檢查。
+- 按你需求**定製外掛 / 能力**。
+- **OEM 再分發** —— 把 ObjectOS 嵌入你的產品。
+
+請聯絡 **sales@objectstack.ai**。
+
+## 回饋貢獻
+
+ObjectOS 是 Apache-2.0，接受貢獻：
+
+- [CONTRIBUTING.md](https://github.com/objectstack-ai/objectstack/blob/main/CONTRIBUTING.md)
+- [Code of Conduct](https://github.com/objectstack-ai/objectstack/blob/main/CODE_OF_CONDUCT.md)
+- 儘早開 draft PR —— 我們更願意評審一份草圖，而不是出現重複勞動。
+
+## 狀態與事件
+
+託管服務（ObjectStack Cloud、包註冊中心）：
+[status.objectstack.ai](https://status.objectstack.ai)。
+
+自託管的 ObjectOS 部署的狀態由你自己負責 —— 接到你常用的監控上
+（見 [可觀測性](/docs/operate/observability)）。

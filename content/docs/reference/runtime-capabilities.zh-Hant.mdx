@@ -1,0 +1,64 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 執行時能力
+description: ObjectOS 能從 ObjectStack 框架包載入的能力。
+translation:
+  source_sha: 75639417a7e7a0851ea5a5fbbd3b6595aa6ba61004d1014e15954d430a9b909f
+  guide_rev: 1
+  mode: auto
+---
+
+ObjectOS 為每個專案載入一個基礎執行時,然後安裝應用 artifact 宣告的可選能力。
+
+## 基礎執行時
+
+基礎專案核心包含：
+
+- ObjectKernel 生命週期與服務註冊;
+- ObjectQL 資料引擎;
+- 已配置的資料驅動;
+- 後設資料服務;
+- 應用 artifact 註冊;
+- 當配置了 `OS_AUTH_SECRET` 時啟用認證;
+- 用於 RBAC、行級安全和欄位安全的 security plugin;
+- i18n 服務。
+
+## 可選能力
+
+Artifact 可在其 `requires` 列表中宣告能力。當映象中存在匹配的框架包時,ObjectOS 會載入它們。
+
+| 能力 | 包 | 用途 |
+|---|---|---|
+| `automation` | `@objectstack/service-automation` | 流程/DAG 執行與自動化節點 |
+| `ai` | `@objectstack/service-ai` | LLM 介面卡、對話、工具、SSE 路由 |
+| `analytics` | `@objectstack/service-analytics` | Cube、分析查詢、報表資料 |
+| `audit` | `@objectstack/plugin-audit` | 審計日誌物件與審計軌跡 |
+| `cache` | `@objectstack/service-cache` | 快取抽象與介面卡 |
+| `storage` | `@objectstack/service-storage` | 檔案/物件儲存服務 |
+| `queue` | `@objectstack/service-queue` | 佇列抽象與 worker |
+| `job` | `@objectstack/service-job` | 排程/後臺作業 |
+| `realtime` | `@objectstack/service-realtime` | WebSocket 與 pub/sub 即時 |
+| `feed` | `@objectstack/service-feed` | 評論、反應、訂閱、動態資訊流 |
+| `settings` | `@objectstack/service-settings` | Settings manifest 與 K/V 解析器 |
+
+如果請求了某能力但映象未包含該包,**ObjectOS 會記錄警告並繼續執行,該能力被停用**。這是有意為之 —— 它使執行時在開發期間即使缺少某個可選包也能啟動 —— 但在**生產中這是真實風險**：
+
+- 載入到不含 `@objectstack/plugin-audit` 映象的、要求審計的應用,會乾淨地啟動**而不寫任何審計日誌**。合規證據會在無任何錯誤的情況下缺失。
+- 載入到不含 `@objectstack/service-job` 映象的、依賴作業的應用,會乾淨地啟動**而靜默地從不執行排程工作**。
+
+**生產清單：**
+
+1. 將能力警告視為部署失敗。在啟動日誌中 grep `capability not loaded`（或你的等價資訊）,任何出現都使 readiness probe / rollout 失敗。
+2. 將執行時映象固定為包含 artifact `requires` 中宣告的每個包的映象。
+3. 釋出 artifact 時,附帶文件化其 `requires` 列表,以便運維核對匹配映象。
+
+## API 表面
+
+ObjectOS 通常暴露：
+
+- 生成的 REST API;
+- `/api/v1/auth/*` 下的認證端點;
+- 後設資料與 i18n 端點;
+- 啟用能力的服務端點。
+
+GraphQL 與 OData 是框架級能力,僅當部署的執行時包包含並啟用時方可文件化為受支援。

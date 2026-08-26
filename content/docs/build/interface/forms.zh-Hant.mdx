@@ -1,0 +1,164 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 表單
+description: 從一份扁平欄位集派生建立與編輯表單，無漂移地把欄位分組成區塊，並控制提交後的去向。
+translation:
+  source_sha: d295b9daee1c46f4a0d101eff8dba150a5205049a0fb1d3d004526b4389eb91c
+  guide_rev: 1
+  mode: auto
+---
+
+**表單是物件欄位的一個投影 —— 不是第二份欄位列表。**欄位在物件上只宣告一次；表單只決定*哪些欄位、放在哪裡*。資料語義（型別、驗證、預設值、欄位級安全）從不放在表單上，所以表單不可能漂移到對資料"說謊"。
+
+表單檢視的*型別*（`simple`、`tabbed`、`wizard`、`modal`……）與公開表單的 REST 契約在[檢視](/docs/build/interface/views)中講。本頁講佈局問題：建立與編輯、分組、排序。
+
+## 建立表單 ≠ 編輯表單
+
+新建記錄的表單應該只問幾個要點；編輯表單則分割槽塊展示完整記錄。**別寫兩份表單。**建立表單的欄位子集可以從每個欄位上已有的意圖*派生*出來：
+
+| 欄位訊號 | 對建立表單的影響 |
+|:--|:--|
+| `required: true` | **必須**出現在建立表單上 |
+| `readonly` / 公式 / 彙總 / 自動編號 / 系統寫入 | **絕不**出現在建立表單上 —— 你設定不了它 |
+| 有 `defaultValue` | **可省略** —— 它會自動填充 |
+| `hidden` | 預設處處不顯示 |
+| `group` | 欄位屬於哪個區塊 |
+| *宣告順序* | **就是**預設顯示順序 —— 沒有 `field.order` |
+
+於是合理的建立表單 —— *可編輯、必填或核心的欄位，按宣告順序* —— 零編寫就從物件里長出來了。省略即正確：什麼都不多寫，你依然得到一份完整、正確的表單。完整的編輯表單同樣是派生的，把每個 `field.group` 實體化為一個區塊。
+
+### 只在佈局或流程真的不同時，才手工塑造建立表單
+
+逃生艙是把一個具名錶單檢視繫結到建立入口。把它寫成一份**稀疏覆蓋** —— 基本上只是一串欄位名：
+
+```ts
+import { defineView } from '@objectstack/spec'
+
+const data = { provider: 'object' as const, object: 'showcase_contact' }
+
+export const ContactViews = defineView({
+  list: {
+    type: 'grid', data,
+    columns: [{ field: 'name' }, { field: 'email' }, { field: 'company' }, { field: 'stage' }],
+    // 把 "+ Add record" 入口绑定到精简的创建表单：
+    addRecord: { enabled: true, mode: 'form', formView: 'create' },
+  },
+
+  // 完整编辑表单 —— 按 field.group 分组；裸字符串继承字段定义。
+  form: {
+    type: 'simple', data,
+    sections: [
+      { name: 'contact', label: 'Contact', columns: 2, fields: ['name', 'email', 'phone'] },
+      { name: 'work',    label: 'Work',    columns: 2, fields: ['company', 'title'] },
+      { name: 'status',  label: 'Status',  columns: 2, fields: ['stage', 'lead_score'] },
+    ],
+  },
+
+  formViews: {
+    // 稀疏的创建覆盖：只留核心字段，单个区块。
+    create: {
+      type: 'simple', data, title: 'New contact',
+      sections: [
+        { label: 'Who is this?', columns: 1, fields: ['name', 'email', 'phone', 'company'] },
+      ],
+    },
+  },
+})
+```
+
+繫結方式是 `addRecord.mode: 'form'` + `addRecord.formView: 'create'`。沒有 `formViews.create` → 建立入口派生預設表單。有 → 建立時它生效。
+
+| 你的真實需求 | 用 |
+|:--|:--|
+| 建立時少問幾個欄位（必填 + 少數核心） | **純派生** —— 不要手寫 |
+| 建立時分組不同，但仍只是更小的子集 | 通常仍然派生 |
+| 建立是嚮導 / 多步、有建立專屬文案、條件展開 | **手寫 `formViews.create`** |
+
+> 經驗法則：*欄位子集不同* → 派生。*佈局或流程不同* → 覆蓋。為了刪幾個欄位就寫一份完整的建立表單，等於直接走進"雙份產物漂移"的陷阱：新增一個必填欄位、忘了改建立表單，建立時就得到執行時的"缺少必填欄位"錯誤。
+
+因為建立表單的欄位是編輯表單欄位的子集，*順序和分組也相同*，"快速建立 4 個欄位 → 儲存 → 落到完整記錄頁"在視覺上是連續的。派生免費保住了這一點。
+
+## 欄位分組與順序
+
+模型是一份扁平欄位集。表格顯示扁平的列。表單需要區塊。這不矛盾 —— 是同一份扁平集合透過不同的鏡頭：
+
+| 鏡頭 | 欄位形態 | 原因 |
+|:--|:--|:--|
+| 物件定義 | 扁平 | 模型描述*存在哪些資料* |
+| 表格 / Grid | 扁平的列 | 表格是記錄 × 欄位的矩陣 |
+| 表單 / 記錄頁 | 分組區塊 | 人閱讀單條記錄時需要分塊 |
+
+分組概念有**兩個**。保持區分：
+
+**1. 語義分組 —— `field.group`（在物件上）。**欄位的邏輯歸屬。它隨模型走，併為自動生成表單的*預設*分割槽提供種子：
+
+```ts
+fields: {
+  name:  Field.text({ label: 'Full name', group: 'contact' }),
+  email: Field.email({ label: 'Email',    group: 'contact' }),
+  stage: Field.select({ label: 'Stage',   group: 'status', options: [/* … */] }),
+}
+```
+
+**2. 佈局分組 —— 表單 `sections`（在檢視上）。**某個具體表單的顯式編排：哪些欄位、哪個區塊、幾個 `columns`、可否摺疊。它以 `field.group` 為預設繼承來源，需要時按表單覆蓋。
+
+```ts
+form: {
+  type: 'simple',
+  sections: [
+    { name: 'contact', label: 'Contact', columns: 2, fields: ['name', 'email', 'phone'] },
+    { name: 'status',  label: 'Status',  columns: 2, fields: ['stage'] },
+  ],
+}
+```
+
+**順序就是你書寫的順序。**沒有 `field.order` —— 物件上欄位的宣告順序就是處處的預設顯示順序，而 `sections`（以及其中的欄位）是有序列表。
+
+> **"group" 陷阱。**表格檢視的 `groupByField` 按欄位的*值*給**記錄（行）**分組 —— 所有 `stage = qualified` 的行歸到一起。表單區塊在視覺上給**欄位（列）**分組。同一個詞，兩條互不相關的軸。表格分組永遠不會給你的表單分割槽。
+
+## 提交之後會發生什麼
+
+給表單檢視加 `submitBehavior` 來控制提交後的體驗：
+
+```ts
+submitBehavior: {
+  kind: 'thank-you',
+  title: 'Thanks!',
+  message: 'A specialist will reach out within 24 hours.',
+}
+```
+
+| `kind` | 行為 |
+|:--|:--|
+| `thank-you`*（預設）* | 用一塊確認面板替換表單（`title`、`message`） |
+| `redirect` | 在 `delayMs`（預設 0）之後跳轉到 `url` —— 適合營銷頁 |
+| `continue` | 重置表單以填寫下一份 —— 自助終端、批次錄入 |
+| `next-record` | 前進到佇列中的下一條記錄（內部模式） |
+
+公開表單和內部表單都支援 `?prefill_<field>=<value>` URL 引數 —— 從郵件連結或活動頁預填表單。預填是體驗捷徑，不是許可權繞過：值仍要經過驗證，公開表單還要過服務端欄位白名單。
+
+```
+/console/f/contact-us?prefill_company=Acme&prefill_email=ada@example.com
+/console/forms/quick_create?prefill_lead_source=event_booth_2026
+```
+
+## 記錄詳情由角色驅動，而非表單繫結
+
+沒有哪個物件級鍵能把表單檢視釘到記錄詳情屏上。詳情渲染由物件的跨介面**語義角色**派生：`nameField`（顯示名）、`highlightFields`（最重要欄位組成的條帶）、`stageField`（生命週期進度條）、以及 `fieldGroups` + `Field.group`（表單、彈窗與詳情頁共享的分割槽）。當記錄頁需要的定製佈局超出這些角色所能派生的範圍時，給物件指定一個自定義[頁面](/docs/build/interface/pages)。
+
+## 反模式
+
+- **兩份完整手寫的欄位列表**（`contact_create_form` + `contact_edit_form`）。必然漂移。
+- **在表單上覆述欄位型別 / 驗證 / 選項。**資料語義只屬於物件。
+- **在每個表單裡重新敲一遍分組。**`field.group` 宣告一次；只在真正分歧時覆蓋。
+- **為了遷就表單給資料模型加結構性巢狀。**模型保持扁平；分組交給表單。
+
+## 下一步
+
+| 頁面 | 原因 |
+|:--|:--|
+| [檢視](/docs/build/interface/views) | 表單檢視型別、公開表單分享、完整的檢視 Schema |
+| [資料模型](/docs/build/data) | 欄位 —— 以及它們的意圖 —— 宣告的地方 |
+| [操作](/docs/build/interface/actions) | 啟動表單檢視的 `type: 'form'` 操作 |
+| [頁面](/docs/build/interface/pages) | 超越派生布局的自定義記錄頁 |
+| [許可權](/docs/configure/permissions) | 表單遵守的欄位級安全 |

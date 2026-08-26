@@ -1,0 +1,161 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 頁面
+description: 由區域、元件與本地狀態組合的自由佈局 —— 外加隨包釋出的 Markdown 文件頁。
+translation:
+  source_sha: 94f72e272dd38ee2ff31de60a574f13636affad47c756bbc00b68a876374874d
+  guide_rev: 1
+  mode: auto
+---
+
+**頁面是一個自由容器。**不同於繫結到單個物件的[檢視](/docs/build/interface/views)，頁面組合多個元件、嵌入檢視並管理本地狀態 —— 你的主屏、自定義記錄佈局和工具面板都靠它。
+
+```ts
+const homePage = {
+  name: 'sales_home',
+  label: 'Sales Home',
+  type: 'home',
+  regions: [
+    { name: 'header', width: 'full', components: [
+      { type: 'metric_card', id: 'total_revenue', label: 'Total Revenue',
+        properties: { dataset: 'sales', values: ['revenue'], format: 'currency' } },
+    ]},
+    { name: 'main', width: 'large', components: [
+      { type: 'list_view', id: 'recent_deals', label: 'Recent Deals',
+        properties: { object: 'opportunity', view: 'recent_open', limit: 10 } },
+    ]},
+  ],
+}
+```
+
+## 頁面屬性
+
+| 屬性 | 型別 | 必填 | 說明 |
+|:--|:--|:--|:--|
+| `name` | `string` | 是 | 機器名（`snake_case`） |
+| `label` | `string` | 是 | 顯示標籤 |
+| `type` | `enum` | — | 頁面型別（預設 `'record'`，見下） |
+| `object` | `string` | — | 關聯物件（`record` 型別用） |
+| `template` | `string` | — | 佈局模板名（預設 `'default'`） |
+| `regions` | `PageRegion[]` | — | 承載元件的佈局區域 |
+| `variables` | `PageVariable[]` | — | 本地狀態變數 |
+| `isDefault` | `boolean` | — | 是否為該型別的預設頁面 |
+| `assignedProfiles` | `string[]` | — | 可訪問此頁面的簡檔 |
+
+### 頁面型別
+
+| 型別 | 用於 |
+|:--|:--|
+| `record` | 繫結到某個物件記錄的自定義詳情頁 |
+| `home` | 應用著陸 / 入口 |
+| `app` | 通用應用佈局 |
+| `utility` | 工具、設定、嚮導 |
+| `list` | 資料驅動的介面 |
+
+只有這五種型別有效 —— 早期路線圖上那些從未交付渲染器的型別已從 Schema 中移除。
+
+## 區域
+
+區域是佈局分割槽；每個區域承載元件：
+
+```ts
+regions: [
+  { name: 'sidebar', width: 'small', components: [/* … */] },
+  { name: 'content', width: 'large', components: [/* … */] },
+]
+```
+
+`width` 接受 `'small'`、`'medium'`、`'large'` 或 `'full'`。
+
+## 元件
+
+元件是區域內部的積木：
+
+```ts
+{
+  type: 'chart',
+  id: 'revenue_chart',
+  label: 'Revenue Trend',
+  properties: { chartType: 'line', dataset: 'sales',
+                dimensions: ['close_month'], values: ['revenue'] },
+  events: { onClick: "navigate_to('opportunity_detail', { id: $event.id })" },
+  visibility: "os.user.profile == 'sales_manager'",
+}
+```
+
+承載分析資料的元件（`chart`、`metric_card`）繫結一個具名**資料集**，並按名稱選用其 `dimensions` + `values` —— 與[儀表盤](/docs/build/interface/dashboards)元件相同的 ADR-0021 形態，也是 Studio 唯一會生成的形態。已移除的內聯分析形態（在元件上直接寫 `object` + `categoryField` + `valueField` + `aggregate`）自 16.0 起是解析錯誤，而不再是被悄悄忽略的空操作。
+
+| 屬性 | 型別 | 說明 |
+|:--|:--|:--|
+| `type` | `string` | 標準組件型別，或自定義字串 |
+| `id` | `string` | 唯一的元件例項 id |
+| `properties` | `object` | 元件專屬配置 |
+| `events` | `object` | 事件處理器（操作表示式） |
+| `visibility` | `string` | CEL 可見性謂詞 |
+| `style` / `className` | — | 臨時 CSS |
+| `responsiveStyles` | `object` | **首選**樣式通道：桌面優先、按斷點的樣式對映（`large` 為基礎，再疊加 `medium` / `small` / `xsmall` 覆蓋），編譯為作用域 CSS —— 優先用 `var(--space-8)` 這樣的設計令牌 |
+
+標準的、帶名稱空間的元件型別：
+
+| 名稱空間 | 型別 |
+|:--|:--|
+| 結構 | `page:header`、`page:footer`、`page:sidebar`、`page:tabs`、`page:accordion`、`page:card`、`page:section` |
+| 記錄上下文 | `record:details`、`record:highlights`、`record:related_list`、`record:activity`、`record:chatter`、`record:path`、`record:alert`、`record:quick_actions`、`record:reference_rail`、`record:history` |
+| 導航 | `app:launcher`、`nav:menu`、`nav:breadcrumb` |
+| 工具 | `global:search`、`global:notifications`、`user:profile` |
+| AI | `ai:chat_window`、`ai:suggestion` |
+| 元素 | `element:text`、`element:number`、`element:image`、`element:divider`、`element:button`、`element:filter`、`element:form`、`element:record_picker`、`element:text_input` |
+
+元件還可以攜帶 `dataSource`（多物件頁面中按元素繫結物件）、`responsive` 與 `aria` 配置。專案專屬的元件可以使用自定義字串型別。
+
+## 變數
+
+頁面持有跨元件共享的本地狀態：
+
+```ts
+variables: [
+  { name: 'selected_tab', type: 'string', defaultValue: 'overview' },
+  { name: 'date_range',   type: 'object', defaultValue: { start: null, end: null } },
+]
+```
+
+`type` 接受 `'string'`（預設）、`'number'`、`'boolean'`、`'object'`、`'array'` 或 `'record_id'`。
+
+> `record` 型別的頁面是定製記錄佈局的受支援路徑 —— 當由角色派生的詳情頁（見[表單](/docs/build/interface/forms)）不夠用時就用它。把 `record:highlights` 組合進全寬頭部，把 `record:details` 和 `record:activity` 放進側欄，把 `record:related_list` 元件放進主區域。
+
+通過 `page` 導航入口把頁面掛到[應用](/docs/build/interface/apps)上，或者用 `homePageId` 把它設為應用的著陸頁。
+
+## 文件頁
+
+**doc** 是一頁包文件：放在扁平的 `src/docs/` 目錄裡的純 Markdown 檔案，編譯進包產物，在 Console 中渲染於 `/docs/<name>`。文件還會在 AI 助手回答關於你的包的問題時充當依據。
+
+```
+src/docs/
+  crm_index.md            → 文档名 "crm_index"
+  crm_user_guide.md       → 文档名 "crm_user_guide"
+```
+
+檔名主幹就是文件 `name` —— 沒有目錄分級，沒有排序檔案。扁平佈局讓交叉引用保持穩定：連結按 basename 解析，從不按路徑。
+
+| 規則 | 細節 |
+|:--|:--|
+| 命名 | `snake_case`，且構建 lint 要求**名稱空間字首**（`crm_user_guide`，而非 `user_guide`） |
+| Frontmatter | 可選；讀取 `title` 和 `description`。標題解析順序：frontmatter → 第一個 `#` 標題 → 文件名 |
+| 交叉引用 | 普通相對連結（`[overview](./crm_index.md)`）—— 在 Console 裡重寫為 `/docs/<target>`，在 GitHub 上原生可用。**同包內的壞鏈會導致構建失敗** |
+| Markdown | CommonMark + GFM：表格、帶高亮的圍欄程式碼、標題錨點、GitHub alerts（`> [!TIP]`） |
+| 構建時拒絕 | **MDX / 內嵌元件**（文件是資料，不是程式碼 —— 這是信任邊界）以及**圖片引用**（尚無資產服務；快速失敗勝過碎圖） |
+
+文件解析按包隔離：兩個已安裝的包可以各自發布同名裸文件並共存 —— 誰也不會覆蓋誰。
+
+> 需要動態內容 —— 即時流程圖、記錄表格 —— 時別試圖內嵌元件。用 URL 連結到後設資料；平臺渲染即時檢視，文件只負責指向它。
+
+## 下一步
+
+| 頁面 | 原因 |
+|:--|:--|
+| [應用](/docs/build/interface/apps) | 把頁面放進導航、設定 `homePageId` |
+| [檢視](/docs/build/interface/views) | 頁面所嵌入的物件介面 |
+| [表單](/docs/build/interface/forms) | 角色派生的記錄佈局 vs 自定義記錄頁 |
+| [儀表盤](/docs/build/interface/dashboards) | 以分析為中心的佈局，而非自由佈局 |
+| [操作](/docs/build/interface/actions) | `element:button` 的目標與 `modal` 型別操作 |
+| [AI Builder](/docs/build/ai-builder) | 用對話生成頁面後設資料 |

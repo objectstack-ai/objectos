@@ -1,0 +1,153 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: CEL 表示式
+description: 用於公式、謂詞、排程和模板字串的表示式語言 —— 通過五個標籤模板暴露。
+translation:
+  source_sha: 9489636c35a7a16dd066125812e7e218008b3e558ba4c8dd92d6d3126e60f234
+  guide_rev: 1
+  mode: auto
+---
+
+ObjectOS 在所有需要小型、安全、沙箱化表示式的地方使用 [CEL](https://github.com/google/cel-spec)（Common Expression Language）：公式欄位、校驗規則、可見性謂詞、共享條件、流程守衛、排程和模板字串。
+
+編寫通過從 `@objectstack/spec` 匯入的**五個標籤模板**完成。它們都生成一個由執行時解析的小型 JSON 物件：
+
+```ts
+{ dialect: 'cel' | 'template' | 'cron', source: string }
+```
+
+Schema 原始碼：
+[`packages/spec/src/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts)。
+
+## 五個標籤模板
+
+| 模板 | Dialect | 用途 | 示例 |
+|:--|:--|:--|:--|
+| `` F`...` `` | `cel` | **公式欄位** —— 與記錄一同儲存的派生值 | `` F`record.amount * 0.1` `` |
+| `` P`...` `` | `cel` | **謂詞** —— 用於校驗/共享/可見性/條件的布林值 | `` P`record.status == "open"` `` |
+| `` cel`...` `` | `cel` | **通用 CEL** —— 當 F 或 P 都不合適時（例如引數值） | `` cel`now() + duration("P30D")` `` |
+| `` tmpl`...` `` | `template` | 帶 `{{var}}` 插值的**字串模板** | `` tmpl`Order from {{record.customer.name}}` `` |
+| `` cron`...` `` | `cron` | **排程** —— 標準 5 欄位 cron 語法 | `` cron`0 9 * * 1-5` `` |
+
+`F`、`P`、`cel` 在求值時沒有功能差異 —— 它們都執行 CEL。區分的存在是為了讓 schema（和 AI Agent）知道表示式扮演什麼角色,並讓編輯器能進行型別檢查（公式必須返回值,謂詞必須返回 bool）。
+
+### 匯入
+
+```ts
+import { F, P, cel, tmpl, cron } from '@objectstack/spec'
+```
+
+## 各自的使用位置
+
+| Spec 上的欄位 | 標籤 | 示例位置 |
+|:--|:--|:--|
+| `Field.expression`（formula 型別） | `F` | `*.object.ts` 公式欄位 |
+| `Field.conditionalRequired` | `P` | 物件欄位 |
+| `Validation.predicate` | `P` | 物件校驗 |
+| `SharingRule.condition` | `P` | 共享規則 |
+| `View.conditionalFormatting[].condition` | `P` | 檢視 |
+| `Flow.step.when` / `Flow.transition.when` | `P` | 流程 |
+| `Action.guard` | `P` | Action |
+| 通知主題/訊息正文 | `tmpl` | 通知 |
+| `Schedule.cron` | `cron` | 排程流程/報表 |
+| 任意值引數 | `cel` | 流程步驟輸入 |
+
+## 變數作用域
+
+CEL 表示式在帶有以下頂級變數的上下文中求值：
+
+| 變數 | 何時可用 | 內容 |
+|:--|:--|:--|
+| `record` | 幾乎總是 | 當前正在求值的記錄 |
+| `previous` | 更新 Hook/變更檢測 | 記錄變更前的狀態（或 `null`） |
+| `input` | Action、流程步驟 | 使用者提交的輸入載荷 |
+| `os.user` | 總是 | `{ id, roles: string[], permissions: string[] }` |
+| `os.org` | 總是 | 組織/租戶上下文 |
+| `os.env` | 總是 | 暴露給表示式的環境變數 |
+
+> 舊的 `OLD` / `NEW` 變數已在 M9.5 中移除。請使用 `previous` 和 `record`。
+
+## 標準庫
+
+註冊位置：
+[`packages/formula/src/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts)。
+最常用的內建函式：
+
+### 時間
+
+| 函式 | 返回 | 說明 |
+|:--|:--|:--|
+| `now()` | `Timestamp` | 釘在求值上下文 —— 單次查詢內穩定 |
+| `today()` | `Timestamp` | UTC 當日開始 |
+| `daysFromNow(int)` | `Timestamp` | 未來日期 |
+| `daysAgo(int)` | `Timestamp` | 過去日期 |
+
+CEL 還包含原生 `timestamp(...)`、`duration(...)`、`date.getDayOfWeek()` 等 —— 參見
+[CEL spec](https://github.com/google/cel-spec/blob/master/doc/langdef.md#standard-definitions)。
+
+### 工具
+
+| 函式 | 用途 |
+|:--|:--|
+| `isBlank(x)` | `null`、`undefined`、`""` 或空列表時為 `true` |
+| `coalesce(a, b)` | 第一個非空值 |
+| `trim(s)` | 去除空白 |
+| `joinNonEmpty(list, sep)` | 拼接非空條目 |
+
+原生 CEL 字串輔助函式（`.contains(...)`、`.startsWith(...)`、`.matches(...)`、`.size()`）始終可用。
+
+## 示例
+
+**公式欄位** —— 行專案合計：
+
+```ts
+{ name: 'subtotal', type: 'formula', expression: F`record.quantity * record.unit_price` }
+```
+
+**校驗** —— 關閉日期必須在今日之後：
+
+```ts
+{ message: 'Close date must be in the future', predicate: P`record.close_date > today()` }
+```
+
+**可見性** —— 僅向經理顯示欄位：
+
+```ts
+{ visibleIf: P`'manager' in os.user.roles` }
+```
+
+**流程守衛** —— 金額小時跳過步驟：
+
+```ts
+{ when: P`record.amount >= 1000` }
+```
+
+**排程** —— 工作日 9 點：
+
+```ts
+{ schedule: cron`0 9 * * 1-5` }
+```
+
+**模板** —— 通知主題：
+
+```ts
+{ subject: tmpl`[{{record.priority}}] {{record.subject}}` }
+```
+
+## 錯誤
+
+表示式在載入時編譯。失敗以帶原始碼位置的 `VALIDATION_ERROR` 呈現：
+
+```json
+{ "code": "VALIDATION_ERROR", "message": "CEL: unknown field 'amout' on Record", "details": { "field": "subtotal", "expression": "record.amout * 0.1" } }
+```
+
+無效表示式**不會靜默失敗**。畸形或引用未知欄位的表示式會讓 `os compile` 失敗,並給出上面那條帶定位的訊息(對拼錯的欄位還包含 did-you-mean 提示)。執行時遇到壞表示式會**丟擲**一個帶歸屬資訊的錯誤,而不是靜默求值為 `null` 或 `false`,因此該失敗會在日誌和審計軌跡中可見,而不會悄悄汙染一個公式值或一個守衛判定。
+
+## 參見
+
+- [欄位型別](./field-types) —— 公式和條件必填欄位
+- [Build → 資料模型](/docs/build/data) —— 校驗和謂詞
+- [Build → 流程](/docs/build/automation/flows) —— 守衛和排程
+- [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts) —— schema
+- [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts) —— 內建函式

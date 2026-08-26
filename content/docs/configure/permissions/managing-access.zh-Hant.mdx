@@ -1,0 +1,143 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 許可權分配
+description: 日常管理手冊 —— 新員工入職、角色變更、驗證某人能看到什麼，以及乾淨地辦理離職。
+translation:
+  source_sha: 6986ce39661d80762826b8d56a69afc24590466bcb02ded998833db52be9a82f
+  guide_rev: 1
+  mode: auto
+---
+
+這是管理員每週都會遇到的訪問問題的任務指南。[模型總覽](/docs/configure/permissions)解釋各層*如何*工作；本頁告訴你*該點哪裡*。
+
+> **90% 的日常管理就是把人分配到崗位。**崗位、其背後的許可權集以及安全基線都隨平臺和你安裝的應用一起交付。你幾乎從不需要從零構建能力——也不應該那麼做。
+
+使用者的有效訪問是疊加式的：
+
+```text
+effective access = union of permission sets reached through positions
+                 + direct grants
+                 + the built-in member_default baseline
+```
+
+限制通過*不授予*來實現——沒有需要維護的減法規則。
+
+## 新員工入職
+
+四個有序步驟，每一步依賴上一步：
+
+| 步驟 | 位置 | 內容 |
+|---|---|---|
+| 1. 建立使用者 | Setup → People & Organization → Users | **Invite**（邀請）、**Create**（建立）或 **Import**（匯入）——見[使用者與組織](/docs/configure/users#add-people) |
+| 2. 放進組織樹 | 同一列表 → Business Unit Member 行 | 使用者 + 業務單元，其中一條標記為 *primary*；基於深度的可見性通過它解析 |
+| 3. 分配崗位 | Setup → Access Control → Positions | 那日常的 90%——見下文 |
+| 4. 驗證 | 模擬 + 解釋 | 絕不在未測試的情況下宣佈"都配好了"——見下文 |
+
+### 分配崗位
+
+一次分配就是一行記錄：**User Position**（使用者崗位，`sys_user_position`）= *使用者* + *崗位* + 可選的任職**業務單元**。這個錨點決定崗位的深度授權*在哪裡*生效——"**東區**銷售經理"看到的是東區的記錄，而不是整個公司的。
+
+在 **Setup → Access Control → Positions**（崗位）中開啟某個崗位，從其相關列表新增分配（或直接建立 User Position 行）。這些寫入受治理約束：租戶級管理員可以通過；委派管理員只能在自己的子樹內分配白名單中的許可權集——自我提權在結構上就會被拒絕（見[委派管理](/docs/configure/permissions/permission-sets#delegated-administration)）。
+
+兩個相鄰的介面補全全貌：
+
+- **直接授予**——在許可權集的記錄頁（**Setup → Access Control → Permission Sets**）上，**Assigned Users**（已分配使用者）面板可新增不經崗位的按使用者授予。*經崗位*持有的行也會顯示，但要在崗位上移除，不能在這裡移除。
+- **業務單元成員資格**——來自第 2 步；獨立於分配錨點。
+
+## 變更某人的角色
+
+當某人調換部門或職能時：
+
+1. 把其 **Business Unit Member**（業務單元成員）行更新為新單元。
+2. **重新錨定其 User Position 行**——移除或編輯錨定到舊單元的分配，為新單元新增分配。
+3. 移除屬於舊角色的所有直接授予。
+4. 驗證（見下文）。
+
+分配可以攜帶 `valid_from` / `valid_until` 時間視窗——過期的授予立即停止解析，這是處理計劃內交接或臨時代理角色的乾淨方式。參見[許可權集](/docs/configure/permissions/permission-sets)。
+
+## 驗證某人能看到什麼
+
+兩個內建的驗證工具：
+
+- **模擬。**使用者列表 → 行選單 → **Impersonate User**（模擬使用者）。你會獲得該使用者的會話——開啟他們會開啟的應用，確認他們能看到該看的（且*看不到*不該看的）。模擬僅用於正當的支援與驗證；會話會被記錄。
+- **解釋。**Studio 的 **Access**（訪問）板塊 → **Explain access**（解釋訪問）：選定使用者、物件和操作，引擎返回判定結果以及每個求值層——哪個許可權集授予了許可權、經由哪個崗位持有、哪條共享規則放寬了範圍、哪條策略收窄了範圍。
+
+同樣的報告也可通過 REST 獲取：
+
+```bash
+# GET，查询字符串形式
+curl -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/v1/security/explain?object=crm_lead&operation=read&userId=usr_123"
+
+# POST，请求体形式
+curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"object":"crm_lead","operation":"read","userId":"usr_123"}' \
+  "$BASE/api/v1/security/explain"
+```
+
+`operation` 取 `read | create | update | delete | transfer | restore | purge` 之一（預設為 `read`）；省略 `userId` 則解釋**你自己**。解釋自己始終被允許；解釋*其他*使用者需要 `manage_users` 能力，或覆蓋該使用者的委派管理作用域。
+
+> 當權限解析結果不對時，先解釋勝過瞎猜亂試：報告會點名需要修正的確切許可權集和層。參見[診斷與審計一節](/docs/configure/permissions#diagnose--audit)。
+
+## 辦理離職
+
+1. **Ban User**（封停用戶）——立即阻止登入。這是唯一緊急的一步。
+2. 之後從容移除其崗位分配和直接授予。
+3. 移除或改掛其業務單元成員行。
+4. 撤銷繫結到該使用者的所有 API Key——Key 以該使用者身份行事，只要底層授予還在，它就還能用。
+
+## 當自帶的崗位不合用時
+
+許可權在 Studio 中*設計*，在 Setup 中*分配*。如果沒有自帶崗位能滿足需求，優先選擇能解決問題的最小改動，順序如下：
+
+1. **把現有許可權集繫結到崗位。**
+2. **克隆一個自帶許可權集並調整。**
+3. **在 Studio 的許可權集矩陣編輯器中編寫新許可權集**——一張結構化的電子表格，覆蓋物件增刪改查、欄位級安全和能力；你永遠不需要手寫 JSON。
+
+編輯隨應用交付的許可權集會建立一個*環境覆蓋層*（environment overlay）——你的修改優先生效、在升級後保留，並可重置回廠商基線。牢記疊加模型：編寫內聚的能力包，絕不要寫"減法許可權集"。參見[許可權集](/docs/configure/permissions/permission-sets)。
+
+把需求轉化為改動時，選擇匹配的層：
+
+| 需求 | 層 | 參考 |
+|---|---|---|
+| 能讀/建/改/刪某類物件 | 物件許可權 | [許可權集](/docs/configure/permissions/permission-sets) |
+| 能看到 / 編輯某個特定欄位 | 欄位級安全 | [欄位級安全](/docs/configure/permissions/field-level-security) |
+| 使用者能看到哪些*行* | 記錄訪問 | [記錄訪問](/docs/configure/permissions/record-access) |
+| 某項功能效能力（匯出、管理使用者） | 系統許可權 | [許可權集](/docs/configure/permissions/permission-sets#system-permissions) |
+| 能開啟某個應用或導航項 | 應用訪問 | [許可權集](/docs/configure/permissions/permission-sets) |
+
+## 快捷路徑
+
+| 我需要 …… | 這樣做 |
+|---|---|
+| 新員工入職 | 邀請/建立使用者 → 業務單元成員行 → 分配崗位 |
+| 辦理離職 | **Ban User**（立即阻止登入）——之後再從容移除分配 |
+| "我登入不了" | 使用者記錄 → 是被封禁了？被鎖定了？**Unlock Account**（解鎖賬戶）或 **Set Password**（臨時密碼、強制修改） |
+| "我為什麼看不到 X？" | Studio → Access → 對該使用者 + 物件執行 **Explain access** |
+| 有人調換了部門 | 更新其業務單元成員行；重新錨定其 User Position 行 |
+| 讓子公司自行管理員工 | 授予攜帶[委派管理作用域](/docs/configure/permissions/permission-sets#delegated-administration)的許可權集 |
+| 給某個使用者加一項額外能力 | 許可權集記錄 → **Assigned Users** → 新增（直接授予） |
+
+## 各項在哪裡
+
+| 事項 | 位置 |
+|---|---|
+| 使用者、邀請 | Setup → People & Organization → Users / Invitations |
+| 業務單元樹 | Setup → People & Organization → Business Units |
+| 團隊 | Setup → People & Organization → Teams |
+| 崗位、許可權集 | Setup → Access Control |
+| 共享規則、記錄共享 | Setup → Access Control |
+| 密碼策略、MFA、鎖定、SSO | Setup → Configuration → Authentication |
+| 會話、通知事件、審計日誌 | Setup → Diagnostics |
+| 許可權矩陣編輯器、Explain access | Studio → Access |
+
+## 下一步
+
+| 任務 | 頁面 |
+|---|---|
+| 建立使用者並搭建組織樹 | [使用者與組織](/docs/configure/users) |
+| 理解崗位與受眾錨點 | [崗位](/docs/configure/permissions/positions) |
+| 編寫或調整許可權集 | [許可權集](/docs/configure/permissions/permission-sets) |
+| 控制人們能看到哪些行 | [記錄訪問](/docs/configure/permissions/record-access) |
+| 隱藏或鎖定敏感欄位 | [欄位級安全](/docs/configure/permissions/field-level-security) |
+| 登入策略與 SSO | [認證](/docs/configure/authentication) |

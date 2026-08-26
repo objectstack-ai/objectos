@@ -1,0 +1,126 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: API 訪問
+description: 用於整合的自動生成 REST API、身份驗證和 API 金鑰。
+translation:
+  source_sha: 59e07888e7a8e425689a077f85312f83e2d9e55cf1cfe435d37dc30856f2d0a5
+  guide_rev: 1
+  mode: auto
+---
+
+artifact 中宣告的每個物件都會通過自動生成的 REST API 對外暴露。同一套端點同時驅動 UI、整合和客戶的 ETL 指令碼——無需另外維護一套“整合 API”。
+
+## Base URL
+
+```text
+https://<project-domain>/api/v1
+```
+
+主要入口：
+
+| Path | 用途 |
+|---|---|
+| `/api/v1/data/<object>` | 每個物件自動生成的 CRUD（例如 `/api/v1/data/account`） |
+| `/api/v1/data/<object>/{id}` | 讀取/更新/刪除單條記錄 |
+| `/api/v1/actions/<object>/<action>` | 呼叫宣告式 action（POST） |
+| `/api/v1/auth/*` | 身份驗證（登入、會話、OAuth、OIDC） |
+| `/api/v1/meta/*` | 後設資料 API（物件、欄位、檢視），在啟用時可用 |
+| `/api/v1/keys` | 為當前呼叫使用者生成只顯示一次的 `sys_api_key`（POST） |
+| `/api/v1/batch` | 跨物件事務批次寫入（POST）——僅支援原子模式，每個操作都按物件門控 |
+| `/api/v1/mcp` | 通過 Streamable HTTP 提供的 Model Context Protocol 伺服器——預設開啟；設定 `OS_MCP_SERVER_ENABLED=false` 可關閉 |
+| `/api/v1/health` | 存活/就緒探針（無需身份驗證） |
+
+字首預設為 `/api/v1`（即 API 的 `basePath` `/api` 加上 `version` `v1`），並且可在 ObjectOS stack 上配置。
+
+## 控制暴露的內容
+
+API 暴露在 artifact 中按物件逐個治理，而不是在閘道器層：
+
+- 在物件上設定 `apiEnabled: false`，使其完全不出現在 REST 面上（其路由返回 404）。
+- 設定 `apiMethods` 白名單（例如 `['get', 'list']`），將物件設為只讀或以其他方式限制哪些操作可達。
+
+兩者都在 REST 層強制執行 —— 參見
+[REST API → 限制 API 暴露面](/docs/reference/rest-api#restricting-the-api-surface)。
+
+同樣的閘門也覆蓋事務批次路由（16.0）：`POST /api/v1/batch` 會校驗請求體，在開啟事務*之前*就對**每個**操作強制執行 `apiEnabled` / `apiMethods`，update/delete 必須攜帶 id，無法解析的 `{ $ref }` 父引用會被拒絕。該路由只支援原子模式——`atomic: false` 會被以 `400 BATCH_NOT_ATOMIC` 拒絕；非原子的批次寫入請繼續使用按物件的 `createMany` / `updateMany` 端點。
+
+## 身份驗證方式
+
+呼叫方可以通過四種方式進行身份驗證：
+
+| 方式 | 適用場景 | 做法 |
+|---|---|---|
+| Session cookie | 瀏覽器/UI 流量 | 通過 `/api/v1/auth/*` 登入；cookie 的作用域限定在專案主機名 |
+| Bearer 訪問令牌 | 移動端、SPA、短時服務端任務 | 在 `/api/v1/auth/sign-in/email` 用憑據換取令牌，並以 `Authorization: Bearer <token>` 傳遞 |
+| API 金鑰 | 伺服器到伺服器、ETL、長期存續的整合 | 建立一條 `sys_api_key` 記錄，作為 bearer 令牌使用 |
+| OAuth 2.1（MCP） | 以登入使用者身份行事的 AI 代理 / MCP 客戶端 | 直接對部署本身執行自助授權碼 + PKCE 流程 |
+
+這些方式都會經過同一個 `AuthPlugin`，並最終解析為 `sys_user` 上下文，由 `SecurityPlugin` 據此評估許可權和記錄訪問。
+
+## API 金鑰
+
+API 金鑰是一等公民 `sys_api_key` 記錄。金鑰值本身以雜湊形式儲存——只有 `prefix` 和後設資料保持可查詢，因此即便金鑰洩露也無法從資料庫中還原。
+
+簽發金鑰有兩種方式：
+
+- **Console**——以管理員身份登入 **Console → API Keys**，選擇所屬使用者，
+  可選地設定過期日期，並**僅這一次**複製顯示出的金鑰。
+- **自助端點**——`POST /api/v1/keys` 為已認證的呼叫方生成金鑰，並只返回一次
+  原始金鑰。該金鑰繫結到呼叫方自身的使用者，因此無法用於冒充其他身份：
+
+  ```bash
+  curl -X POST https://app.example.com/api/v1/keys \
+    -H "Authorization: Bearer <session-or-access-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "etl-pipeline"}'
+  # → { "id": "...", "name": "etl-pipeline", "prefix": "os_pk_…", "key": "os_pk_live_…" }
+  ```
+
+在後續請求中，可將金鑰作為 bearer 令牌、`x-api-key` 請求頭或
+`Authorization: ApiKey` 傳遞。REST 資料與後設資料 API 都通過與 MCP 相同的校驗器
+對其認證，並以金鑰所有者的許可權與記錄級安全執行：
+
+```bash
+curl https://app.example.com/api/v1/data/account \
+  -H "x-api-key: os_pk_live_…"
+```
+
+要撤銷某個金鑰，請在對應的 `sys_api_key` 記錄上執行 `revoke_api_key` action（Console UI 中也提供）。撤銷會在下一次請求時立即生效。
+
+## MCP 客戶端與 OAuth 2.1（ObjectStack 13+）
+
+任何支援 OAuth 的 MCP 客戶端——Claude.ai 自定義聯結器、Claude Desktop、Claude Code——都可以**自助**接入，無需管理員簽發 API 金鑰：
+
+- 每個部署都充當自己的授權伺服器（由內嵌認證例項支撐），支援 RFC 8414 / RFC 9728 發現、動態客戶端註冊（RFC 7591）、授權碼 + PKCE，以及繫結到 `<origin>/api/v1/mcp` 的資源約束。要求 TLS（localhost 豁免）。
+- 使用者以自己的身份登入；工具呼叫在其本人的許可權和行級安全下執行。
+- OAuth scope 構成硬性許可權上限（ObjectStack 14.5）：`effective_permission = scope_ceiling ∩ user_grants`。`data:read` 授予只讀資料訪問，`data:write` 授予完整 CRUD，能力門控的業務動作需要 `actions:execute`。缺少 scope 的令牌將失敗關閉。
+
+API 金鑰仍作為 CI 與無頭代理的並行通道——`x-api-key` 和 `Authorization: Bearer osk_…` 繼續原樣工作。
+
+## 分頁、過濾與排序
+
+自動生成的列表端點接受標準的 ObjectStack 查詢引數：
+
+| 引數 | 含義 |
+|---|---|
+| `?limit=` | 頁大小（受服務端上限約束） |
+| `?offset=` 或 `?cursor=` | 分頁 |
+| `?filter=` | 使用 ObjectQL 過濾語法進行服務端過濾 |
+| `?sort=` | 排序表示式（例如 `-created_at`） |
+| `?fields=` | 稀疏欄位選擇 |
+
+完整的過濾語法請參閱框架文件——執行時語法才是權威依據。
+
+## 限流
+
+使用框架的 `RateLimiter` 原語（或 ingress / API 閘道器）應用按 IP 和按身份的限制。推薦的初始配額桶參見 [Production readiness](/docs/operate/production)。
+
+## CORS
+
+如果呼叫方在不同源的瀏覽器上執行，請在 ingress 或執行時中介軟體中配置 CORS。**不要**將萬用字元 origin 與攜帶憑據的請求結合使用。
+
+## OpenAPI / 發現
+
+當映象中包含相應能力時，執行時可以為自動生成的 REST API 提供 OpenAPI 文件。客戶的整合應基於每個部署的 OpenAPI 文件生成客戶端，而不是手寫 URL，因為物件名稱和生成的路由會跟隨已部署的 artifact 而變化。
+
+發現（discovery）還會通告 `capabilities.transactionalBatch`（16.0），客戶端可以在連線時以宣告方式探知原子批次路由是否可用，而不必靠探測 `404`/`405`/`501`。

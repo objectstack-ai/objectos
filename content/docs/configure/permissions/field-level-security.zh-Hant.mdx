@@ -1,0 +1,113 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 欄位級安全
+description: 隱藏或鎖定單個欄位 —— 授予語義、服務端強制執行，以及 FLS 在表單、檢視和 API 中的行為。
+translation:
+  source_sha: 2fd3062133458070900d24fa614bf7c6c540bb3cba18425e4152295a992dac18
+  guide_rev: 1
+  mode: auto
+---
+
+欄位級安全（FLS）控制單個欄位的可見性與可編輯性，作用於物件許可權和[記錄訪問](/docs/configure/permissions/record-access)已經允許使用者觸達該記錄*之後*。它是實現"支援人員能看到客戶，但看不到其 `annual_revenue`"和"銷售代表能讀外部 id 但永遠不能改"的那一層。
+
+FLS 規則存在[許可權集](/docs/configure/permissions/permission-sets)中——本頁比那裡的[欄位安全附錄](/docs/configure/permissions/permission-sets#field-security-appendix)更深入地講解授予語義與強制執行。
+
+## 欄位許可權授予
+
+欄位許可權以 `<object>.<field>` 為鍵，使用 `readable` / `editable`：
+
+```ts
+fields: {
+  // 只读：可见但不可编辑
+  'account.annual_revenue': { readable: true, editable: false },
+  'account.description': { readable: true, editable: true },
+  // 隐藏：完全不可见
+  'account.ssn': { readable: false, editable: false },
+  'opportunity.amount': { readable: true, editable: true },
+  'opportunity.probability': { readable: true, editable: false },
+}
+```
+
+兩個標誌產生三種狀態：
+
+| 狀態 | 規則 | 效果 |
+|---|---|---|
+| **隱藏** | `{ readable: false, editable: false }` | 欄位完全不可見——從每個響應中剝離 |
+| **只讀** | `{ readable: true, editable: false }` | 欄位會返回，但對它的寫入會被拒絕 |
+| **可編輯** | `{ readable: true, editable: true }` | 欄位可見且可寫 |
+
+> 欄位許可權鍵務必寫成**帶物件限定**的形式（`crm_lead.budget`，而不是 `budget`）——自 ObjectStack 14.4 起，`security-fls-unqualified-key` lint 會在編譯時拒絕裸鍵，因為它們會靜默地匹配不到任何東西。
+
+## 授予如何合併
+
+FLS 使用**預設可見（黑名單）語義**：沒有顯式規則的欄位原樣通過——既可讀*又*可寫。許可權集只約束它顯式列出的欄位。
+
+欄位授予在使用者的多個許可權集之間按**最寬鬆**方式取並集：一個許可權集的 `readable: true` 會壓過另一個許可權集的 `false`。在減法式遮蔽層落地之前（已保留為 ADR-0066 ⑧），`{ readable: false }` 規則只有在**使用者持有的其他任何許可權集**都沒有宣告該欄位 `readable: true` 時才會遮蔽它。實際影響：
+
+- 保護敏感欄位的方式是**只**在需要它們的許可權集中授予——絕不要指望某個許可權集裡的 `false` 規則去覆蓋別處的 `true`。
+- 把出現在廣泛授予的物件上的敏感欄位視為評審警訊。
+
+已宣告的規則本身以 fail-closed 方式強制執行：被遮蔽的欄位在讀取時被剝離，對不可編輯欄位的寫入會拋錯。
+
+## API 中的強制執行
+
+SecurityPlugin 中介軟體在服務端強制執行欄位規則，與請求來路無關——REST、ObjectQL 或任何其他路徑。不存在通過更底層 API 的後門。
+
+**讀取時**——`find` / `findOne` 的結果在響應離開引擎之前，會從每條記錄中剝離不可讀欄位。
+
+**寫入時**——`insert` / `update` 請求在操作到達驅動**之前**被檢查。如果請求體包含任何呼叫者無權編輯的欄位，引擎丟擲 `PermissionDeniedError`（HTTP 403），並附上違規欄位名：
+
+```json
+{
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "[Security] Field write denied: not permitted to edit [salary, ssn] on 'employee'",
+    "details": {
+      "operation": "insert",
+      "object": "employee",
+      "forbiddenFields": ["salary", "ssn"]
+    }
+  }
+}
+```
+
+**為什麼拋錯而不是靜默剝離？**靜默剝離對誠實的客戶端隱藏了安全邊界（它們的更新"存不上"卻不知道為什麼），*同時*對探測型客戶端也不給任何訊號。拋錯讓邊界在兩個方向上都可觀測——正當的 UI 得到可據以修復的錯誤；探測型客戶端學不到任何它本來推斷不出的東西。
+
+另外兩個強制執行細節：
+
+- **批次插入**逐行檢查；任意一行中出現一個違規欄位，整個批次會被原子性拒絕。
+- **系統操作**（`ExecutionContext { isSystem: true }`）完全繞過該檢查——用於遷移、種子資料載入和審計日誌寫入。
+
+## FLS 在表單和檢視中
+
+生成的表單和內聯表格會在 UI 中隱藏不可編輯欄位——但那只是 **UX 層**。上文的服務端檢查才是事實來源，因此行為在所有地方保持一致：
+
+| 介面 | 隱藏欄位 | 只讀欄位 |
+|---|---|---|
+| 記錄表單 / 內聯表格 | 不渲染 | 渲染但無可編輯控制元件；直接嘗試寫入會被 403 拒絕 |
+| 列表檢視、相關列表、匯出 | 列值從響應中剝離 | 值正常顯示 |
+| REST / ObjectQL | 從結果中剝離 | 讀取時返回；寫入丟擲帶 `forbiddenFields` 的 `PERMISSION_DENIED` |
+| MCP / AI Agent | 剝離——Agent [以呼叫使用者身份執行](/docs/configure/mcp#permission-enforcement) | 與 REST 相同 |
+
+由於讀取是剝離而不是報錯，隱藏欄位對該使用者來說就像不存在一樣——這正是目的所在。
+
+## 驗證與評審 FLS
+
+- **按判定、在執行時**——[解釋引擎](/docs/configure/permissions#diagnose--audit)會連同其他每一層一起報告 FLS 層的判定結果，並點名起作用的許可權集。當用戶反饋欄位"不見了"時用它。
+- **按變更、在構建時**——如果你的應用啟用了訪問矩陣快照門禁，`os compile` 會把推匯出的（許可權集 × 物件）能力矩陣與已提交的 `access-matrix.json` 做 diff，並在漂移時失敗，讓能力變更以可評審的語義 diff 形式隨 Pull Request 流轉：
+
+```bash
+os compile --update-access-matrix
+```
+
+> 當欄位承載敏感資料時，預設選**隱藏**而不是隻讀——只讀仍會把值洩漏進響應和日誌。把欄位規則打包進匹配真實職能的許可權集，併為合規場景配套審計日誌留存。更多編寫模式：[許可權集](/docs/configure/permissions/permission-sets#field-security-appendix)。
+
+## 下一步
+
+| 任務 | 頁面 |
+|---|---|
+| 在許可權集中編寫欄位規則 | [許可權集](/docs/configure/permissions/permission-sets) |
+| 控制哪些行完全可觸達 | [記錄訪問](/docs/configure/permissions/record-access) |
+| 縱覽整套分層模型 | [許可權](/docs/configure/permissions) |
+| 驗證某個使用者的訪問許可權 | [許可權分配](/docs/configure/permissions/managing-access) |
+| 檢查 AI Agent 能讀到什麼 | [接入 AI 工具（MCP）](/docs/configure/mcp) |

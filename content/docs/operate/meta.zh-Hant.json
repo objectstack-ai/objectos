@@ -1,0 +1,5 @@
+{
+  "title": "運維",
+  "defaultOpen": false,
+  "pages": ["index", "production", "observability", "audit-logs", "backup", "upgrade", "troubleshooting"]
+}

@@ -1,0 +1,143 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 工作流
+description: 把記錄的生命週期建模成狀態機 —— 合法狀態、帶守衛條件的遷移，其餘的交給流程。
+translation:
+  source_sha: e87f0ff97a1c1f9972cedc7b7eab08e5ecb22406add0a1087b31945e00965c53
+  guide_rev: 1
+  mode: auto
+---
+
+**工作流把記錄的生命週期建模為有限狀態機：記錄可以處於的狀態、在狀態間移動它的事件，以及移動成立所必須滿足的守衛條件。**當核心需求是"這個物件只能按這些事件在這些狀態間移動"時，就用它。
+
+不存在獨立的 Salesforce 式 Workflow Rule 編寫型別。舊的"工作流"概念被幹淨地一分為二：
+
+- **狀態機後設資料**負責嚴格的生命週期遷移 —— 即本頁。
+- **[流程](/docs/build/automation/flows)**負責事件觸發或定時的自動化，包括[審批](/docs/build/automation/approvals)暫停。
+
+## 工作流 vs 流程
+
+| | 工作流（狀態機） | 流程 |
+|---|---|---|
+| 建模 | *狀態* —— 記錄處於生命週期的哪裡 | *步驟* —— 某事發生時做什麼 |
+| 回答 | "此刻允許這個遷移嗎？" | "我們要對它做什麼？" |
+| 形態 | 狀態、遷移、守衛條件 | 節點與邊：觸發器、動作、分支 |
+| 副作用 | 無 —— 它只做約束 | 全都有 —— 郵件、更新、HTTP、等待 |
+
+兩者組合使用：狀態機約束遷移；當你需要通知、更新記錄或呼叫外部系統時，由流程執行遷移周邊的副作用。
+
+## 定義狀態機
+
+一個必須按 `new → assigned → resolved` 移動、且帶升級路徑的支援工單：
+
+```ts
+import type { StateMachineConfig } from '@objectstack/spec/automation';
+
+export const caseLifecycle: StateMachineConfig = {
+  id: 'case_lifecycle',
+  initial: 'new',
+  states: {
+    new: {
+      on: {
+        ASSIGN: { target: 'assigned' },
+      },
+    },
+    assigned: {
+      on: {
+        RESOLVE: { target: 'resolved', cond: 'has_resolution' },
+        ESCALATE: { target: 'escalated' },
+      },
+    },
+    escalated: {
+      on: {
+        RESOLVE: { target: 'resolved', cond: 'has_resolution' },
+      },
+    },
+    resolved: {
+      type: 'final',
+    },
+  },
+};
+```
+
+把它當契約來讀：`new` 狀態的工單隻能被分派。`assigned` 狀態的工單可以被解決 —— 但只有 `has_resolution` 守衛條件通過時 —— 或者被升級。`resolved` 是終態；再沒有什麼能移動它。
+
+## 解剖
+
+| 鍵 | 宣告什麼 |
+|---|---|
+| `id` | 狀態機的識別符號 |
+| `initial` | 每條新記錄的初始狀態 |
+| `states` | 狀態名 → 其出向遷移的對映 |
+| `on` | 該狀態響應的事件（`ASSIGN`、`RESOLVE`……） |
+| `target` | 事件把記錄移動到的狀態 |
+| `cond` | 遷移觸發前必須滿足的守衛條件 |
+| `type: 'final'` | 終態 —— 沒有出向遷移 |
+
+### 守衛條件
+
+守衛條件（`cond`）讓遷移帶上前提：上例中，只有當 `has_resolution` 成立時 `RESOLVE` 才能到達 `resolved`。守衛條件把"沒有解決方案就不能關單"編碼成結構性規則，而不是散落在 UI 程式碼裡的驗證。
+
+### 事件，而非欄位寫入
+
+遷移由具名**事件**（`ASSIGN`、`ESCALATE`）觸發，而不是對狀態欄位的任意編輯。這正是重點：狀態機定義了合法移動的完整集合，未宣告的一律不可能發生。
+
+> **提示：**保持狀態機最小 —— 狀態、遷移、守衛條件。一旦你想"然後再發封郵件"，你就已經離開了工作流的領地：把副作用放進一個響應該遷移的[流程](/docs/build/automation/flows)。
+
+## 副作用屬於流程
+
+狀態機只描述合法遷移與守衛條件 —— 別無其他。當某次遷移應該*做*點什麼（通知銷售、寫入關閉日期、呼叫外部系統）時，給狀態機配上一個由記錄變更觸發的流程：
+
+```ts
+export const dealClosedWon = defineFlow({
+  name: 'deal_closed_won',
+  type: 'record_change',
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      config: {
+        triggerType: 'record-after-update',
+        objectName: 'opportunity',
+        condition: "record.stage == 'closed_won' && previous.stage != 'closed_won'",
+      },
+    },
+    { id: 'set_closed_date', type: 'update_record', label: 'Set Closed Date' },
+    { id: 'notify_sales', type: 'notify', label: 'Notify Sales' },
+    { id: 'end', type: 'end' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'set_closed_date' },
+    { id: 'e2', source: 'set_closed_date', target: 'notify_sales' },
+    { id: 'e3', source: 'notify_sales', target: 'end' },
+  ],
+});
+```
+
+狀態機保證這筆交易是合法地*到達* `closed_won` 的；流程處理接下來發生的事。上面這樣的條件是 CEL 表示式 —— 見 [CEL](/docs/reference/cel)。
+
+## 從 Workflow Rules 遷移
+
+如果你來自有 Workflow Rules 的平臺，對照表如下：
+
+| 舊概念 | 當前對應 |
+|---|---|
+| Workflow Rule | 流程 |
+| 時間觸發器（"某日期前/後 N 天"） | 時間相對觸發器 —— 流程開始節點上的 `config.timeRelative`（16.0，見[流程](/docs/build/automation/flows)） |
+| 時間觸發器（固定時鐘） | 定時流程 |
+| 欄位更新動作 | `update_record` 節點 |
+| 郵件提醒 | `notify` 節點 |
+| HTTP 呼叫 | `http` 節點 |
+| Approval Process | 帶一個或多個 `approval` 節點的流程 |
+
+判斷標準：如果舊規則是"X 發生時，做 Y"，就建成一個小流程。如果它是"某日期欄位前/後 N 天，做 Y"，就宣告時間相對觸發器 —— 千萬別在記錄變更流程上寫日期相等條件，那種條件只有在記錄恰好被修改時才會求值。如果它是"這條記錄必須在受控狀態間移動"，就把生命週期建成狀態機，副作用交給流程。
+
+## 下一步
+
+| 頁面 | 原因 |
+|---|---|
+| [流程](/docs/build/automation/flows) | 遷移周邊的副作用 —— 觸發器、步驟、錯誤處理 |
+| [審批流程](/docs/build/automation/approvals) | 作為流程內暫停的人工籤核 |
+| [CEL 表示式](/docs/reference/cel) | 守衛條件與流程條件背後的語言 |
+| [資料建模](/docs/build/data) | 你正在約束其生命週期的物件 |
+| [自動化總覽](/docs/build/automation) | 選擇器：流程 vs 工作流 vs 審批 |
