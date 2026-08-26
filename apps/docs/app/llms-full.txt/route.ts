@@ -8,14 +8,16 @@ export const revalidate = false;
 /**
  * English only, by `AGENTS.md` rule 1 — English is the single source of truth
  * and every `*.<locale>.mdx` is a derived artifact. This is the same pin
- * `llms.txt` carries, for the same reason: `source.getPages()` and
- * `source.getPageTree()` alike filter by locale **only when a language is
- * passed** — called bare they list every language, which is how this route
- * once emitted all 335 pages across 7 locales (4.6 MB, the same page appearing
- * up to seven times) instead of the 79 English ones. Which of the two this
- * route enumerates has changed; that the argument is mandatory has not. The
- * locale text stays reachable per page through the `.mdx` rewrite and the
- * locale URLs announced at the end of `llms.txt`.
+ * `llms.txt` carries, for the same reason: `source.getPages()` lists every
+ * language when called without one, which is how this route once emitted all
+ * 335 pages across 7 locales (4.6 MB, the same page appearing up to seven
+ * times) instead of the 79 English ones. `source.getPageTree()`, which this
+ * route now walks, is passed the language too, for a different reason: the
+ * tree it returns is already per-locale, and it currently resolves to the
+ * default language when called bare — but nothing in the API contract
+ * promises that, so the argument stays explicit rather than relying on an
+ * unstated default. The locale text stays reachable per page through the
+ * `.mdx` rewrite and the locale URLs announced at the end of `llms.txt`.
  */
 const LANG = i18n.defaultLanguage;
 
