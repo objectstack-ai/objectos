@@ -5,6 +5,28 @@ import { i18n } from '@/lib/i18n';
 const LOCALE_COOKIE = 'FD_LOCALE';
 
 /**
+ * The canonical docs host, and the legacy host that redirects to it.
+ *
+ * `CANONICAL_HOST` holds the same value as `SITE_URL` in `lib/seo.ts`, written
+ * out a second time on purpose. This file runs in the **edge runtime**, and
+ * `lib/seo.ts` imports `lib/source.ts` — so importing the constant from there
+ * would pull the fumadocs loader and all 413 compiled MDX modules into this
+ * bundle. Measured on this tree: the edge bundle goes from 149 KB to 14.7 MB of
+ * JavaScript, and `next build` still exits 0, so nothing in CI would say so.
+ *
+ * Two copies of one hostname is the smaller cost, and the copy belongs on this
+ * side: this redirect answers "which host is canonical" for every request
+ * before any page code runs, and that answer should not depend on the module
+ * graph that builds pages. Collapsing the two would take a leaf module both
+ * runtimes can import — not an import from `lib/seo.ts`.
+ *
+ * Nothing enforces that the two agree. That is the residual cost of the
+ * decision, stated here so it is visible rather than discovered.
+ */
+const CANONICAL_HOST = 'docs.objectos.ai';
+const LEGACY_HOST = 'www.objectos.app';
+
+/**
  * Supported languages extracted from i18n configuration
  */
 const SUPPORTED_LANGUAGES = i18n.languages as readonly string[];
@@ -101,12 +123,12 @@ function getPreferredLanguage(request: NextRequest): string {
  * - Stores language preference as a cookie
  */
 export default function middleware(request: NextRequest) {
-  // Canonical domain redirect: legacy docs host -> docs.objectos.ai (permanent).
+  // Canonical domain redirect: legacy docs host -> canonical host (permanent).
   const host = request.headers.get('host');
-  if (host === 'www.objectos.app') {
+  if (host === LEGACY_HOST) {
     const target = new URL(request.url);
     target.protocol = 'https:';
-    target.host = 'docs.objectos.ai';
+    target.host = CANONICAL_HOST;
     target.port = '';
     return NextResponse.redirect(target, 308);
   }
