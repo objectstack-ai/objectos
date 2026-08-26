@@ -40,9 +40,25 @@ function seoTitleOf(page: DocsPageData): string {
   return page.data.seoTitle ?? page.data.title;
 }
 
-/** Absolute URL of the generated 1200x630 share card for a page. */
-function shareCardUrl(page: DocsPageData): string {
-  return `${SITE_URL}${getPageImage(page).url}`;
+/**
+ * Absolute URL of the generated 1200x630 share card for a page, in the language
+ * the card should be rendered in.
+ *
+ * `lang` here is the *content* locale, not `params.lang` — the same resolution
+ * `canonical` and `og:url` already use. On a route whose locale has no
+ * translation the body being served is the English page, so the card that
+ * depicts it is the English card, and asking for a `ja` card would produce a
+ * second URL rendering identical English pixels. That is worse than wasteful:
+ * `og:image` sits beside an `og:url` naming the English page, so a card URL
+ * claiming to be the Japanese one would contradict the object it illustrates.
+ *
+ * This also makes the fallback rule and the cost ceiling the same rule. Cards
+ * are enumerated over `translatedLocales`, so resolving the URL through
+ * `canonicalLocale` is what keeps an English-only page pointing at the one card
+ * that exists for it rather than at six that were never generated.
+ */
+function shareCardUrl(page: DocsPageData, lang: string): string {
+  return `${SITE_URL}${getPageImage(page, lang).url}`;
 }
 
 /**
@@ -209,7 +225,7 @@ export default async function Page(props: {
       title: seoTitleOf(page),
       description: page.data.description,
       url: localeUrl(contentLang, docsPath(page.slugs)),
-      image: shareCardUrl(page),
+      image: shareCardUrl(page, contentLang),
     }),
   ];
 
@@ -273,7 +289,10 @@ export async function generateMetadata(props: {
   const canonical = localeUrl(contentLang, path);
   const title = seoTitleOf(page);
   const description = page.data.description;
-  const image = shareCardUrl(page);
+  // Rendered in `contentLang`, matching `title`/`description` above: the loader
+  // already resolved those through the same fallback, so the card's text and
+  // the metadata's text are the same strings in the same language.
+  const image = shareCardUrl(page, contentLang);
 
   return {
     title,
