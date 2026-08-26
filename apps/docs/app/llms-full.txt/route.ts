@@ -1,3 +1,4 @@
+import { flattenTree } from 'fumadocs-core/page-tree';
 import { i18n } from '@/lib/i18n';
 import { SITE_URL } from '@/lib/seo';
 import { getLLMText, source } from '@/lib/source';
@@ -7,12 +8,14 @@ export const revalidate = false;
 /**
  * English only, by `AGENTS.md` rule 1 — English is the single source of truth
  * and every `*.<locale>.mdx` is a derived artifact. This is the same pin
- * `llms.txt` carries, for the same reason: `source.getPages()` filters by
- * locale **only when a language is passed** — called bare it returns every
- * language's page set concatenated, so this route used to emit all 335 pages
- * across 7 locales (4.6 MB, the same page appearing up to seven times) instead
- * of the 79 English ones. The locale text stays reachable per page through the
- * `.mdx` rewrite and the locale URLs announced at the end of `llms.txt`.
+ * `llms.txt` carries, for the same reason: `source.getPages()` and
+ * `source.getPageTree()` alike filter by locale **only when a language is
+ * passed** — called bare they list every language, which is how this route
+ * once emitted all 335 pages across 7 locales (4.6 MB, the same page appearing
+ * up to seven times) instead of the 79 English ones. Which of the two this
+ * route enumerates has changed; that the argument is mandatory has not. The
+ * locale text stays reachable per page through the `.mdx` rewrite and the
+ * locale URLs announced at the end of `llms.txt`.
  */
 const LANG = i18n.defaultLanguage;
 
@@ -71,17 +74,63 @@ function absoluteLinks(text: string, pageUrl: string): string {
   return lines.join('\n');
 }
 
+/**
+ * Every English page, in the order the site navigation puts them.
+ *
+ * `source.getPages(LANG)` — what this route used to enumerate — hands back
+ * pages in whatever order the loader finished reading them. That is stable
+ * within one build and not across builds: two consecutive builds of an
+ * untouched tree emitted this file with the whole `configure/` group and the
+ * whole `deploy/` group swapped, so the bytes changed for the same 79 pages
+ * and nothing in the repository had moved.
+ *
+ * The repair is not "sort it". Unlike `sitemap.xml`, where entry order carries
+ * nothing to a crawler, **the order pages appear in here is read** — this file
+ * is one long document. So a deterministic order is necessary and not
+ * sufficient: alphabetical would be reproducible and *worse* than the accident
+ * it replaced, scattering `build/`, `deploy/` and `operate/` through a flat
+ * A-to-Z list.
+ *
+ * `source.getPageTree(LANG)` is `meta.json` order, which is the site
+ * navigation, which is the order a reader of these pages already knows. It is
+ * also what `llms.txt` already walks, so the index and the full text now agree
+ * on sequence instead of contradicting each other. Reproducibility follows
+ * from fixing the meaning rather than the other way round.
+ *
+ * Membership is unchanged. `flattenTree` yields a folder's index page followed
+ * by its children, recursively, and every one of the 79 English pages is
+ * reachable from a `meta.json`. What decides membership is now the tree rather
+ * than the file system — the same rule the sidebar and `llms.txt` already
+ * follow, so a page that no `meta.json` lists is absent from all three
+ * together rather than from two of them quietly.
+ */
+function navigationPages() {
+  return flattenTree(source.getPageTree(LANG).children).map((node) => {
+    const page = source.getNodePage(node, LANG);
+
+    // Unreachable unless fumadocs hands back a page node whose `$ref` resolves
+    // to nothing. Loud on purpose: the alternative is a page dropping out of
+    // this file without a trace, which is a worse defect than the ordering one
+    // this function exists to fix.
+    if (!page) {
+      throw new Error(
+        `llms-full.txt: page tree node ${String(node.$id ?? node.url)} resolves to no page`,
+      );
+    }
+
+    return page;
+  });
+}
+
 export async function GET() {
   // Each page is rewritten against its own URL rather than the joined body
   // against the site root: `./objectql` means something different on
   // `/docs/reference/cel` than it does three sections away, and a page whose
   // text left a code fence unclosed cannot then leak that state into the next
   // page's links.
-  const scan = source
-    .getPages(LANG)
-    .map(async (page) =>
-      absoluteLinks(await getLLMText(page), `${SITE_URL}${page.url}`),
-    );
+  const scan = navigationPages().map(async (page) =>
+    absoluteLinks(await getLLMText(page), `${SITE_URL}${page.url}`),
+  );
   const scanned = await Promise.all(scan);
 
   return new Response(scanned.join('\n\n'));
