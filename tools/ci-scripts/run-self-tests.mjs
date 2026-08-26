@@ -45,6 +45,15 @@
  * running them for real would make the required `build` job fail on the
  * corpus's translation debt — which is the `Translations` workflow's job, and
  * reported-not-blocking there by design.
+ *
+ * ## Self-test here, gate in the workflow
+ *
+ * `check-locale-surface.mjs` is listed here for its `--self-test` only. Its
+ * gate mode reads `apps/docs/.next/`, another package's build output, which
+ * this task's inputs do not and should not hash — a locale gate replaying a
+ * cached green is the exact failure it exists to end. So `ci.yml` invokes the
+ * gate itself as a step after `pnpm turbo run build`, and what runs here is
+ * the fixture-driven proof that its rules can still go red.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -57,7 +66,11 @@ const ROOT = resolve(HERE, '../..');
 const SCRIPTS = join(ROOT, '.github/scripts');
 
 /** Scripts whose `--self-test` mode this step runs. Never let this go empty. */
-const SELF_TESTED = ['check-translation-output.mjs', 'check-node-floor.mjs'];
+const SELF_TESTED = [
+  'check-translation-output.mjs',
+  'check-node-floor.mjs',
+  'check-locale-surface.mjs',
+];
 
 /**
  * The argv dispatch, in the two shapes the scripts here use: a quoted
