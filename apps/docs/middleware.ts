@@ -42,20 +42,34 @@ function setLocaleCookie(response: NextResponse, locale: string): void {
 }
 
 /**
- * Language code mapping
- * Maps browser language codes to our supported language codes
+ * Tags whose correct locale is NOT the one BCP 47 truncation would reach.
+ *
+ * This is an exceptions list, not a catalogue of browser tags. Truncation
+ * (see `resolveSupportedLanguage`) already resolves every tag whose answer is
+ * its own base language: `de-AT` reaches `de`, `ja-JP` reaches `ja`, `ko-KR`
+ * reaches `ko`, `zh-Hans-CN` reaches `zh-Hans`. Rows for those are not
+ * shorthand, they are noise — and they teach the next reader that region tags
+ * belong in this table, which is how `de-AT`, `fr-CA`, `es-MX` and `ja-JP`
+ * came to negotiate to English while four translated locales sat unused.
+ * Enumerating them is a set with no end (#217).
+ *
+ * What is left is the one decision truncation cannot make, because the
+ * information is not in the tag:
+ *
+ *   - `zh` on its own is not a supported tag at all, and the house answer for
+ *     unqualified Chinese is Simplified.
+ *   - `zh-TW` / `zh-HK` / `zh-MO` name a region that implies the Traditional
+ *     script. Truncation would drop the region, reach `zh`, and hand back
+ *     Simplified — a wrong answer rather than an absent one.
+ *
+ * Add a row here only when the mechanical answer is WRONG. If it is merely
+ * missing, the fix belongs in `i18n.languages`, not here.
  */
 const LANGUAGE_MAPPING: Record<string, string> = {
-  'zh': 'zh-Hans',      // Chinese -> Simplified
-  'zh-CN': 'zh-Hans',   // Chinese (China) -> Simplified
-  'zh-SG': 'zh-Hans',   // Chinese (Singapore) -> Simplified
-  'zh-Hans': 'zh-Hans', // already Simplified
-  'zh-Hant': 'zh-Hant', // already Traditional
-  'zh-TW': 'zh-Hant',   // Chinese (Taiwan) -> Traditional
-  'zh-HK': 'zh-Hant',   // Chinese (Hong Kong) -> Traditional
-  'zh-MO': 'zh-Hant',   // Chinese (Macau) -> Traditional
-  'ko': 'ko',           // Korean
-  'ko-KR': 'ko',        // Korean (Korea) -> Korean
+  'zh': 'zh-Hans',    // unqualified Chinese -> Simplified (house default)
+  'zh-TW': 'zh-Hant', // Taiwan    -> Traditional
+  'zh-HK': 'zh-Hant', // Hong Kong -> Traditional
+  'zh-MO': 'zh-Hant', // Macau     -> Traditional
 };
 
 /**
@@ -67,21 +81,61 @@ const LEGACY_LOCALE_REDIRECTS: Record<string, string> = {
 };
 
 /**
- * Normalize language code to match our supported languages
+ * Resolve one browser language tag to a supported locale, or `undefined` when
+ * the tag names nothing we publish.
+ *
+ * BCP 47 truncation, as RFC 4647 section 3.4 defines lookup: try the whole
+ * tag, drop the last subtag, repeat — `zh-Hant-TW`, then `zh-Hant`, then `zh`.
+ *
+ * The function this replaced took two shots only: the exact tag, and the
+ * substring before the first hyphen. Since `LANGUAGE_MAPPING` held nothing but
+ * Chinese and Korean, `de-AT`, `fr-CA`, `es-MX` and `ja-JP` missed both and
+ * fell through to English — four locales we translate, unreachable. And
+ * `zh-Hant-TW`, whose MIDDLE subtag names the script, skipped straight past
+ * `zh-Hant` to `zh` and landed on Simplified. Most browsers send
+ * `de-AT,de;q=0.9`, and the bare `de` in the second list entry rescued them,
+ * which is why this survived unnoticed (#217).
+ *
+ * Two orderings decide every answer here, and both are settled on purpose
+ * rather than by accident:
+ *
+ * 1. **Most specific first.** The walk runs long to short, so `zh-Hant-TW`
+ *    reaches `zh-Hant` before it can reach `zh`. Short to long would answer
+ *    Simplified for every Traditional tag that carries a region.
+ *
+ * 2. **The table beats truncation, at every step of the walk.**
+ *    `LANGUAGE_MAPPING` is a ruling about what a tag MEANS; truncation is the
+ *    mechanical default for tags nobody has ruled on. Where the two disagree
+ *    the ruling wins — that is what keeps `zh-TW` on Traditional instead of
+ *    the Simplified that dropping `TW` would reach. Consulting the table at
+ *    every step, not only on the full tag, is also what lets a longer tag
+ *    built on a ruled one (`zh-TW-x-anything`) still land on Traditional.
+ *
+ * Both paths leave through the same check against `i18n.languages`, and that
+ * check is the only exit from this function. Neither mechanism can hand back a
+ * locale the site does not publish: truncation manufactures strings from
+ * whatever the client sent (`xx`, `tlh`), and a table row outliving the locale
+ * it names would do the same. Either one would otherwise produce a redirect to
+ * a path that 404s.
+ *
+ * Matching is case-sensitive, so a client that lowercases its tags still
+ * misses the Chinese rows (`zh-tw` reaches Simplified). Pre-existing and
+ * unchanged by the truncation walk; measured on both sides of it and filed
+ * as #220.
  */
-function normalizeLanguage(lang: string): string {
-  // Check direct mapping first
-  if (LANGUAGE_MAPPING[lang]) {
-    return LANGUAGE_MAPPING[lang];
+function resolveSupportedLanguage(tag: string): string | undefined {
+  const subtags = tag.split('-');
+
+  for (let length = subtags.length; length > 0; length -= 1) {
+    const candidate = subtags.slice(0, length).join('-');
+
+    const ruled = LANGUAGE_MAPPING[candidate];
+    if (ruled && SUPPORTED_LANGUAGES.includes(ruled)) return ruled;
+
+    if (SUPPORTED_LANGUAGES.includes(candidate)) return candidate;
   }
-  
-  // Check if the base language (without region) is mapped
-  const baseLang = lang.split('-')[0];
-  if (LANGUAGE_MAPPING[baseLang]) {
-    return LANGUAGE_MAPPING[baseLang];
-  }
-  
-  return lang;
+
+  return undefined;
 }
 
 /**
@@ -94,21 +148,18 @@ function getPreferredLanguage(request: NextRequest): string {
     return cookieLocale;
   }
 
-  // Then check Accept-Language header
+  // Then the Accept-Language header, in the browser's own order of preference.
+  // The first tag that resolves to a supported locale wins; a tag that
+  // resolves to nothing is skipped rather than ending the search, so
+  // `xx-YY,de` still reaches German.
   const negotiatorHeaders = Object.fromEntries(request.headers.entries());
   const negotiator = new Negotiator({ headers: negotiatorHeaders });
-  const browserLanguages = negotiator.languages();
-  
-  // Normalize browser languages to match our supported languages
-  const normalizedLanguages = browserLanguages.map(normalizeLanguage);
-  
-  // Find the first match
-  for (const lang of normalizedLanguages) {
-    if (SUPPORTED_LANGUAGES.includes(lang)) {
-      return lang;
-    }
+
+  for (const tag of negotiator.languages()) {
+    const supported = resolveSupportedLanguage(tag);
+    if (supported) return supported;
   }
-  
+
   return i18n.defaultLanguage;
 }
 
