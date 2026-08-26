@@ -1,0 +1,212 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 術語表
+description: ObjectOS 與 ObjectStack 通用詞彙 —— 每個一條定義。
+translation:
+  source_sha: b7904d8f61e8f9b0bea68a073206f0af8bd20228a7c8fe8da68e6cc3ac4550e6
+  guide_rev: 1
+  mode: auto
+---
+
+本文件使用的每個術語都給出一個權威定義。
+
+### Artifact（產物）
+
+編譯後的 `objectstack.json` 檔案。對一個應用的自包含、不可變描述 ——
+manifest、物件、檢視、應用、流程、許可權、翻譯。由 `os compile` 產生。
+ObjectOS 實際執行的就是它。
+
+### Action
+
+在後設資料中宣告的命名操作，可通過 REST
+（`/api/v1/data/<object>/actions/<action>`）、Console 按鈕或流程
+步驟呼叫。繼承呼叫者的許可權。
+
+### Adapter
+
+把 ObjectStack 整合到宿主執行時的框架包 —— Express、Fastify、Hono、
+Next.js、Nuxt、SvelteKit、NestJS。大多數 ObjectOS 部署不需要 adapter;
+ObjectOS 自帶 HTTP 伺服器。
+
+### App
+
+把物件 + 檢視 + 許可權打包成一個在 Console 中可導航的應用。同一個
+執行時中可以共存多個 App（如 CRM + Helpdesk + Setup）。
+
+### Better Auth
+
+為 `@objectstack/plugin-auth` 提供動力的認證庫。你不直接配置
+Better Auth;外掛會做封裝。
+
+### Capability（能力）
+
+產物在其 `requires` 列表中宣告的可選執行時特性。對應一個包 —— 例如
+`audit` → `@objectstack/plugin-audit`。由 ObjectOS 按需載入。見
+[執行時能力](/docs/reference/runtime-capabilities)。
+
+### CEL
+
+[Common Expression Language](https://github.com/google/cel-spec) ——
+Google 的安全沙箱表示式語法。用於公式、校驗規則、許可權謂詞、共享
+規則與流程條件。
+
+### Console
+
+位於 `/_console/` 的系統 UI —— 管理使用者、角色、許可權集、審計日誌、
+會話、API key、系統設定。與 Console（業務 UI）有區別。
+
+### Control Plane（控制面）
+
+可選服務，將版本化的產物分發給 ObjectOS 例項。可用 ObjectStack
+Cloud 託管或自行部署。大多數部署不需要它 —— 單應用生產場景下，
+檔案掛載模式即可。
+
+### Driver（驅動）
+
+資料後端實現：`driver-sql`（Postgres、MySQL、SQLite、Turso/libSQL）、
+`driver-mongodb`、`driver-memory`。啟動時按資料庫 URL 選擇。
+
+### Embedder
+
+把文本轉成向量供 RAG / 語義檢索使用的服務。跨 provider 可插拔
+（OpenAI、Azure、矽基流動、Ollama……）。見
+[AI 服務](/docs/configure/ai)。
+
+### Environment
+
+按租戶隔離的執行時例項，背後有各自的資料庫與身份。在 v4.x 中
+有時仍稱 *Project*（保留別名）。v5.0 在 CLI、HTTP、環境變數、
+schema 中統一為 *Environment*。
+
+### Field（欄位）
+
+物件上的有型別屬性。約 48 種內建型別：`text`、`select`、`lookup`、
+`markdown`、`file`、`formula`、`summary` 等。見
+[資料模型](/docs/build/data)。
+
+### Flow（流程）
+
+宣告式業務邏輯 —— 自動觸發（記錄觸發器）、定時（cron）或手動
+（按鈕 / API）。以 DAG 執行，支援 condition/loop/retry/parallel
+等原語。見 [流程與自動化](/docs/build/automation/flows)。
+
+### Formula field（公式欄位）
+
+值為 CEL 表示式、讀取時計算的欄位，不儲存。
+
+### Hook
+
+注入到物件生命週期的函式（`beforeInsert`、`afterUpdate`……）。
+用 TypeScript 編寫。與流程不同：Hook 是一等程式碼，流程是後設資料。
+
+### Kernel（核心）
+
+ObjectOS 內部的微核心，負責載入外掛、持有 DI 容器、分發事件，
+併為單個 Environment 提供後設資料服務。一個程序可在 LRU 中快取
+多個核心（每個 Environment 一個）。
+
+### Manifest
+
+產物頭部的頂層後設資料：`id`、`namespace`、`version`、`type`
+（`app` / `plugin` / `service`）、`name`、`description`、
+`requires` 列表。
+
+### Marketplace（應用市場）
+
+Console 內可安裝應用的目錄。背後由可配置的包註冊中心支援。見
+[應用市場](/docs/build/marketplace)。
+
+### MCP（Model Context Protocol）
+
+一個開放協議，讓 AI 智慧體發現並呼叫工具。ObjectOS 可以通過
+`@objectstack/mcp` 把物件 + action 暴露為 MCP。
+
+### Object（物件）
+
+有型別的業務實體 —— `task`、`account`、`invoice`。以 TypeScript
+schema 宣告;自動生成 REST API、Console 檢視、審計條目與 RBAC 檢查
+點。見 [資料模型](/docs/build/data)。
+
+### ObjectOS
+
+執行時 —— 一個對外服務你應用的 Node.js 程序。開源，Apache-2.0。
+**本文件站點就是 ObjectOS 的文件。**
+
+### ObjectQL
+
+資料層協議與查詢引擎。把宣告式查詢編譯成原生 SQL / Mongo 查詢。
+REST 端點、Console、流程都用同一套引擎。
+
+### ObjectStack
+
+總稱專案：框架（`@objectstack/*` npm 包）、執行時（ObjectOS）、
+可選雲服務，以及應用市場。有時也稱 "平臺"。
+
+### ObjectUI
+
+檢視層協議 —— App、View、Page、Dashboard、Action、Chart、導航。
+Console 渲染 ObjectUI 宣告。
+
+### Permission Set（許可權集）
+
+一組授權的捆綁 —— 物件許可權、欄位許可權、系統許可權。可直接掛到使用者
+上，也可經由角色掛載。授權的主單元。見
+[許可權](/docs/configure/permissions)。
+
+### Plugin（外掛）
+
+為執行時擴充套件能力的框架包 —— `plugin-auth`、`plugin-security`、
+`plugin-audit`、`plugin-webhooks`、`mcp` 等。通過
+DI + 生命週期 Hook（`init → start → destroy`）啟用。
+
+### Project
+
+**Environment** 的舊名。在 v4.x 的 CLI/環境變數中仍可用（已別名化）。
+v5.0 中移除。
+
+### Record Share（記錄共享）
+
+把對某條記錄的訪問直接授予某個使用者 / 角色 / 使用者組。以
+`sys_record_share` 行儲存。與共享規則（宣告式條件）不同。
+
+### Sharing Rule（共享規則）
+
+基於條件授予記錄訪問的宣告式規則（"區域經理可以看到本區域的
+記錄"）。查詢時求值，編譯為行級過濾條件。
+
+### Console
+
+位於 `/_console/` 的業務 UI —— 瀏覽、建立、編輯記錄，配置檢視，
+從應用市場安裝應用。與 Console（系統 UI）有區別。
+
+### Surface（表面）
+
+執行中的 ObjectOS 暴露的四類 HTTP 入口之一：`/`（REST API）、
+`/_console/`、`/_account/`、`/_console/`。
+
+### System Context（系統上下文）
+
+供外掛、Hook 與種子指令碼繞過安全檢查所用的內部執行模式。可審計;
+不暴露給使用者程式碼。
+
+### Tenant（租戶）
+
+多租戶部署中的邏輯隔離邊界。一個租戶通常對映為一個 Environment。
+Cookie 與會話按主機名作用域;資料按 Environment 作用域。
+
+### Trigger（觸發器）
+
+觸發流程的條件 —— 記錄事件（`after_insert`）、排程（cron）或手動
+呼叫。
+
+### View（檢視）
+
+繫結到物件上的宣告式 UI 配置 —— list、form、kanban、calendar、
+gantt。由 Console 渲染，你不需要寫元件。
+
+### Zod schema
+
+`@objectstack/spec` 使用的執行時 + 編譯期型別系統。每一個物件、
+欄位、檢視、應用、流程都會被一個 Zod schema 解析與校驗。JSON
+Schema、TypeScript 型別與 REST 請求校驗器都從同一份 Zod 定義
+派生。

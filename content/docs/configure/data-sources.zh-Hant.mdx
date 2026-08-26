@@ -1,0 +1,216 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 資料來源
+description: 把 ObjectOS 接入你現有的業務資料庫,路由物件,並讓 AI 原生地查詢這些資料。
+translation:
+  source_sha: c1e0954576877e1498f592a5b73c5848b9cefbfe3e27a962bd809d3b2db132b9
+  guide_rev: 1
+  mode: auto
+---
+
+**資料來源(datasource)** 是一個指向外部資料儲存的具名連線。通過宣告資料來源,
+你可以把 ObjectOS 指向企業本就在執行的資料庫 —— 生產環境的 PostgreSQL、
+做報表的 MySQL 只讀副本、MongoDB 叢集 —— 然後把物件繫結到它們之上。物件一旦
+繫結,平臺裡的其它一切(REST/GraphQL API、許可權、流程、儀表盤,以及 **AI Agent**)
+都會統一地作用於這些資料,而不關心資料物理上存在哪裡。
+
+這是 ObjectOS 最實用的落地路徑之一:你不必遷移遺留系統,而是連上它、把你關心
+的表建模成物件,再在**保持資料原地不動**的前提下,為它疊加 AI 原生能力 ——
+對話、分析、自動化。
+
+## 資料來源是什麼
+
+每個資料來源都是由 `DatasourceSchema` 校驗的普通物件。核心欄位:
+
+| 欄位 | 用途 |
+|---|---|
+| `name` | 物件引用的唯一標識(`^[a-z_][a-z0-9_]*$`) |
+| `label` | 可讀的展示名 |
+| `driver` | 處理連線的驅動(`postgres`、`mysql`、`sqlite`、`mongodb`、`memory`,或外掛貢獻的驅動) |
+| `config` | 驅動相關的連線設定(host、database、憑據……) |
+| `pool` | 連線池大小(`min`、`max`、超時) |
+| `readReplicas` | 可選的只讀副本配置 |
+| `capabilities` | 覆蓋驅動宣告的可下推能力 |
+| `healthCheck` | 存活探測的間隔/超時 |
+| `active` | 連線是否啟用 |
+
+已釋出的驅動:
+
+| 驅動包 | `driver` | 後端 |
+|---|---|---|
+| `@objectstack/driver-sql` | `postgres`、`mysql`、`sqlite` | PostgreSQL、MySQL、SQLite(經 knex) |
+| `@objectstack/driver-mongodb` | `mongodb` | MongoDB |
+| `@objectstack/driver-memory` | `memory` | 程序內(測試、演示) |
+| `@objectstack/driver-sqlite-wasm` | `sqlite`(WASM) | WebContainer / 瀏覽器中的 SQLite |
+
+## 宣告資料來源
+
+資料來源宣告在 stack 上,並由 `defineStack` 彙編。把每個連線定義成一個帶型別的
+`Datasource` 物件,再列入 `datasources`:
+
+```ts
+// src/datasources/business.datasource.ts
+import type { Datasource } from '@objectstack/spec';
+
+// 连接一个【已有的】生产数据库。凭据来自环境变量 —— 切勿把密钥写死在源码里。
+export const BusinessDb: Datasource = {
+  name: 'business_primary',
+  label: 'Business System (Postgres)',
+  driver: 'postgres',
+  config: {
+    connection: {
+      host: process.env.BIZ_DB_HOST,
+      port: Number(process.env.BIZ_DB_PORT ?? 5432),
+      user: process.env.BIZ_DB_USER,
+      password: process.env.BIZ_DB_PASSWORD,
+      database: process.env.BIZ_DB_NAME,
+    },
+  },
+  pool: { min: 1, max: 10 },
+  active: true,
+};
+```
+
+```ts
+// objectstack.config.ts
+import { defineStack } from '@objectstack/spec';
+import * as objects from './src/objects/index.js';
+import { BusinessDb } from './src/datasources/business.datasource.js';
+
+export default defineStack({
+  manifest: { id: 'app.example.crm-extend', namespace: 'biz', version: '1.0.0' },
+  datasources: [BusinessDb],
+  objects: Object.values(objects),
+});
+```
+
+> **不存在** `defineDatasource()` 這樣的輔助函式。資料來源就是你放進 `datasources`
+> 數組裡的一個 `Datasource` 物件 —— 與框架倉庫裡 `examples/app-crm` stack 的做法
+> 完全一致。
+
+## 把物件繫結到資料來源
+
+每個物件都有 `datasource` 欄位,預設是 `'default'`(主資料庫)。把它設為你已連線
+的某個系統,即可路由特定物件:
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Customer = ObjectSchema.create({
+  name: 'biz_customer',
+  label: 'Customer',
+  datasource: 'business_primary', // ← 读写都走业务库
+  fields: {
+    name:  Field.text({ label: 'Name', required: true }),
+    email: Field.text({ label: 'Email' }),
+    tier:  Field.select({ label: 'Tier', options: [/* … */] }),
+  },
+});
+```
+
+### 用 `datasourceMapping` 做集中路由
+
+逐個繫結物件適合少量場景。要路由整個名稱空間或包,就在 stack 上宣告一次路由規則。
+規則按順序(或按 `priority`)求值,首個命中者生效:
+
+```ts
+export default defineStack({
+  datasources: [BusinessDb, AnalyticsReplica],
+  datasourceMapping: [
+    { namespace: 'biz',            datasource: 'business_primary' },
+    { objectPattern: 'report_*',   datasource: 'analytics_replica' },
+    { package: 'com.example.logs', datasource: 'business_primary' },
+    { default: true,               datasource: 'default' },
+  ],
+});
+```
+
+規則可按 `namespace`、`package`、`objectPattern`(glob)或 `default` 匹配,並指定
+目標 `datasource`。這樣資料駐留的決策集中在一處,而不是散落在各個物件檔案裡。
+
+## 從既有表生成物件
+
+你不必為每張表手寫物件。如今把遺留 schema 引入 ObjectOS 最快的方式,是**用編碼
+Agent(Claude Code)掃描業務表並生成原始碼級的物件定義** —— 每張表一個
+`*.object.ts` 檔案,形態正是框架所期望的。
+
+[`hotcrm`](https://github.com/objectstack-ai/hotcrm) 參考應用就是這種形態的範例:
+每張表是一個 `src/objects/<name>.object.ts` 檔案,用 `ObjectSchema.create({ … })`
+加 `Field.*` 定義,全部由 `defineStack` 彙編。典型流程:
+
+1. **連線**業務資料庫為資料來源(見上)。
+2. **讓 Claude Code 對準 schema。** 讓它內省已連線的資料庫 —— 表名、列、型別、
+   外部索引鍵 —— 為每張表生成一個 `ObjectSchema.create` 檔案,把 SQL 列對映到 `Field.*`
+   型別、把外部索引鍵對映到 `Field.lookup(...)`。給每個物件設好 `datasource`(或交給
+   `datasourceMapping`)。
+3. **審閱與打磨**生成的物件 —— 補上 label、欄位分組、校驗與許可權。產物就是你擁有
+   並提交的普通原始碼,和 `hotcrm/src/objects/*.object.ts` 一樣。
+4. **執行。** 這些物件此刻便通過繫結的資料來源讀寫你既有的表。
+
+因為生成的物件是普通原始碼,你擁有完全的控制權:保留合適的、丟棄不想暴露的列,並在
+一個平臺從不需要擁有的資料庫之上疊加 ObjectOS 的能力(歷史追蹤、活動、共享規則)。
+
+## 能力感知的查詢下推
+
+每個資料來源都會宣告 `DatasourceCapabilities` —— 是否支援過濾、排序、分頁、聚合、
+連線、全文檢索、事務等。ObjectQL 據此決定哪些**下推**到資料庫、哪些在記憶體中求值:
+
+| 能力 | 支援時的效果 |
+|---|---|
+| `queryFilters` | `WHERE` 子句在資料庫執行 |
+| `querySorting` / `queryPagination` | `ORDER BY` / `LIMIT` 在服務端執行 |
+| `queryAggregations` | `GROUP BY` / 聚合在服務端執行 |
+| `joins` | 關聯物件的連線在服務端執行 |
+| `fullTextSearch` | 檢索命中原生索引 |
+| `readOnly` | 該連線拒絕寫入 |
+
+一個能力完備的 SQL 資料來源幾乎能把所有操作下推;能力受限或只讀的資料來源得到相同的
+查詢結果,只是引擎要多做一些工作。當你比驅動更清楚時,可通過 `capabilities` 欄位
+按資料來源覆蓋其宣告的能力集。
+
+## 在已連線資料上用 AI
+
+一旦表被建模為物件,**AI 層就免費可用**。ObjectOS 的 Agent 與工具 ——
+`list_objects`、`describe_object`、`query_records`、`aggregate_data` 以及
+data-chat agent —— 都經由 ObjectQL,後者會把每個物件路由到它繫結的資料來源。這意味著:
+
+- 使用者可以用**自然語言提問**那些存放在遺留業務系統裡的資料,答案是針對真實記錄
+  計算出來的。
+- 工具呼叫與查詢遵守**呼叫者本人的許可權** —— AI 永遠看不到超出登入使用者被允許範圍
+  的內容。
+- 不論物件由主資料庫還是外部業務系統支撐,同一批 Agent、流程、儀表盤都照常工作。
+
+參見 [AI 服務](/docs/configure/ai) 與 [AI Agent](/docs/build/agents) 瞭解如何接好
+對話與 Agent 層,以及 [執行時](/docs/configure/runtime) 瞭解支撐 `default` 資料來源
+的主資料庫配置。
+
+## 安全須知
+
+- **切勿把憑據寫死。** 像上面那樣從環境變數(或金鑰管理器)讀取 host/user/password。
+- **對不打算寫入的系統使用只讀連線** —— 設定資料來源的 `readOnly` 能力(或使用只讀
+  的資料庫賬號),讓誤寫無法觸及生產。
+- **用許可權收口。** 物件級與欄位級許可權對已連線資料的約束,與原生物件完全一致。
+
+## 路線圖:產品內建的外部資料來源聯邦
+
+上面的流程 —— 連線資料庫、建模物件、用編碼 Agent 生成 —— 藉助已釋出的能力今天就
+能用。更完善的**一鍵式聯邦**體驗正在
+[ADR-0015](https://github.com/objectstack-ai/objectstack/blob/main/docs/adr/0015-external-datasource-federation.md)
+下積極設計中(狀態:*Proposed*)。計劃中、**尚未釋出**的內容:
+
+- `schemaMode`(`managed` / `external` / `validate-only`),讓 ObjectOS 能繫結到它
+  **並不擁有**的表,而不去嘗試遷移它們。
+- 物件上的 `external` 繫結子記錄,把物件欄位對映到既有列。
+- `os datasource introspect` / `validate` CLI,一步匯入 schema 並腳手架出物件。
+- 面向外部所屬 schema 的啟動期與寫入期**安全閘門**,以及覆蓋整個流程的 Studio 嚮導。
+
+在它們落地之前,請優先採用已記錄的路徑:宣告資料來源、繫結物件(生成的或手寫的),
+並先在非生產副本上驗證。
+
+## 下一步去哪
+
+- [執行時](/docs/configure/runtime) —— `default` 背後的主資料庫
+- [AI 服務](/docs/configure/ai) —— 對話、嵌入、RAG、MCP
+- [AI Agent](/docs/build/agents) —— 作用於你物件之上的宣告式 Agent
+- [物件](/docs/build/objects) —— `ObjectSchema.create` 的編寫介面
+- [`examples/app-crm` 資料來源](https://github.com/objectstack-ai/objectstack/tree/main/examples/app-crm/src/datasources) —— 一個真實的資料來源 + 路由示例

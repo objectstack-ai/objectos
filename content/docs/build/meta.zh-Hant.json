@@ -1,0 +1,16 @@
+{
+  "title": "構建",
+  "defaultOpen": false,
+  "pages": [
+    "index",
+    "ai-builder",
+    "ai-skills",
+    "data",
+    "interface",
+    "automation",
+    "agents",
+    "packages",
+    "templates",
+    "marketplace"
+  ]
+}

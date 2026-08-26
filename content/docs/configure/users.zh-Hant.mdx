@@ -1,0 +1,121 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 使用者與組織
+description: 搭建業務單元樹、新增和邀請使用者、管理成員資格與團隊，以及開通服務賬號。
+translation:
+  source_sha: 8c40f55f61ac88836e5cd989d96833070804ccfdb99d13b180487d1eba6cac90
+  guide_rev: 1
+  mode: auto
+---
+
+關於你的部署中*都有誰*的一切——人員、他們所在的組織樹、他們協作的團隊，以及代表他們行事的服務賬號——都在 **Setup → People & Organization**（人員與組織，`/apps/setup`）中管理。
+
+底層的身份物件（`sys_user`、`sys_organization`、`sys_member`、`sys_business_unit`、`sys_team`、`sys_invitation`、`sys_api_key` ……）存在你的專案資料庫中；每個物件表示什麼，參見[身份層表格](/docs/configure/permissions#layer-1--identity)。
+
+> **90% 的日常管理就是把人分配到崗位。**崗位、其背後的許可權集以及安全基線都隨平臺和你安裝的應用一起交付。你的工作是人這一側——本頁所講的內容——以及分配這一側，後者在[許可權分配](/docs/configure/permissions/managing-access)中講解。
+
+## 搭建組織（業務單元）
+
+**Setup → People & Organization → Business Units**（業務單元）。
+
+業務單元樹是訪問模型中*唯一*的層級結構：它決定可見性深度（`unit`、`unit_and_below`）和委派管理邊界。在初始上線時搭好它，之後僅在組織架構調整時再修改。
+
+- 預設的 **Org Chart**（組織架構圖）標籤頁把樹渲染為可展開/收起的縮排樹形表格。
+- 先建立根節點（kind 為 `company`），再用 **New**（新建）新增子節點，並在表單中選擇 **Parent Business Unit**（上級業務單元）。`division` / `department` / `office` / `cost_center` 這些 kind 只是顯示提示——無論選哪種，樹的工作方式都一樣。
+- 調整架構時，**Edit**（編輯）某個單元並修改其上級即可。樹檢視是隻讀展示——變更上級要通過記錄表單完成，而不是拖拽。
+
+三個名字相近的東西，三種不同的職責——別混淆：
+
+| 物件 | 職責 |
+|---|---|
+| **業務單元**（`sys_business_unit`） | 層級結構。驅動可見性深度和委派管理邊界 |
+| **團隊**（`sys_team`） | 扁平的協作組。團隊只*接收*共享；從不承載能力 |
+| **組織**（`sys_organization`） | 租戶本身——你公司的賬戶，而不是其中的一個節點 |
+
+> 讓樹保持淺層、如實反映你的真實結構。如果某個東西應該按組織結構影響*人們能看到哪些記錄*，它是業務單元；如果只是一個供人共享記錄的群組，它是團隊。
+
+## 新增人員
+
+**Setup → People & Organization → Users**（使用者）。三條入口，都是一等公民：
+
+| 路徑 | 何時使用 | 會發生什麼 |
+|---|---|---|
+| **Invite User**（邀請使用者，工具欄） | 此人有可達的郵箱 | 傳送邀請；對方接受時自行設定密碼 |
+| **Create User**（建立使用者，工具欄） | 不想走郵件流程——或只有手機號的員工 | 建立可直接登入的賬戶（郵箱和/或手機號）；生成的臨時密碼只顯示**一次**，並強制首次登入時修改密碼 |
+| **Import**（匯入，工具欄） | 從 CSV/Excel 批次入職 | 帶列對映和 dry-run 預覽的嚮導；每批最多 500 行。可選擇登入策略——預設的 **auto**（16.0）會邀請所有可送達的行，僅對無法送達的行回退到一次性臨時密碼；也可以顯式選擇：無密碼（首次通過 OTP/魔法連結/重置連結登入）、傳送邀請，或一次性臨時密碼 |
+
+待接受的邀請列在 **Setup → People & Organization → Invitations**（邀請）下。
+
+同樣的流程也可通過 REST 完成（ObjectStack 14.3+），用於指令碼化入職：
+
+```bash
+# 创建可直接登录的账户，可选生成一次性密码
+curl -X POST https://crm.example.com/api/v1/auth/admin/create-user
+
+# 批量导入行 / CSV / XLSX（最多 500 行），支持 dry-run 和 upsert 模式
+curl -X POST https://crm.example.com/api/v1/auth/admin/import-users
+```
+
+自 16.0 起，匯入的預設策略是 `passwordPolicy: 'auto'`：具有可送達通道的行（真實郵箱且已接通郵件服務，或手機號且具備簡訊邀請通道）會被**邀請**；只有確實無法觸達的行才會得到臨時密碼（僅返回一次，`must_change_password`）。想要舊的僅建身份行為，須顯式傳入 `passwordPolicy: 'none'`；每行結果在 `rows[].delivery` 上給出，並附 `summary.delivery` 彙總。
+
+請求體、密碼策略和僅手機號賬戶的細節，參見[認證 → 管理員使用者管理](/docs/configure/authentication#admin-user-management-objectstack-143)。
+
+## 把人放進組織樹（成員資格）
+
+把一個人放進組織樹是一條獨立的記錄：**Business Unit Member**（業務單元成員）行（`sys_business_unit_member`——使用者 + 業務單元，其中一條標記為 *primary*）。基於深度的可見性和 `unit_and_subordinates` 共享都通過這條成員資格解析，所以不要跳過它——沒有成員資格行的使用者對基於深度的規則來說是不可見的。
+
+當某人調換部門時，更新其業務單元成員行，並重新錨定其崗位分配——參見[許可權分配](/docs/configure/permissions/managing-access)。
+
+## 團隊
+
+**Setup → People & Organization → Teams**（團隊）。團隊是扁平的協作組：共享規則和記錄共享可以指向它們，但它們從不承載許可權集。當一個跨部門的群組需要看到某批記錄，而又不想改變任何人的職能或組織樹時，就用團隊。
+
+## 使用者生命週期
+
+日常生命週期操作位於每個使用者的行選單和記錄頭部：
+
+| 操作 | 效果 |
+|---|---|
+| **Ban / Unban**（封禁 / 解封） | 立即阻止（或恢復）登入 |
+| **Unlock Account**（解鎖賬戶） | 提前清除暴力破解鎖定 |
+| **Set Password**（設定密碼） | 直接設定密碼；也能生成強制輪換的一次性臨時密碼 |
+| **Impersonate User**（模擬使用者） | 以該使用者身份開啟會話，用於支援和驗證（會話會被記錄） |
+
+要停用某人，先 **Ban**（封禁）——登入立即被阻止——之後再從容移除其崗位分配和成員資格。完整的離職流程見[許可權分配](/docs/configure/permissions/managing-access)。
+
+> 使用者的自助密碼找回依賴已配置的[郵件](/docs/configure/email)或簡訊傳送服務。在接通之前，管理員的 **Set Password**（臨時密碼、強制修改）是可靠的兜底手段。
+
+## 服務賬號與 API Key
+
+整合和無頭 Agent 使用 API Key（`sys_api_key`）認證——一種**繫結到使用者**的長期程式設計憑據。用該 Key 發起的每次呼叫都以那個使用者的身份、按那個使用者的許可權執行。
+
+凡是超出個人指令碼用途的場景，都請建立專用的服務使用者：
+
+1. 為該整合 **Create User**（建立使用者，無需邀請）。
+2. 為它分配能覆蓋該整合所涉物件的最小許可權集——絕不要用管理員許可權集。
+3. 為它簽發 API Key，可在 **Setup → Connect an Agent**（接入 Agent）中操作，或通過 REST：
+
+```bash
+curl -b cookies.txt -X POST https://crm.example.com/api/v1/keys
+# → { "key": "osk_..." }  —— 只显示一次；存入你的 secret manager
+```
+
+Key 的用法、請求頭和輪換見 [API 訪問](/docs/configure/api-access)；用 Key 接入 AI Agent 見[接入 AI 工具（MCP）](/docs/configure/mcp)。
+
+## FAQ
+
+**新使用者幾乎什麼都看不到——是壞了嗎？**不是：這正是基線在正常工作。每個已認證使用者都獲得疊加式的 `member_default` 基線；真正的訪問許可權在你分配崗位時到來。
+
+**部門還是團隊？**部門 = 業務單元（層級、可見性）。團隊 = 扁平的共享群組。
+
+**能刪除內建許可權集嗎？**不能——`member_default`、`organization_admin` 這類許可權集是平臺基線。隨應用交付的許可權集可以被覆蓋（overlay），或乾脆不分配。
+
+## 下一步
+
+| 任務 | 頁面 |
+|---|---|
+| 分配崗位和許可權集 | [許可權分配](/docs/configure/permissions/managing-access) |
+| 理解分層訪問模型 | [許可權](/docs/configure/permissions) |
+| 配置登入、SSO 和密碼策略 | [認證](/docs/configure/authentication) |
+| 配置郵件，讓邀請和重置郵件可送達 | [郵件](/docs/configure/email) |
+| 整合用的 API Key | [API 訪問](/docs/configure/api-access) |

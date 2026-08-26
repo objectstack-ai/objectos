@@ -1,0 +1,193 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 儀表盤
+description: 由繫結具名資料集的圖表元件構成的分析頁面 —— 帶全域性篩選、自動重新整理，以及到底層記錄的下鑽。
+translation:
+  source_sha: e78323eca34fb899bfca8d42c29c8504444845bed49522f9d3f58e00ad1620f9
+  guide_rev: 1
+  mode: auto
+---
+
+**儀表盤是一張元件網格；每個元件都繫結到一個數據集。**資料集是語義層：它擁有基礎物件、連線、維度和經過認證的度量。元件按名稱選用它們，因此"revenue"在每個用到它的儀表盤和報表上含義都相同。
+
+```ts
+const salesDashboard = {
+  name: 'sales_overview',
+  label: 'Sales Overview',
+  description: 'Key sales metrics and pipeline analysis',
+  refreshInterval: 300,                   // 每 5 分钟自动刷新
+
+  dateRange: {
+    field: 'close_date',
+    defaultRange: 'this_quarter',
+    allowCustomRange: true,
+  },
+
+  widgets: [
+    { id: 'total_revenue',     title: 'Total Revenue',     type: 'metric',
+      dataset: 'sales', values: ['revenue'],
+      layout: { x: 0, y: 0, w: 3, h: 2 } },
+    { id: 'revenue_by_region', title: 'Revenue by Region', type: 'bar',
+      dataset: 'sales', dimensions: ['region'], values: ['revenue'],
+      layout: { x: 3, y: 0, w: 6, h: 4 } },
+    { id: 'deals_by_month',    title: 'Deals by Month',    type: 'pie',
+      dataset: 'sales', dimensions: ['close_month'], values: ['deal_count'],
+      layout: { x: 9, y: 0, w: 3, h: 4 } },
+  ],
+}
+```
+
+## 儀表盤屬性
+
+| 屬性 | 型別 | 必填 | 說明 |
+|:--|:--|:--|:--|
+| `name` | `string` | 是 | 機器名（`snake_case`） |
+| `label` | `string` | 是 | 顯示標籤 |
+| `description` | `string` | — | 儀表盤描述 |
+| `widgets` | `DashboardWidget[]` | 是 | 圖表與指標元件 |
+| `refreshInterval` | `number` | — | 自動重新整理間隔（秒） |
+| `dateRange` | `object` | — | 全域性日期範圍篩選 |
+| `globalFilters` | `GlobalFilter[]` | — | 互動式篩選控制元件 |
+
+## 資料集優先
+
+資料集定義一次；每個元件都繫結到它：
+
+```ts
+import { defineDataset } from '@objectstack/spec/ui'
+
+export const salesDataset = defineDataset({
+  name: 'sales',
+  label: 'Sales',
+  object: 'opportunity',
+  include: ['account'],
+  dimensions: [
+    { name: 'region',      field: 'account.region', type: 'string' },
+    { name: 'close_month', field: 'close_date',     type: 'date', dateGranularity: 'month' },
+  ],
+  measures: [
+    { name: 'revenue',    field: 'amount', aggregate: 'sum', certified: true },
+    { name: 'deal_count', aggregate: 'count' },
+  ],
+})
+```
+
+聚合放在資料集的度量上（`aggregate`），而不是元件上：`count`、`sum`、`avg`、`min`、`max`、`count_distinct`、`array_agg`、`string_agg`。元件的 `dimensions` 和 `values` 必須引用其所繫結資料集上宣告的名稱。
+
+執行時，資料集查詢經由分析服務執行，並自動把呼叫者的行級安全範圍應用到基礎物件和被連線的物件上 —— 儀表盤絕不會向用戶展示其[許可權](/docs/configure/permissions)不允許看的記錄。
+
+> 自 16.0 起，元件 Schema 是**嚴格**的：任何未宣告的頂層鍵 —— 打錯的鍵、幻覺出來的鍵，或已移除的內聯查詢鍵（`object` + `categoryField` + `valueField` + `aggregate`，以及透視表的 `rowField` / `columnField`）—— 都是**指名道姓的解析錯誤**，並指向資料集形態，而不再被悄悄剝掉、留下一個什麼都不渲染的元件。請定義資料集並把元件繫結上去；`options` 仍是渲染器專屬額外配置的自由格式逃生口。
+
+## 元件
+
+| 屬性 | 型別 | 必填 | 說明 |
+|:--|:--|:--|:--|
+| `id` | `string` | 是 | 唯一的元件 id（`snake_case`） |
+| `dataset` | `string` | 是 | 要繫結的資料集名 |
+| `values` | `string[]` | 是 | 度量名（至少一個） |
+| `dimensions` | `string[]` | — | 維度名 —— X 軸 / 分組 / 拆分 |
+| `type` | `ChartType` | — | 視覺化型別（預設 `metric`） |
+| `title` / `description` | `string` | — | 顯示標題與副標題 |
+| `filter` | `FilterCondition` | — | 展示層篩選 |
+| `layout` | `object` | — | 網格位置（省略時自動排布） |
+| `colorVariant` | `enum` | — | KPI / 卡片強調色 |
+| `compareTo` | `enum \| object` | — | 同比 / 環比對比視窗 |
+| `filterBindings` | `object` | — | 元件級全域性篩選對映（見下） |
+
+### 圖表型別
+
+| 型別 | 最適合 |
+|:--|:--|
+| `metric`*（預設）* | 單數字 KPI —— 營收、數量、百分比 |
+| `bar` / `horizontal-bar` / `column` | 類別對比 |
+| `line` | 隨時間的趨勢 |
+| `pie` / `donut` | 分佈 |
+| `area` | 隨時間的體量 |
+| `scatter` | 相關性 |
+| `radar` | 多維對比 |
+| `funnel` | 轉化階段 |
+| `gauge` / `solid-gauge` / `bullet` / `kpi` | 目標進度 |
+| `treemap` / `sankey` | 層級佔比 / 流向 |
+| `table` | 明細記錄 —— **可下鑽** |
+| `pivot` | 交叉彙總 —— **可下鑽** |
+
+### 佈局
+
+元件排布在 12 列網格上：
+
+```ts
+layout: {
+  x: 0,    // 列位置（0-11）
+  y: 0,    // 行位置
+  w: 6,    // 宽度，按列计（1-12）
+  h: 4,    // 高度，按行计
+}
+```
+
+## 下鑽
+
+`table` 和 `pivot` 元件支援**下鑽**：點選一行聚合資料或一個單元格，會開啟一個側邊抽屜，列出該分組背後的*底層記錄*。資料集保留了原始分組鍵，所以抽屜的篩選精確匹配那些記錄 —— 不做標籤到 id 的猜測。點選抽屜裡的任意一行即可開啟該記錄的詳情：完整的**分組 → 記錄列表 → 單條記錄**鏈路。
+
+抽屜還提供一個 **"Open in list →"**（在列表中開啟）逃生口，把速覽升級為該物件的完整列表頁（排序、批次選擇、匯出、可分享 URL），並沿用同一個下鑽篩選。
+
+下鑽是自動的 —— 無需按元件配置 —— 只要資料集暴露了基礎物件，且元件按至少一個維度分組。`metric` 與圖表類元件只渲染聚合值；要展示明細，請改用 `table` 或 `pivot` 元件。
+
+## 全域性日期範圍與篩選
+
+全域性時間篩選作用於所有元件：
+
+```ts
+dateRange: { field: 'created_at', defaultRange: 'this_month', allowCustomRange: true }
+```
+
+預設範圍：`today`、`yesterday`、`this_week`、`last_week`、`this_month`、`last_month`、`this_quarter`、`last_quarter`、`this_year`、`last_year`、`last_7_days`、`last_30_days`、`last_90_days`、`custom`。
+
+互動式全域性篩選的用法相同：
+
+```ts
+globalFilters: [
+  { name: 'region', field: 'region', label: 'Region',    type: 'select' },
+  { field: 'owner',                  label: 'Sales Rep', type: 'lookup' },
+]
+```
+
+每個篩選的 `name`（預設取 `field`）是它的穩定身份 —— 元件在 `filterBindings` 裡引用的鍵，也是元件表示式中可通過 `page.<name>` 讀取的儀表盤級變數。名稱 `dateRange` 保留給內建日期範圍。
+
+### 元件級篩選繫結
+
+預設情況下，篩選按其自身的 `field` 作用於每個元件。當某個元件用不同的欄位儲存同一概念 —— 或應忽略某個篩選 —— 時，宣告 `filterBindings`：
+
+```ts
+widgets: [
+  // 默认绑定：dateRange → created_at，region → region。
+  { id: 'invoices_by_status', /* … */ },
+  // 这个组件的字段不同 —— 逐个显式映射筛选。
+  { id: 'accounts_signed',
+    filterBindings: { dateRange: 'signed_at', region: 'sales_region' }, /* … */ },
+  // 用 `false` 退出某个筛选。
+  { id: 'total_invoices', filterBindings: { region: false }, /* … */ },
+]
+```
+
+> 優先順序：顯式的 `filterBindings` 條目（字串覆蓋或 `false` 退出）→ 篩選的舊式 `targetWidgets` 白名單 → 篩選自身的 `field`。
+
+## 讓儀表盤出現在介面上
+
+給[應用](/docs/build/interface/apps)新增一個 `dashboard` 導航入口：
+
+```ts
+{ id: 'nav_analytics', type: 'dashboard', label: 'Analytics',
+  dashboardName: 'sales_overview', icon: 'bar-chart' }
+```
+
+或者描述給 [AI Builder](/docs/build/ai-builder) —— *"一個銷售總覽儀表盤，含按區域的營收和月度成交趨勢"* —— 然後在批准前審閱生成的資料集 + 儀表盤後設資料。
+
+## 下一步
+
+| 頁面 | 原因 |
+|:--|:--|
+| [應用](/docs/build/interface/apps) | 把儀表盤放進導航 |
+| [檢視](/docs/build/interface/views) | 基於同一資料集的內聯 `chart` 列表檢視 |
+| [頁面](/docs/build/interface/pages) | 當元件網格不夠用時的自由佈局 |
+| [資料模型](/docs/build/data) | 資料集聚合的物件 |
+| [許可權](/docs/configure/permissions) | 儀表盤繼承的行級安全 |

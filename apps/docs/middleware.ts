@@ -50,9 +50,10 @@ const LANGUAGE_MAPPING: Record<string, string> = {
   'zh-CN': 'zh-Hans',   // Chinese (China) -> Simplified
   'zh-SG': 'zh-Hans',   // Chinese (Singapore) -> Simplified
   'zh-Hans': 'zh-Hans', // already Simplified
-  // Traditional variants fall back to Simplified until zh-Hant ships
-  'zh-TW': 'zh-Hans',
-  'zh-HK': 'zh-Hans',
+  'zh-Hant': 'zh-Hant', // already Traditional
+  'zh-TW': 'zh-Hant',   // Chinese (Taiwan) -> Traditional
+  'zh-HK': 'zh-Hant',   // Chinese (Hong Kong) -> Traditional
+  'zh-MO': 'zh-Hant',   // Chinese (Macau) -> Traditional
   'ko': 'ko',           // Korean
   'ko-KR': 'ko',        // Korean (Korea) -> Korean
 };

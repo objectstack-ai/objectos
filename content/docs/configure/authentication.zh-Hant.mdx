@@ -1,0 +1,121 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 認證
+description: 配置登入、會話、OAuth、OIDC/SSO 以及裝置流程。
+translation:
+  source_sha: 84eb43cc244cc4e3d1cbb73885340dab6689e57a70bd8d34d353c7f43ff31b2c
+  guide_rev: 1
+  mode: auto
+---
+
+ObjectOS 使用由 Better Auth 驅動的 ObjectStack 認證外掛。認證是專案本地的：每個專案擁有獨立的身份表和會話作用域。
+
+## 支援的能力
+
+視所打包的應用和已啟用的設定而定，ObjectOS 可支援：
+
+- 郵箱/密碼登入；
+- 會話管理；
+- 密碼重置和郵箱驗證；
+- Google、GitHub、Microsoft、Apple 等社交 OAuth Provider；
+- Okta、Entra ID、Keycloak、Ping 等企業級 OIDC/SSO；
+- 雙因素認證；
+- Passkey/WebAuthn；
+- 魔法連結；
+- 手機號登入與簡訊 OTP（需顯式開啟）；
+- CLI/瀏覽器裝置流程。
+
+## 手機號登入與簡訊（ObjectStack 14.3+）
+
+通過 `auth.plugins.phoneNumber` 設定開啟手機號認證。開啟後：
+
+- `POST /sign-in/phone-number` 接受手機號 + 密碼登入；
+- 簡訊 OTP 覆蓋登入驗證和自助密碼重置，並自帶按號碼冷卻、滾動小時上限和按 IP 限流；
+- `sys_user` 增加唯一的 `phone_number` 與 `phone_number_verified` 列；僅手機號賬戶會獲得佔位郵箱。
+
+簡訊傳送由 `@objectstack/plugin-sms` 提供，支援阿里雲簡訊、Twilio 或開發環境日誌回退，通過 `sms` 設定名稱空間配置。含 OTP 驗證碼的訊息體永不持久化或寫入日誌。通知也可以通過 `notify(channels: ['sms'])` 走 `sms` 通道。
+
+## 管理員使用者管理（ObjectStack 14.3+）
+
+平臺管理員可以不經郵件邀請流程直接開通賬戶：
+
+- `POST /api/v1/auth/admin/create-user` 直接建立使用者，可選生成一次性密碼（僅返回一次，不持久化）。`must_change_password` 標誌強制首次登入時修改密碼（未修改前返回 403 `PASSWORD_EXPIRED`）。
+- `POST /api/v1/auth/admin/import-users` 批次匯入行 / CSV / XLSX（每次請求最多 500 行），支援 dry-run 和按郵箱或手機號 upsert；已存在使用者的密碼永不重置。自 16.0 起，預設 `passwordPolicy` 為 `'auto'`：具有可送達通道的行（真實郵箱 + 已接通的郵件服務，或手機號 + 簡訊邀請通道）會被**邀請**，只有無法觸達的行才得到臨時密碼（僅返回一次，`must_change_password`）。依賴舊的僅建身份預設行為的呼叫方現在必須顯式傳入 `passwordPolicy: 'none'`；每行結果在 `rows[].delivery` 上，並附 `summary.delivery` 彙總。
+
+## 必需的 Secret
+
+設定：
+
+```bash
+OS_AUTH_SECRET=replace-with-a-strong-random-secret
+```
+
+ObjectOS 基於該值和專案環境 id 派生穩定的專案級 secret。這意味著：
+
+- 會話能在容器重啟後保持；
+- 一個專案的 token 不能在另一個專案中複用；
+- 輪換 `OS_AUTH_SECRET` 會使會話失效。
+
+完整的認證相關設定列表（包括舊版 `AUTH_SECRET` 別名）請參閱 [Environment variables](/docs/reference/environment-variables)。
+
+## 會話隔離
+
+在多專案部署中，Cookie 限定到專案主機名。ObjectOS 故意避免使用寬泛的根域 Cookie 作為專案會話——以防止會話跨客戶專案洩漏。
+
+## 社交登入
+
+通過環境變數或系統設定配置 Provider 憑據，具體取決於應用包暴露認證配置的方式。
+
+Provider 回撥 URL 取決於 Provider 型別。ObjectStack 暴露了兩條不同的回撥路徑，並且它們**不可**互換：
+
+| Provider 型別 | 回撥路徑 |
+|---|---|
+| 內建社交（Google、GitHub、Microsoft、Apple ……） | `/api/v1/auth/callback/<provider>` |
+| 通用 OIDC / OAuth2（Okta、Entra ID、Keycloak、Ping ……） | `/api/v1/auth/oauth2/callback/<provider>` |
+
+示例：
+
+```text
+https://crm.example.com/api/v1/auth/callback/google
+https://crm.example.com/api/v1/auth/callback/microsoft
+https://crm.example.com/api/v1/auth/oauth2/callback/okta
+https://crm.example.com/api/v1/auth/oauth2/callback/entra
+```
+
+在 ObjectOS 中啟用 Provider 前，先在身份提供方的應用註冊中配置匹配的 redirect URI。
+
+## 企業級 OIDC/SSO
+
+OIDC Provider 註冊為通用 OAuth2 Provider，使用 `/api/v1/auth/oauth2/callback/<provider>` 路徑。典型配置需要：
+
+| 欄位 | 說明 |
+|---|---|
+| Provider id | 穩定 id，例如 `okta` 或 `entra`（用於回撥 URL） |
+| 顯示名 | 給使用者看的按鈕文案 |
+| Discovery URL | `.well-known/openid-configuration` 端點 |
+| Client id | 來自身份提供方的應用 client id |
+| Client secret | 存於環境變數或加密設定 |
+| Scopes | 通常為 `openid email profile` |
+
+對客戶部署，優先使用 OIDC discovery URL，而不是手工配置 authorization/token/userinfo 端點。
+
+## 平臺 SSO
+
+在雲連線部署中，ObjectOS 可以使用控制面登入作為平臺 SSO Provider。已經登入控制面的建設者無需建立獨立的專案本地賬戶即可被預置到專案執行時。
+
+這要求控制面與 ObjectOS 共享同一個 `OS_AUTH_SECRET` 基礎 secret。僅在客戶希望每個專案擁有完全獨立的登入邊界時才停用平臺 SSO。
+
+## 執行檢查
+
+上線前：
+
+- 確認過期 token 返回 `401`；
+- 確認登出會撤銷活動會話；
+- 如策略需要，確認密碼重置會撤銷其他會話；
+- 確認回撥 URL 與公開的專案域名一致；
+- 確認可信 origin 僅包含已批准的域名；
+- 確認 `OS_AUTH_SECRET` 存於 secret manager，而不是原始碼。
+
+## 後續步驟
+
+認證確立的是使用者*是誰*。要控制使用者登入後*能訪問什麼*，請參閱 [Permissions](/docs/configure/permissions)。對於非瀏覽器客戶端和機器對機器的訪問，請參閱 [API access](/docs/configure/api-access)。

@@ -1,0 +1,67 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 升級與回滾
+description: 安全地升級 ObjectOS 與應用製品。
+translation:
+  source_sha: 89f99be032a0a531905c47128ae2aa8bfd5ef74b1d371c6adb09096c9ca9825a
+  guide_rev: 1
+  mode: auto
+---
+
+ObjectOS 有兩條版本流：
+
+| 版本 | 所有者 | 回滾 |
+|---|---|---|
+| ObjectOS 映象/執行時 | 平臺/執行時團隊 | 上一個容器標籤 |
+| 應用製品 | 應用/控制平面釋出 | 上一個製品或專案版本指標 |
+
+不要就地修改製品。請釋出一個新制品，並將執行時切換到它。
+
+## 升級 ObjectOS
+
+對於 Docker Compose：
+
+```bash
+docker compose -f docker/docker-compose.yml pull
+docker compose -f docker/docker-compose.yml up -d
+```
+
+對於 Kubernetes，更新映象標籤並讓部署自動滾動更新。
+
+## 升級製品
+
+檔案支撐模式：
+
+```bash
+cp objectstack-2026-05-24.json docker/artifacts/objectstack.json
+docker compose -f docker/docker-compose.yml restart objectos
+```
+
+雲連線模式：
+
+1. 將新制品釋出到控制平面。
+2. 將當前專案/環境指標指向新版本。
+3. 讓 ObjectOS 在快取過期後重新拉取，或重啟以強制重新載入。
+
+## 回滾
+
+回滾 ObjectOS：在你的 Compose 檔案（或部署清單）中固定上一個映象標籤，然後重新應用它。
+
+```bash
+docker compose -f docker/docker-compose.yml up -d objectos
+```
+
+回滾製品：
+
+- 恢復之前掛載的檔案；或
+- 將控制平面指標移回上一個製品版本。
+
+## 相容性檢查
+
+升級前：
+
+- 確認製品是針對相容的 ObjectStack 版本構建的；
+- 確認所需能力在 ObjectOS 映象中可用；
+- 確認理解資料庫遷移或模式同步行為；
+- 執行身份驗證與許可權冒煙測試；
+- 驗證回滾不需要進行破壞性的資料變更。

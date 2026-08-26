@@ -10,7 +10,7 @@ ObjectOS — the commercial runtime environment for ObjectStack applications (Cl
 
 ### 1. English is the single source of truth for all content
 
-All marketing copy, UI strings, and documentation are authored in **English first**. Every other locale (`zh-Hans`, `ja`, `de`, `es`, `fr`, `ko`) is a **translation derived from English**.
+All marketing copy, UI strings, and documentation are authored in **English first**. Every other locale (`zh-Hans`, `ja`, `de`, `es`, `fr`, `ko`) is a **translation derived from English**. `zh-Hant` is derived one step further — it is generated from `zh-Hans` by `apps/docs/scripts/gen-zh-hant.mjs`, never translated and never hand-written (see [Traditional Chinese](#traditional-chinese-is-generated-not-translated)).
 
 - **Edit English, and only English.** Translations are generated, not authored — a PR that hand-edits a locale file is rejected by CI (see [Translation workflow](#translation-workflow)).
 - If a typo or wording change only appears in a translation, fix English. The translation is re-derived from it.
@@ -37,7 +37,7 @@ Stack: Next.js 16 App Router + Fumadocs UI 16 + Fumadocs MDX. Many UI affordance
 
 ### Locale conventions
 
-- Supported locales, as BCP 47 tags — `apps/docs/lib/i18n.ts` is the authority: `en` (default), `zh-Hans`, `ja`, `de`, `es`, `fr`, `ko`.
+- Supported locales, as BCP 47 tags — `apps/docs/lib/i18n.ts` is the authority: `en` (default), `zh-Hans`, `zh-Hant`, `ja`, `de`, `es`, `fr`, `ko`.
 - ⛔ **There is no `cn` locale.** It is a legacy code that `middleware.ts` 308-redirects to `zh-Hans`. A file named `foo.cn.mdx` would never render **and would raise no error** — it is simply ignored, which is the worst possible failure mode for a translation. Simplified Chinese is `zh-Hans`.
 - Default locale has no prefix (`/docs/...`); other locales are prefixed (`/zh-Hans/docs/...`). This is set by `hideLocale: 'default-locale'` in `lib/i18n.ts`.
 - **MDX translations:** add a sibling file with the locale tag next to the English `.mdx` — `foo.zh-Hans.mdx`, `foo.ja.mdx`, and so on. Fumadocs auto-falls-back to English when a translation is missing — you can ship translations incrementally without breaking links.
@@ -47,6 +47,32 @@ Stack: Next.js 16 App Router + Fumadocs UI 16 + Fumadocs MDX. Many UI affordance
 ### Sidebar grouping
 
 Folder `meta.json` files declare a section's title, page order, and `defaultOpen: false` to make the group collapsible and collapsed by default. The root `content/docs/meta.json` references folders by name (`"deploy"`, `"build"`, …), not by the `"...deploy"` spread + `---Deploy---` separator pattern (the old pattern produced a flat ~50-item sidebar).
+
+### Traditional Chinese is generated, not translated
+
+`zh-Hant` is the one locale with no translation pass behind it. Simplified and
+Traditional Chinese are one language in two orthographies, so the Traditional
+pages are produced from the Simplified ones by an orthographic conversion
+(OpenCC `s2twp`, the same preset `www.objectos.ai` runs) and committed:
+
+```bash
+pnpm --filter @objectos/docs gen:zh-hant          # rewrite the Traditional set
+pnpm --filter @objectos/docs gen:zh-hant --check  # what CI runs
+```
+
+- ⛔ **Never hand-edit a `*.zh-Hant.mdx` or `meta.zh-Hant.json` file**, and never
+  translate one from English. Fix the English source; the Simplified page is
+  re-derived from it and the Traditional page from that. CI runs `--check` on
+  every PR and fails on any byte of drift.
+- Retiring a page or its Simplified sibling takes the Traditional file with it —
+  re-run the generator, which prunes what it no longer produces.
+- Coverage tracks Simplified exactly (62 of 79 pages today). The 17 without a
+  Simplified sibling have no Traditional one either, so they are never
+  advertised in the sitemap or an hreflang cluster — they simply render English.
+- Committed output, not on-the-fly conversion, because `lib/seo.ts` tells a real
+  translation from an English fallback by the presence of a locale-suffixed
+  file. A conversion done while rendering produces no such file, and the locale
+  would be invisible to search engines while looking correct in a browser.
 
 ### Translation workflow
 
@@ -71,6 +97,7 @@ node .github/scripts/check-translations.mjs --worklist  # what the next pass wil
 - Don't set `alt="ObjectOS"` on the logo image when the adjacent text already says "ObjectOS" — screen readers read it twice. Use `alt=""` + `aria-hidden`.
 - Don't add translation-only strings or files. If it doesn't have an English source, it shouldn't exist yet.
 - Don't write a `.cn.mdx` sibling. That locale does not exist; the file is ignored silently. Use `.zh-Hans.mdx`.
+- Don't hand-write a `.zh-Hant.mdx` sibling either. It is generated from the `.zh-Hans.mdx` file and CI fails on any hand edit.
 - Don't hand-edit a `*.<locale>.mdx` file, and don't "just fix" one while you're in there. Fix the English source instead.
 
 ## Commands

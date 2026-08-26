@@ -1,0 +1,272 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 流程與自動化
+description: 宣告式業務邏輯 —— 無論是描述給 AI 還是用 TypeScript 編寫，執行時執行的都是同一份產物。
+translation:
+  source_sha: f08495495034c8de3d9e0e09657c815b81252441b23af0c849670f7c8c2e2c1e
+  guide_rev: 1
+  mode: auto
+---
+
+Flow 是你不寫服務端就能表達業務邏輯的方式。每個 Flow 都是宣告式後設資料，由執行時執行 —— 與物件、檢視一樣。這意味著 Flow 會同時出現在 `os diff`、審計日誌、Console 的流程構建器以及 [AI Builder](/docs/build/ai-builder) 中。
+
+多數客戶通過對 AI 提問來建立 Flow：
+
+> *"當一個高優先順序工單在 'new' 狀態停留 30 分鐘時，在 Slack 上通知經理。"*
+
+AI 會生成下面的 Flow。本頁描述其結構，以便你閱讀和編輯。
+
+在 stack 中啟用該能力：
+
+```ts
+export default defineStack({
+  // ...
+  requires: ['automation'],
+});
+```
+
+## 流程型別
+
+| 型別 | 觸發方式 | 用於 |
+|---|---|---|
+| **Autolaunched** | 記錄變更(insert/update/delete) | "使用者註冊時發歡迎郵件" |
+| **Scheduled** | Cron 表示式或間隔 | "每晚 2 點標記過期任務" |
+| **Time-relative** *(16.0)* | 日期欄位與今天的距離，經由每日掃描 | "合同到期前 60 天提醒我" |
+| **Manual** | 使用者在 Console 點按鈕，或 API 呼叫 | "審批發票"等 Action |
+
+## Autolaunched：對記錄變更做出反應
+
+```ts
+// src/flows/welcome_email.ts
+import { defineFlow } from '@objectstack/spec';
+
+export const welcomeEmail = defineFlow({
+  name: 'welcome_email',
+  type: 'autolaunched',
+  trigger: {
+    object: 'sys_user',
+    when: 'after_insert',
+  },
+  steps: [
+    {
+      type: 'action',
+      action: 'send_email',
+      inputs: {
+        to:      '{!trigger.record.email}',
+        subject: 'Welcome to {!org.name}',
+        body:    'Hi {!trigger.record.name}, welcome aboard.',
+      },
+    },
+  ],
+});
+```
+
+變數插值：`{!trigger.record.<field>}`、`{!org.<field>}`、`{!user.<field>}`、`{!step.<step-name>.output}`。`condition:` 塊中使用 CEL 表示式。
+
+觸發時機：
+
+| `when` | 何時觸發 |
+|---|---|
+| `before_insert` | 寫事務內、INSERT 之前 |
+| `after_insert` | 提交之後 |
+| `before_update` | 寫事務內、UPDATE 之前 |
+| `after_update` | 提交之後 |
+| `before_delete` | 寫事務內、DELETE 之前 |
+| `after_delete` | 提交之後 |
+
+`before_*` 流程可以修改正在寫入的記錄(計算欄位、歸一化資料)。`after_*` 流程非同步執行，可以呼叫慢的外部服務。
+
+## Scheduled：按時鐘執行
+
+```ts
+export const nightlyCleanup = defineFlow({
+  name: 'nightly_cleanup',
+  type: 'scheduled',
+  schedule: { cron: '0 2 * * *', timezone: 'America/New_York' },
+  steps: [
+    {
+      type: 'query',
+      query: { object: 'task', filter: 'status:open AND due_lt:now()' },
+      output: 'stale',
+    },
+    {
+      type: 'foreach',
+      items: '{!step.stale}',
+      do: [
+        { type: 'update', record: '{!item.id}', fields: { status: 'overdue' } },
+      ],
+    },
+  ],
+});
+```
+
+由 `@objectstack/service-job` 能力承載 —— 見 [Runtime Capabilities](/docs/reference/runtime-capabilities)。
+
+## Time-relative：相對日期欄位觸發（16.0）
+
+"合同到期前 60 天提醒我"以前只能寫成一個用 `record.end_date == daysFromNow(60)` 做門控的記錄變更流程 —— 這個謂詞只有在記錄*恰好被修改*時才會求值，無人照看時幾乎永遠不會觸發。別這麼寫。改為宣告**時間相對觸發器**：流程的開始節點攜帶一個 `config.timeRelative` 描述符，執行時按計劃掃描該物件，併為**每條匹配記錄各啟動一次**流程：
+
+```ts
+export const renewalReminder = defineFlow({
+  name: 'contract_renewal_reminder',
+  type: 'schedule',
+  status: 'active',
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      config: {
+        timeRelative: {
+          object: 'contracts',
+          dateField: 'end_date',
+          offsetDays: [60, 30, 7],       // T-minus thresholds
+          filter: { status: 'active' },  // AND-ed with the date window
+        },
+        // Optional sweep cadence — defaults to daily at 08:00 UTC.
+        schedule: { type: 'cron', expression: '0 8 * * *' },
+      },
+    },
+    { id: 'notify_owner', type: 'notify', label: 'Notify Owner' },
+    { id: 'end', type: 'end' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'notify_owner' },
+    { id: 'e2', source: 'notify_owner', target: 'end' },
+  ],
+});
+```
+
+| 鍵 | 宣告什麼 |
+|---|---|
+| `object` | 掃描其記錄的物件（機器名） |
+| `dateField` | 相對今天求值的 `date` / `datetime` 欄位（按天粒度） |
+| `offsetDays` | **偏移模式** —— 當 `dateField` 恰好等於今天 + 所列各偏移時觸發（`[60, 30, 7]`；負數 = 過去，如 `[-1]` 表示次日） |
+| `withinDays` | **區間模式** —— `dateField` 落在距今天 N 天內的每一天都觸發：正數 = 即將到來（"即將過期"），負數 = 有界的逾期回看，`0` = 今天到期 |
+| `filter` | 可選的 ObjectQL where 對映，與計算出的日期視窗做 AND（如 `{ status: 'active' }`） |
+| `maxRecords` | 每次掃描啟動流程的記錄數上限（預設 1000；觸發收攏時掃描會記日誌） |
+
+`offsetDays` 與 `withinDays` 必須**恰好設定一個**。另外兩種常見形態：
+
+```ts
+// "Expiring soon" — fires every day a document is within 30 days of expiry.
+timeRelative: { object: 'hr_document', dateField: 'expires_on', withinDays: 30 }
+
+// Overdue sweep — fires for POs up to 14 days past due (bounded lookback).
+timeRelative: { object: 'purchase_order', dateField: 'due_date',
+                withinDays: -14, filter: { status: 'open' } }
+```
+
+每次啟動都會把匹配記錄放到自動化上下文中，因此開始節點的 `condition` 和 `{record.<field>}` 插值與記錄變更流程完全一致。發現查詢以 system 身份執行，並做按記錄的故障隔離。`os validate` 新增就緒性檢查 —— 當 `timeRelative.object` 指向 stack 未定義的物件、或自動觸發的流程停留在 `draft` 狀態時都會警告。
+
+> **真正的"當天"檢查現在沒問題了（#3183）。**16.0 中 `record.due_date == today()` 能匹配了 —— 引擎會對時間類 `==` / `!=` 比較做強制轉換，讓日期欄位與 `today()` 正確比較。真正的"今天到期"條件用它；而任何"某日期前/後 N 天"形態的需求，用 `timeRelative`。
+
+## Manual：Action 與審批
+
+```ts
+export const approveInvoice = defineFlow({
+  name: 'approve_invoice',
+  type: 'manual',
+  inputs: {
+    invoice_id: { type: 'lookup', reference: 'invoice', required: true },
+    note:       { type: 'textarea' },
+  },
+  steps: [
+    {
+      type: 'update',
+      record: '{!inputs.invoice_id}',
+      fields: { status: 'approved', approved_by: '{!user.id}' },
+    },
+  ],
+});
+```
+
+在 Console 中作為 Invoice 檢視上的按鈕暴露，或通過 REST 呼叫：
+
+```bash
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"inputs": {"invoice_id": "inv_123", "note": "OK"}}'
+```
+
+## 步驟型別
+
+| 步驟 | 用途 |
+|---|---|
+| `query` | 通過 ObjectQL 讀取記錄 |
+| `create` / `update` / `delete` | 寫物件 |
+| `action` | 呼叫內建或外掛註冊的 Action(email、webhook、AI 呼叫……) |
+| `condition` | 按 CEL 表示式分支 |
+| `foreach` | 遍歷集合 |
+| `parallel` | 併發執行子步驟 |
+| `wait` | 暫停一段時長 / 至時間戳 / 至條件成立 |
+| `subflow` | 呼叫另一個 Flow |
+| `approval` | 阻塞直至使用者審批(需要 `@objectstack/plugin-approvals`) |
+
+## 條件與分支
+
+```ts
+{
+  type: 'condition',
+  when: 'trigger.record.amount > 10000',
+  then: [
+    { type: 'action', action: 'send_slack', inputs: { /* ... */ } },
+  ],
+  else: [
+    { type: 'update', record: '{!trigger.record.id}', fields: { status: 'auto_approved' } },
+  ],
+}
+```
+
+## 錯誤處理
+
+每個步驟接受：
+
+```ts
+{
+  type: 'action',
+  action: 'send_email',
+  inputs: { /* ... */ },
+  retry: { attempts: 3, backoffMs: 1000, multiplier: 2 },
+  onError: 'continue' | 'fail' | 'rollback',
+}
+```
+
+對於 autolaunched 的 `before_*` 流程，`onError: 'fail'`(預設)會終止原始寫事務。對 `after_*` 流程，原始寫已經提交，失敗的流程執行會落到任務重試佇列。
+
+## 公式與表示式(CEL)
+
+條件、動態欄位值和過濾表示式都接受 **CEL**(Common Expression Language) —— 谷歌為安全表示式求值設計的語言：
+
+```ts
+'amount > 10000 && account.tier == "enterprise"'
+'duration(now() - created_at) > duration("30d")'
+'has(record.notes) && record.notes != ""'
+```
+
+CEL 是沙盒化的(無副作用、無 I/O)、服務端求值、並可在流程構建器中審計。
+
+## 視覺化構建器
+
+Console 自帶一個視覺化流程構建器，它與宣告式後設資料來回往返 —— 非工程師可以編輯流程，序列化結果與你手寫的 TypeScript 同形。
+
+## 測試流程
+
+```bash
+os test --scenario "welcome email fires on signup"
+```
+
+## 限制與最佳實踐
+
+- **保持 before-hook 簡短。**它們會阻塞寫事務。
+- **用 `wait` 代替長時執行的步驟。**休眠的流程會佔用 worker；`wait until` 會把 worker 還回池裡。
+- **用 `parallel` 跑獨立步驟。**預設是順序執行。
+- **冪等很重要。**重試可能讓同一步驟跑兩次；外部副作用應去重(用流程執行 id 作為鍵)。
+- **審計敏感的 Action。**改許可權或刪記錄的流程自身也應記錄到 `sys_audit_log`。
+
+## 下一步
+
+- [Webhooks](/docs/configure/webhooks) —— 出站通知，常由流程觸發
+- [Email](/docs/configure/email) —— `send_email` Action 的傳輸層
+- [AI Service](/docs/configure/ai) —— 用於 LLM 步驟的 `ai_call` Action
+- [API Access](/docs/configure/api-access) —— 從外部系統呼叫手動流程
+- [@objectstack/service-automation](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-automation) —— 執行引擎原始碼

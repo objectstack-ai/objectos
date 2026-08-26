@@ -1,0 +1,185 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 審批流程
+description: 把記錄路由給人籤核 —— 同時不讓自動化悄悄繞過行級安全。
+translation:
+  source_sha: 891d4c828930b407ad51b3e042559255011956548b0c0b1c5d388804b9ca8de5
+  guide_rev: 1
+  mode: auto
+---
+
+**審批就是帶審批節點的[流程](/docs/build/automation/flows)：流程暫停，直到有人批准或拒絕，然後沿匹配的分支繼續。**沒有需要另學的獨立審批引擎 —— 觸發器、分支、錯誤處理都與任何其他流程完全一致。本頁新增的內容是審批節點本身，以及兩個與路由同樣重要的訪問決策。
+
+## 誰做什麼
+
+三個角色，刻意分離：
+
+| 角色 | 能做 | 需要 |
+|---|---|---|
+| **構建者** | 編寫和編輯審批流程 | `manage_metadata`（通常是 Studio 使用者） |
+| **提交人** | 提交進入流程的記錄 | 正常的記錄訪問 —— 不需要任何自動化配置許可權 |
+| **審批人** | 處理審批請求（批准 / 拒絕） | 由其許可權集授予的能力 |
+
+終端使用者提交記錄、處理請求；他們從不編輯自動化。把自動化配置介面擋在消費者應用之外。
+
+## 以誰的身份執行 —— 安全決策
+
+流程通過 `runAs` 宣告執行身份，對審批而言，正是這個決策防止流程悄悄繞過行級安全：
+
+| `runAs` | 資料操作以誰執行 | 何時使用 |
+|---|---|---|
+| `'user'`（預設） | **提交人**，遵守其 RLS | 流程只觸碰提交人本來就能看到的記錄 |
+| `'system'` | **提權** —— 繞過 RLS | 流程必須讀寫提交人看不到的記錄（寫入總賬、通知一個擁有提交人不可見行的審批人） |
+
+**顯式**宣告提權，讓它可見而非意外。預設的 `'user'` 意味著審批流程無法悄悄給提交人跨租戶或跨所有者的觸達 —— 提權是自願開啟且可審計的。
+
+> **提示：**由定時觸發的升級流程沒有觸發使用者 —— 它必須 `runAs: 'system'` 才能行動。這是提權的正當場景；"到處 `system` 好讓它能跑"才是反模式。
+
+## 審批節點
+
+節點宣告**誰來審批**以及多個決策如何聚合：
+
+```ts
+{
+  id: 'manager_approval',
+  type: 'approval',
+  label: 'Manager Approval',
+  config: {
+    approvers: [{ type: 'field', value: 'owner_manager_id' }],
+    behavior: 'unanimous',
+    approvalStatusField: 'approval_status',
+    lockRecord: true,
+  },
+}
+```
+
+| 配置 | 作用 |
+|---|---|
+| `approvers` | 誰必須決策 —— 具名使用者、崗位，或從記錄欄位解析出的使用者（如提交人的經理） |
+| `behavior` | 多個審批人如何聚合：`'first_response'`（預設）、`'unanimous'`、`'quorum'`、`'per_group'` |
+| `minApprovals` | 所需批准數 —— `quorum` 為總數（N 中取 M），`per_group` 為每組所需數（預設 1） |
+| `approvalStatusField` | 可選的記錄欄位，外掛把請求狀態映象進去 |
+| `lockRecord` | 請求待定期間鎖定記錄、禁止編輯 |
+
+> **警告 —— `position` 與成員層級。**`{ type: 'position', value: 'finance_manager' }` 路由給某個崗位的持有者（`sys_user_position`）。組織成員層級（`sys_member.role`：`owner`/`admin`/`member`）自 16.0 起寫作 `type: 'org_membership_level'`；舊寫法 `role` 是**保留一個版本的棄用別名** —— 仍能載入並按相同方式解析，但會給出警告，下個大版本移除。把崗位名寫成成員層級型別誰也匹配不上，請求就會卡住。`os lint` 對兩種情況都會標記（`approval-approver-not-membership-tier`、`approval-approver-type-deprecated`）；如果值是崗位名，正確寫法是 `type: 'position'`。
+
+### 法定人數與會籤（16.0）
+
+在 `first_response` 和 `unanimous` 之外，16.0 新增兩種聚合模式。**Quorum（法定人數）**在達到 N 中取 M 個批准時定案：
+
+```ts
+config: {
+  approvers: [
+    { type: 'user', value: 'director_a' },
+    { type: 'user', value: 'director_b' },
+    { type: 'user', value: 'director_c' },
+  ],
+  behavior: 'quorum',
+  minApprovals: 2, // 3 人中任意 2 人批准
+}
+```
+
+**Per-group（會籤）**要求*每個*帶標籤的組都籤核 —— 用 `group` 給審批人打標籤，只有當每個組都達到 `minApprovals` 個批准（預設每組 1 個）時節點才會前進：
+
+```ts
+config: {
+  approvers: [
+    { type: 'position', value: 'legal_counsel',   group: 'legal' },
+    { type: 'position', value: 'finance_manager', group: 'finance' },
+  ],
+  behavior: 'per_group', // 法务一个签核，且财务一个签核
+}
+```
+
+對所有模式都成立的語義：
+
+- 審批人集合按**開啟時快照**統計，並帶休假（OOO）替補 —— 誰必須響應在請求開啟時就已確定，休假的審批人會被替補而不是卡住請求。
+- **單個拒絕仍然是一票否決**：在任何模式下它都把節點定案為 `rejected`。
+- 閾值在執行時**收攏（clamp）**到可解析的審批人數量，因此配置錯誤的 `minApprovals` 永遠不會讓請求死鎖。
+- 沒有 `group` 標籤的審批人各自成組，所以普通的審批人列表在 `per_group` 下依然行為合理。
+
+## 一個完整的審批流程
+
+把大額提案路由給負責人的經理，再按決策分支：
+
+```ts
+export const opportunityApproval = defineFlow({
+  name: 'opportunity_approval',
+  label: 'Opportunity Approval',
+  type: 'record_change',
+  status: 'active',
+  runAs: 'user', // 用提交人的 RLS，除非某一步确实需要更多权限
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      config: {
+        triggerType: 'record-after-update',
+        objectName: 'opportunity',
+        condition: "record.amount >= 50000 && record.stage == 'proposal'",
+      },
+    },
+    {
+      id: 'manager_approval',
+      type: 'approval',
+      label: 'Manager Approval',
+      config: {
+        approvers: [{ type: 'field', value: 'owner_manager_id' }],
+        behavior: 'unanimous',
+        approvalStatusField: 'approval_status',
+        lockRecord: true,
+      },
+    },
+    { id: 'mark_approved', type: 'update_record', label: 'Mark Approved' },
+    { id: 'mark_rejected', type: 'update_record', label: 'Mark Rejected' },
+    { id: 'end', type: 'end' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'manager_approval' },
+    { id: 'approved', source: 'manager_approval', target: 'mark_approved', label: 'approve' },
+    { id: 'rejected', source: 'manager_approval', target: 'mark_rejected', label: 'reject' },
+    { id: 'e4', source: 'mark_approved', target: 'end' },
+    { id: 'e5', source: 'mark_rejected', target: 'end' },
+  ],
+});
+```
+
+注意帶標籤的邊：`approve` 和 `reject` 命名了決策之後的分支。永遠要建模拒絕路徑 —— 只有批准分支的流程會讓被拒絕的記錄擱淺。
+
+**多級審批：**串聯多個 `approval` 節點。**並行審批：**見[流程](/docs/build/automation/flows)中的聚合節點模式。
+
+## 審批人體驗到什麼
+
+`@objectstack/plugin-approvals` 包持有持久化的審批狀態。請求待定期間：
+
+1. 外掛持久化請求（`sys_approval_request`）以及針對它的每個決策（`sys_approval_action`）—— 你的審批歷史是可查詢的資料。
+2. 設定 `lockRecord: true` 時，記錄被鎖定、禁止編輯，直到決策落地。
+3. 如果設定了 `approvalStatusField`，記錄自身的欄位會映象請求狀態，檢視和報表就能按它篩選。
+4. 審批人批准或拒絕；外掛沿匹配的邊恢復被暫停的流程。自 16.0 起，決策可以攜帶**檔案附件**（持久化在 `sys_approval_action.attachments`，貫通決策/評論路由與客戶端 SDK）—— 簽署的 PDF 和證據材料與決策存放在一起。
+5. 請求暴露服務端計算的 **`decision_progress`** —— `unanimous`/`quorum` 為已獲批准數 vs. 所需數，`per_group` 為按組明細 —— 收件箱和你自己的 UI 直接渲染進度，無需重新實現計票。
+
+**決策即宣告式操作（16.0）。**完整的決策集合 —— 批准、拒絕、轉辦、退回修改（`/revise`）、補充材料、催辦、撤回、重新提交 —— 以 `type: 'api'` 操作的形式宣告在 `sys_approval_request` 上，帶型別化引數、僅待定時可見的門控，以及提交人 vs 審批人謂詞（如 `record.submitter_id == ctx.user.id`）。Console 審批收件箱渲染的是這些宣告的操作，而不是手寫按鈕，因此新的決策能力以後設資料形式釋出 —— 無需客戶端發版。
+
+批准本身也是被門控的操作。把"可以批准"建模為一個能力（如 `approve_invoice`），由審批人的許可權集授予，並把批准操作的 `requiredPermissions` 建立在它之上 —— 這樣門控就在 **UI 和服務端**兩側同時強制，而不只是從螢幕上藏起來。
+
+## 最佳實踐
+
+| 應該 | 不應該 |
+|---|---|
+| 定義清晰的進入條件 | 設定過多的審批環節 |
+| 設定合理的超時時間 | 把審批做得過於複雜 |
+| 在合適的場景允許撤回 | 忘記拒絕路徑 |
+| 通知所有相關方 | 把審批人寫死 |
+| 追蹤審批歷史 | 只在 UI 層門控"批准" |
+| 預設 `runAs: 'user'`，一步一步地提權 | 到處設定 `runAs: 'system'` "好讓它能跑" |
+
+## 下一步
+
+| 頁面 | 原因 |
+|---|---|
+| [流程](/docs/build/automation/flows) | 本頁所基於的流程參考 —— 觸發器、步驟、錯誤處理 |
+| [工作流](/docs/build/automation/workflows) | 約束審批所處的生命週期 |
+| [操作](/docs/build/interface/actions) | 把提交和批准做成介面上的按鈕 |
+| [CEL 表示式](/docs/reference/cel) | 進入條件背後的語言 |
+| [Email](/docs/configure/email) | 通知審批人與相關方 |
+| [自動化總覽](/docs/build/automation) | 選擇器：流程 vs 工作流 vs 審批 |

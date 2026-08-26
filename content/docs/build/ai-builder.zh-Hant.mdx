@@ -1,0 +1,188 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: AI Builder
+description: Console 內建的對話功能，將自然語言需求轉化為可執行的後設資料。
+translation:
+  source_sha: 8429ad8cc7490b200b2f2faa149acaae74ed9a9f9817ede4fa6a37351e7381f5
+  guide_rev: 1
+  mode: auto
+---
+
+AI Builder 是**客戶擴充套件 ObjectOS 的主要方式**。開啟
+Console，用自然語言與助手對話，它就會為你構建
+後設資料——包、物件、欄位、動作、流程。每一次
+變更都會先進入人機協作（HITL）審批列表，然後才會
+正式生效。
+
+## 30 秒快速體驗
+
+```
+You: I need to track customer support tickets.
+     Each ticket has a subject, description, priority (low/medium/high/urgent),
+     status (new/open/pending/resolved/closed), and assignee.
+
+AI:  I'll create that for you. Here's the plan:
+     • Create package `com.you.support` (v0.1.0)
+     • Create object `support_ticket` with 5 fields
+     • Add a kanban view grouped by status
+     • Add 3 permission sets: agent, manager, viewer
+
+     Approve? [Yes] [Modify] [Cancel]
+
+You: [Yes]
+
+AI:  ✓ Package created
+     ✓ Object created with 5 fields and 12 indexes
+     ✓ Kanban view registered
+     ✓ Permission sets created
+     Done. Try it: /support_ticket
+```
+
+現在你就擁有了一個可用的工單應用——REST 端點、Console 檢視、
+審計日誌條目、許可權檢查點，一應俱全。沒有編輯任何
+檔案，也沒有發生重啟。
+
+## AI 能做什麼
+
+助手可以訪問一組**內建的後設資料工具**，它們都
+帶有名稱空間，並依據 `@objectstack/spec` 進行校驗：
+
+| 類別 | 工具 | 功能 |
+|---|---|---|
+| **Packages** | `create_package` | 建立帶有 manifest + 版本的新容器 |
+| | `list_packages` | 瀏覽已有的包 |
+| | `get_package` / `get_active_package` | 檢視內容 |
+| | `set_active_package` | 為當前對話選定工作包 |
+| **Objects** | `create_object` | 建立帶有初始欄位的新物件 |
+| | `list_objects` | 瀏覽當前活動包中的物件 |
+| | `describe_object` | 輸出 schema、欄位、關係 |
+| **Fields** | `add_field` | 新增一個有型別的欄位（常見[欄位型別](/docs/reference/field-types)） |
+| | `modify_field` | 修改標籤、選項列表選項、校驗規則 |
+| | `delete_field` | 刪除欄位（帶安全檢查） |
+| **Data** | `query_data` | 通過 ObjectQL 讀取記錄 |
+| **Actions / Knowledge** | `action_<name>`、`search_knowledge` | 呼叫動作，對文件進行 RAG 檢索 |
+
+此外，每一個宣告的 `*.action.ts` 都會物化為動作工具——
+命名為 `action_<name>`——因此一旦某個動作存在於包中，
+AI 就可以像呼叫任何內建工具一樣呼叫它。
+
+在執行時檢視完整的工具目錄：`GET /api/v1/ai/tools`。
+
+## 人機協作審批
+
+**會變更後設資料**的工具呼叫會路由進一個待處理動作
+佇列。審批操作員在點選*批准*之前，會看到所提議
+變更的差異（diff）。
+
+| 端點 | 用途 |
+|---|---|
+| `GET  /api/v1/ai/pending-actions` | 列出排隊中的動作（可按狀態過濾） |
+| `GET  /api/v1/ai/pending-actions/:id` | 檢視單個所提議動作的差異 |
+| `POST /api/v1/ai/pending-actions/:id/approve` | 應用變更 |
+| `POST /api/v1/ai/pending-actions/:id/reject` | 帶原因丟棄 |
+
+所需許可權：
+
+| 操作 | 許可權 |
+|---|---|
+| 讀取佇列 | `ai:read` |
+| 批准 / 拒絕 | `ai:approve` |
+
+預設情況下，只有 **Setup Administrator** 的成員才擁有 `ai:approve`。
+你可以在[許可權集](/docs/configure/permissions/permission-sets)中進行更細粒度的拆分——例如
+“產品負責人可以在 `com.acme.crm` 中批准，其他人都不行。”
+
+該佇列可審計：每一次批准/拒絕都會記錄到
+`sys_audit_log`，並附帶發起對話的 id。
+
+## 對話與上下文
+
+每一次聊天都是一條 `ai_conversations` 記錄。平臺會跟蹤：
+
+- **活動包（Active package）**——由 `set_active_package` 設定。新建的物件/
+  欄位會落到這裡。
+- **技能（Skills）**——當前上下文中可用的工具子集
+  （例如在 `support_ticket` 詳情頁內，AI 可能啟用了
+  `support_ticket` 範圍的技能）。
+- **知識（Knowledge）**——附加到該對話的 RAG 主題 + 索引。
+
+```text
+POST /api/v1/ai/assistant/chat
+{
+  "messages": [{ "role": "user", "content": "Add a tags field to support_ticket" }],
+  "context":  { "objectName": "support_ticket", "recordId": "tkt_123" }
+}
+```
+
+平臺會為當前活動應用解析出預設的 Agent，
+根據上下文過濾技能集，然後讓 LLM 選擇要呼叫哪個工具。
+你無需把 agent 預先繫結到特定的 UI 上——agent 會
+根據後設資料自動掛載。
+
+## 你可以請求什麼
+
+經過驗證的模式，附帶一行提示詞：
+
+| 目標 | 提示詞 |
+|---|---|
+| 新物件 | *"Create a `product` object with name, sku, price, category."* |
+| 新增欄位 | *"Add a `discount` decimal field to `order`, max 50."* |
+| 選項列表變更 | *"On `task.status`, add 'blocked' between 'open' and 'done'."* |
+| 索引 | *"Index `order` by status + created_at for the dashboard."* |
+| 關係 | *"Make `order_line` master-detail to `order`."* |
+| 校驗 | *"On `invoice`, the discount can't exceed the subtotal."* |
+| 流程 | *"When a high-priority ticket sits in 'new' for 30 minutes, notify the manager."* |
+| 動作 | *"Create an action `approve_invoice` that sets status to approved."* |
+| 許可權集 | *"Create `agent` permission set with read/create/edit on support_ticket and read on customer."* |
+| 翻譯 | *"Translate the support_ticket labels and picklists to Spanish."* |
+
+如果 AI 無法完成，它會明確告知——併為你指出
+手動操作的途徑（通常是一個 30 行的 `*.ts` 檔案，或一個 Console 表單）。
+
+## 即時預覽
+
+每次變更獲批後，Console 會就地重新渲染受影響的檢視。
+無需重新載入。核心快取會使被改動的包失效；
+後續請求將使用新的後設資料。
+
+## 回滾
+
+待處理動作記錄會保留**變更前的狀態**。如果某次變更出錯，
+拒絕所有在途的條目，然後請 AI：
+
+```
+You: Roll back the last 3 changes to support_ticket.
+AI:  Found 3 mutations from conversation conv_abc (3 minutes ago).
+     Restoring 'support_ticket' to its state at 13:42:11.
+     Approve? [Yes]
+```
+
+對於規模更大的回滾，請使用 [`os diff`](/docs/reference/cli)
+對比你上一個已知良好的產物，並應用反向 diff。
+
+## 當前的限制
+
+- **資料訪問遵循操作員自身的許可權。**
+  助手以登入使用者的身份執行，因此它只能讀取或寫入
+  該使用者本就有許可權操作的記錄。大多數團隊會讓
+  助手專注於後設資料，並讓它查詢——而非變更——
+  客戶資料。
+- **跨包變更需要顯式確認。** 請求
+  AI 修改系統包（`sys_*`）會返回拒絕
+  訊息——平臺在原則上拒絕這類操作。
+- **長時間執行的多步驟計劃**（例如“從零構建一個完整的 HR 應用”）
+  是可行的，但最好拆分成一系列較小的
+  對話來完成，每次落地一兩個物件。
+
+## 超越構建期 AI
+
+同樣的 AI 底層能力也為你的終端使用者驅動**執行時 agent**——
+支援助手、銷售副駕、內部問答機器人——它們構建於
+同一套 Agent → Skill → Tool 架構之上。參見 [Agents](/docs/build/agents)。
+
+## 下一步去哪裡
+
+- [Agents](/docs/build/agents) —— 基於你的資料構建的終端使用者助手
+- [Data Model](/docs/build/data) —— AI 實際生成的內容
+- [Actions](/docs/build/interface/actions) —— AI 作為執行時工具暴露的單元
+- [AI Service](/docs/configure/ai) —— 提供商配置（OpenAI / Anthropic / Doubao / …）

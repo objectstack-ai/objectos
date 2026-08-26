@@ -1,0 +1,190 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 操作
+description: 平臺從單一宣告出發，將命名操作同時暴露為 REST 端點、Console 按鈕、流程步驟和 AI 工具。
+translation:
+  source_sha: d4f9d1d0443d08d33b2ea0aa548c7b8db1541a8b693a65d481af6cafba577018
+  guide_rev: 1
+  mode: auto
+---
+
+**Action** 是物件上的一個命名操作。只需宣告一次，它就會以以下形式出現：
+
+- 一個位於 `/api/v1/actions/<object>/<action>` 的 **REST 端點**
+- Console 記錄詳情中的一個**按鈕**
+- 用於自動化的一個**流程步驟**（`type: 'action'`）
+- 供 Agents 和 AI Builder 使用的一個 **AI 工具**（`action_<name>`）
+
+你無需在四個介面上重複定義。一次宣告，四種呼叫方式。
+
+## 宣告一個 action
+
+```ts
+// src/actions/approve_invoice.action.ts
+import { Action } from '@objectstack/spec';
+
+export const approveInvoice = Action.create({
+  name: 'approve_invoice',          // lowercase snake_case (machine id)
+  label: 'Approve Invoice',
+  objectName: 'invoice',            // attaches to the invoice object
+  icon: 'check',
+  variant: 'primary',
+  locations: ['record_header'],     // where the button shows
+  confirmText: 'Approve this invoice?',
+  successMessage: 'Invoice approved',
+  refreshAfter: true,
+
+  // collect input before running
+  params: [
+    { name: 'note', label: 'Approval note', type: 'textarea' },
+  ],
+
+  // only show the button when the record is still pending
+  visible: 'record.status == "pending"',
+
+  // what it does — a sandboxed script body
+  type: 'script',
+  body: {
+    language: 'js',
+    source: `
+      await ctx.data.update('invoice', input.id, {
+        status: 'approved',
+        approved_by: ctx.user.id,
+        approved_at: now(),
+        approval_note: input.note,
+      });
+    `,
+  },
+});
+```
+
+在 `os dev` 重新編譯之後：
+
+- `POST /api/v1/actions/invoice/approve_invoice` 可用
+- Console 中的 Invoice 記錄頁面會顯示一個 **Approve Invoice** 按鈕
+- 流程可以包含 `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }`
+- 如果 AI 助手的技能允許，它可以呼叫 `action_approve_invoice`
+
+## Action 型別
+
+`type` 欄位決定 action 執行什麼：
+
+| `type` | 執行內容 | 適用場景 |
+|---|---|---|
+| `script` | 一個 `body` —— 一個 L1 formula 表示式或沙箱化的 L2 JavaScript | 大多數場景 —— 服務端邏輯，可審計且可被 AI 呼叫 |
+| `api` | 對某個 `target` 端點發起的 HTTP 呼叫（`method`、`bodyExtra`） | 複用資料 API 或平臺端點 |
+| `flow` | 執行 `target` 中指定名稱的流程 | 多步驟業務流程 |
+| `url` | 跳轉到 `target` URL | 深度連結、重定向式操作 |
+| `modal` | 開啟 `target` 中指定名稱的頁面/模態框 | 自定義對話方塊 |
+| `form` | 開啟 `target` 中指定名稱的 FormView | 引導式資料錄入 |
+
+```ts
+// api type — reuse a data-API endpoint
+Action.create({
+  name: 'archive_order',
+  objectName: 'order',
+  label: 'Archive',
+  locations: ['list_item'],
+  type: 'api',
+  method: 'PATCH',
+  target: '/api/v1/data/order/{id}',
+  bodyExtra: { archived: true },
+});
+```
+
+除 `script` 之外的型別都需要一個 `target`。無論哪種型別，該 action 在每個介面上都是同等的一級公民。
+
+## 呼叫一個 action
+
+### REST
+
+```bash
+# the record id can go in the body, or in the path
+curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice/inv_123 \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"note": "LGTM"}'
+```
+
+引數以扁平形式放在請求體中傳送。記錄 id 既可以作為路徑末尾的片段提供（`.../approve_invoice/:recordId`），也可以放在請求體中。響應是你的指令碼 body 的返回值（對於 `api` 型別的 action 則是呼叫結果）。
+
+### Console
+
+預設情況下，Console 會將 action 顯示為記錄詳情頁面上的按鈕，並按 action 的 `visible` 謂詞進行過濾。你可以在檢視配置中覆蓋其位置：
+
+```ts
+defineView({
+  name: 'invoice_detail',
+  object: 'invoice',
+  actions: ['approve_invoice', 'reject_invoice', 'send_to_customer'],
+});
+```
+
+### 來自流程
+
+```ts
+{
+  type: 'action',
+  action: 'approve_invoice',
+  inputs: { note: 'Auto-approved by SLA flow' },
+  record: '{!trigger.record.id}',
+}
+```
+
+### 來自 AI Agent
+
+如果 `approve_invoice` 包含在該 agent 擁有的任意技能中，LLM 就可以呼叫它。輸入來自對話內容；許可權的執行方式與使用者直接呼叫時完全一致。
+
+> *"Approve invoice INV-2042 with note 'verified by phone.'"*
+
+## 許可權
+
+Action 以發起呼叫的使用者的許可權執行。平臺會檢查：
+
+1. **物件許可權** —— 使用者的[許可權集](/docs/configure/permissions/permission-sets)必須授予該 action 所需的物件級訪問許可權（例如 update）。
+2. **欄位許可權** —— 對於該 action 寫入的任何欄位，使用者必須擁有寫入訪問許可權（FLS）。
+3. **UI 控制** —— `visible` 和 `disabled` 謂詞（CEL，針對 `record`、`os.user` 和引數求值）控制按鈕在 Console 中是渲染還是置灰。
+
+未通過的許可權檢查會返回 `403`，並附帶一個 `PERMISSION_DENIED` 錯誤。
+
+## 內建 action
+
+每個物件都會免費獲得以下 action：
+
+| Action | 作用 |
+|---|---|
+| `create` | 插入一條記錄 |
+| `update` | 更新一條記錄 |
+| `delete` | 刪除（或軟刪除）一條記錄 |
+| `restore` | 撤銷軟刪除 |
+| `clone` | 深複製一條記錄 |
+| `share` | 直接與某個使用者/角色共享 |
+
+不要重新宣告這些 —— 它們遵循物件的[生命週期與能力標誌](/docs/build/data)。
+
+## 審計
+
+平臺事件會落入 `sys_audit_log`，這是一條不可變的軌跡，其欄位包括：
+
+- `user_id` —— 發起操作的使用者
+- `action` —— action 名稱
+- `object_name` 和 `record_id` —— 被操作的物件
+- `old_value` / `new_value` —— 變更內容
+- `ip_address` / `user_agent` —— 請求來源
+- `created_at` —— 發生時間
+
+當你需要回答*"是誰按下了這個按鈕？"*之類的問題時，這裡是首選的查證之處。
+
+## 使用 AI Builder 生成 action
+
+> *"Create an action `escalate_ticket` on `support_ticket` that sets
+> priority to urgent and assigns it to the on-call engineer."*
+
+[AI Builder](/docs/build/ai-builder) 會生成該 action 的後設資料，並將變更排隊等待審批。審批通過後，該 action 即可從 REST、Console、流程，以及 —— 遞迴地 —— AI 自身進行呼叫。
+
+## 後續去向
+
+- [Flows](/docs/build/automation/flows) —— 將多個 action 組合成業務邏輯
+- [Agents](/docs/build/agents) —— 將 action 暴露為 AI 工具
+- [API Access](/docs/configure/api-access) —— 從外部系統呼叫 action
+- [Permissions](/docs/configure/permissions) —— 控制誰可以呼叫什麼

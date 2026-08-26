@@ -1,0 +1,178 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 儲存
+description: ObjectOS 把檔案放在哪裡 —— 本地磁碟、S3、R2、MinIO、Spaces。
+translation:
+  source_sha: 7ec22c893adfedc9ade2e05655ab61ddd3b1aed89f9313707830fc2464f93e58
+  guide_rev: 1
+  mode: auto
+---
+
+ObjectOS 的檔案（附件、上傳內容、生成的文件）會經過**儲存服務**——一個可插拔的抽象層，包含兩類介面卡：**本地檔案系統**（預設）和 **S3 相容儲存**（生產）。
+
+該服務由 `@objectstack/service-storage` 提供，在 standalone 和 project 啟動時預設啟用。
+
+## 使用者如何與之互動
+
+| 入口 | 行為 |
+|---|---|
+| Console 檔案/圖片欄位 | 瀏覽器通過預簽名 URL 直接上傳到儲存 |
+| REST `/api/v1/storage/*` | 程式設計式上傳/下載端點 |
+| 物件 `file` / `image` 欄位 | 渲染為上傳控制元件；後設資料持久化在 `sys_file` |
+
+檔案以 `sys_file` 系統物件進行追蹤，而非以原始路徑出現在你的記錄中。這讓你的資料模型與儲存後端解耦。
+
+## 本地檔案系統（預設）
+
+適用於：開發、單節點部署、演示。
+
+```ts
+// objectstack.config.ts (or wherever you assemble plugins)
+import { StorageServicePlugin } from '@objectstack/service-storage';
+
+new StorageServicePlugin({
+  adapter: 'local',
+  local: {
+    rootDir: './uploads',
+    baseUrl: 'http://localhost:3000',  // for presigned URLs
+    signingSecret: process.env.OS_STORAGE_SIGNING_SECRET, // optional; auto-generated if omitted
+  },
+  presignedTtl: 3600,   // seconds — TTL for presigned URLs
+  sessionTtl: 86400,    // seconds — TTL for chunked upload sessions
+});
+```
+
+在 standalone 模式（無專案執行 `os start`）下，執行時會自動在 `.objectstack/data/uploads/` 下配置本地儲存。可通過 `OS_STORAGE_ROOT` 環境變數覆蓋根目錄。
+
+**是否適合生產取決於部署形態：**
+
+- ✅ 桌面端應用、單節點內部工具、邊緣 / 本地一體機 —— 本地儲存完全可以，
+  只要把 `uploads/` 目錄納入檔案系統備份（桌面端應用也可以把它放在
+  使用者控制的同步目錄裡）。
+- ❌ 多節點、多可用區，或者任何需要跨區域持久化的場景 —— 請使用 S3
+  相容儲存。
+
+## S3 相容儲存（生產）
+
+適用於：生產、多節點、持久化 + 生命週期管理。
+
+```bash
+pnpm add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+```
+
+```ts
+import { StorageServicePlugin } from '@objectstack/service-storage';
+
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'us-east-1',
+    // omit credentials to use the AWS SDK's default chain
+    // (env, ~/.aws, IAM role)
+  },
+});
+```
+
+AWS SDK 按其正常的憑據鏈讀取憑據：
+
+| 來源 | 環境變數 |
+|---|---|
+| 標準 env | `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_REGION` |
+| Session token | `AWS_SESSION_TOKEN` |
+| 共享配置 | `~/.aws/credentials`、`AWS_PROFILE` |
+| IAM 角色 | 在 EC2 / ECS / EKS / Lambda 上自動生效 —— 無需配置 |
+
+### Cloudflare R2
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'auto',
+    endpoint: 'https://<account-id>.r2.cloudflarestorage.com',
+    forcePathStyle: false,
+  },
+});
+```
+
+憑據：R2 access key ID + secret，通過標準 `AWS_*` 環境變數或你的 secret manager 傳入。
+
+### MinIO（自託管）
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'us-east-1',
+    endpoint: 'http://minio.internal:9000',
+    forcePathStyle: true,
+  },
+});
+```
+
+### DigitalOcean Spaces
+
+```ts
+new StorageServicePlugin({
+  adapter: 's3',
+  s3: {
+    bucket: 'my-bucket',
+    region: 'nyc3',
+    endpoint: 'https://nyc3.digitaloceanspaces.com',
+    forcePathStyle: false,
+  },
+});
+```
+
+### S3 bucket 策略
+
+儲存使用預簽名 PUT/GET URL。推薦的 bucket 策略：
+
+- 阻止所有公共訪問。
+- CORS：允許來自你的 ObjectOS 主機名的 `PUT`/`GET`。
+- 生命週期：1–7 天后讓未完成的 multipart 上傳過期；24 小時後讓帶 `temp=true` 標籤的物件過期。
+- Versioning + Object Lock：可選，在合規部署中推薦啟用。
+
+## REST 介面
+
+`@objectstack/client` 會呼叫以下介面 —— 通常你不直接呼叫：
+
+| 方法 | 路徑 | 用途 |
+|---|---|---|
+| POST | `/api/v1/storage/upload/presigned` | 獲取預簽名上傳 URL |
+| POST | `/api/v1/storage/upload/complete` | 提交完成的上傳 |
+| POST | `/api/v1/storage/upload/chunked` | 開始分塊上傳 |
+| PUT  | `/api/v1/storage/upload/chunked/:uploadId/chunk/:i` | 上傳一個分塊 |
+| POST | `/api/v1/storage/upload/chunked/:uploadId/complete` | 完成分塊上傳 |
+| GET  | `/api/v1/storage/upload/chunked/:uploadId/progress` | 輪詢進度 |
+| GET  | `/api/v1/storage/files/:fileId/url` | 獲取預簽名下載 URL |
+
+每個檔案的鑑權由 security 外掛的許可權求值器針對 `sys_file` 物件處理 —— 你無需獨立的儲存層 ACL。
+
+## 即時配置
+
+當 settings 服務啟用時（預設即啟用），管理員可以在 **Console → Configuration → Storage** 中切換儲存介面卡而無需重啟：
+
+- 選擇介面卡、bucket、region、endpoint；
+- 貼上憑據（在 `sys_setting` 中靜態加密儲存）；
+- 儲存前點選 **Test connection**。
+
+變更在下一次請求時生效——無需重啟。
+
+## 容量規劃
+
+| 資源 | 預設值 | 可調項 |
+|---|---|---|
+| 預簽名 URL TTL | 1 小時 | 外掛選項 `presignedTtl` |
+| 分塊上傳會話 TTL | 24 小時 | 外掛選項 `sessionTtl` |
+| 單次上傳上限 | 取決於後端（S3 = 5 GB） | — |
+| 分塊上傳上限 | 取決於後端（S3 = 5 TB） | — |
+
+## 下一步
+
+- [系統設定](/docs/configure/system-settings) —— 即時配置以及儲存切換所使用的設定服務
+- [Production Readiness](/docs/operate/production) —— 包含物件儲存持久化與備份的清單
+- [GitHub 上的 `@objectstack/service-storage`](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-storage) —— 原始碼與完整選項參考

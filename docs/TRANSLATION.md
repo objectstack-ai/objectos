@@ -195,6 +195,25 @@ it can never be reached and can never be refreshed.
 Never leave a translation behind for a page that was rewritten to say something
 different. Deleting it is the correct action — English renders in its place.
 
+## Derived locales
+
+`zh-Hant` is not translated and is not this pass's work. It is generated from
+`zh-Hans` by `apps/docs/scripts/gen-zh-hant.mjs` (OpenCC `s2twp`), committed,
+and gated in CI by `gen-zh-hant.mjs --check`.
+
+- **Never translate a `zh-Hant` page from English, and never hand-edit one.**
+  The right fix for a wrong Traditional page is always upstream: fix English,
+  refresh `zh-Hans`, re-run the generator.
+- Its `translation:` stamp is carried over from the Simplified page it was
+  converted from, so it records the same English `source_sha` and goes stale and
+  fresh in step with `zh-Hans`.
+- `check-translation-output.mjs` compares a derived locale against its SOURCE
+  locale, not against English (`DERIVED_FROM` there) — for `zh-Hant` the rules
+  are a check on the converter.
+- ⚠️ `--worklist` does not know about this yet: it still emits
+  `en → zh-Hant` items alongside the `zh-Hans` ones. Skip them. Acting on one
+  produces a page the generator overwrites and `--check` rejects.
+
 ## Adding a locale
 
 `apps/docs/lib/i18n.ts` is the authority; both scripts read the locale list from

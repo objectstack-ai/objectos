@@ -1,0 +1,176 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 關係
+description: 用查詢（lookup）與主從（master-detail）連線物件 —— 級聯規則、過濾選擇器、層級結構、連線物件與彙總欄位。
+translation:
+  source_sha: 37812edbd83d2dffc155de2c29d7e697182eec51f002be23773e4201082bffe8
+  guide_rev: 1
+  mode: auto
+---
+
+**關係就是一個欄位。**把 `lookup` 或 `masterDetail` 欄位指向另一個物件，ObjectOS 會把上層的一切都接好：外部索引鍵完整性、Console 裡的記錄選擇器、父記錄頁面上的相關列表，以及查詢中的 `expand`。
+
+| 型別 | 基數 | 刪除預設行為 | 用於 |
+|---|---|---|---|
+| `lookup` | 多對一 | `set_null` | 鬆散引用（工單 → 負責人） |
+| `masterDetail` | 多對一、有歸屬 | `cascade` | 父子歸屬（訂單 → 明細行） |
+| `tree` | 自引用 | — | 層級結構（分類、組織架構圖） |
+| `user` | 多對一 | `set_null` | 人員選擇器 —— 特化為 `sys_user` 的查詢 |
+| `summary` | 彙總到父記錄 | — | 聚合子記錄（sum、count、avg） |
+
+## 查詢（多對一）
+
+主力欄位。引用另一個物件中的一條記錄：
+
+```ts
+import { ObjectSchema, Field } from '@objectstack/spec/data';
+
+export const Contact = ObjectSchema.create({
+  name: 'contact',
+  fields: {
+    account: Field.lookup('account', {
+      label: 'Account',
+      required: true,
+    }),
+  },
+});
+```
+
+平臺會校驗被引用的記錄確實存在 —— 每次寫入都強制外部索引鍵完整性。
+
+> **提示：**按所指向的物件給欄位命名 —— 用 `account`，而不是 `account_id`。這樣相關列表、`expand` 和 AI Builder 讀起來都更順。
+
+### 父記錄被刪除時會發生什麼
+
+用 `deleteBehavior` 控制級聯行為：
+
+| 值 | 父記錄刪除時 |
+|---|---|
+| `set_null` | 子記錄的引用被清空（lookup 預設） |
+| `cascade` | 子記錄也一併刪除 |
+| `restrict` | 只要還有子記錄，就阻止刪除 |
+
+## 過濾查詢
+
+約束選擇器提供哪些記錄。靜態條件用 `lookupFilters`；用 `dependsOn` 讓候選記錄隨同一記錄上另一個欄位的取值收窄：
+
+```ts
+contact: Field.lookup('contact', {
+  label: 'Contact',
+  dependsOn: ['account'],          // 只显示所选 account 下的联系人
+  lookupFilters: [
+    { field: 'is_active', operator: 'eq', value: true },
+  ],
+})
+```
+
+> **警告：**舊的 `referenceFilters: string[]` 屬性（如 `['is_active = true']`）**已在 16.0 中移除** —— 解析時會被直接剝離；而且即使在移除之前，記錄選擇器 UI 也從未讀取過它，它什麼都不過濾。上面展示的結構化 `lookupFilters` + `dependsOn` 是唯一受支援的形式。
+
+## 主從（有歸屬的子記錄）
+
+`masterDetail` 是帶歸屬語義的查詢：子記錄屬於父記錄，預設隨父級聯刪除，並且可以在父表單上以明細行的形式內聯編輯。
+
+```ts
+export const OrderLine = ObjectSchema.create({
+  name: 'order_line',
+  fields: {
+    order:    Field.masterDetail({ reference: 'order', label: 'Order' }),
+    product:  Field.lookup('product', { label: 'Product' }),
+    quantity: Field.number({ label: 'Quantity', min: 1 }),
+  },
+});
+```
+
+| 方面 | 行為 |
+|---|---|
+| 刪除 | 執行時級聯到子記錄，除非 `deleteBehavior: 'restrict'` |
+| 歸屬 | 子記錄歸父記錄所有 |
+| 編輯 | 可選：在父表單上內聯編輯明細行 |
+| 彙總 | `summary` 欄位只在主（master）側有效 |
+
+引用是可選或共享的，用 `lookup`；子記錄離開父記錄就沒有意義的，用 `masterDetail`。
+
+## 自引用查詢與樹
+
+查詢可以指回自己的物件，用來構建層級結構：
+
+```ts
+parent_account: Field.lookup('account', {
+  label: 'Parent Account',
+  description: 'Parent company in hierarchy',
+})
+```
+
+對於專門的層級結構（分類、組織架構圖），使用 `tree` 欄位型別 —— 一個儲存和展開方式與 `lookup` 相同的自引用查詢。注意引擎在寫入時**不做**環路檢查，所以一條繞回自身的鏈不會被自動拒絕。
+
+> **提示：**把 `tree` / 自引用查詢欄位與[樹形列表檢視](/docs/build/interface/views)搭配使用，即可在 Console 中把層級渲染為巢狀行。
+
+## 相關列表
+
+這些是免費得到的。當查詢指向父物件時，子記錄會自動以相關列表的形式出現在父記錄的詳情頁上：
+
+- Contact 有 `account: Field.lookup('account')`
+- → Account 詳情頁會顯示一個 **Contacts** 相關列表
+
+無需任何額外配置。
+
+## 多對多：連線物件
+
+ObjectOS 沒有直接的多對多欄位 —— 用**連線物件**來建模：一個帶兩個關係欄位的物件，各指向一側。
+
+```ts
+// Student ↔ Course，通过 Enrollment 连接
+export const Enrollment = ObjectSchema.create({
+  name: 'enrollment',
+  fields: {
+    student: Field.masterDetail({ reference: 'student', label: 'Student' }),
+    course:  Field.masterDetail({ reference: 'course',  label: 'Course' }),
+    grade:   Field.select({ label: 'Grade', options: [ /* ... */ ] }),
+  },
+  indexes: [
+    { fields: ['student', 'course'], unique: true },  // 每对组合只允许一条报名记录
+  ],
+});
+```
+
+兩側都會把連線記錄看作一個相關列表，而連線物件本身正是存放這段配對屬性（成績、角色、加入日期）的天然位置。
+
+## 彙總（`summary` 欄位）
+
+用 `summary` 欄位把子記錄聚合到父記錄上。只在主物件上有效 —— 即主從關係的父側：
+
+```ts
+// 在 Order 对象上
+total_lines: {
+  type: 'summary',
+  label: 'Line Count',
+  summaryOperations: {
+    object: 'order_line',    // 要聚合的子对象
+    field: 'quantity',       // 要聚合的字段
+    function: 'sum',         // count | sum | min | max | avg
+    filter: { status: 'active' },  // 16.0 新增：只聚合匹配的子记录
+  },
+}
+```
+
+Summary 欄位是隻讀的，由子記錄計算得出 —— 你永遠不會直接寫它。
+
+**16.0 新增：**可選的 `filter` 是一個查詢式 `where` 謂詞 —— 只有匹配它
+的子記錄才會被聚合（例如只統計 `status == 'active'` 的子記錄）；當某條
+子記錄進入或離開該謂詞範圍時，彙總會重新聚合。它還讓多個 summary 欄位
+可以對*同一個*子物件彙總出不同的總計。
+
+## 跨關係查詢
+
+用 `expand` 在一次呼叫里加載關聯記錄 —— 查詢 API 會順著查詢欄位把被引用的記錄內聯進來，客戶端不必發出 N+1 次請求。
+
+## 下一步
+
+| 頁面 | 原因 |
+|---|---|
+| [資料模型](/docs/build/data) | 這些關係所在的物件、欄位與 Schema |
+| [公式](/docs/build/data/formulas) | 用 CEL 在記錄內計算值 |
+| [驗證規則](/docs/build/data/validation-rules) | 跨欄位規則與唯一約束 |
+| [檢視](/docs/build/interface/views) | 樹形檢視、Kanban（看板）與相關列表介面 |
+| [欄位型別](/docs/reference/field-types) | `lookup`、`master_detail`、`tree`、`summary` 的完整參考 |
+| [AI Builder](/docs/build/ai-builder) | 在對話中描述關係，讓平臺自動接線 |

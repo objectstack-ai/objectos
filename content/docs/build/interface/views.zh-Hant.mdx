@@ -1,0 +1,245 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: 檢視
+description: List、Form、Kanban、Calendar、Gantt 等等 —— Console 中每個物件表面是如何宣告的。
+translation:
+  source_sha: 7fe2a7f72a3951df0b657558e4d93a551d264827b33a6041988fefaefd2ec24c
+  guide_rev: 1
+  mode: auto
+---
+
+**view** 是使用者在 Console 中檢視和編輯記錄的方式。檢視是宣告式後設資料 —— 生命週期與物件相同：宣告一次,隨你的 package 釋出,在任何地方渲染。
+
+兩類：
+
+- **List 檢視** —— 視覺化多條記錄(grid、kanban、calendar……)
+- **Form 檢視** —— 檢視 / 編輯單條記錄(simple、tabbed、wizard……)
+
+Schema 來源：[`packages/spec/src/ui/view.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/ui/view.zod.ts)。
+
+## 最短宣告
+
+即使你不宣告檢視,每個物件也會自動獲得一個預設的網格 list + simple form。加上 `view` 即可覆蓋或擴充套件：
+
+```ts
+import { defineObject, F, P } from '@objectstack/spec'
+
+export default defineObject({
+  name: 'support_ticket',
+  fields: [ /* ... */ ],
+
+  view: {
+    list: { type: 'grid', columns: ['subject', 'status', 'priority', 'assignee'] },
+    form: { sections: [ { label: 'Details', fields: ['subject','description','priority','status','assignee'] } ] }
+  }
+})
+```
+
+對多檢視物件(例如對同一份資料既有 Kanban 又有日曆)使用命名變體：
+
+```ts
+view: {
+  listViews: {
+    by_status:  { type: 'kanban',   kanban:   { groupByField: 'status' }, columns: ['subject','priority'] },
+    schedule:   { type: 'calendar', calendar: { startDateField: 'due_at', titleField: 'subject' } },
+    by_owner:   { type: 'grid', columns: ['subject','status','priority'], filterableFields: ['assignee'] }
+  },
+  formViews: {
+    quick:    { type: 'modal',  sections: [ /* ... */ ] },
+    full:     { type: 'tabbed', sections: [ /* ... */ ] }
+  }
+}
+```
+
+## List 檢視型別
+
+| `type` | 渲染 | 必填配置 |
+|:--|:--|:--|
+| `grid` | 資料表(預設) | `columns` |
+| `kanban` | 列式看板 | `kanban: { groupByField }` |
+| `gallery` | 卡片堆 | `gallery: { imageField, titleField }` |
+| `calendar` | 月 / 周 / 日 | `calendar: { startDateField, titleField }` |
+| `timeline` | 按時間順序的 feed | `timeline: { dateField, titleField }` |
+| `gantt` | 專案時間線 + 依賴 | `gantt: { startDateField, endDateField, titleField }` |
+| `map` | 地理 pin | `map: { locationField }` |
+| `tree` | 自引用層級 | `tree: { parentField, labelField }` |
+| `chart` | 嵌入式圖表 | `chart: { chartType, dataset }` |
+
+### 通用 list 選項
+
+```ts
+{
+  type: 'grid',
+  columns: ['subject','status','priority','assignee','created_at'],
+
+  filter: [ { field: 'archived', operator: '$eq', value: false } ],
+  sort:   [ { field: 'created_at', order: 'desc' } ],
+  pagination: { pageSize: 25, mode: 'cursor' },         // 'cursor' | 'offset'
+  expand: ['assignee'],
+  searchableFields:   ['subject','description'],
+  filterableFields:   ['status','priority','assignee'],
+
+  navigation: { mode: 'drawer' },                       // 'page' | 'drawer' | 'modal' | 'split' | 'popover' | 'new_window' | 'none'
+  selection:  { type: 'multiple' },                     // 'none' | 'single' | 'multiple'
+
+  rowActions:  ['close_ticket','assign_to_me'],
+  bulkActions: ['bulk_close','bulk_export'],
+
+  conditionalFormatting: [
+    { condition: P`record.priority == 'urgent'`, style: { background: '#fef2f2', fontWeight: 600 } }
+  ],
+
+  exportOptions: ['csv','xlsx'],
+  emptyState:   { title: 'No tickets yet', message: 'Create one to get started', icon: 'inbox' }
+}
+```
+
+`filter` 與 `sort` 編譯為 [ObjectQL](/docs/reference/objectql);`rowActions` 與 `bulkActions` 按名稱引用 [Action](./actions)。
+
+### Kanban
+
+```ts
+{
+  type: 'kanban',
+  columns: ['subject','priority','assignee'],
+  kanban: {
+    groupByField: 'status',                  // 离散字段 —— 通常是 select
+    summarizeField: 'amount',                // 可选,按列汇总
+    columns: [                               // 显式顺序 + 颜色
+      { value: 'new',      label: 'New',      color: '#3b82f6' },
+      { value: 'open',     label: 'Open',     color: '#f59e0b' },
+      { value: 'resolved', label: 'Resolved', color: '#10b981' }
+    ]
+  }
+}
+```
+
+跨列拖放會發出一條 `UPDATE`,把分組欄位改成新值 —— 許可權規則與手動編輯相同。
+
+### Calendar
+
+```ts
+{
+  type: 'calendar',
+  calendar: {
+    startDateField: 'start_at',
+    endDateField:   'end_at',                // 可选 —— 省略则单点事件
+    titleField:     'subject',
+    colorField:     'priority'               // 可选 —— 按值给事件着色
+  }
+}
+```
+
+### Gantt
+
+```ts
+{
+  type: 'gantt',
+  gantt: {
+    startDateField:    'start_at',
+    endDateField:      'due_at',
+    titleField:        'name',
+    progressField:     'percent_complete',   // 可选,驱动进度条
+    dependenciesField: 'depends_on'          // 可选 —— 指向同对象的多选 lookup
+  }
+}
+```
+
+### Tree
+
+```ts
+{
+  type: 'tree',
+  tree: {
+    parentField: 'parent_id',                // self-lookup that builds the hierarchy
+    labelField:  'name',                     // shown indented in the first column
+    defaultExpandedDepth: 1                   // optional — 0 = roots only, omit = expand all
+  }
+}
+```
+
+對於自引用物件(分類、BOM、組織單元、巢狀評論),樹形表格會按 `parentField` 指標把行巢狀展示。
+
+### Chart(內聯)
+
+`chart` 列表檢視繫結一個具名 **dataset**(語義分析層,ADR-0021),並**按名稱**選擇它的維度和度量。度量只定義一次,繫結同一個 dataset 的每個圖表、儀表板和報表都保持一致:
+
+```ts
+{
+  type: 'chart',
+  chart: {
+    chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
+    dimensions: ['status'],                  // dataset dimension name(s) — X / group / split
+    values:     ['ticket_count']             // dataset measure name(s) — the value axis
+  }
+}
+```
+
+內聯的 `xAxisField` / `yAxisFields` / `aggregation` / `groupByField` 形式已在 9.0 中移除 —— 現在每個圖表、儀表板小元件和報表都繫結 dataset。完整的跨物件分析請使用專用的 reports 表面。
+
+## Form 檢視型別
+
+| `type` | 佈局 |
+|:--|:--|
+| `simple` | 單列或分割槽(預設) |
+| `tabbed` | 分頁籤 |
+| `wizard` | 逐步引導 |
+| `split` | 主-詳情雙欄 |
+| `drawer` | 側滑面板表單 |
+| `modal` | 對話方塊表單 |
+
+```ts
+{
+  type: 'tabbed',
+  sections: [
+    { label: 'Overview', fields: ['subject','status','priority','assignee'] },
+    { label: 'Customer', fields: ['customer','contact','email','phone'] },
+    { label: 'Resolution', fields: ['resolution_notes','resolved_at'] }
+  ],
+  submitBehavior: { kind: 'next-record' }   // 'thank-you' | 'redirect' | 'continue' | 'next-record'
+}
+```
+
+### 公共表單
+
+表單可設為匿名可訪問：
+
+```ts
+{
+  type: 'simple',
+  sections: [ { fields: ['name','email','message'] } ],
+  sharing: {
+    type: 'collaborative',
+    publicSlug: 'contact-us',
+    allowAnonymous: true
+  },
+  submitBehavior: { kind: 'thank-you' }
+}
+```
+
+這會自動暴露 `GET /api/v1/forms/contact-us` 與 `POST /api/v1/forms/contact-us/submit` —— 是僅有的不需要鑑權的兩個 REST 路由。見 [REST API → Public forms](/docs/reference/rest-api#public-forms)。
+
+## 可見性、ARIA、主題
+
+每個檢視都支援：
+
+- `visibleIf: P\`...\`` —— 按使用者 / 記錄 / 環境隱藏檢視
+- `aria: { label, description, ... }` —— 給螢幕閱讀器的 ARIA 屬性
+- `appearance: { showDescription, allowedVisualizations: [...] }` —— 限制終端使用者能切換到哪些 list 型別
+
+## 用聊天構建
+
+通常你不會手寫檢視後設資料。對 AI Builder 說：
+
+> *"給 support_ticket 物件加一個按 status 分組的 kanban 檢視，卡片顯示 subject 和 priority。按 status 把列著色為紅 / 黃 / 綠。"*
+
+它會呼叫後設資料工具,把 diff 入隊,審批後檢視就在 Console 中出現了。見 [AI Builder](/docs/build/ai-builder)。
+
+## 另見
+
+- [資料模型](/docs/build/data) —— 檢視讀取的物件
+- [Actions](./actions) —— `rowActions` / `bulkActions` 引用的內容
+- [ObjectQL](/docs/reference/objectql) —— `filter` / `sort` 編譯到什麼
+- [CEL](/docs/reference/cel) —— `conditionalFormatting`、`visibleIf`
+- [`@objectstack/spec/ui/view.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/ui/view.zod.ts) —— Schema

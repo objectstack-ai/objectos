@@ -1,0 +1,183 @@
+---
+# @generated zh-Hant from zh-Hans -- do not edit. Edit the English source, then regenerate: pnpm --filter @objectos/docs gen:zh-hant
+title: AI 服務
+description: LLM、Embedder、RAG 與 MCP —— 多 Provider 可插拔，執行時可切換。
+translation:
+  source_sha: 1b89f2c7f43c0a3ac7a72c4fe461f58764838f7d48072dda6395534452731230
+  guide_rev: 1
+  mode: auto
+---
+
+ObjectOS 把 AI 視為一等能力，分為**三個可插拔層**：
+
+| 層 | 包 | 作用 |
+|---|---|---|
+| **Chat / 生成** | `@objectstack/service-ai` | 會話、工具呼叫、流式輸出 |
+| **Embeddings** | `@objectstack/service-embedder` + 介面卡 | 文本 → 向量，用於語義搜尋和 RAG |
+| **Knowledge / RAG** | `@objectstack/service-knowledge` + 介面卡 | 文件 → 已索引的知識庫 |
+
+三層都是可選的，都是與 Provider 解耦的，並且都可以在 **Console → Configuration** 中執行時重配，無需重啟。
+
+## Chat / 生成
+
+由 [Vercel AI SDK](https://ai-sdk.dev) 驅動。把你想用的 Provider 作為 peer 依賴安裝：
+
+```bash
+pnpm add @ai-sdk/openai          # OpenAI
+pnpm add @ai-sdk/anthropic       # Claude
+pnpm add @ai-sdk/google          # Gemini
+pnpm add @ai-sdk/gateway         # AI gateway / OpenRouter / proxies
+```
+
+然後註冊服務及一個或多個模型：
+
+```ts
+import { ServiceAI } from '@objectstack/service-ai';
+import { openai }     from '@ai-sdk/openai';
+import { anthropic }  from '@ai-sdk/anthropic';
+
+ServiceAI.configure({
+  defaultModel: 'fast',
+  models: {
+    fast:     openai('gpt-4o-mini'),
+    smart:    openai('gpt-4o'),
+    claude:   anthropic('claude-3-5-sonnet-latest'),
+  },
+  enableStreaming: true,
+  maxHistoryLength: 50,
+});
+```
+
+Provider API key 來自各 SDK 的標準環境變數：
+
+| Provider | 環境變數 |
+|---|---|
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| AI Gateway | `AI_GATEWAY_API_KEY` |
+
+也可以在 Console 中作為執行時設定貼上這些值——經過相同的優先順序（env > settings），但即時編輯意味著無需重啟。
+
+### 在程式碼中使用 AI 服務
+
+```ts
+const ai = kernel.getService<IAIService>('ai');
+
+const convo = await ai.createConversation({
+  model: 'smart',
+  systemPrompt: 'You are a helpful assistant.',
+});
+
+const reply = await ai.sendMessage({
+  conversationId: convo.id,
+  message: 'Summarize ObjectStack in two sentences.',
+});
+```
+
+### 在流程中使用
+
+`automation` 能力暴露了一個 `ai_call` 步驟型別：
+
+```ts
+{
+  type: 'action',
+  action: 'ai_call',
+  inputs: {
+    model:   'fast',
+    prompt:  'Categorize this ticket: {!trigger.record.subject}',
+    schema:  { category: 'string', priority: 'string' },
+  },
+  output: 'classified',
+}
+```
+
+詳見 [Flows & Automation](/docs/build/automation/flows)。
+
+## Embedder
+
+Embedder 服務把文本轉換為稠密向量。ObjectStack 為多個 Provider 提供了介面卡——因為 embedding 生態迭代很快，最佳選擇取決於成本、延遲和語言。
+
+| Provider | 介面卡 | 說明 |
+|---|---|---|
+| OpenAI | `@objectstack/embedder-openai` | `text-embedding-3-small`/`-large` |
+| Azure OpenAI | `@objectstack/embedder-openai`（Azure 配置） | 企業級，按區域部署 |
+| 阿里通義 DashScope | `@objectstack/embedder-dashscope` | `text-embedding-v3` |
+| 智譜 GLM | `@objectstack/embedder-zhipu` | `embedding-2` |
+| 矽基流動 SiliconFlow | `@objectstack/embedder-siliconflow` | 開源模型聚合 |
+| 火山 Doubao | `@objectstack/embedder-doubao` | 字節跳動 |
+| MiniMax | `@objectstack/embedder-minimax` | — |
+| Ollama（自託管） | `@objectstack/embedder-ollama` | 適合內網/離線 |
+| Custom | `@objectstack/embedder-custom` | 接入你自己的 HTTP 端點 |
+| None | _內建_ | 完全停用 embedding |
+
+在程式碼中配置：
+
+```ts
+import { ServiceEmbedder }      from '@objectstack/service-embedder';
+import { OpenAIEmbedderPlugin } from '@objectstack/embedder-openai';
+
+ServiceEmbedder.configure({ defaultModel: 'small' });
+// 然后注册适配器插件：
+new OpenAIEmbedderPlugin({
+  model: 'text-embedding-3-small',
+  // OPENAI_API_KEY from env
+});
+```
+
+或在執行時通過 **Console → Configuration → AI → Embedder** 選擇。無需重啟切換 Provider；已有向量仍可檢索（你可以在後臺重建索引）。
+
+## Knowledge / RAG
+
+Knowledge 服務負責文件接入、切塊、embedding（通過 Embedder 服務）和檢索。底層儲存和檢索後端可插拔：
+
+| 介面卡 | 後端 | 適用場景 |
+|---|---|---|
+| `@objectstack/knowledge-memory` | 程序內 | 開發、演示、小型知識庫 |
+| `@objectstack/knowledge-turso` | Turso/libSQL + sqlite-vss | 單區域生產環境，嵌入式向量 |
+| `@objectstack/knowledge-ragflow` | [RAGFlow](https://github.com/infiniflow/ragflow) | 高質量開源 RAG，含切塊和重排 |
+
+```ts
+import { ServiceKnowledge }     from '@objectstack/service-knowledge';
+import { TursoKnowledgePlugin } from '@objectstack/knowledge-turso';
+
+ServiceKnowledge.configure();
+new TursoKnowledgePlugin({
+  databaseUrl: process.env.TURSO_DATABASE_URL,
+  authToken:   process.env.TURSO_AUTH_TOKEN,
+});
+```
+
+已索引的知識庫成為一等物件——可以在流程中查詢，可以在 Console 中呈現，也可以作為檢索上下文掛接到 AI 助手。
+
+## MCP —— Model Context Protocol
+
+ObjectOS 可以通過開放的 [Model Context Protocol](https://modelcontextprotocol.io) 把自己作為工具伺服器暴露給 AI Agent（Claude Desktop、IDE、自定義 Agent）。
+
+```ts
+import { McpServerPlugin } from '@objectstack/mcp';
+
+new McpServerPlugin({
+  // expose specific objects + actions as MCP tools
+  expose: ['todo_task', 'support_ticket'],
+});
+```
+
+Agent 通過 MCP 發現並呼叫 ObjectOS 的 Action——遵循呼叫使用者的許可權集。MCP 伺服器還暴露一小組通用工具：`search_records`、`get_record`、`create_record`、`invoke_action`。
+
+## 執行保證
+
+- **無強制雲依賴。** 使用 Ollama 做對話 + Ollama Embedder + memory knowledge —— 完全離線可用。
+- **可熱切換。** 在 Console 修改 Provider；新請求在下次呼叫時使用新 Provider，無需重啟。
+- **按租戶配置。** 每個 Environment 擁有獨立的 AI 設定。租戶 A 用 OpenAI，租戶 B 用 Anthropic —— 同一執行時。
+- **審計日誌條目。** 每次會話、工具呼叫、Embedder 請求都可被審計（`@objectstack/plugin-audit`）。
+- **成本可感知。** Token 數和 Provider ID 寫入審計日誌，便於成本分攤/分析。
+
+## 下一步
+
+- [Flows & Automation](/docs/build/automation/flows) —— 在宣告式業務邏輯中呼叫 AI
+- [Marketplace](/docs/build/marketplace) —— 預設應用市場中的 AI 應用
+- [Security & Compliance](/docs/reference/security) —— AI 資料流是如何隔離的
+- [`@objectstack/service-ai` 原始碼](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-ai)
+- [`@objectstack/service-embedder` 原始碼](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-embedder)
+- [`@objectstack/service-knowledge` 原始碼](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-knowledge)
