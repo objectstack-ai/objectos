@@ -73,6 +73,79 @@ const LANGUAGE_MAPPING: Record<string, string> = {
 };
 
 /**
+ * The locales this site publishes, keyed by their case-folded spelling.
+ *
+ * The value is always the string `i18n.languages` itself holds. This map is
+ * the one place a folded spelling is turned back into a canonical one, and it
+ * is what makes both the header side and the path side below case-insensitive
+ * without either of them inventing a locale.
+ */
+const PUBLISHED_BY_FOLDED_LOCALE: ReadonlyMap<string, string> = new Map(
+  SUPPORTED_LANGUAGES.map((locale) => [locale.toLowerCase(), locale]),
+);
+
+/**
+ * Every browser tag we answer to, case-folded, mapped to the canonical locale.
+ *
+ * BCP 47 tags are case-insensitive — RFC 5646 section 2.1.1: "the tags and
+ * their subtags ... are not case sensitive". The casing the spec recommends
+ * (lowercase language, Titlecase script, UPPERCASE region) is a writing
+ * convention, not a constraint on the wire. Both tables above are written in
+ * that convention, so before this index existed, matching them with plain
+ * string equality meant a client spelling its tags differently missed rows
+ * that name it exactly (#220).
+ *
+ * Measured on the pre-fix tree, one tag, no q-list, `GET /docs/quickstart`:
+ * `zh-tw`, `zh-hk`, `zh-mo`, `zh-hant` and `zh-hant-tw` all negotiated to
+ * Simplified, because the Chinese keys are the only ones carrying a script or
+ * region subtag. Those are the rows #220 was filed for.
+ *
+ * The same run showed the defect is wider than the card's picture of it: it
+ * is the LOWERCASE direction that is Chinese-only. `DE-AT`, `JA-jp`, `KO-kr`
+ * and `ZH-TW` all fell through to English, because a bare `de` is lowercase
+ * by convention too — any other casing missed every locale, not just the
+ * Chinese ones. Folding the key closes the whole space at once.
+ *
+ * ## The KEY is folded. The value never is.
+ *
+ * The payload is the canonical string taken from `i18n.languages`, never the
+ * folded key and never the caller's spelling. A folded value would build a
+ * redirect to `/zh-hant/...`, which this site does not publish: it 404s, that
+ * 404 re-enters negotiation, and a wrong-script page becomes a loop.
+ *
+ * ## The membership check is still the only exit
+ *
+ * #217 made a single check against `i18n.languages` the one door out of
+ * `resolveSupportedLanguage`, so that neither truncation nor a table row
+ * outliving its locale could return something unpublished. That check is not
+ * removed here, it is moved to where this index is built and paid once: a
+ * supported locale enters as itself, and a `LANGUAGE_MAPPING` row enters only
+ * if its target resolves through the published map. Every value in this index
+ * is therefore a member of `i18n.languages` by construction — the same
+ * invariant, established at module load instead of re-checked per lookup.
+ *
+ * Insertion order carries ordering decision 2 of `resolveSupportedLanguage`:
+ * the ruled rows are written last, so where a tag is both published and ruled
+ * the ruling wins. No such tag exists today — `zh`, `zh-TW`, `zh-HK` and
+ * `zh-MO` are none of them published locales — and the order is fixed here so
+ * that adding one cannot silently reverse the rule.
+ *
+ * Folded keys collide only if `i18n.languages` publishes one locale under two
+ * spellings, which would be a defect in that file: two BCP 47 tags differing
+ * only in case are the same tag.
+ */
+const CANONICAL_BY_FOLDED_TAG: ReadonlyMap<string, string> = (() => {
+  const index = new Map(PUBLISHED_BY_FOLDED_LOCALE);
+
+  for (const [tag, target] of Object.entries(LANGUAGE_MAPPING)) {
+    const published = PUBLISHED_BY_FOLDED_LOCALE.get(target.toLowerCase());
+    if (published) index.set(tag.toLowerCase(), published);
+  }
+
+  return index;
+})();
+
+/**
  * Legacy locale redirects: old locale code -> current BCP 47 tag.
  * Permanent (308) so search engines transfer ranking to the new path.
  */
@@ -110,18 +183,19 @@ const LEGACY_LOCALE_REDIRECTS: Record<string, string> = {
  *    the Simplified that dropping `TW` would reach. Consulting the table at
  *    every step, not only on the full tag, is also what lets a longer tag
  *    built on a ruled one (`zh-TW-x-anything`) still land on Traditional.
+ *    Both tables are merged into one folded index, and that merge carries
+ *    this ordering: the ruled rows are written last, so a ruling still wins.
  *
- * Both paths leave through the same check against `i18n.languages`, and that
- * check is the only exit from this function. Neither mechanism can hand back a
- * locale the site does not publish: truncation manufactures strings from
- * whatever the client sent (`xx`, `tlh`), and a table row outliving the locale
- * it names would do the same. Either one would otherwise produce a redirect to
- * a path that 404s.
+ * Tags are matched case-insensitively (#220). The walk folds each candidate
+ * and takes a single look at `CANONICAL_BY_FOLDED_TAG` — see there for why
+ * the KEY is folded and the returned value never is.
  *
- * Matching is case-sensitive, so a client that lowercases its tags still
- * misses the Chinese rows (`zh-tw` reaches Simplified). Pre-existing and
- * unchanged by the truncation walk; measured on both sides of it and filed
- * as #220.
+ * That lookup is the only exit from this function, and every value in the
+ * index is a member of `i18n.languages` by construction, so neither mechanism
+ * can hand back a locale the site does not publish. Truncation manufactures
+ * strings out of whatever the client sent (`xx`, `tlh`), and a table row
+ * outliving the locale it names would do the same; either would otherwise
+ * produce a redirect to a path that 404s.
  */
 function resolveSupportedLanguage(tag: string): string | undefined {
   const subtags = tag.split('-');
@@ -129,10 +203,8 @@ function resolveSupportedLanguage(tag: string): string | undefined {
   for (let length = subtags.length; length > 0; length -= 1) {
     const candidate = subtags.slice(0, length).join('-');
 
-    const ruled = LANGUAGE_MAPPING[candidate];
-    if (ruled && SUPPORTED_LANGUAGES.includes(ruled)) return ruled;
-
-    if (SUPPORTED_LANGUAGES.includes(candidate)) return candidate;
+    const canonical = CANONICAL_BY_FOLDED_TAG.get(candidate.toLowerCase());
+    if (canonical) return canonical;
   }
 
   return undefined;
@@ -142,7 +214,11 @@ function resolveSupportedLanguage(tag: string): string | undefined {
  * Get the preferred language from the request
  */
 function getPreferredLanguage(request: NextRequest): string {
-  // Check cookie first
+  // Check cookie first. Deliberately NOT case-folded: this cookie is written
+  // by this file and nowhere else, always in canonical form, so folding it
+  // would widen only what a hand-set cookie can say — no real client is
+  // helped. The fold belongs where strings arrive from outside: the
+  // Accept-Language header below, and the URL path in `middleware`.
   const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value;
   if (cookieLocale && SUPPORTED_LANGUAGES.includes(cookieLocale)) {
     return cookieLocale;
@@ -201,25 +277,75 @@ export default function middleware(request: NextRequest) {
     return response;
   }
 
-  // Check if the pathname already has a locale
-  const pathnameHasLocale = i18n.languages.some(
-    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
-  );
+  // Does the pathname already carry a locale?
+  //
+  // Matched case-insensitively, and a non-canonical spelling is redirected to
+  // the canonical one. #220 asked for this to be settled either way rather
+  // than left to fall out of the matcher, so the reasoning is recorded here.
+  //
+  // Both answers are defensible on their face. URL path segments ARE
+  // case-sensitive (RFC 3986 section 6.2.2.1), so reading `/zh-hant/...` as a
+  // different resource is legitimate, and an extra redirect hop is a real
+  // cost. What decided it is what the file actually did, measured rather than
+  // reasoned about. On the pre-fix tree:
+  //
+  //   GET /zh-hant/docs/quickstart                            404
+  //   GET /zh-hant/docs/quickstart  (Accept-Language: zh-Hant)
+  //       307 to /zh-Hant/zh-hant/docs/quickstart, which 404s
+  //
+  // The second row is the one that settles it. A lowercase locale path did not
+  // fail as an unknown URL — it fell through to negotiation, which prepended a
+  // locale to a path that already named one and produced a URL nobody could
+  // have meant. That is the header-side defect's own shape: a wrong answer
+  // rather than an absent one, arrived at by accident. And it is reachable the
+  // same way, by a proxy that lowercases what it forwards.
+  //
+  // So the segment is folded, and a non-canonical spelling gets a 308 to the
+  // spelling this site publishes. `/zh-Hant/...` still costs zero hops; only a
+  // URL that is broken today pays anything. 308 rather than 307 for the same
+  // reason as the legacy `/cn/` rows above: it is permanent, and it collapses
+  // the aliases onto one indexable URL.
+  //
+  // Three things this deliberately does NOT do:
+  //
+  //   - It matches published locales only, never `LANGUAGE_MAPPING`. That
+  //     table rules on what a browser TAG means; it is not a list of URL
+  //     aliases. `/zh-TW/docs` stays a 404 rather than becoming a second name
+  //     for `/zh-Hant/docs` — publishing one page under two URLs is an SEO
+  //     problem this file has no mandate to create.
+  //   - It does not set the locale cookie. A locale-bearing path does not set
+  //     one today (this branch ends in `next()`); the hop is URL
+  //     normalisation, not negotiation, and `/zh-hant/x` should not carry a
+  //     side effect that `/zh-Hant/x` does not.
+  //   - It cannot loop. The target segment comes from `i18n.languages`, so the
+  //     redirected request matches canonically and falls straight through.
+  //
+  // `/EN/docs` therefore takes two hops — 308 to `/en/docs`, then the
+  // default-locale strip below. Same shape as the pre-existing two-hop `/cn/`
+  // case; each rule stays responsible for one thing.
+  const localeSegment = pathname.split('/')[1];
+  const pathLocale = localeSegment
+    ? PUBLISHED_BY_FOLDED_LOCALE.get(localeSegment.toLowerCase())
+    : undefined;
 
-  if (pathnameHasLocale) {
-    // Extract the locale from the pathname
-    const locale = pathname.split('/')[1];
-    
+  if (pathLocale) {
+    // Non-canonical casing: normalise the spelling first, permanently.
+    if (localeSegment !== pathLocale) {
+      const url = new URL(request.url);
+      url.pathname = `/${pathLocale}${pathname.slice(localeSegment.length + 1)}`;
+      return NextResponse.redirect(url, 308);
+    }
+
     // If it's the default locale and hideLocale is 'default-locale', redirect to remove locale prefix
-    if (locale === i18n.defaultLanguage && i18n.hideLocale === 'default-locale') {
+    if (pathLocale === i18n.defaultLanguage && i18n.hideLocale === 'default-locale') {
       const url = new URL(request.url);
       // Remove locale prefix more precisely to avoid issues with partial matches
       url.pathname = pathname.replace(new RegExp(`^/${i18n.defaultLanguage}(/|$)`), '$1') || '/';
       const response = NextResponse.redirect(url);
-      setLocaleCookie(response, locale);
+      setLocaleCookie(response, pathLocale);
       return response;
     }
-    
+
     return NextResponse.next();
   }
 
