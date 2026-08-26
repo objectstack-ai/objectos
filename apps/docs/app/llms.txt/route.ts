@@ -1,6 +1,7 @@
-import type { Folder } from 'fumadocs-core/page-tree';
+import type { Folder, Item, Node } from 'fumadocs-core/page-tree';
 import { llms } from 'fumadocs-core/source/llms';
 import { i18n } from '@/lib/i18n';
+import { SITE_URL, localeUrl } from '@/lib/seo';
 import { source } from '@/lib/source';
 
 export const revalidate = false;
@@ -43,6 +44,45 @@ function sectionHeading(folder: Folder): string {
   return typeof folder.name === 'string' ? folder.name : 'Documentation';
 }
 
+/**
+ * The same page node with an absolute URL.
+ *
+ * `indexNode` formats each bullet from `node.url`, and fumadocs fills that
+ * field with a site-relative path (`/docs/quickstart`). This file exists to be
+ * fetched and have its text lifted into a context window where the origin is no
+ * longer attached to it, so a site-relative path resolves only if whatever
+ * moved it there also carried the base URL — which is precisely what a consumer
+ * of an `llms.txt` will not do. The marketing site's own `/llms.txt` has always
+ * emitted absolute URLs; this is the docs site catching up to it.
+ *
+ * Rewriting the node rather than the rendered line confines the edit to the
+ * URL: titles, descriptions, indentation and nesting come out of `indexNode`
+ * untouched, and no pattern ever runs over an authored description. The node's
+ * identity is carried by `$ref`, not `url` — `getNodePage` and `getNodeMeta`
+ * both look up by `$ref` — so the spread leaves title and description lookup
+ * working.
+ *
+ * `SITE_URL` and not `localeUrl` on purpose: `node.url` already carries
+ * whatever locale prefix the tree was built for, and `localeUrl` would apply a
+ * second one. `localeUrl` is the right helper for a *logical* path, which is
+ * how the prose examples below use it.
+ */
+function absolutePage(page: Item): Item {
+  return { ...page, url: `${SITE_URL}${page.url}` };
+}
+
+function absoluteNode(node: Node): Node {
+  if (node.type === 'page') return absolutePage(node);
+  if (node.type === 'folder') {
+    return {
+      ...node,
+      index: node.index && absolutePage(node.index),
+      children: node.children.map(absoluteNode),
+    };
+  }
+  return node;
+}
+
 export async function GET() {
   const generator = llms(source);
   const tree = source.getPageTree(LANG);
@@ -55,8 +95,9 @@ export async function GET() {
     'This is the ObjectOS product and developer documentation, grouped by the ' +
       'sections used in the site navigation. Every page below is also available ' +
       'as Markdown by appending `.mdx` to its URL (for example ' +
-      '`/docs/quickstart.mdx`), and `/llms-full.txt` carries the full text of ' +
-      'every page in one file.',
+      `\`${localeUrl(LANG, 'docs/quickstart.mdx')}\`), and ` +
+      `\`${SITE_URL}/llms-full.txt\` carries the full text of every page in ` +
+      'one file.',
   ];
 
   // Root-level pages (index, why, quickstart, ...) come before the section
@@ -65,7 +106,9 @@ export async function GET() {
   const rootPages = tree.children.filter((node) => node.type === 'page');
   if (rootPages.length > 0) {
     lines.push('', `## ${ROOT_HEADING}`, '');
-    for (const node of rootPages) lines.push(generator.indexNode(node, LANG));
+    for (const node of rootPages) {
+      lines.push(generator.indexNode(absolutePage(node), LANG));
+    }
   }
 
   for (const node of tree.children) {
@@ -74,8 +117,10 @@ export async function GET() {
     // The folder's own bullet is dropped: the heading already names it. Its
     // index page and children are rendered at the top level of the section,
     // so nested subfolders keep exactly one level of indentation.
-    if (node.index) lines.push(generator.indexNode(node.index, LANG));
-    for (const child of node.children) lines.push(generator.indexNode(child, LANG));
+    if (node.index) lines.push(generator.indexNode(absolutePage(node.index), LANG));
+    for (const child of node.children) {
+      lines.push(generator.indexNode(absoluteNode(child), LANG));
+    }
   }
 
   if (OTHER_LOCALES.length > 0) {
@@ -84,7 +129,7 @@ export async function GET() {
       '## Other Languages',
       '',
       `Every page above is also published under a locale prefix — for example ` +
-        `\`/${OTHER_LOCALES[0]}/docs/quickstart\`. Available locales: ` +
+        `\`${localeUrl(OTHER_LOCALES[0], 'docs/quickstart')}\`. Available locales: ` +
         `${OTHER_LOCALES.map((lang) => `\`${lang}\``).join(', ')}. English is the ` +
         `source of truth; a page with no translation yet falls back to English.`,
     );

@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next';
-
-const BASE = 'https://docs.objectos.ai';
+import { SITE_URL } from '@/lib/seo';
 
 export const revalidate = false;
 
@@ -16,7 +15,7 @@ export default function robots(): MetadataRoute.Robots {
       // page would. `/api/` stays out: it serves the search index, not readable content.
       disallow: ['/api/'],
     },
-    sitemap: `${BASE}/sitemap.xml`,
-    host: BASE,
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }
