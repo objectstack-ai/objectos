@@ -1,24 +1,27 @@
 import { i18n } from '@/lib/i18n';
 import { source } from '@/lib/source';
+import { SITE_HOST } from '@/lib/site';
 
 /**
- * Canonical production host — the origin every absolute URL in this module is
+ * Canonical production origin — the origin every absolute URL in this module is
  * built on, and the `metadataBase` every relative metadata URL resolves against.
  *
- * `middleware.ts` spells the same host out a second time, and that duplication
- * is a decision rather than an oversight. It cannot import this constant: this
- * module imports `lib/source.ts`, so the import would drag the fumadocs loader
- * and every compiled MDX module into the edge runtime the middleware runs in.
- * Measured on this tree — middleware importing `SITE_URL` from here takes the
- * edge bundle from 149 KB to 14.7 MB of JavaScript, with `next build` still
- * exiting 0, so the cost surfaces at deploy rather than in CI.
+ * Derived from `SITE_HOST` in `lib/site.ts`, which `middleware.ts` imports for
+ * the canonical-domain redirect. That leaf module is now the single definition
+ * of the host; this is the `https://` origin built on it, the only form any
+ * node-runtime caller needs. Before it existed the host was spelled out twice,
+ * here and in `middleware.ts`, with nothing enforcing that the two agreed.
  *
- * The reason is recorded on both sides instead of a sync instruction, because
- * an instruction to a human is not a mechanism. Nothing here enforces that the
- * two agree; collapsing them properly needs a leaf module both runtimes can
- * import, which is a change to the file layout rather than to either file.
+ * `middleware.ts` still cannot import anything from THIS module, and the
+ * constraint has not softened — it has moved to `lib/site.ts`. Middleware runs
+ * in the edge runtime; this module imports `lib/source.ts`, which drags the
+ * fumadocs loader and every compiled MDX module into that bundle. Measured on
+ * this tree: 149,745 B of edge JavaScript becomes 17,375,914 B, roughly 116x,
+ * with `next build` still exiting 0 — so the cost surfaces at deploy on
+ * Cloudflare Workers rather than in CI. `lib/site.ts` is the import that is
+ * safe from both runtimes, and it stays safe only while it imports nothing.
  */
-export const SITE_URL = 'https://docs.objectos.ai';
+export const SITE_URL = `https://${SITE_HOST}`;
 
 /**
  * Absolute URL for a logical (locale-independent) path, hiding the locale

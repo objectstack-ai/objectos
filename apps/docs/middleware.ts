@@ -1,29 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Negotiator from 'negotiator';
 import { i18n } from '@/lib/i18n';
+import { SITE_HOST } from '@/lib/site';
 
 const LOCALE_COOKIE = 'FD_LOCALE';
 
 /**
- * The canonical docs host, and the legacy host that redirects to it.
+ * The legacy docs host, which redirects permanently to the canonical one.
  *
- * `CANONICAL_HOST` holds the same value as `SITE_URL` in `lib/seo.ts`, written
- * out a second time on purpose. This file runs in the **edge runtime**, and
- * `lib/seo.ts` imports `lib/source.ts` — so importing the constant from there
- * would pull the fumadocs loader and all 413 compiled MDX modules into this
- * bundle. Measured on this tree: the edge bundle goes from 149 KB to 14.7 MB of
- * JavaScript, and `next build` still exits 0, so nothing in CI would say so.
+ * The canonical host is `SITE_HOST`, imported above from `lib/site.ts` — the
+ * same constant `lib/seo.ts` builds `SITE_URL` on. The redirect target and every
+ * canonical tag, `og:url` and hreflang alternate the site renders are therefore
+ * one definition, where they used to be two literals with nothing enforcing that
+ * they agreed. Drift would have pointed this redirect at one host while the
+ * whole rendered surface named another.
  *
- * Two copies of one hostname is the smaller cost, and the copy belongs on this
- * side: this redirect answers "which host is canonical" for every request
- * before any page code runs, and that answer should not depend on the module
- * graph that builds pages. Collapsing the two would take a leaf module both
- * runtimes can import — not an import from `lib/seo.ts`.
- *
- * Nothing enforces that the two agree. That is the residual cost of the
- * decision, stated here so it is visible rather than discovered.
+ * Import the host from `@/lib/site` and never from `@/lib/seo`. This file runs
+ * in the **edge runtime**, and its bundle is whatever its import graph reaches:
+ * `lib/seo.ts` imports `lib/source.ts`, so reaching the host through it pulls
+ * the fumadocs loader and every compiled MDX module in here. Measured on this
+ * tree, one build apart: 149,745 B of edge JavaScript becomes 17,375,914 B,
+ * roughly 116x, and `next build` exits 0 either way — so nothing in CI reports
+ * it and the cost lands at deploy time on Cloudflare Workers. `lib/site.ts`
+ * exists to be the one import that cannot do that; it imports nothing, and the
+ * comment at the top of it is what keeps it that way.
  */
-const CANONICAL_HOST = 'docs.objectos.ai';
 const LEGACY_HOST = 'www.objectos.app';
 
 /**
@@ -256,7 +257,7 @@ export default function middleware(request: NextRequest) {
   if (host === LEGACY_HOST) {
     const target = new URL(request.url);
     target.protocol = 'https:';
-    target.host = CANONICAL_HOST;
+    target.host = SITE_HOST;
     target.port = '';
     return NextResponse.redirect(target, 308);
   }
