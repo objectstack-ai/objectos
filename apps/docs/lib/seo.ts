@@ -1,7 +1,23 @@
 import { i18n } from '@/lib/i18n';
 import { source } from '@/lib/source';
 
-// Canonical production host. Keep in sync with middleware's domain redirect.
+/**
+ * Canonical production host — the origin every absolute URL in this module is
+ * built on, and the `metadataBase` every relative metadata URL resolves against.
+ *
+ * `middleware.ts` spells the same host out a second time, and that duplication
+ * is a decision rather than an oversight. It cannot import this constant: this
+ * module imports `lib/source.ts`, so the import would drag the fumadocs loader
+ * and every compiled MDX module into the edge runtime the middleware runs in.
+ * Measured on this tree — middleware importing `SITE_URL` from here takes the
+ * edge bundle from 149 KB to 14.7 MB of JavaScript, with `next build` still
+ * exiting 0, so the cost surfaces at deploy rather than in CI.
+ *
+ * The reason is recorded on both sides instead of a sync instruction, because
+ * an instruction to a human is not a mechanism. Nothing here enforces that the
+ * two agree; collapsing them properly needs a leaf module both runtimes can
+ * import, which is a change to the file layout rather than to either file.
+ */
 export const SITE_URL = 'https://docs.objectos.ai';
 
 /**

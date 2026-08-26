@@ -1,9 +1,10 @@
 import './global.css';
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
+import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://docs.objectos.ai'),
+  metadataBase: new URL(SITE_URL),
   title: {
     template: '%s | ObjectOS',
     default: 'ObjectOS',
