@@ -59,6 +59,22 @@ const content = {
   },
 };
 
+/**
+ * The locales this page is actually written in: the keys of the `content`
+ * record above, which is where this page's copy lives.
+ *
+ * `app/sitemap.ts` reads this rather than restating the pair, so a translation
+ * added to `content` is advertised to crawlers by that edit alone. The renderer
+ * below still serves English for any other locale, but that fallback is not a
+ * translation and must not be advertised as one — which is why this is derived
+ * from `content`, not from `i18n.languages`.
+ *
+ * A named export next to a page's default is valid App Router: Next's generated
+ * route validator (`.next/types/validator.ts`) constrains the *known* page
+ * exports and ignores additional ones.
+ */
+export const contentLocales = Object.keys(content);
+
 export default async function TermsPage({
   params,
 }: {
