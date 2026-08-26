@@ -16,8 +16,15 @@ export const revalidate = false;
  * tree it returns is already per-locale, and it currently resolves to the
  * default language when called bare — but nothing in the API contract
  * promises that, so the argument stays explicit rather than relying on an
- * unstated default. The locale text stays reachable per page through the
- * `.mdx` rewrite and the locale URLs announced at the end of `llms.txt`.
+ * unstated default. The locale text stays reachable as HTML, through the
+ * locale URLs announced at the end of `llms.txt` — and *not* through the
+ * `.mdx` rewrite, which is English-only in both halves: `next.config.mjs`
+ * rewrites `/docs/:path*.mdx` and no locale-prefixed form of it, and
+ * `llms.mdx/docs/[[...slug]]` calls `source.getPage(slug)` with no language
+ * argument, so the default language is the only thing it can serve. This
+ * comment used to claim the opposite, and that belief reached the served
+ * `/llms.txt`, whose header told every machine reader to build
+ * `/zh-Hans/docs/quickstart.mdx` — a 404.
  */
 const LANG = i18n.defaultLanguage;
 
