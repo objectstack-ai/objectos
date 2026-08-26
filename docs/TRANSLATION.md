@@ -31,7 +31,8 @@ node .github/scripts/check-translations.mjs --worklist  # JSON work items
 
 The worklist is the entire input to a pass — it lists every page that is stale,
 missing, or produced under an older revision of this guide, and it excludes
-pages a human has marked `mode: reviewed`. Work it item by item:
+pages a human has marked `mode: reviewed` and locales that are generated rather
+than translated (see [Derived locales](#derived-locales)). Work it item by item:
 
 ```bash
 # translate <en> into <locale>, write it to <out>, then:
@@ -210,9 +211,15 @@ and gated in CI by `gen-zh-hant.mjs --check`.
 - `check-translation-output.mjs` compares a derived locale against its SOURCE
   locale, not against English (`DERIVED_FROM` there) — for `zh-Hant` the rules
   are a check on the converter.
-- ⚠️ `--worklist` does not know about this yet: it still emits
-  `en → zh-Hant` items alongside the `zh-Hans` ones. Skip them. Acting on one
-  produces a page the generator overwrites and `--check` rejects.
+- `--worklist` never emits a `zh-Hant` item: a derived locale is not this
+  pass's work, so it is excluded from the `stale`, `missing` and `guide-stale`
+  verdicts the worklist is built from. The status table shows `—` in those
+  columns for the same reason, and `--gate=release --require=zh-Hant` is
+  rejected rather than passing vacuously — require `zh-Hans` instead.
+- What still applies to a derived page is anything wrong with the FILE rather
+  than its content: an orphaned `zh-Hant` page whose English source was retired,
+  or one with no `translation:` stamp, both still block the gate. The fix is to
+  re-run the generator, which prunes and re-stamps.
 
 ## Adding a locale
 

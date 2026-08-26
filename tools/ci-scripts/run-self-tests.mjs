@@ -40,11 +40,18 @@
  *     not listed → failure, naming the file. A new self-test joins the CI step
  *     by being written, not by someone remembering this list.
  *
- * Deliberately NOT run here: `check-translations.mjs` and
- * `check-translation-ownership.mjs`. Neither declares a self-test mode, and
- * running them for real would make the required `build` job fail on the
- * corpus's translation debt — which is the `Translations` workflow's job, and
- * reported-not-blocking there by design.
+ * Deliberately NOT run here: the GATE mode of `check-translations.mjs`, and
+ * `check-translation-ownership.mjs` entirely. Running either for real would
+ * make the required `build` job fail on the corpus's translation debt — which
+ * is the `Translations` workflow's job, and reported-not-blocking there by
+ * design. `check-translation-ownership.mjs` declares no self-test at all.
+ *
+ * `check-translations.mjs` is listed for its `--self-test` only, on the same
+ * footing as `check-locale-surface.mjs` below: the fixtures run against
+ * temporary trees and never read `content/docs/`, so they cost milliseconds and
+ * cannot fail on corpus debt. What they prove is that its derived-locale
+ * scoping — the rule keeping generated `zh-Hant` pages off a translation
+ * worklist — is still able to go red.
  *
  * ## Self-test here, gate in the workflow
  *
@@ -68,6 +75,7 @@ const SCRIPTS = join(ROOT, '.github/scripts');
 /** Scripts whose `--self-test` mode this step runs. Never let this go empty. */
 const SELF_TESTED = [
   'check-translation-output.mjs',
+  'check-translations.mjs',
   'check-node-floor.mjs',
   'check-locale-surface.mjs',
 ];
@@ -83,6 +91,13 @@ const SELF_TESTED = [
  * goes unnoticed here. This check narrows the gap, it does not close it — the
  * guarantee that this step never silently executes nothing is the empty-list
  * check above, not this one.
+ *
+ * The scan is also TOP LEVEL only — `readdirSync` without `recursive`, plus an
+ * `isFile()` filter — so `.github/scripts/lib/` is outside it by construction.
+ * That is what lets shared leaf modules live there without tripping this rule,
+ * and it is the reason a self-test belonging to one of them has to be reached
+ * through the script that imports it rather than added to `SELF_TESTED` on its
+ * own: a `lib/` entry here would run, but nothing would notice if it stopped.
  */
 const DISPATCH = /(['"`])(?:--)?self-test\1/;
 
