@@ -101,6 +101,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync, mkdtempSync, rmSy
 import { join, dirname, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { DERIVED_FROM } from './lib/derived-locales.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -159,9 +160,12 @@ function walk(dir, out = []) {
 const localeOf = (f) => LOCALES.find((l) => f.endsWith(`.${l}.mdx`)) ?? null;
 const englishOf = (f, l) => `${f.slice(0, -`.${l}.mdx`.length)}.mdx`;
 
-/**
- * Locales DERIVED FROM ANOTHER LOCALE rather than translated from English, and
- * the locale each one is derived from.
+/* ------------------------------------------------------- derived locales --
+ * `DERIVED_FROM` — which locales are generated from another locale rather than
+ * translated from English — is imported from `./lib/derived-locales.mjs`, the
+ * one definition `check-translations.mjs` also reads. That module carries the
+ * reasoning for why this particular fact is shared while the small readers
+ * around it stay duplicated. What follows is why it matters HERE.
  *
  * Every rule below asks "is this file faithful to the thing it was produced
  * from?", and until `zh-Hant` shipped that thing was always the English
@@ -188,7 +192,6 @@ const englishOf = (f, l) => `${f.slice(0, -`.${l}.mdx`.length)}.mdx`;
  * `unsafe` is untouched by any of this — it needs no sibling, runs over the
  * whole corpus, and is the one rule that is never scoped.
  */
-const DERIVED_FROM = { 'zh-Hant': 'zh-Hans' };
 
 /**
  * The file a locale file must be faithful to: its source-locale sibling for a
