@@ -253,8 +253,18 @@ function getPreferredLanguage(request: NextRequest): string {
  */
 export default function middleware(request: NextRequest) {
   // Canonical domain redirect: legacy docs host -> canonical host (permanent).
+  //
+  // The Host header carries the authority, `host[:port]` (RFC 9110 §7.2), not
+  // just the hostname. Comparing it whole tested only the bare-host shape:
+  // `www.objectos.app:8080` is not `=== LEGACY_HOST`, so a ported request fell
+  // through to locale negotiation and got served (200) under the legacy host
+  // instead of redirected (308) off it — while three lines below, the target
+  // side already strips its port (`target.port = ''`). The port was accounted
+  // for on the way out and not on the way in (#226); comparing the hostname on
+  // both sides closes that gap without changing the target normalisation.
   const host = request.headers.get('host');
-  if (host === LEGACY_HOST) {
+  const hostname = host?.split(':')[0];
+  if (hostname === LEGACY_HOST) {
     const target = new URL(request.url);
     target.protocol = 'https:';
     target.host = SITE_HOST;
