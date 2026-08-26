@@ -30,6 +30,42 @@ function docsPath(slugs: string[]): string {
 }
 
 /**
+ * Site-relative URL of a page's Markdown form, and deliberately the
+ * locale-independent one — `/docs/architecture.mdx` on every locale route, not
+ * `/zh-Hans/docs/architecture.mdx`.
+ *
+ * Built from `page.slugs` rather than from `page.url` because `page.url`
+ * carries whatever locale prefix the route was resolved under, and the `.mdx`
+ * surface has no prefixed form to point at. `next.config.mjs` rewrites exactly
+ * one shape, `/docs/:path*.mdx` to `/llms.mdx/docs/:path*`; a prefixed URL
+ * matches no rewrite, falls through to this route with `architecture.mdx` as a
+ * slug, and is answered by `/_not-found` under `dynamicParams = false`. That was
+ * six of seven locales on all 79 pages — roughly 400 rendered links, every one
+ * of them 404, and only ever on the locales an English-speaking maintainer does
+ * not click.
+ *
+ * The prefix is dropped rather than the rewrite widened, and that is a
+ * conformance decision rather than the cheaper of two repairs. The
+ * machine-facing markdown surface here is English-only by AGENTS.md rule 1, the
+ * same pin `llms.txt` and `llms-full.txt` carry, and `check-locale-surface.mjs`
+ * fails the build if either drifts off it. `/llms.mdx/docs/[[...slug]]` is
+ * English-only by construction too — its handler calls `source.getPage(slug)`
+ * with no language, so the default language is the only thing it can serve, and
+ * it prerenders 79 bodies rather than 553. Adding a `/:lang/docs/:path*.mdx`
+ * rewrite would therefore not deliver translated markdown; it would either
+ * serve English from a URL claiming a locale, or turn `/llms.mdx` into a
+ * locale-aware surface and put it out of step with the two `llms` files beside
+ * it. Reversing that policy is a decision about the whole markdown surface, not
+ * a 404 fix.
+ *
+ * Byte-identical to the previous expression on the default locale, where
+ * `page.url` has no prefix to carry: the English link target does not move.
+ */
+function markdownUrl(page: DocsPageData): string {
+  return `/${docsPath(page.slugs)}.mdx`;
+}
+
+/**
  * The string the `<title>` tag should carry. A page may declare `seoTitle` when
  * its H1 noun is too short to match anything a reader would search for; most
  * pages declare nothing and fall back to `title`, rendering byte-identically to
@@ -206,6 +242,15 @@ export default async function Page(props: {
 
   const MDX = page.data.body;
 
+  // Resolved once and handed to both controls, so they cannot drift apart and
+  // so a third control added below inherits the locale-independent URL instead
+  // of re-deriving one from `page.url`. That re-derivation is the whole defect:
+  // it is invisible in the rendered markup — `markdownUrl` reaches the browser
+  // only as a client-component prop in the RSC payload — so a broken value
+  // produces no build error, no console warning and no failing gate, and shows
+  // up only when a reader clicks.
+  const pageMarkdownUrl = markdownUrl(page);
+
   // The locale this page's content really lives in — `params.lang` for a real
   // translation, English for a fumadocs fallback. `url` and `inLanguage` are
   // properties of one `TechArticle` node, so they resolve together: a node that
@@ -242,9 +287,9 @@ export default async function Page(props: {
         <DocsTitle>{page.data.title}</DocsTitle>
         <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
         <div className="flex flex-row gap-2 items-center border-b pb-6">
-          <LLMCopyButton markdownUrl={`${page.url}.mdx`} />
+          <LLMCopyButton markdownUrl={pageMarkdownUrl} />
           <ViewOptions
-            markdownUrl={`${page.url}.mdx`}
+            markdownUrl={pageMarkdownUrl}
             githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
           />
         </div>
