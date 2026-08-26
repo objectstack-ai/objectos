@@ -2,18 +2,10 @@ import type { MetadataRoute } from 'next';
 import { source } from '@/lib/source';
 import { i18n } from '@/lib/i18n';
 import { languageAlternates, localeUrl, translatedLocales } from '@/lib/seo';
+import { contentLocales as privacyLocales } from './[lang]/privacy/page';
+import { contentLocales as termsLocales } from './[lang]/terms/page';
 
 export const revalidate = false;
-
-/**
- * Locales in which `privacy` and `terms` are actually written. Those two pages
- * carry their copy in a `content` record inside their own route component
- * (`app/[lang]/privacy/page.tsx`, `app/[lang]/terms/page.tsx`), which falls back
- * to English (`content[lang] ?? content.en`) for anything not listed there —
- * the same fallback-shaped defect the docs pages have. Keep this in sync with
- * those two records.
- */
-const STATIC_PAGE_LOCALES = ['en', 'zh-Hans'];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const entries: MetadataRoute.Sitemap = [];
@@ -23,8 +15,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // The root exists in every locale: it is a language dispatch page that
     // redirects to that locale's /docs.
     { path: '', priority: 1, locales: i18n.languages },
-    { path: 'privacy', priority: 0.3, locales: STATIC_PAGE_LOCALES },
-    { path: 'terms', priority: 0.3, locales: STATIC_PAGE_LOCALES },
+    // `privacy` and `terms` carry their copy in a `content` record inside their
+    // own route component, and render `content[lang] ?? content.en` for every
+    // other locale — the same fallback shape the docs pages had. So the locales
+    // they can honestly advertise are the keys of those records, and each module
+    // exports its own: this file derives the set instead of restating it, and a
+    // translation added to either record reaches the sitemap by that edit alone.
+    // Read separately because they are separate records — they agree today, and
+    // nothing makes them have to.
+    { path: 'privacy', priority: 0.3, locales: privacyLocales },
+    { path: 'terms', priority: 0.3, locales: termsLocales },
   ];
 
   // Documentation pages. `source.getPages()` with no argument returns every
