@@ -1,4 +1,5 @@
 import { i18n } from '@/lib/i18n';
+import type { Metadata } from 'next';
 
 /**
  * 404 shell for routes that are not under the `[lang]` segment.
@@ -88,6 +89,39 @@ const COPY: Record<string, string> = {
 };
 
 /**
+ * The document title, used in two places that have to agree.
+ *
+ * The title element below is what the browser shows while the document parses.
+ * The `metadata` export is what Next's metadata system resolves for this route,
+ * and that is what stands once React hydrates — without it the root layout's
+ * `title.default` (`ObjectOS`) wins the moment hydration completes, and a
+ * bookmark or a history entry for a dead link reads exactly like the site
+ * index. Both are fed from this one constant so they cannot drift apart.
+ *
+ * `absolute` is required: the root layout declares `title.template`
+ * (`%s | ObjectOS`), and an ordinary string title would be run through it,
+ * putting the hydrated title out of step with the parsed one again.
+ */
+const TITLE = `404: ${COPY.en}`;
+
+/**
+ * This is a static export and stays one — the route must not acquire a dynamic
+ * API. `not-found.tsx` is installed by `next-app-loader` as the *page* module
+ * of the `/_not-found` route, which is why an export here is read at all; it is
+ * resolved at build time, and the page stays `○` prerendered.
+ *
+ * The title is English for every locale. This boundary sits above the `[lang]`
+ * segment and cannot read the locale (see the note above on why reading it
+ * dynamically is not viable), so a localized hydrated title is not reachable
+ * without moving correctness into a script. The script below still localizes
+ * the title at parse time; after hydration every locale reads the English 404
+ * title, which is the same fallback the copy table already applies.
+ */
+export const metadata: Metadata = {
+  title: { absolute: TITLE },
+};
+
+/**
  * Inlined verbatim into a `script` element, so it must stay free of anything
  * that could close that element early. Every value it embeds is a compile-time
  * constant in this file and in `lib/i18n.ts`; none carries markup.
@@ -112,7 +146,7 @@ export default function NotFound() {
   return (
     <html lang={i18n.defaultLanguage} suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
-        <title>404: This page could not be found.</title>
+        <title>{TITLE}</title>
         <div
           style={{
             fontFamily:
