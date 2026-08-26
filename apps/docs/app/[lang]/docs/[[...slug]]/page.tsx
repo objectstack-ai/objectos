@@ -268,6 +268,40 @@ export default async function Page(props: {
   );
 }
 
+/**
+ * Only the pages `generateStaticParams` enumerates are servable; every other
+ * slug is answered by the prerendered `/_not-found` route.
+ *
+ * This is what makes a docs 404 render at all. `notFound()` raised while a
+ * request is being rendered *dynamically* escapes both the RSC and the SSR
+ * render; Next catches it in the SSR error handler and builds the response from
+ * `getErrorRSCPayload`, which seeds the document as an empty error shell and
+ * ships the real 404 tree only in the RSC payload, for the client to render
+ * after hydration. No `not-found` boundary participates in that server render —
+ * not at the root, not in the locale segment, not beside the page. Measured at
+ * every one of those placements, and a boundary added in the locale segment is
+ * byte-for-byte a no-op, which is why this fix is a routing flag and not a new
+ * `not-found.tsx`.
+ *
+ * So the 404 has to be reached by the path that already works. An unmatched URL
+ * is served by `/_not-found`, an ordinary prerendered page render, which is why
+ * `/no-such-page` has always rendered its body server-side while
+ * `/docs/no-such-page` served a blank one. `dynamicParams = false` routes an
+ * unknown docs slug there too, instead of rendering this page so it can throw.
+ * Not a workaround for the boundary: it removes the dynamic render that the
+ * boundary cannot survive.
+ *
+ * The behavioural cost, stated plainly: a page that is not in the enumeration
+ * needs a rebuild to appear, rather than rendering on demand. Every page here
+ * comes from local MDX that `generateStaticParams` already enumerates, so that
+ * is true in practice today — this makes it explicit rather than introducing
+ * it. `app/og/docs/[...slug]/route.tsx` sets the same flag for the same reason.
+ *
+ * `notFound()` below stays: it is still what answers a slug that is enumerated
+ * but unresolvable, and it is the type-level narrowing for `page`.
+ */
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
   return source.generateParams();
 }
