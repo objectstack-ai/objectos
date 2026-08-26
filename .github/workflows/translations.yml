@@ -6,12 +6,24 @@ on:
     paths:
       - 'content/docs/**'
       - 'apps/docs/lib/i18n.ts'
-      - '.github/scripts/check-translation*.mjs'
+      # Was 'check-translation*.mjs' — a `*` never crosses `/`, so it missed
+      # '.github/scripts/lib/derived-locales.mjs', imported by both
+      # check-translations.mjs and check-translation-output.mjs (#221). Widened
+      # to the whole directory to match what turbo.json already declares as
+      # the `test` task's input for this tree, and to cover any future script
+      # (or nested lib/) the two checks below start importing.
+      - '.github/scripts/**'
       - '.github/workflows/translations.yml'
   push:
     branches: [main]
     paths:
+      # Freshness / self-test / Output run on push too (only the Ownership
+      # step is pull_request-only, see the `if:` below) and read the same
+      # i18n.ts + scripts as the pull_request job — so this needs the same
+      # two entries, not just the corpus path.
       - 'content/docs/**'
+      - 'apps/docs/lib/i18n.ts'
+      - '.github/scripts/**'
   workflow_dispatch:
 
 permissions:
