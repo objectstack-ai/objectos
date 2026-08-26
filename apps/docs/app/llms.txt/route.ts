@@ -29,10 +29,15 @@ const ROOT_HEADING = 'Overview';
 
 /**
  * English only, by `AGENTS.md` rule 1 — English is the single source of truth
- * and every `*.<locale>.mdx` is a derived artifact. `source.getPages()` and
- * `source.getPageTree()` list *every* language when called without one, which
- * is how this file used to emit all 335 pages across 7 locales as one flat
- * list. The locale URLs are announced at the end of the file instead.
+ * and every `*.<locale>.mdx` is a derived artifact. `source.getPages()` lists
+ * *every* language when called without one, which is how this file used to
+ * emit all 335 pages across 7 locales as one flat list. `source.getPageTree()`
+ * is passed the language too, for a different reason: the tree it returns is
+ * already per-locale, and measured against fumadocs-core 16.8.12 it currently
+ * resolves to the default language when called bare — but the API contract
+ * makes no such promise, so the argument stays explicit rather than relying on
+ * an unstated default. The locale URLs are announced at the end of the file
+ * instead.
  */
 const LANG = i18n.defaultLanguage;
 
