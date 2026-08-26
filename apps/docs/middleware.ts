@@ -119,8 +119,9 @@ const LEGACY_LOCALE_REDIRECTS: Record<string, string> = {
  * a path that 404s.
  *
  * Matching is case-sensitive, so a client that lowercases its tags still
- * misses the Chinese rows (`zh-tw` reaches Simplified). Pre-existing, out of
- * scope here, tracked separately.
+ * misses the Chinese rows (`zh-tw` reaches Simplified). Pre-existing and
+ * unchanged by the truncation walk; measured on both sides of it and filed
+ * as #220.
  */
 function resolveSupportedLanguage(tag: string): string | undefined {
   const subtags = tag.split('-');
