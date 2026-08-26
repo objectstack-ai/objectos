@@ -55,4 +55,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run type-check --continue
       - run: pnpm turbo run build
+
+      # Reads the BUILT sitemap and asserts its locale composition against an
+      # oracle derived from `content/docs/`. It has to come after `build` — the
+      # measurement is taken off the artifact, because importing `sitemap.ts`
+      # pulls in the whole MDX collection and the `@/` alias.
+      #
+      # Not a turbo task on purpose: turbo would hash it against the ci-scripts
+      # package's own inputs, which do not include `apps/docs/.next/`, so a
+      # locale regression would replay a cached green. `pnpm turbo run test`
+      # below still runs this script's `--self-test`, which is what keeps its
+      # rules provably able to fail.
+      #
+      # `shell: bash` is load-bearing, not tidiness. The DEFAULT shell for a
+      # `run:` step is `bash -e {0}` with no pipefail, so in `node ... | tee`
+      # the step takes tee's exit status and a gate that exits 1 passes the job
+      # silently. Naming the shell gets `bash --noprofile --norc -eo pipefail
+      # {0}`, which propagates it.
+      - name: Locale surface
+        shell: bash
+        run: node .github/scripts/check-locale-surface.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       - run: pnpm turbo run test
