@@ -24,8 +24,32 @@ export const source = loader({
  */
 export const SITE_NAME = 'ObjectOS';
 
-export function getPageImage(page: InferPageType<typeof source>) {
-  const segments = [...page.slugs, 'image.png'];
+/**
+ * The generated share card for `page`, as seen from `lang`.
+ *
+ * The locale is a path segment because the card is a rendered artifact of the
+ * page's text, not a decoration attached to it: a Japanese page and its English
+ * source produce two different 1200x630 images, so they need two URLs. Building
+ * the segments from `page.slugs` alone gave all seven locales one URL, and
+ * whichever card was generated first was the one every locale served.
+ *
+ * `lang` is spelled out for every locale, English included, rather than hidden
+ * the way `localeUrl` hides the default language from reader-facing URLs. Two
+ * reasons, both about the route rather than the reader: `hideLocale` exists so
+ * `/docs/x` reads as the plain English URL, and nothing reads an image asset
+ * path; and an omitted `en` would make the first segment ambiguous — the route
+ * handler would have to guess whether `/og/docs/es/...` means the Spanish card
+ * for `…/…` or the English card for a page slugged `es`. That guess is wrong
+ * the day someone adds `content/docs/es.mdx`, and it fails silently.
+ *
+ * `lang` is required rather than optional-with-a-default for the same reason
+ * `languageAlternates` requires its `locales`: the defect being fixed here is a
+ * call site that did not pass a language, and a default value is exactly what
+ * lets the next call site reproduce it without anyone noticing. Required makes
+ * `tsc` the thing that notices.
+ */
+export function getPageImage(page: InferPageType<typeof source>, lang: string) {
+  const segments = [lang, ...page.slugs, 'image.png'];
 
   return {
     segments,
