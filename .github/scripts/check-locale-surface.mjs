@@ -84,6 +84,29 @@
  * because a gate whose halves have different robustness properties is a gate
  * someone reads wrong later.
  *
+ * ## Dotted slugs (#208)
+ *
+ * `middleware.ts`'s matcher exempts `.*\..*`, unanchored, so it skips the
+ * locale rewrite for ANY path containing a dot in ANY segment — not only the
+ * asset paths the exemption exists for. Because `hideLocale: 'default-locale'`
+ * means that rewrite is what maps the unprefixed public URL onto the internal
+ * `/en/...` route, a page whose slug contains a dot builds, prerenders, and is
+ * advertised correctly by every artifact above — the page genuinely exists and
+ * its URL is genuinely in the content tree — and then 404s at that very URL,
+ * while every OTHER locale (which does not depend on the rewrite) serves it
+ * fine. #209 measured that tightening the matcher instead is not cheap:
+ * `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt` and every
+ * `.mdx` page route depend on the exemption today, and a regression in it
+ * would be caught by nothing here — this gate reads build output, not a
+ * running server.
+ *
+ * So instead of touching the matcher, this gate rejects the slug outright.
+ * `dottedSlugPages` below reuses the same page path `readDocsPages` already
+ * derives for the oracle above — which strips the locale suffix
+ * (`quickstart.zh-Hans.mdx` → `docs/quickstart`) before building that path —
+ * so a real translation file never trips it; only a dot that survives into
+ * the derived URL segment does (`probe.dotted.mdx` → `docs/probe.dotted`).
+ *
  * ## Usage
  *
  *   node .github/scripts/check-locale-surface.mjs              # the gate (needs a build)
@@ -111,6 +134,7 @@ const RULES = [
   'unexpected-locale-title',
   'missing-locale-title',
   'translation-orphan',
+  'dotted-slug',
 ];
 
 /**
@@ -255,6 +279,30 @@ function readDocsPages(root, { languages, defaultLanguage }) {
   }
 
   return { pages, orphans };
+}
+
+/**
+ * Logical pages whose derived slug contains a dot in any segment (see
+ * "Dotted slugs" above). `path` is the same string `readDocsPages` already
+ * built for the oracle — `['docs', ...segments].join('/')` after the locale
+ * suffix and `.mdx` are stripped — so this is a pure re-check of a value the
+ * oracle already computed, not a second parse of the filename. That is what
+ * keeps a real translation (`quickstart.zh-Hans.mdx`, sharing `docs/quickstart`
+ * with its English sibling) from tripping it: the dot that named the locale is
+ * gone before this function ever sees the string.
+ *
+ * Every locale's file for an offending page is named in the finding — a
+ * dotted slug is a property of the URL, which every locale advertising the
+ * page shares, not of one file.
+ */
+function dottedSlugPages(surface) {
+  const offenders = [];
+  for (const [path, page] of surface.pages) {
+    if (path.split('/').some((segment) => segment.includes('.'))) {
+      offenders.push({ path, files: [...page.files.values()].sort() });
+    }
+  }
+  return offenders.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
 /**
@@ -604,6 +652,18 @@ function evaluate({ surface, artifacts }) {
     });
   }
 
+  for (const offender of dottedSlugPages(surface)) {
+    findings.push({
+      rule: 'dotted-slug',
+      detail:
+        `${offender.path} has a dot in its slug (${offender.files.join(', ')}) — ` +
+        "middleware.ts's dot exemption (`.*\\..*`, unanchored) skips the locale rewrite for " +
+        "any path containing a dot, so this page's default-locale URL 404s at its own public " +
+        'address while every other locale, which does not depend on the rewrite, still serves ' +
+        'it (#208)',
+    });
+  }
+
   for (const artifact of artifacts) {
     const { spec } = artifact;
 
@@ -764,7 +824,7 @@ function gate() {
     console.log(
       '✓ every advertised URL has a source file and every source file is advertised; both ' +
         `\`llms\` bodies carry every ${surface.defaultLanguage}-only page title and none from ` +
-        'the other locales',
+        'the other locales; and no page slug in the content tree contains a dot',
     );
     return;
   }
@@ -924,6 +984,43 @@ const CASES = [
     name: 'translation with no English source',
     content: { ...BASE_CONTENT, 'orphan.ja.mdx': mdx('孤児') },
     expect: ['translation-orphan'],
+  },
+
+  /* ---------------------------------------------------- dotted slugs (#208) -- */
+
+  {
+    // The #208 shape: a page whose derived slug carries a dot builds and
+    // advertises fine — the sitemap/llms entries below are extended to match
+    // it exactly — but 404s at its own default-locale URL because
+    // middleware.ts's dot exemption skips the rewrite. Isolating the sitemap
+    // and llms bodies to be otherwise correct keeps this case proof of the
+    // new rule alone, not a side effect of the others.
+    name: 'page slug contains a dot (the #208 shape)',
+    content: { ...BASE_CONTENT, 'probe.dotted.mdx': mdx('Probe') },
+    urls: [...BASE_URLS, 'https://docs.objectos.ai/docs/probe.dotted'],
+    indexBody: llmsIndex([...BASE_TITLES, 'Probe']),
+    fullBody: llmsFull([...BASE_TITLES, 'Probe']),
+    expect: ['dotted-slug'],
+  },
+  {
+    // The trap the card names directly: the locale suffix IS a dot
+    // (`quickstart.zh-Hans.mdx`). `readDocsPages` strips it before this rule
+    // ever sees the string, so a real bilingual page — the shape 62 files in
+    // the real tree already are — must stay green.
+    name: 'a real locale-suffixed filename does not trip the dotted-slug rule',
+    content: {
+      ...BASE_CONTENT,
+      'quickstart.mdx': mdx('Quickstart'),
+      'quickstart.zh-Hans.mdx': mdx('快速开始'),
+    },
+    urls: [
+      ...BASE_URLS,
+      'https://docs.objectos.ai/docs/quickstart',
+      'https://docs.objectos.ai/zh-Hans/docs/quickstart',
+    ],
+    indexBody: llmsIndex([...BASE_TITLES, 'Quickstart']),
+    fullBody: llmsFull([...BASE_TITLES, 'Quickstart']),
+    expect: [],
   },
 
   /* ------------------------------------------- the two `llms` bodies (#184) -- */
