@@ -88,6 +88,20 @@ function absoluteNode(node: Node): Node {
   return node;
 }
 
+/**
+ * The header's two rules — append `.mdx`, and the locale prefixes announced
+ * under Other Languages — are read by a machine that will compose them. So the
+ * `.mdx` rule states its own scope: it used to say "appending `.mdx` to its
+ * URL", and composed with the locale rule that licensed
+ * `/zh-Hans/docs/quickstart.mdx`, which 404s. The rewrite in `next.config.mjs`
+ * matches `/docs/:path*.mdx` and nothing else, and the route behind it calls
+ * `source.getPage(slug)` with no language, so there is no locale-prefixed
+ * `.mdx` URL to advertise and no locale text behind one.
+ *
+ * Keep any rewording composable with the Other Languages section: a scope this
+ * paragraph does not state is a URL this file promises and the site does not
+ * serve, and no gate reads prose.
+ */
 export async function GET() {
   const generator = llms(source);
   const tree = source.getPageTree(LANG);
@@ -99,10 +113,11 @@ export async function GET() {
     '',
     'This is the ObjectOS product and developer documentation, grouped by the ' +
       'sections used in the site navigation. Every page below is also available ' +
-      'as Markdown by appending `.mdx` to its URL (for example ' +
-      `\`${localeUrl(LANG, 'docs/quickstart.mdx')}\`), and ` +
+      'as Markdown by appending `.mdx` to the URL exactly as listed (for ' +
+      `example \`${localeUrl(LANG, 'docs/quickstart.mdx')}\`), and ` +
       `\`${SITE_URL}/llms-full.txt\` carries the full text of every page in ` +
-      'one file.',
+      'one file. Both are English-only: the locale-prefixed URLs under Other ' +
+      'Languages below have no `.mdx` form.',
   ];
 
   // Root-level pages (index, why, quickstart, ...) come before the section
