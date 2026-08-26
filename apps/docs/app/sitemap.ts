@@ -52,5 +52,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }
   }
 
-  return entries;
+  // Sort by url so the route is a function of the content rather than of the
+  // build. `source.getPages()` enumerates in file-read completion order, which
+  // varies between builds of an identical tree: two consecutive builds of an
+  // untouched tree emitted different bytes for the same 346 entries, so every
+  // `deploy-docs.yml` push rewrote the served sitemap whether or not any
+  // content changed. Entry order carries no meaning to a crawler; the point is
+  // that the bytes stop carrying noise. Compared by code unit rather than with
+  // `localeCompare`, whose result depends on the runtime's ICU data and default
+  // locale — a machine-dependent comparator would reintroduce exactly the
+  // irreproducibility this removes.
+  return entries.sort((a, b) => (a.url < b.url ? -1 : a.url > b.url ? 1 : 0));
 }
