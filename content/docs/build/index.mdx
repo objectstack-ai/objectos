@@ -1,6 +1,6 @@
 ---
 title: Build
-description: How apps come to life in ObjectOS — by chatting with AI, by clicking through forms, or by forking a template.
+description: How apps come to life in ObjectOS — by chatting with AI, by clicking through forms in Studio, or by forking a template.
 ---
 
 In ObjectOS the customer doesn't write metadata. **They describe what
@@ -10,7 +10,7 @@ most people actually use the platform:
 | Path | Who's it for | Output |
 |---|---|---|
 | **[AI Builder](/docs/build/ai-builder)** (primary) | Business users, product owners, anyone | Live metadata in your tenant, queued for approval |
-| **Click-build** (fallback) | Admins who prefer forms | The same live metadata |
+| **Click-build** (fallback) | Admins who prefer Studio's forms | The same live metadata |
 | **[Template fork](/docs/build/templates)** (dev path) | Engineers who want code under source control | A TypeScript package shipped via the marketplace |
 
 All three paths produce **the same artifact shape** — packages of
@@ -49,7 +49,7 @@ Every app is composed from the same primitives. Learn these once.
 ## What you'll never have to do
 
 - Write a REST endpoint. The platform generates one per object.
-- Wire a form. The form renders from the schema.
+- Wire a Studio form. The form renders from the schema.
 - Write RBAC checks. Permissions are declared, not coded.
 - Build an admin UI. Setup and Account cover system administration and sign-in.
 - Generate types. `@objectstack/spec` derives them from the schema.
