@@ -67,9 +67,13 @@ Watches `objectstack.config.ts` and `src/`. Recompiles + reloads on
 save. Used as the npm `dev` script in scaffolded projects.
 
 ```bash
-os dev                         # port 3002 by default
-os dev -p 4002
+os dev                         # port 3000 by default
+os dev -p 4000
 ```
+
+Note `os dev` asks for the same port `os start` uses (3000). If that port
+is taken it binds the next free one and says so:
+`↪ server bound to port 3001 (requested 3000)`.
 
 ## Project commands
 
