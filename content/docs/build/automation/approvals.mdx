@@ -74,7 +74,7 @@ Each entry in `approvers` names a `type` and a `value`:
 | `team` | Members of a flat collaboration team |
 | `field` | The user id held in a field on the triggering record |
 | `user` | One named user id |
-| `org_membership_level` | An org-membership tier (`owner` / `admin` / `delegated_admin` / `member`) |
+| `org_membership_level` | An [org-membership tier](/docs/configure/users#organization-membership-tiers) (`owner` / `admin` / `delegated_admin` / `member`) |
 | `expression` | A CEL expression resolved at node entry — see below |
 
 Prefer the indirect bindings (`manager`, `position`, `department`,
@@ -84,8 +84,9 @@ should no longer see them.
 
 > **Warning — `position` vs the membership tier.**
 > `{ type: 'position', value: 'finance_manager' }` routes to the holders of a
-> position (`sys_user_position`). The org-membership tier (`sys_member.role`:
-> `owner`/`admin`/`delegated_admin`/`member`) is addressed as
+> position (`sys_user_position`). The
+> [org-membership tier](/docs/configure/users#organization-membership-tiers)
+> (`sys_member.role`: `owner`/`admin`/`delegated_admin`/`member`) is addressed as
 > `type: 'org_membership_level'` since 16.0; the old spelling `role` is a
 > **deprecated alias for one release** — it still loads and resolves
 > identically, with a warning, and is removed in the next major. A position name
