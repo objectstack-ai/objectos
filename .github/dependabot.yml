@@ -8,6 +8,10 @@ updates:
       objectstack:
         patterns:
           - "@objectstack/*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
