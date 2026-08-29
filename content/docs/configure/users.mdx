@@ -87,6 +87,63 @@ breakdown.
 Payloads, password policies, and phone-only accounts are covered in
 [Authentication → Admin user management](/docs/configure/authentication#admin-user-management-objectstack-143).
 
+## Organization-membership tiers
+
+Every membership row (`sys_member`) carries a **tier** — the standing a
+user holds in the organization. The vocabulary is closed and owned by
+the platform (ADR-0108): these four values, and nothing an app declares
+widens them.
+
+| Tier | What it means |
+|---|---|
+| `owner` | Top standing in the organization. May invite at any tier, and is the only tier that may remove another owner |
+| `admin` | Administers the organization. May invite at any tier except `owner` |
+| `delegated_admin` | May issue organization invitations **without** being an org admin. That reach is the whole of it — the tier itself resolves to no permissions; see below |
+| `member` | Ordinary standing. No administrative reach; access arrives through positions and permission sets, like everyone else's |
+
+> **Two different records are called a "membership" on this page.**
+> `sys_member` answers *which organization do you belong to, and at what
+> tier*. `sys_business_unit_member` —
+> [the next section](#place-people-in-the-org-tree-memberships) —
+> answers *which business unit do you sit in*. Placing someone in the
+> org tree changes no tier, and changing a tier places nobody.
+
+The tier is chosen on the invitation (`sys_invitation.role`) and stored
+on the membership row (`sys_member.role`). Both fields are the same
+fixed four-value select, so an application's own business role
+(`sales_manager`) cannot be stored in either, and an invitation naming
+one is rejected before any row is written. Job function is a
+[position](/docs/configure/permissions/positions).
+
+Two rules bound who may hand out which tier: an invitation may never
+confer a tier above the issuer's own, and an issuer below `admin` may
+invite only as `member`.
+
+**A tier is a grade that decides what you can *reach* — never a bundle
+of what you may *do*.** The visible power of `owner` and `admin` comes
+from a separate mechanism: memberships at those two tiers are
+automatically granted an organization-admin permission set scoped to
+that organization. That permission set carries the authority; the tier
+only decides who receives it.
+
+### `delegated_admin` is not delegated administration
+
+Two mechanisms with near-identical names. Reaching for the wrong one is
+the mistake this section exists to prevent:
+
+| | `delegated_admin` (a membership tier) | [Delegated administration](/docs/configure/permissions/permission-sets#delegated-administration) (a permission set) |
+|---|---|---|
+| Lives on | `sys_member.role` | An `adminScope` carried by a permission set |
+| Answers | *Can you reach the invitation flow at all?* | *What may you actually grant* — which business units, which permission sets |
+| On its own | Lets you invite a plain member, and place nobody | Lets you administer through the ordinary assignment path, but not issue invitations |
+
+The two are **doubly opt-in and independent**: someone must set the
+membership tier **and** grant an `adminScope` before a scoped delegate
+can issue an invitation that also places the new person in a business
+unit with positions. Granting one is not granting the other — holding
+`delegated_admin` confers none of the powers listed under
+[delegated administration](/docs/configure/permissions/permission-sets#delegated-administration).
+
 ## Place people in the org tree (memberships)
 
 Placing a person in the org tree is a separate record: a **Business
