@@ -99,10 +99,10 @@ and `Created At`.
 
 The `dedup_key` collapses duplicate emits, and `payload` carries the raw event
 context that templates render from. Because this log sits *upstream* of routing,
-a row here with no matching inbox message usually means a subscription or
-preference filtered the event out — check
-[Notifications](/docs/configure/notifications) when a user reports a missing
-alert.
+a row here with no matching inbox message usually means the audience did not
+resolve to that user, or their preference muted the topic on that channel —
+check [Notifications](/docs/configure/notifications) when a user reports a
+missing alert.
 
 Downstream, each event is materialized into per-user inbox messages
 (`sys_inbox_message`) — the recipient's view lives under
