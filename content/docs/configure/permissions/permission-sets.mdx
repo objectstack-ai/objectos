@@ -70,10 +70,18 @@ objects: {
 
 Three consequences worth planning for:
 
-- **Package-shipped sets are re-seeded on upgrade**, so
-  `admin_full_access` and `organization_admin` carry `allowExport: true`
-  for you. **Environment-authored sets are not** — edit any custom set
-  whose users export.
+- **No shipped set carries the grant — the upgrade is what takes it
+  away.** Package-shipped sets are re-seeded on upgrade, and since
+  ObjectStack 17.1 `admin_full_access`, `organization_admin` and the
+  derived `organization_admin_no_bypass` no longer grant export on the
+  `*` wildcard. There is deliberately no automatic replacement: export
+  is granted per object, in an app's own permission set. Grant
+  `allowExport` explicitly wherever admin export is intended, in a set
+  you author — platform sets are not overridable.
+  **Environment-authored sets never carried it either** — edit any
+  custom set whose users export. Nothing fails at parse time, so an
+  upgrade that edits nothing is valid metadata whose administrators
+  have quietly lost export on every object no app set names.
 - **`member_default` deliberately does not carry the grant**, so ordinary
   authenticated users lose export until an admin grants it. That is the
   point of the flip, not an oversight.
