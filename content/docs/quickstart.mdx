@@ -61,11 +61,12 @@ You'll see:
 
 That's it. You're running ObjectOS.
 
-That block is transcribed from `@objectstack/cli` 17.1.0 booting an empty
+That block is transcribed from `@objectstack/cli` 17.2.0 booting an empty
 kernel. Home paths show as `~/…` — the CLI prints yours expanded. Your own boot
-also prints startup advisories (local storage driver, dev crypto key, boot
-diagnostics) and the full list of loaded plugin names, both of which depend on
-your environment.
+also prints a `No objectstack.config.ts or artifact found` line before the
+server starts, plus startup advisories (local storage driver, dev crypto key,
+boot diagnostics) and the full list of loaded plugin names, both of which depend
+on your environment.
 
 ### What's running
 
@@ -160,9 +161,12 @@ You'll see:
 
 ◆ Compile
 ────────────────────────────────────────
-  ✓ Build complete (117ms)
+  ✓ Build complete (72ms)
 
   Data: 1 Objects  3 Fields
+  UI: 0 Apps
+  Logic: 0 Flows
+  Security: 0 Positions  0 Permissions
 
   Artifact: my-app/dist/objectstack.json (1.9 KB)
 
@@ -192,11 +196,11 @@ You'll see:
 ```
 
 That block is transcribed from `pnpm dev` on a scaffold created by
-`@objectstack/cli` 17.1.0. Project paths show as `my-app/…` — the CLI prints
+`@objectstack/cli` 17.2.0. Project paths show as `my-app/…` — the CLI prints
 yours expanded. Your own run also prints pnpm's script header above the block,
 per-step compile progress, startup advisories (configuration load, dev
-secret-field crypto), the full list of loaded plugin names, and an MCP
-connection trailer below the banner.
+secret-field crypto), the full list of loaded plugin names, boot diagnostics,
+and an MCP connection trailer below the banner.
 
 Note the dev server asks for port **3000**, the same port `os start` uses. If
 that port is taken it binds the next free one and says so:
