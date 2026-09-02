@@ -25,8 +25,10 @@ emit() + explicit audience  →  Notification Event  →  recipients, filtered b
    read it.
 3. **Routing** — For each event, ObjectOS expands the audience the producer
    passed into recipients, checks whether each recipient allows that topic on
-   that channel (**Preferences**), and renders the message for the recipient's
-   channel and locale (**Templates**).
+   that channel (**Preferences**), and hands each accepted delivery to its
+   channel, which renders it. What a channel renders *from* differs by channel:
+   email and SMS render **Notification Templates**; the in-app inbox does not
+   (see [What each channel renders](#what-each-channel-renders)).
 4. **Inbox Message** (`sys_inbox_message`) — The materialized, per-user result
    the recipient actually sees in their inbox.
 
@@ -41,7 +43,7 @@ For a single event, these are the inputs that decide who gets what:
 |---|---|
 | The audience passed to `emit()` | *Who receives this?* — the producer names the recipients, and this is the only input that puts anyone on the list |
 | Notification Preference | *Does this recipient allow it here?* — the per-user mute/allow for the topic and channel, applied to every (recipient × channel) pair |
-| Notification Template | *How is it written?* — the subject and body to render for the recipient's channel and locale |
+| Notification Template | *How is it written?* — the subject and body rendered on the **email** and **SMS** channels. The in-app inbox does not read these rows; see [What each channel renders](#what-each-channel-renders) |
 | Notification Subscription | *Who declared standing interest?* — admin-authored rows, **not consulted when an event is routed** |
 
 A recipient reaches the inbox when the producer's audience resolves to them and
@@ -155,9 +157,10 @@ value first.
 
 At **Setup → Configuration → Notification Templates** (`sys_notification_template`).
 
-A per **(topic × channel × locale)** render template. Templates turn an event
-payload into the subject and body a recipient reads, in their locale and for
-their channel.
+A per **(topic × channel × locale)** render template, read by the **email** and
+**SMS** channels: a template turns an event payload into the subject and body
+those channels send. The in-app inbox does not read these rows — see
+[What each channel renders](#what-each-channel-renders).
 
 | Field | Purpose |
 |---|---|
@@ -174,6 +177,23 @@ These objects are **system-managed**: rows are seeded by the platform and the
 capabilities you run, so most of your work is editing template content or
 toggling `is_active`, `enabled`, and preference defaults rather than creating
 records from scratch.
+
+### What each channel renders
+
+Rendering happens per channel, and only two channels read the rows above:
+
+| Channel | Renders from |
+|---|---|
+| **Email** | The Notification Template matching (topic, `email`, locale). With no matching active row, the notification's own title and body are sent as-is |
+| **SMS** | The Notification Template matching (topic, `sms`, locale), with the same fallback |
+| **In-app inbox** | **Not a Notification Template.** The inbox row is written from the notification's own title and body — the topic, when the producer set no title. When the notification names an email template instead, the inbox renders that one: a `sys_email_template` row resolved by (name, locale) through the email service, which [Email](/docs/configure/email#templates) documents. Without an email service able to render it, that delivery fails rather than falling back |
+
+> **Warning:** `inbox` is the **default** channel — a notification that names no
+> channels is delivered there and nowhere else. So the delivery an admin is
+> most likely looking at is the one that never reads a Notification Template:
+> editing a template row here changes what email and SMS send, and changes
+> nothing about the in-app message. This page describes the wiring as it
+> stands; it does not forecast an inbox seam to these rows.
 
 ## Where to go next
 
