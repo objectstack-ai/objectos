@@ -54,6 +54,29 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # `scripts/pm/check-half-states.mjs` is a verbatim upstream copy (#237)
+      # whose 1551 cases were run by nothing here. It is a STEP and not a
+      # registry entry because `tools/ci-scripts/run-self-tests.mjs` scans
+      # `.github/scripts` top level only, and that is load-bearing — it is what
+      # lets `.github/scripts/lib/` exist without tripping the
+      # unregistered-self-test rule. Widening the scan to reach one script would
+      # change this repo's gate topology; a step changes nothing.
+      #
+      # What it buys is a drift detector, not a hash-pin: #237's ablation
+      # mutated `DEFAULT_SWEEP_REPO` in this copy and 2 of the 1551 went red, so
+      # an edit here that changes BEHAVIOUR fails. One that changes bytes
+      # without changing behaviour still passes — pinning this copy to upstream
+      # byte for byte needs a cross-repo credential and is a separate decision.
+      #
+      # `--self-test` is the whole of it. Without the flag the script runs a
+      # live sweep needing a transport prerequisite this job does not have; that
+      # caller is `.github/workflows/half-state-patrol.yml`, on its own
+      # schedule. Zero-dependency and about a second, so it runs before the
+      # build rather than behind it.
+      - name: Half-state sweeper self-test
+        shell: bash
+        run: node scripts/pm/check-half-states.mjs --self-test
+
       # `content/docs/**/*.zh-Hant.mdx` and `meta.zh-Hant.json` are generated
       # from the Simplified siblings by `apps/docs/scripts/gen-zh-hant.mjs` and
       # committed, because `lib/seo.ts` tells a real translation from an English
