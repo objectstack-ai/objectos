@@ -85,9 +85,14 @@ export default defineStack({
 });
 ```
 
-> There is **no** `defineDatasource()` helper. A datasource is just a
-> `Datasource` object you place in the `datasources` array — exactly like
-> the `examples/app-crm` stack does in the framework repo.
+> **A `defineDatasource()` helper is also available.** The plain
+> `Datasource` object above is a valid datasource — it is exactly what the
+> `examples/app-crm` stack does in the framework repo — and
+> `defineDatasource()`, exported from `@objectstack/spec` (and
+> `@objectstack/spec/data`), takes the same config and runs the
+> `DatasourceSchema` validation at the point of declaration, so a bad field
+> is reported where you wrote it. The framework's own federation guide uses
+> it.
 
 ## Binding objects to a datasource
 
@@ -229,26 +234,17 @@ configuration that backs the `default` datasource.
 - **Scope with permissions.** Object- and field-level permissions apply
   to connected data exactly as they do to native objects.
 
-## Roadmap: in-product External Datasource Federation
+## In-product external datasource federation
 
 The flow above — connect a database, model objects, generate them with a
-coding agent — works today with shipped building blocks. A richer,
-**turn-key federation** experience is in active design under
+coding agent — is the general path. The **turn-key federation** flow on top
+of it, specified in
 [ADR-0015](https://github.com/objectstack-ai/objectstack/blob/main/docs/adr/0015-external-datasource-federation.md)
-(status: *Proposed*). Planned, **not yet shipped**:
+(status: *Accepted*), **ships today**: bind objects to tables ObjectOS does
+not own, with validation gates around them.
 
-- A `schemaMode` (`managed` / `external` / `validate-only`) so ObjectOS
-  can bind to tables it does **not** own without trying to migrate them.
-- An `external` binding sub-record on objects mapping object fields to
-  existing columns.
-- An `os datasource introspect` / `validate` CLI to import a schema and
-  scaffold objects in one step.
-- Boot-time and write-time **safety gates** for externally-owned schemas,
-  plus a Studio wizard for the whole flow.
-
-Until those land, prefer the documented path: declare the datasource,
-bind objects (generated or hand-written), and verify against a
-non-production copy first.
+It is documented once, with the framework docs that own the surface —
+[External Datasources (Federation)](https://docs.objectstack.ai/docs/data-modeling/external-datasources).
 
 ## Where to go next
 
