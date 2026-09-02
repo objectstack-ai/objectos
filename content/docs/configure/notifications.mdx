@@ -166,12 +166,19 @@ those channels send. The in-app inbox does not read these rows — see
 |---|---|
 | `topic` | Topic this template renders |
 | `channel` | Channel the rendered output targets |
-| `locale` | Locale of this rendering (matched to the recipient) |
+| `locale` | Locale of this rendering — the notification's own, not the recipient's |
 | `version` | Template version number |
 | `subject` | Rendered title |
 | `body` | Message body (markdown) |
 | `format` | Output format for the body |
 | `is_active` | Boolean — whether this template is used for rendering |
+
+The locale is matched on the **notification**, not the recipient: a delivery
+renders with `payload.locale` when the producer sets one, else the deployment
+default. Nothing resolves a locale from the person receiving it, so one emit
+renders in a single locale for every recipient it reaches — authoring `es` and
+`en` rows for a topic gives the producer two renderings to choose between, not
+two recipients reading in their own language.
 
 These objects are **system-managed**: rows are seeded by the platform and the
 capabilities you run, so most of your work is editing template content or
