@@ -197,10 +197,11 @@ You'll see:
 
 That block is transcribed from `pnpm dev` on a scaffold created by
 `@objectstack/cli` 17.2.0. Project paths show as `my-app/…` — the CLI prints
-yours expanded. Your own run also prints pnpm's script header above the block,
-per-step compile progress, startup advisories (configuration load, dev
-secret-field crypto), the full list of loaded plugin names, boot diagnostics,
-and an MCP connection trailer below the banner.
+yours expanded, and the `Build complete` timing is whatever the transcribing
+machine measured, so yours will differ. Your own run also prints pnpm's script
+header above the block, per-step compile progress, startup advisories
+(configuration load, dev secret-field crypto), the full list of loaded plugin
+names, boot diagnostics, and an MCP connection trailer below the banner.
 
 Note the dev server asks for port **3000**, the same port `os start` uses. If
 that port is taken it binds the next free one and says so:
