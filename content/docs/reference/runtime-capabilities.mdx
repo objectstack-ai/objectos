@@ -56,8 +56,8 @@ when an optional package is missing during development — but in
 1. Treat capability warnings as deployment failures. Grep startup logs
    for `capability not loaded` (or your equivalent) and fail the
    readiness probe / rollout if any appear.
-2. Pin the runtime image to one that includes every package your
-   artifacts declare in `requires`.
+2. Pin the ObjectOS runtime image to one that includes every package
+   your artifacts declare in `requires`.
 3. When publishing an artifact, document its `requires` list alongside
    it so operators can verify the matching image.
 

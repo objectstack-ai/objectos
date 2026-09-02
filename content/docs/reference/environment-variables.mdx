@@ -156,7 +156,7 @@ they can be used.
 | Retired name | What to use instead |
 |---|---|
 | `OS_ARTIFACT_FILE` | `OS_ARTIFACT_URL`. Nothing in the shipped runtime reads `OS_ARTIFACT_FILE`; a deployment that sets it gets the boot it would have got with nothing set, and no error naming the mistake. A local file is `file://` on the replacement, and the replacement carries the integrity pin. |
-| `OS_ARTIFACT_PATH` | `OS_ARTIFACT_URL`. **The runtime image refuses a boot that carries a non-default `OS_ARTIFACT_PATH`**, naming the replacement. Two spellings for "which artifact do I boot" is one dialect too many, and the retired one never carried an integrity pin. |
+| `OS_ARTIFACT_PATH` | `OS_ARTIFACT_URL`. **The ObjectOS runtime image refuses a boot that carries a non-default `OS_ARTIFACT_PATH`**, naming the replacement. Two spellings for "which artifact do I boot" is one dialect too many, and the retired one never carried an integrity pin. |
 | `OS_BUSINESS_DB_URL` | `OS_DATABASE_URL`, or a datasource declared in the artifact. Nothing reads `OS_BUSINESS_DB_URL`; a deployment that sets it and nothing else has no database configured at all. |
 
 `OS_CLOUD_API_KEY` is **not** a variable a self-hosted deployment sets. It is
