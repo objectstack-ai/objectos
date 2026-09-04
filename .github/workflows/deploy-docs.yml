@@ -1,27 +1,102 @@
 name: Deploy Docs
 
-on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/docs/**'
-      - 'content/docs/**'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/deploy-docs.yml'
-  workflow_dispatch:
+# The deploy, and the verification layer around it (#269).
+#
+# ## Why this file no longer has a `push:` trigger
+#
+# It used to hang off `push: branches: [main]` exactly as `ci.yml` does, which
+# meant the two ran in PARALLEL: a commit that failed `build`, `Node floor`,
+# the locale surface or any translation gate still deployed. There was no
+# `needs:`, no `workflow_run`, nothing. That is defect 1 of #269.
+#
+# The fix is that this workflow is now CALLED by `ci.yml` as a job with
+# `needs: [node-floor, build]`, so it cannot start until those are green, and
+# `ci.yml` restricts it to a push on `main`. `workflow_run` was the alternative
+# and was rejected: it fires on a failed run too, so the conclusion has to be
+# re-checked by hand inside the workflow, and it runs detached from the run
+# whose artifact it is meant to publish — which would have made defect 2 below
+# unfixable without re-downloading across runs.
+#
+# `workflow_dispatch` survives, but it can no longer deploy. It runs the smoke
+# check against whatever is live, which is the one thing a human wants on
+# demand; publishing outside the CI gate is exactly the hole this card closes.
+#
+# ## What the jobs are for
+#
+#   deploy   publishes the bundle CI built and tested (defect 2), and refuses
+#            to call it a success without a NEW version id serving (defect 4)
+#   smoke    asks the live site whether it renders (defect 3)
+#   rollback reuses rollback-docs.yml (#267) when the smoke check goes red
+#   report   files or updates ONE issue on any failure, because this lane reads
+#            the board and not the run list — 36 red runs over 10 days produced
+#            no card at all
+#
+# ⚠️ Every deploy is currently REJECTED: `main` builds a Worker over
+# Cloudflare's 64 MiB limit (#261), so `deploy` is expected to go red and the
+# serving version cannot be displaced. `smoke` still runs — it is checking the
+# live site, not this run's output — which is why it is not gated on the deploy
+# succeeding.
 
-concurrency:
-  group: deploy-docs
-  cancel-in-progress: false
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: 'Name of the artifact holding the .open-next bundle CI built and tested.'
+        required: true
+        type: string
+      base_url:
+        description: 'Origin the smoke check runs against.'
+        required: false
+        type: string
+        default: 'https://docs.objectos.ai'
+      file_issue:
+        description: 'File or update the deploy-failure card when something goes red.'
+        required: false
+        type: boolean
+        default: true
+  workflow_dispatch:
+    inputs:
+      # Declared so that `inputs.artifact_name` is a defined property under both
+      # triggers rather than one. It is deliberately unusable from here: a
+      # manual run has no artifact from a CI run to publish, and the `deploy`
+      # job below refuses to start on a `workflow_dispatch` event regardless of
+      # what this says. Publishing outside the CI gate is the hole #269 closes.
+      artifact_name:
+        description: 'Leave blank. A manual run cannot deploy; it only smoke-checks whatever is live.'
+        required: false
+        type: string
+        default: ''
+      base_url:
+        description: 'Origin to smoke-check. Defaults to the live docs site.'
+        required: false
+        type: string
+        default: 'https://docs.objectos.ai'
+      paths:
+        description: 'Comma-separated paths to check INSTEAD of the built-in target list. Use this to point the check at something that does not render and watch it go red.'
+        required: false
+        type: string
+        default: ''
+      file_issue:
+        description: 'File or update the deploy-failure card if this run goes red. Off by default: a manual run is usually an experiment.'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   deploy:
+    name: Publish the tested Worker
+    # Only when a caller handed us a bundle. A manual dispatch has no
+    # `artifact_name` and therefore cannot deploy — see the header.
+    if: github.event_name != 'workflow_dispatch' && inputs.artifact_name != ''
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-docs
       url: https://docs-objectos.objectstack.workers.dev
     permissions:
       contents: read
+    outputs:
+      previous_version_id: ${{ steps.verdict.outputs.previous_version_id }}
+      new_version_id: ${{ steps.verdict.outputs.new_version_id }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -30,9 +105,229 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Deploy to Cloudflare Workers
+
+      # Defect 2 of #269: the deploy used to run `opennextjs-cloudflare build`
+      # itself, so CI built the site, threw it away, and the deploy published a
+      # DIFFERENT build that nothing had checked. This downloads the bundle the
+      # `build` job produced from the `.next` output its own gates measured.
+      # `opennextjs-cloudflare deploy` does not build; it uploads what is here.
+      - name: Download the Worker CI built and tested
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: apps/docs/.open-next
+
+      # Taken BEFORE the deploy and required to succeed: it is both half of the
+      # "did anything actually change" comparison and the rollback target. A
+      # deploy with no known-good version to fall back to is not one this
+      # pipeline should start.
+      - name: Read the version that is serving now
         working-directory: apps/docs
+        shell: bash
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm run deploy
+        run: |
+          pnpm exec wrangler deployments status --name docs-objectos --json \
+            > "$RUNNER_TEMP/before.json"
+          cat "$RUNNER_TEMP/before.json"
+
+      # `set +e` is the point of this step, not an oversight. #269: "Do not
+      # treat a step's exit code as evidence the deploy worked." A rejected
+      # upload and an accepted one are not reliably distinguishable from out
+      # here, so the exit code is captured as EVIDENCE and handed to the gate
+      # below, which is the only thing allowed to call this a success.
+      - name: Deploy to Cloudflare
+        id: deploy
+        working-directory: apps/docs
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set +e
+          pnpm exec opennextjs-cloudflare deploy > "$RUNNER_TEMP/deploy.log" 2>&1
+          DEPLOY_EXIT=$?
+          set -e
+          cat "$RUNNER_TEMP/deploy.log"
+          echo "exit_code=$DEPLOY_EXIT" >> "$GITHUB_OUTPUT"
+          echo "::notice::deploy command exited ${DEPLOY_EXIT} — the verdict is the next step, not this number"
+
+      - name: Read what is serving afterwards
+        if: always()
+        working-directory: apps/docs
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set +e
+          pnpm exec wrangler deployments status --name docs-objectos --json \
+            > "$RUNNER_TEMP/after.json" 2>"$RUNNER_TEMP/after.err"
+          set -e
+          cat "$RUNNER_TEMP/after.json" "$RUNNER_TEMP/after.err"
+
+      # The arbiter. Requires a new, well-formed version id that was not
+      # already serving and that the post-deploy reading agrees is serving now.
+      # An unreadable input is a finding here, never a skip.
+      #
+      # `shell: bash` is load-bearing, not tidiness: the default shell for a
+      # `run:` step is `bash -e {0}` with no pipefail, so in `node ... | tee`
+      # the step takes tee's status and a gate that exits 1 passes silently.
+      - name: Assert a new version is serving
+        id: verdict
+        if: always()
+        shell: bash
+        run: |
+          node .github/scripts/check-deploy-version.mjs \
+            --before "$RUNNER_TEMP/before.json" \
+            --after "$RUNNER_TEMP/after.json" \
+            --deploy-log "$RUNNER_TEMP/deploy.log" \
+            --deploy-exit "${{ steps.deploy.outputs.exit_code || '1' }}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+  smoke:
+    name: Smoke-check the live site
+    needs: [deploy]
+    # Runs whether or not the deploy published anything, and that is deliberate
+    # while #261 is open: today every deploy is rejected, so gating this on a
+    # successful deploy would mean the site is never checked at all. The
+    # rollback below is what is gated on the deploy having succeeded.
+    if: always() && needs.deploy.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Zero-dependency on purpose: no install, so this stays a seconds-long
+      # job and can be run by hand against any origin.
+      #
+      # Every run also fetches a path that must NOT render and requires it to
+      # produce findings — see the script's header. A green here therefore
+      # carries a live demonstration that the same code path can go red, which
+      # is the only thing that makes it worth reading.
+      - name: Smoke
+        shell: bash
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          SMOKE_PATHS: ${{ inputs.paths }}
+        run: |
+          ARGS=(--base "$BASE_URL")
+          if [ -n "$SMOKE_PATHS" ]; then
+            ARGS+=(--paths "$SMOKE_PATHS")
+            echo "::warning::running against an ad-hoc path list: $SMOKE_PATHS"
+          fi
+          node .github/scripts/smoke-docs.mjs "${ARGS[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  rollback:
+    name: Roll back the bad version
+    needs: [deploy, smoke]
+    # Only when THIS run published something and the site then failed to
+    # render. A failed deploy displaces nothing, so there is nothing to undo.
+    if: >-
+      always()
+      && needs.deploy.result == 'success'
+      && needs.smoke.result == 'failure'
+      && needs.deploy.outputs.previous_version_id != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+      # Reusing rollback-docs.yml (#267) rather than reimplementing the
+      # Cloudflare call: it already validates the version id, already draws the
+      # same `cloudflare-docs` credentials, and a required-reviewer rule added
+      # to that environment (#266) is meant to gate this path too.
+      - name: Dispatch rollback-docs.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION_ID: ${{ needs.deploy.outputs.previous_version_id }}
+          BAD_VERSION: ${{ needs.deploy.outputs.new_version_id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh workflow run rollback-docs.yml --ref "$DEFAULT_BRANCH" \
+            -f version_id="$VERSION_ID" \
+            -f reason="automatic rollback: smoke check failed after $BAD_VERSION ($RUN_URL)"
+          echo "::notice::rollback to $VERSION_ID dispatched"
+
+  report:
+    name: File or update the failure card
+    needs: [deploy, smoke, rollback]
+    if: >-
+      always()
+      && inputs.file_issue
+      && (needs.deploy.result == 'failure'
+      || needs.smoke.result == 'failure'
+      || needs.rollback.result == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      # Defect 4 of #269: 36 consecutive red deploys across two PM tenures
+      # produced no card. This lane reads the board every round and does not
+      # read the run list, so a red run is not a signal — a card is.
+      #
+      # ONE card, updated. `gh issue list --label` finds the open one; a new
+      # card is only created when a human has closed the last one, which is the
+      # correct reading of "this is fixed, tell me if it comes back".
+      - name: File or update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+          ROLLBACK_RESULT: ${{ needs.rollback.result }}
+          NEW_VERSION: ${{ needs.deploy.outputs.new_version_id }}
+          PREV_VERSION: ${{ needs.deploy.outputs.previous_version_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LABEL='deploy-failure'
+          TITLE='The docs deploy pipeline is failing'
+
+          gh label create "$LABEL" \
+            --color 'B60205' \
+            --description 'Automated: the docs deploy or its post-deploy smoke check failed' \
+            --force
+
+          NUM="$(gh issue list --label "$LABEL" --state open --limit 1 --json number --jq '.[0].number // empty')"
+
+          BODY="$(cat <<EOF
+          Automated report from \`ci.yml\` -> \`deploy-docs.yml\`.
+
+          | | |
+          |:--|:--|
+          | run | $RUN_URL |
+          | commit | \`$SHA\` |
+          | deploy | \`$DEPLOY_RESULT\` |
+          | smoke | \`$SMOKE_RESULT\` |
+          | rollback | \`$ROLLBACK_RESULT\` |
+          | version serving before | \`${PREV_VERSION:-unknown}\` |
+          | version published | \`${NEW_VERSION:-none}\` |
+
+          A \`deploy\` failure with no published version usually means Cloudflare
+          refused the upload — while #261 is open that is the expected steady
+          state and the live site is unaffected. A \`smoke\` failure means the
+          live site did not render; the run log names which rule fired.
+          EOF
+          )"
+
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body "$BODY"
+            echo "::notice::updated existing card #$NUM"
+          else
+            URL="$(gh issue create --title "$TITLE" --label "$LABEL" --body "$BODY")"
+            echo "::notice::filed $URL"
+          fi

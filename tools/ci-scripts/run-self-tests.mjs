@@ -61,6 +61,14 @@
  * cached green is the exact failure it exists to end. So `ci.yml` invokes the
  * gate itself as a step after `pnpm turbo run build`, and what runs here is
  * the fixture-driven proof that its rules can still go red.
+ *
+ * `check-deploy-version.mjs` and `smoke-docs.mjs` are here on the same footing
+ * and for a sharper reason (#269). Their gate modes need a Cloudflare
+ * credential and a live website respectively, so on a pull request neither one
+ * can run for real — and the deploy path they guard is currently REJECTED at
+ * Cloudflare, so on `main` they may not run for real either. What keeps them
+ * from being decoration in the meantime is exactly this: their fixtures assert
+ * that every rule they enforce still produces a red, and that runs on every PR.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -78,6 +86,8 @@ const SELF_TESTED = [
   'check-translations.mjs',
   'check-node-floor.mjs',
   'check-locale-surface.mjs',
+  'check-deploy-version.mjs',
+  'smoke-docs.mjs',
 ];
 
 /**
