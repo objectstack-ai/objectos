@@ -69,6 +69,13 @@
  * Cloudflare, so on `main` they may not run for real either. What keeps them
  * from being decoration in the meantime is exactly this: their fixtures assert
  * that every rule they enforce still produces a red, and that runs on every PR.
+ *
+ * `check-prerender-cache.mjs` joins them on identical footing (#261). Its gate
+ * mode reads a `.open-next` bundle that only exists in the deploy job, so on a
+ * pull request it can never run for real; its fixtures are what prove it can
+ * still refuse a bundle whose prerender cache is incomplete — the bundle shape
+ * that publishes a Worker returning 404 for every page while the deploy step
+ * exits 0.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -88,6 +95,7 @@ const SELF_TESTED = [
   'check-locale-surface.mjs',
   'check-deploy-version.mjs',
   'smoke-docs.mjs',
+  'check-prerender-cache.mjs',
 ];
 
 /**
