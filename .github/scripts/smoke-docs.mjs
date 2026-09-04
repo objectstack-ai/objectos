@@ -115,12 +115,22 @@ const ERROR_MARKERS = [
   '503 service temporarily unavailable',
 ];
 
-/** Defaults every target inherits unless it overrides them. */
+/**
+ * Defaults every target inherits unless it overrides them.
+ *
+ * The two floors are set against MEASURED values, in both directions, because
+ * a false red here now dispatches a rollback. Taken from the live site on
+ * 2026-09-04: the four targets carried 4639 to 9101 visible characters and 14
+ * to 22 same-site links; the 404 shell carried 8 characters and 0 links in
+ * 37962 bytes. So the floors sit an order of magnitude below the smallest real
+ * page and far above the shell — and that shell is also why the text floor is
+ * measured on prose rather than bytes.
+ */
 const TARGET_DEFAULTS = {
   status: 200,
   lang: 'en',
   minText: 500,
-  minLinks: 10,
+  minLinks: 8,
 };
 
 /**

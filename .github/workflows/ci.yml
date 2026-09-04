@@ -151,7 +151,7 @@ jobs:
       # that cleared every gate above it. And only on a push to `main`, because
       # that is the only event that deploys, so a pull request pays nothing.
       - name: Package the Worker from the build this job tested
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'pull_request'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: apps/docs
         run: pnpm exec opennextjs-cloudflare build --skipNextBuild
 
@@ -161,7 +161,7 @@ jobs:
       # download succeeds, the deploy exits 1 on a missing config, and the
       # cause is three directories away from the message.
       - name: Upload the Worker bundle
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'pull_request'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: docs-worker
