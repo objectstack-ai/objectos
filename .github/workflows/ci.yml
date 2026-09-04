@@ -45,6 +45,26 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    # `NEXT_PRIVATE_STANDALONE` is what `@opennextjs/aws` sets before it runs
+    # `next build` — its own comment reads "Equivalent to setting `output:
+    # "standalone"` in next.config.js". Without it a plain `next build`
+    # produces no `.next/standalone/`, and the packaging step below fails on a
+    # missing `pages-manifest.json` three directories inside it. Measured on
+    # this branch before it was set: `ENOENT ... .next/standalone/apps/docs/
+    # .next/server/pages-manifest.json`.
+    #
+    # Set for the whole job rather than for the deploy path only, so that what
+    # a pull request builds is the same shape as what gets published. A build
+    # that differs from the deploy build is a small instance of the defect this
+    # card is about.
+    #
+    # It has to be declared in `turbo.json` as well: turbo 2 runs tasks in
+    # strict env mode, so an undeclared variable never reaches `next build` —
+    # and declaring it is also what puts it in the cache key, so a `.next`
+    # cached from before this line cannot be replayed without the standalone
+    # tree the packaging step needs.
+    env:
+      NEXT_PRIVATE_STANDALONE: 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -116,3 +136,70 @@ jobs:
         run: node .github/scripts/check-locale-surface.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
       - run: pnpm turbo run test
+
+      # Defect 2 of #269: the deploy used to run its own `pnpm install` and its
+      # own `opennextjs-cloudflare build`, so CI built the site, threw it away,
+      # and the deploy published a SECOND build that nothing here had checked.
+      # The published artifact was unverified by construction.
+      #
+      # `--skipNextBuild` packages the `.next` output `pnpm turbo run build`
+      # produced above — the same output `Locale surface` measured and the same
+      # tree every step in this job passed — and `deploy-docs.yml` uploads THIS
+      # bundle rather than making another one.
+      #
+      # Last in the job on purpose: the artifact then only exists for a commit
+      # that cleared every gate above it. And only on a push to `main`, because
+      # that is the only event that deploys, so a pull request pays nothing.
+      - name: Package the Worker from the build this job tested
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        working-directory: apps/docs
+        run: pnpm exec opennextjs-cloudflare build --skipNextBuild
+
+      # `include-hidden-files` is load-bearing, not tidiness: the compiled
+      # OpenNext config the deploy reads lives at `.open-next/.build/`, and
+      # upload-artifact excludes dotted paths by default. Without it the
+      # download succeeds, the deploy exits 1 on a missing config, and the
+      # cause is three directories away from the message.
+      - name: Upload the Worker bundle
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-worker
+          path: apps/docs/.open-next
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+  # Defect 1 of #269: `deploy-docs.yml` used to hang off `push: branches:
+  # [main]` exactly as this workflow does, so the two ran in PARALLEL and a
+  # commit that failed any gate above still deployed. There was no `needs:` and
+  # no `workflow_run` anywhere.
+  #
+  # As a job here it cannot start until `node-floor` and `build` are green, and
+  # the `if:` keeps it off pull requests and merge groups. `workflow_run` would
+  # also have gated it, but it fires on a FAILED run too — the conclusion has
+  # to be re-checked by hand inside the workflow — and it runs detached from
+  # the run whose artifact it publishes, which is what the `with:` line here
+  # depends on.
+  #
+  # ⚠️ This deploy is expected to FAIL while #261 is open: `main` builds a
+  # Worker over Cloudflare's 64 MiB limit, so the upload is rejected at version
+  # creation and the serving version cannot be displaced. That is the current
+  # deliberate steady state, not a regression from this wiring.
+  deploy-docs:
+    name: Deploy docs
+    needs: [node-floor, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Preserves what `deploy-docs.yml` declared for itself before it became a
+    # called workflow: one deploy at a time, and never cancel one in flight.
+    concurrency:
+      group: deploy-docs
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: write   # dispatch rollback-docs.yml when the smoke check fails
+      issues: write    # file or update the one deploy-failure card
+    uses: ./.github/workflows/deploy-docs.yml
+    with:
+      artifact_name: docs-worker
+    secrets: inherit
