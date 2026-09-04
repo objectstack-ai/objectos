@@ -41,7 +41,6 @@ You'll see:
 📦 Artifact: none (empty kernel — install apps via the Console marketplace)
 🗄️ Database: file:~/.objectstack/data/objectstack.db
 🎯 Environment: env_local
-🖥️ Console: http://localhost:3000/_console/
   → Starting server...
 
   ✓ Server is ready
@@ -61,12 +60,12 @@ You'll see:
 
 That's it. You're running ObjectOS.
 
-That block is transcribed from `@objectstack/cli` 17.2.0 booting an empty
+That block is transcribed from `@objectstack/cli` 17.3.0 booting an empty
 kernel. Home paths show as `~/…` — the CLI prints yours expanded. Your own boot
 also prints a `No objectstack.config.ts or artifact found` line before the
 server starts, plus startup advisories (local storage driver, dev crypto key,
-boot diagnostics) and the full list of loaded plugin names, both of which depend
-on your environment.
+schema-sync notes from the SQL driver, boot diagnostics) and the full list of
+loaded plugin names, both of which depend on your environment.
 
 ### What's running
 
@@ -161,14 +160,15 @@ You'll see:
 
 ◆ Compile
 ────────────────────────────────────────
-  ✓ Build complete (72ms)
+  ✓ Build complete (143ms)
 
   Data: 1 Objects  3 Fields
   UI: 0 Apps
   Logic: 0 Flows
   Security: 0 Positions  0 Permissions
+  Runtime: 0 plugins
 
-  Artifact: my-app/dist/objectstack.json (1.9 KB)
+  Artifact: my-app/dist/objectstack.json (1.8 KB)
 
   → Starting dev server (local mode)...
 🎯 Environment ID: env_local
@@ -196,12 +196,13 @@ You'll see:
 ```
 
 That block is transcribed from `pnpm dev` on a scaffold created by
-`@objectstack/cli` 17.2.0. Project paths show as `my-app/…` — the CLI prints
+`@objectstack/cli` 17.3.0. Project paths show as `my-app/…` — the CLI prints
 yours expanded, and the `Build complete` timing is whatever the transcribing
 machine measured, so yours will differ. Your own run also prints pnpm's script
 header above the block, per-step compile progress, startup advisories
-(configuration load, dev secret-field crypto), the full list of loaded plugin
-names, boot diagnostics, and an MCP connection trailer below the banner.
+(configuration load, dev secret-field crypto, schema-sync notes from the SQL
+driver), the full list of loaded plugin names, boot diagnostics, and an MCP
+connection trailer above the banner.
 
 Note the dev server asks for port **3000**, the same port `os start` uses. If
 that port is taken it binds the next free one and says so:
