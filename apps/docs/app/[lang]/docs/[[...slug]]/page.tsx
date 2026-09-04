@@ -240,7 +240,11 @@ export default async function Page(props: {
   const page = source.getPage(params.slug ?? [], params.lang);
   if (!page) notFound();
 
-  const MDX = page.data.body;
+  // `async: true` on the docs collection makes the compiled body and toc
+  // load on demand instead of being statically imported, so they are awaited
+  // here. Frontmatter (`title`, `description`, `full`) stays eager.
+  const loaded = await page.data.load();
+  const MDX = loaded.body;
 
   // Resolved once and handed to both controls, so they cannot drift apart and
   // so a third control added below inherits the locale-independent URL instead
@@ -283,7 +287,7 @@ export default async function Page(props: {
           dangerouslySetInnerHTML={{ __html: jsonLdHtml(item) }}
         />
       ))}
-      <DocsPage toc={page.data.toc} full={page.data.full}>
+      <DocsPage toc={loaded.toc} full={page.data.full}>
         <DocsTitle>{page.data.title}</DocsTitle>
         <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
         <div className="flex flex-row gap-2 items-center border-b pb-6">

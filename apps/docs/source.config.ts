@@ -5,6 +5,29 @@ import path from 'node:path';
 export const docs = defineDocs({
   dir: path.resolve(process.cwd(), '../../content/docs'),
   docs: {
+    /**
+     * Load each page's compiled body on demand instead of statically importing
+     * all of them into every server entrypoint.
+     *
+     * Without this, `fumadocs-mdx:collections/server` eagerly imports all 397
+     * `.mdx` files, so every route that touches `source` — the docs page, but
+     * also `/llms.txt`, `/llms-full.txt`, `/llms.mdx/*`, `/og/*`, `/api/search`
+     * and `/sitemap.xml` — pulls the entire corpus into its own chunk. The
+     * bundler then inlined the whole set five times over into one worker:
+     * 2.50 MiB of authored MDX became a 100.93 MiB `handler.mjs`, and
+     * Cloudflare rejects any Worker over 64 MiB uncompressed (`code: 10027`).
+     *
+     * The multiplier, not the corpus, was the problem: measured on the same
+     * tree, one probe sentence from a single English page appeared 15 times in
+     * the bundle before this flag and 6 times after, taking `handler.mjs` from
+     * 100.93 MiB to 48.47 MiB.
+     *
+     * The cost is that `page.data.body` and `page.data.toc` become
+     * `page.data.load()`. Frontmatter stays eager, so `title`, `description`,
+     * `seoTitle` and `full` are unaffected, and `getText('processed')` — what
+     * the llms.txt routes call — is still a method on the entry.
+     */
+    async: true,
     schema: pageSchema.extend({
       /**
        * Optional SEO title: what the `<title>` tag should say, when that is not
