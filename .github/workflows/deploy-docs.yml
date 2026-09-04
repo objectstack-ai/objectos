@@ -81,6 +81,11 @@ on:
         required: false
         type: boolean
         default: false
+      verify_plumbing:
+        description: 'TEMPORARY (removed before merge). Prove GITHUB_TOKEN can dispatch rollback-docs.yml at all.'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   deploy:
@@ -331,3 +336,54 @@ jobs:
             URL="$(gh issue create --title "$TITLE" --label "$LABEL" --body "$BODY")"
             echo "::notice::filed $URL"
           fi
+
+  # TEMPORARY — removed before this PR merges.
+  #
+  # The `rollback` job above is the one part of this pipeline that only ever
+  # runs during an outage, and it depends on something not obvious: whether
+  # GITHUB_TOKEN is allowed to dispatch a workflow at all. GitHub suppresses
+  # workflow triggering from token-driven events in several cases; if that
+  # applied here the automatic rollback would silently never happen, which is
+  # the exact failure class this card exists to eliminate.
+  #
+  # So: run the same command, with the same token and the same permission, and
+  # confirm from the API that a run was really created. `rollback-docs.yml`
+  # with a blank `version_id` lists versions and changes nothing, so this is
+  # safe to fire against production.
+  verify-plumbing:
+    name: TEMPORARY - prove the rollback dispatch fires
+    if: inputs.verify_plumbing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Dispatch rollback-docs.yml with a blank version_id
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          LATEST='repos/'"$GH_REPO"'/actions/workflows/rollback-docs.yml/runs?per_page=1'
+          BEFORE="$(gh api "$LATEST" --jq '.workflow_runs[0].id // 0')"
+          echo "latest rollback run before: $BEFORE"
+
+          gh workflow run rollback-docs.yml --ref "$DEFAULT_BRANCH" \
+            -f version_id= \
+            -f reason="plumbing check from the #269 branch: lists versions, changes nothing"
+
+          AFTER="$BEFORE"
+          for _ in $(seq 1 24); do
+            sleep 5
+            AFTER="$(gh api "$LATEST" --jq '.workflow_runs[0].id // 0')"
+            [ "$AFTER" != "$BEFORE" ] && break
+          done
+
+          if [ "$AFTER" = "$BEFORE" ]; then
+            echo "::error::GITHUB_TOKEN did NOT create a rollback-docs run — the automatic rollback would silently never fire"
+            exit 1
+          fi
+          echo "::notice::rollback-docs.yml run $AFTER was created by GITHUB_TOKEN"

@@ -45,6 +45,26 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    # `NEXT_PRIVATE_STANDALONE` is what `@opennextjs/aws` sets before it runs
+    # `next build` — its own comment reads "Equivalent to setting `output:
+    # "standalone"` in next.config.js". Without it a plain `next build`
+    # produces no `.next/standalone/`, and the packaging step below fails on a
+    # missing `pages-manifest.json` three directories inside it. Measured on
+    # this branch before it was set: `ENOENT ... .next/standalone/apps/docs/
+    # .next/server/pages-manifest.json`.
+    #
+    # Set for the whole job rather than for the deploy path only, so that what
+    # a pull request builds is the same shape as what gets published. A build
+    # that differs from the deploy build is a small instance of the defect this
+    # card is about.
+    #
+    # It has to be declared in `turbo.json` as well: turbo 2 runs tasks in
+    # strict env mode, so an undeclared variable never reaches `next build` —
+    # and declaring it is also what puts it in the cache key, so a `.next`
+    # cached from before this line cannot be replayed without the standalone
+    # tree the packaging step needs.
+    env:
+      NEXT_PRIVATE_STANDALONE: 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

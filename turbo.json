@@ -4,6 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["NEXT_PRIVATE_STANDALONE"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/content/docs/**"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
