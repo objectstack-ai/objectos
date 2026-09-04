@@ -5,6 +5,39 @@ import path from 'node:path';
 export const docs = defineDocs({
   dir: path.resolve(process.cwd(), '../../content/docs'),
   docs: {
+    /**
+     * Load each page's compiled body on demand instead of statically importing
+     * all of them into every server entrypoint.
+     *
+     * Without this, `fumadocs-mdx:collections/server` eagerly imports all 397
+     * `.mdx` files, so every route that touches `source` — the docs page, but
+     * also `/llms.txt`, `/llms-full.txt`, `/llms.mdx/*`, `/og/*`, `/api/search`
+     * and `/sitemap.xml` — pulls the entire corpus into its own chunk, and the
+     * bundler then inlined the whole set five times over into one Worker.
+     * 2.50 MiB of authored MDX became a ~100 MiB `handler.mjs`, and Cloudflare
+     * rejects any Worker over 64 MiB uncompressed (`code: 10027`).
+     *
+     * The multiplier, not the corpus, is the problem: one probe sentence from a
+     * single English page appeared 15 times in the bundle before this flag and 6
+     * times after.
+     *
+     * The cost is that `page.data.body` and `page.data.toc` become
+     * `page.data.load()`. Frontmatter stays eager, so `title`, `description`,
+     * `seoTitle` and `full` are unaffected, and `getText('processed')` — what
+     * the llms.txt routes call — is still a method on the entry.
+     *
+     * ## This flag did NOT break the site on 2026-09-04, and the record matters
+     *
+     * It shipped once (PR #263), the upload was accepted, the site 404'd, and it
+     * was reverted (PR #268) on the reasonable assumption that the new thing was
+     * the cause. It was not. Every page route on `main` was already unservable
+     * for an unrelated reason — see the long comment in `open-next.config.ts` —
+     * and had been since 2026-08-26, invisibly, because no deploy had been
+     * accepted since 2026-08-25 to publish it. Measured on this tree: base
+     * `main` with this flag ABSENT 404s on `/`, `/en/docs`, `/docs/quickstart`
+     * and `/docs/build/interface/views` under real workerd, identically.
+     */
+    async: true,
     schema: pageSchema.extend({
       /**
        * Optional SEO title: what the `<title>` tag should say, when that is not

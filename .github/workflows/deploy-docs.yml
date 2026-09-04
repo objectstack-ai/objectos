@@ -117,6 +117,33 @@ jobs:
           name: ${{ inputs.artifact_name }}
           path: apps/docs/.open-next
 
+      # #261: the second defect that card turned up, and the one with no
+      # symptom until it is live. `apps/docs` serves every page from a
+      # prerendered entry in `.open-next/cache`, which
+      # `opennextjs-cloudflare deploy` copies into the uploaded assets. If those
+      # entries are absent, the Worker publishes with its cache CONFIGURED and
+      # EMPTY: every lookup misses, `dynamicParams = false` refuses the
+      # on-demand render, and every page 404s — while THIS JOB STILL EXITS 0,
+      # because the upload itself succeeded. `check-deploy-version.mjs` would
+      # not catch it either: a new version really would be serving.
+      #
+      # The cache is produced by a build invocation no pull request runs,
+      # travels here as an artifact, and is copied again by the deploy command.
+      # Three places to lose it, none of which turn a step red on their own.
+      #
+      # Placed BEFORE the deploy, deliberately: a check that reports a bad
+      # bundle once it is already serving is a post-mortem, not a gate. It
+      # asserts against Next's own `prerender-manifest.json` inside the bundle,
+      # so a page added to the corpus is covered the day it is added.
+      #
+      # `shell: bash` for the same reason as the verdict step below.
+      - name: Refuse a bundle that cannot serve its own pages
+        shell: bash
+        run: |
+          node .github/scripts/check-prerender-cache.mjs \
+            --dir apps/docs/.open-next \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
       # Taken BEFORE the deploy and required to succeed: it is both half of the
       # "did anything actually change" comparison and the rollback target. A
       # deploy with no known-good version to fall back to is not one this
