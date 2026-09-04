@@ -150,55 +150,18 @@ jobs:
       # Last in the job on purpose: the artifact then only exists for a commit
       # that cleared every gate above it. And only on a push to `main`, because
       # that is the only event that deploys, so a pull request pays nothing.
-      # TEMPORARY (#261 round 3, reverted in this branch before review): the
-      # `pull_request` clause below is the only difference from the shipped
-      # step. `--skipNextBuild` has never once executed with the incremental
-      # cache configured, because this step is push-only; its first run would
-      # otherwise be the merge commit. If that path does not produce
-      # `.open-next/cache`, the Worker deploys with the cache CONFIGURED and
-      # EMPTY, every lookup misses, `dynamicParams = false` refuses the
-      # on-demand render, and every page 404s — the outage this PR diagnoses,
-      # reproduced by its own fix.
       - name: Package the Worker from the build this job tested
-        if: >-
-          (github.event_name == 'push' && github.ref == 'refs/heads/main')
-          || github.event_name == 'pull_request'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: apps/docs
         run: pnpm exec opennextjs-cloudflare build --skipNextBuild
-
-      # TEMPORARY (#261 round 3, reverted with the clause above).
-      - name: TEMP — the cache the deploy depends on, as CI's own build makes it
-        if: github.event_name == 'pull_request'
-        working-directory: apps/docs
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -d .open-next/cache || { echo "::error::.open-next/cache absent after --skipNextBuild"; exit 1; }
-          echo "cache entries : $(find .open-next/cache -type f | wc -l)"
-          echo "cache bytes   : $(du -sb .open-next/cache | cut -f1)"
-          node -e '
-            const fs=require("fs"),path=require("path");
-            const bid=fs.readFileSync(".open-next/assets/BUILD_ID","utf8").trim();
-            const m=JSON.parse(fs.readFileSync(".open-next/server-functions/default/apps/docs/.next/prerender-manifest.json","utf8"));
-            const routes=Object.keys(m.routes||{});
-            const root=path.join(".open-next/cache",bid);
-            const missing=routes.filter(r=>!fs.existsSync(path.join(root,(r==="/"?"/index":r).slice(1)+".cache")));
-            console.log("prerendered routes:",routes.length);
-            console.log("missing entries   :",missing.length);
-            if(missing.length){console.error("::error::"+missing.length+" prerendered route(s) have no cache entry");process.exit(1);}
-          '
 
       # `include-hidden-files` is load-bearing, not tidiness: the compiled
       # OpenNext config the deploy reads lives at `.open-next/.build/`, and
       # upload-artifact excludes dotted paths by default. Without it the
       # download succeeds, the deploy exits 1 on a missing config, and the
       # cause is three directories away from the message.
-      # TEMPORARY (#261 round 3, reverted in this branch): `pull_request` added
-      # so the artifact really round-trips, rather than being reasoned about.
       - name: Upload the Worker bundle
-        if: >-
-          (github.event_name == 'push' && github.ref == 'refs/heads/main')
-          || github.event_name == 'pull_request'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: docs-worker
@@ -206,82 +169,6 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 3
-
-  # ==========================================================================
-  # TEMPORARY JOB (#261 round 3). Reverted in this branch before review.
-  #
-  # It runs the deploy job's own inputs on the artifact CI actually produced:
-  # download it, then call `opennextjs-cloudflare populateCache local` — the
-  # exact step `opennextjs-cloudflare deploy` performs before `wrangler deploy`,
-  # and for the static-assets cache a pure filesystem copy needing no
-  # credentials. Then `wrangler deploy --dry-run` weighs what would be uploaded.
-  #
-  # This exists because "probably fine on a path that has never run" is the
-  # reasoning that cost this repo a production outage on 2026-09-04.
-  # ==========================================================================
-  verify-deploy-inputs:
-    name: TEMP — the artifact the deploy would publish
-    needs: [build]
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-
-      # Byte-for-byte what deploy-docs.yml does.
-      - name: Download the Worker CI built and tested
-        uses: actions/download-artifact@v8
-        with:
-          name: docs-worker
-          path: apps/docs/.open-next
-
-      - name: The cache survived the artifact round-trip
-        working-directory: apps/docs
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -d .open-next/cache || { echo "::error::.open-next/cache did NOT survive the artifact"; exit 1; }
-          test -f .open-next/.build/open-next.config.mjs || { echo "::error::compiled config did not survive"; exit 1; }
-          echo "cache entries after download : $(find .open-next/cache -type f | wc -l)"
-          echo "assets before populate       : $(find .open-next/assets -type f | wc -l)"
-
-      - name: populateCache — the step the deploy runs before wrangler
-        working-directory: apps/docs
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm exec opennextjs-cloudflare populateCache local
-          echo "assets after populate        : $(find .open-next/assets -type f | wc -l)"
-          echo "cache entries in assets      : $(find .open-next/assets/cdn-cgi/_next_cache -type f | wc -l)"
-          node -e '
-            const fs=require("fs"),path=require("path");
-            const bid=fs.readFileSync(".open-next/assets/BUILD_ID","utf8").trim();
-            const m=JSON.parse(fs.readFileSync(".open-next/server-functions/default/apps/docs/.next/prerender-manifest.json","utf8"));
-            const routes=Object.keys(m.routes||{});
-            const root=path.join(".open-next/assets/cdn-cgi/_next_cache",bid);
-            const missing=routes.filter(r=>!fs.existsSync(path.join(root,(r==="/"?"/index":r).slice(1)+".cache")));
-            console.log("prerendered routes           :",routes.length);
-            console.log("servable from static assets  :",routes.length-missing.length);
-            console.log("missing                      :",missing.length);
-            if(missing.length){console.error("::error::"+missing.length+" route(s) would 404 in production");process.exit(1);}
-          '
-
-      # The number #262 needs, measured in CI on the bundle wrangler uploads
-      # rather than scaled from a local ratio. Cloudflare rejects over 65536 KiB.
-      - name: Weigh the bundle wrangler would upload
-        working-directory: apps/docs
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm exec wrangler deploy --dry-run --outdir "$RUNNER_TEMP/dryrun" 2>&1 | tee "$RUNNER_TEMP/dryrun.log"
-          grep -E 'Total Upload|Read [0-9]+ files' "$RUNNER_TEMP/dryrun.log" | tee -a "$GITHUB_STEP_SUMMARY"
 
   # Defect 1 of #269: `deploy-docs.yml` used to hang off `push: branches:
   # [main]` exactly as this workflow does, so the two ran in PARALLEL and a
