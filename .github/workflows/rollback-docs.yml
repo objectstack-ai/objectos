@@ -1,0 +1,94 @@
+name: Rollback Docs
+
+# Manual recovery tool for a bad production docs deploy.
+#
+# Why this exists rather than "just revert the commit": Cloudflare rejects an
+# oversized upload at VERSION CREATION, so a failed deploy does not roll
+# anything back — the previously accepted version simply keeps serving. The
+# corollary bit us on 2026-09-04: once a bad version has been accepted,
+# reverting the offending commit only rebuilds a bundle that gets rejected
+# again, which leaves the bad version live. Recovery has to happen on
+# Cloudflare's side, against a version id.
+#
+# Usage:
+#   1. Dispatch with version_id EMPTY -> lists versions, changes nothing.
+#   2. Read the list, pick the last known-good version id.
+#   3. Dispatch again with that id -> rolls back to it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_id:
+        description: 'Worker version id to roll back to. LEAVE BLANK to only list versions and change nothing.'
+        required: false
+        type: string
+      reason:
+        description: 'Why this rollback is happening (recorded as the rollback message).'
+        required: false
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    # Same environment as deploy-docs.yml: it holds the credentials, and any
+    # required-reviewer protection added there gates this workflow too.
+    environment:
+      name: cloudflare-docs
+      url: https://docs-objectos.objectstack.workers.dev
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Always runs. A rollback target should come from a reading, not a guess.
+      - name: List Worker versions
+        working-directory: apps/docs
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm exec wrangler versions list --name docs-objectos
+
+      - name: Show current deployment
+        working-directory: apps/docs
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm exec wrangler deployments status --name docs-objectos || true
+
+      - name: Roll back to the requested version
+        if: ${{ inputs.version_id != '' }}
+        working-directory: apps/docs
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          VERSION_ID: ${{ inputs.version_id }}
+          REASON: ${{ inputs.reason }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Validate before use: this value reaches a command line, and a
+          # malformed id should fail loudly here rather than somewhere odd.
+          if ! printf '%s' "$VERSION_ID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'; then
+            echo "::error::version_id is not a UUID: $VERSION_ID"
+            exit 1
+          fi
+
+          pnpm exec wrangler rollback "$VERSION_ID" \
+            --name docs-objectos \
+            --message "${REASON:-manual rollback via rollback-docs.yml}" \
+            --yes
+
+      - name: Confirm what is serving now
+        if: ${{ inputs.version_id != '' }}
+        working-directory: apps/docs
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm exec wrangler deployments status --name docs-objectos
