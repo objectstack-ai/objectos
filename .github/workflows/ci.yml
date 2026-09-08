@@ -200,6 +200,39 @@ jobs:
       #   Total Upload: 58553.98 KiB
       # 1.96 KiB low — 0.0033%. The reading tracks the enforced figure.
       #
+      # ## Accurate against the limit; NOT repeatable to better than a few KiB
+      #
+      # #277. Accuracy is this gate's job and the figure above is the right
+      # claim for it. It says nothing about REPEATABILITY, and a reader who
+      # meets 0.0033% at the point of use will reasonably assume a small
+      # per-PR delta means something. Measured, it does not.
+      #
+      # The control is ONE commit run twice, with no tree difference at all —
+      # not a workflow file, not a specifier line, nothing. `66cb0a4` is an
+      # empty commit whose tree hash is byte-identical to `main`'s at
+      # `50aacb9`; run 34252385192, attempts 1 and 2, landed on two different
+      # `ubuntu-latest` runners:
+      #   attempt 1:  Total Upload: 58549.04 KiB
+      #   attempt 2:  Total Upload: 58553.46 KiB
+      # 4.42 KiB apart. That is larger than the 1.96 KiB agreement above, so
+      # the agreement cannot be read as sub-KiB precision either — it is one
+      # comparison, taken inside this much noise.
+      #
+      # Holding the machine fixed shrinks the spread without closing it: four
+      # cold rebuilds of that same tree in one container gave 58548.93,
+      # 58548.93, 58548.94 and 58549.55 KiB — 0.62 KiB apart.
+      #
+      # So this number answers "is the bundle near the ceiling", not "did my
+      # PR grow the bundle". A single-digit-KiB move between two commits is
+      # inside the spread measured above and has not been shown to be a change
+      # in the bundle at all; a real growth of a few KiB is equally invisible.
+      # Attributing a small delta needs a same-tree control — the same commit
+      # run twice — not the previous commit's reading.
+      #
+      # n is small (2 CI runs, 4 local builds) and 4.42 KiB is the largest
+      # same-tree gap MEASURED, not a proven bound. Causes are NOT measured
+      # here and none is claimed.
+      #
       # ## The budget
       #
       # ONE constant, below, with the limit written beside it; every
