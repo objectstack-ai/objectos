@@ -207,19 +207,39 @@ jobs:
       # meets 0.0033% at the point of use will reasonably assume a small
       # per-PR delta means something. Measured, it does not.
       #
-      # The control is ONE commit run twice, with no tree difference at all —
-      # not a workflow file, not a specifier line, nothing. `66cb0a4` is an
-      # empty commit whose tree hash is byte-identical to `main`'s at
+      # The strongest control is ONE commit run twice, with no tree difference
+      # at all — not a workflow file, not a specifier line, nothing. `66cb0a4`
+      # is an empty commit whose tree hash is byte-identical to `main`'s at
       # `50aacb9`; run 34252385192, attempts 1 and 2, landed on two different
-      # `ubuntu-latest` runners:
-      #   attempt 1:  Total Upload: 58549.04 KiB
-      #   attempt 2:  Total Upload: 58553.46 KiB
-      # 4.42 KiB apart. That is larger than the 1.96 KiB agreement above, so
-      # the agreement cannot be read as sub-KiB precision either — it is one
-      # comparison, taken inside this much noise.
+      # `ubuntu-latest` runners. The third reading is from `1bf8b70`, a
+      # DIFFERENT tree — it carries this comment — but the same bundle inputs,
+      # since a workflow file cannot enter the Worker. Bundle-identical, not
+      # tree-identical: the weaker of the two controls, and labelled as one.
+      #
+      #   66cb0a4  attempt 1, job 102149701548   58549.04 KiB
+      #   66cb0a4  attempt 2, job 102152795435   58553.46 KiB
+      #   1bf8b70  run 34277657373, job 102234545211   58549.06 KiB
+      #
+      # Largest gap: 4.42 KiB, between two runs of the SAME commit. That is
+      # larger than the 1.96 KiB agreement above, so the agreement cannot be
+      # read as sub-KiB precision either — it is one comparison, taken inside
+      # this much noise.
+      #
+      # The SHAPE is a tight cluster and one outlier, NOT a wander across a
+      # 4.42 KiB band: two of the three agree to 0.02 KiB and the third sits
+      # ~4.4 KiB above both. Three points cannot carry a distribution and none
+      # is modelled here. What is claimed is only that repeated readings over
+      # identical bundle inputs are not equal, and how far apart the measured
+      # ones landed.
+      #
+      # wrangler's gzip column moves too — 8800.26, 8800.65, 8797.64 KiB — so
+      # the artifact's bytes genuinely differ; this is not the same number
+      # being displayed differently. It does not track the raw figure (the
+      # third reading has the smallest compressed size and a middling raw
+      # one), so it confirms that much and nothing more.
       #
       # Holding the machine fixed shrinks the spread without closing it: four
-      # cold rebuilds of that same tree in one container gave 58548.93,
+      # cold rebuilds of `66cb0a4`'s tree in one container gave 58548.93,
       # 58548.93, 58548.94 and 58549.55 KiB — 0.62 KiB apart.
       #
       # So this number answers "is the bundle near the ceiling", not "did my
@@ -229,9 +249,17 @@ jobs:
       # Attributing a small delta needs a same-tree control — the same commit
       # run twice — not the previous commit's reading.
       #
-      # n is small (2 CI runs, 4 local builds) and 4.42 KiB is the largest
+      # n is small (3 CI runs, 4 local builds) and 4.42 KiB is the largest
       # same-tree gap MEASURED, not a proven bound. Causes are NOT measured
       # here and none is claimed.
+      #
+      # ⚠️ A SNAPSHOT at the commits named above, deliberately NOT maintained.
+      # Every run of this workflow produces another reading, so "fold in the
+      # latest" has no end; the population was frozen at these three instead
+      # of chased. Nobody is obliged to update this block, and a later reading
+      # that differs is the point being made, not a defect in it. If the
+      # question ever needs more than "a few KiB", take a fresh same-commit
+      # series rather than appending to this one.
       #
       # ## The budget
       #
