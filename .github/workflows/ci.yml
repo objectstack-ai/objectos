@@ -148,18 +148,160 @@ jobs:
       # bundle rather than making another one.
       #
       # Last in the job on purpose: the artifact then only exists for a commit
-      # that cleared every gate above it. And only on a push to `main`, because
-      # that is the only event that deploys, so a pull request pays nothing.
+      # that cleared every gate above it.
+      #
+      # #262 removed the `push` + `refs/heads/main` condition this step used to
+      # carry. It ran only where a deploy would follow, which meant a pull
+      # request never packaged a Worker and therefore could never be told its
+      # Worker was too big — the whole defect that card is about. It runs on
+      # every event now so that the size gate below has something to weigh, and
+      # the artifact upload stays `main`-only underneath it.
+      #
+      # This is NOT a second build, and that distinction is what makes the
+      # price acceptable: `--skipNextBuild` re-packages the `.next` tree
+      # `pnpm turbo run build` already produced. Measured on this branch:
+      # `turbo run build` 101s, this packaging step 24s, the dry-run weigh-in
+      # below 9s. A pull request pays ~33s more than before, not another 101s.
       - name: Package the Worker from the build this job tested
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: apps/docs
         run: pnpm exec opennextjs-cloudflare build --skipNextBuild
+
+      # #262. Nothing in this repository ever weighed the Worker. The only
+      # thing that checked it was the Cloudflare API, at upload time, on
+      # `main`, AFTER merge — and the rejection lands on version CREATION, so
+      # nothing 500s, no page changes, and the site silently stops moving. That
+      # is how this repo ran 35 consecutive red deploys (runs #106-#140,
+      # 2026-08-25 to 09-02) with the `build` job green for every one of them:
+      # `build` compiles the Next app, it never bundled or weighed the Worker.
+      #
+      # ## Why `wrangler deploy --dry-run` and not `stat`
+      #
+      # The number Cloudflare enforces is wrangler's `Total Upload:` line, and
+      # `--dry-run` prints it from the same code path a real deploy uses,
+      # without calling the API and without credentials. Stat-ing files instead
+      # would mean re-deriving WHICH files count, and that guess is the trap
+      # #262 names: `handler.mjs` alone measures 48.48 MiB while the upload is
+      # 58553.98 KiB, so a budget stated against it tracks nothing.
+      #
+      # Verified on this branch, at `0e26657f`, from `--dry-run --outdir`:
+      # the uploaded set is `worker.js` (58383222 B) plus three sidecar
+      # modules — resvg.wasm (1378357 B), Geist-Regular.ttf.bin (125956 B),
+      # yoga.wasm (71736 B) = 59959271 B = 58553.98 KiB, which is the printed
+      # line to the hundredth. `worker.js.map` (85819146 B, larger than the
+      # whole budget) and the `.open-next/assets` + `.open-next/cache` trees
+      # are NOT in it; assets upload separately and do not count here.
+      #
+      # ## Calibration against a number Cloudflare actually accepted
+      #
+      # Same commit `0e26657f`, run 33891143864, Worker version
+      # 2170b929-5879-4b3f-b7a2-9eda750158dd, the upload Cloudflare ACCEPTED:
+      #   Total Upload: 58555.94 KiB
+      # This step, on that commit:
+      #   Total Upload: 58553.98 KiB
+      # 1.96 KiB low — 0.0033%. The reading tracks the enforced figure.
+      #
+      # ## The budget
+      #
+      # ONE constant, below, with the limit written beside it; every
+      # percentage and headroom figure is COMPUTED from those two and never
+      # typed. #262's own banner is why: it quoted `89.3%` (against 65536) and
+      # `~5.3 MiB headroom` (against 64000) in the same paragraph, two ceilings
+      # in one card, ~1.5 MiB of phantom room. The limit is 65536 KiB, taken
+      # from run #140's own rejection text.
+      #
+      # 61440 KiB = 60 MiB = 93.75% of the limit. It has to clear two bars:
+      #   - above today's 58553.98 KiB (89.35%), or it is red on arrival —
+      #     2886.02 KiB, 4.93% of growth room;
+      #   - below run #105's 62747.87 KiB (95.75%), the LAST SUCCESSFUL deploy
+      #     before the outage, or it would have watched that go by. The commit
+      #     that finally crossed the line was 15 lines and made its own output
+      #     smaller; at 95.7% anything landing that week would have done it.
+      #     This budget goes red 1307.87 KiB before that point.
+      #
+      # No warn tier on purpose. Every band you could draw between today's
+      # 89.35% and this budget's 93.75% is under 4.5 points wide and the bundle
+      # is already inside it, so a warning would be lit from its first run and
+      # read as wallpaper. The reading is printed to the step summary on EVERY
+      # run instead — visible before it is a problem, which is what a warn tier
+      # was wanted for.
+      #
+      # `shell: bash` is load-bearing, not tidiness. The DEFAULT shell for a
+      # `run:` step is `bash -e {0}` with no pipefail, so in `awk ... | tee`
+      # the step takes tee's exit status and a gate that exits 1 passes the job
+      # silently. Naming the shell gets `bash --noprofile --norc -eo pipefail
+      # {0}`, which propagates it.
+      #
+      # Ablated before it was trusted, per the pattern
+      # `.github/scripts/smoke-docs.mjs` already sets here — a probe that
+      # cannot fail is indistinguishable from one that passed. Padding the
+      # bundle by 4 MiB took the reading to 62650.01 KiB (95.60%, within 98 KiB
+      # of run #105's pre-outage figure) and this step exited 1; restoring the
+      # bundle byte-for-byte returned it to exit 0. Deleting the `Total
+      # Upload:` line from wrangler's output exits 1 as well, rather than
+      # passing on a measurement it never took.
+      - name: Worker bundle fits the size budget
+        working-directory: apps/docs
+        shell: bash
+        env:
+          # The budget, and the limit it is set below. Nothing else in this
+          # repository states a Worker size; every other figure is derived.
+          #   Cloudflare's limit  65536 KiB  (64 MiB, from run #140's rejection)
+          #   this budget         61440 KiB  (60 MiB, 93.75% of the limit)
+          WORKER_BUDGET_KIB: '61440'
+          WORKER_LIMIT_KIB: '65536'
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+
+          pnpm exec wrangler deploy --dry-run 2>&1 | tee "$RUNNER_TEMP/worker-size.log"
+
+          SIZE_KIB="$(sed -n 's/^.*Total Upload: \([0-9][0-9.]*\) KiB.*$/\1/p' "$RUNNER_TEMP/worker-size.log" | tail -n 1)"
+
+          # An unreadable measurement is a finding, never a skip. A size gate
+          # that silently weighs nothing passes forever, which is the failure
+          # mode this step exists to end rather than to reproduce.
+          if [ -z "$SIZE_KIB" ]; then
+            {
+              echo "### Worker bundle size — NOT MEASURED"
+              echo
+              echo "\`wrangler deploy --dry-run\` printed no \`Total Upload:\` line, so this step"
+              echo "weighed nothing. Failing rather than passing: an unmeasured bundle is the"
+              echo "state this gate exists to end."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::error::Worker bundle NOT measured — no 'Total Upload:' line in the wrangler dry-run output."
+            exit 1
+          fi
+
+          awk -v size="$SIZE_KIB" -v budget="$WORKER_BUDGET_KIB" -v limit="$WORKER_LIMIT_KIB" '
+            BEGIN {
+              over = (size > budget)
+              printf "### Worker bundle size — %s\n\n", (over ? "OVER BUDGET" : "within budget")
+              printf "| | KiB | %% of limit |\n|:--|--:|--:|\n"
+              printf "| measured | %.2f | %.2f %% |\n", size, size / limit * 100
+              printf "| budget | %d | %.2f %% |\n", budget, budget / limit * 100
+              printf "| Cloudflare limit | %d | 100 %% |\n", limit
+              printf "\nHeadroom to budget: **%.2f KiB**  ·  headroom to the limit: %.2f KiB\n", budget - size, limit - size
+              if (over) {
+                printf "\nThis change takes the Worker past the declared budget.\n\n"
+                printf "Cloudflare rejects an over-limit upload at VERSION CREATION, on `main`, after\n"
+                printf "merge: nothing 500s, no page changes, the site simply stops being updated.\n"
+                printf "This repo ran 35 consecutive red deploys that way with `build` green for every\n"
+                printf "one of them. Reduce the bundle, or raise the budget deliberately and say why.\n"
+              }
+              exit (over ? 1 : 0)
+            }' | tee -a "$GITHUB_STEP_SUMMARY"
 
       # `include-hidden-files` is load-bearing, not tidiness: the compiled
       # OpenNext config the deploy reads lives at `.open-next/.build/`, and
       # upload-artifact excludes dotted paths by default. Without it the
       # download succeeds, the deploy exits 1 on a missing config, and the
       # cause is three directories away from the message.
+      #
+      # Still `main`-only: a pull request now packages and weighs a Worker, but
+      # it has nothing to deploy, so it uploads nothing. An `if:` carrying no
+      # status function implies `success()`, so the size gate above also gates
+      # this — an over-budget Worker never becomes an artifact and never
+      # reaches `deploy-docs.yml`.
       - name: Upload the Worker bundle
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
