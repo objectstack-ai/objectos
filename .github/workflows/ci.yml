@@ -398,16 +398,36 @@ jobs:
           setsid pnpm exec opennextjs-cloudflare preview -- \
             --port "$PREVIEW_PORT" --ip 127.0.0.1 > "$PREVIEW_LOG" 2>&1 &
           PREVIEW_PID=$!
-          PREVIEW_PGID="$(ps -o pgid= -p "$PREVIEW_PID" | tr -d ' ' || true)"
           SELF_PGID="$(ps -o pgid= -p $$ | tr -d ' ')"
 
+          # The preview's process group is read HERE, at kill time, and never
+          # cached at launch. `setsid` only changes the group once the forked
+          # child has exec'd it, so a `ps` issued straight after `&` is a race
+          # that can still see the STEP's own group. Measured on a GitHub
+          # runner, run 34250422860: the cached read lost that race, the guard
+          # below fell back to signalling the pnpm wrapper alone, and the
+          # runner's own orphan sweeper had to terminate esbuild and two
+          # workerd processes after the job. The identical code cleaned up
+          # correctly in this repo's container every time — which is exactly
+          # how a race presents, and why the group is resolved at use.
           cleanup() {
-            if [ -n "${PREVIEW_PGID:-}" ] && [ "$PREVIEW_PGID" != "$SELF_PGID" ]; then
+            PREVIEW_PGID="$(ps -o pgid= -p "$PREVIEW_PID" 2>/dev/null | tr -d ' ' || true)"
+            if [ -z "$PREVIEW_PGID" ]; then
+              : # already gone — nothing to signal
+            elif [ "$PREVIEW_PGID" != "$SELF_PGID" ]; then
               kill -TERM "-$PREVIEW_PGID" 2>/dev/null || true
-              sleep 2
+              for _ in 1 2 3 4 5; do
+                pgrep -g "$PREVIEW_PGID" >/dev/null 2>&1 || break
+                sleep 1
+              done
               kill -KILL "-$PREVIEW_PGID" 2>/dev/null || true
             else
+              # `setsid` did not take effect and the preview is sharing this
+              # step's group, which must NEVER be signalled as a group or the
+              # step kills itself. Signal the pid and say so out loud rather
+              # than leaving a silent orphan for the runner to sweep.
               kill -TERM "$PREVIEW_PID" 2>/dev/null || true
+              echo "::warning::preview pid $PREVIEW_PID is in this step's own process group — signalled the pid alone, its descendants may survive."
             fi
           }
           trap cleanup EXIT
@@ -445,6 +465,7 @@ jobs:
           fi
 
           echo "preview ready: $(grep -m1 'Ready on http' "$PREVIEW_LOG" || true)"
+          echo "preview pid $PREVIEW_PID in process group $(ps -o pgid= -p "$PREVIEW_PID" | tr -d ' '), step in $SELF_PGID"
 
           # Exit code captured before anything pipes it. `cmd | tee` hands back
           # tee's status, and this step's verdict is the script's.
