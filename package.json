@@ -26,6 +26,9 @@
       "better-sqlite3",
       "esbuild",
       "sharp"
-    ]
+    ],
+    "patchedDependencies": {
+      "fumadocs-core@16.8.12": "patches/fumadocs-core@16.8.12.patch"
+    }
   }
 }
