@@ -420,18 +420,27 @@ jobs:
           done
 
           if [ "$READY" -ne 1 ]; then
+            # Which of the two shapes it was. They call for different fixes —
+            # a crashed preview is a broken bundle, an exhausted budget is a
+            # slow runner — and the log below is the same either way, so the
+            # sentence has to say which one the reader is looking at.
+            if kill -0 "$PREVIEW_PID" 2>/dev/null; then
+              WHY="the ${PREVIEW_READY_TIMEOUT_S}s boot budget ran out with the preview still starting"
+            else
+              WHY="the preview process exited before it was ready"
+            fi
             {
               echo "### Pre-merge render check — NOT MEASURED"
               echo
-              echo "The local preview never printed \`Ready on\` within ${PREVIEW_READY_TIMEOUT_S}s, so"
-              echo "nothing was checked. Failing rather than passing: \"no findings\" from a server"
-              echo "that never started is indistinguishable from a rendered site."
+              echo "The local preview never printed \`Ready on\`: ${WHY}. Nothing was checked."
+              echo "Failing rather than passing: \"no findings\" from a server that never started"
+              echo "is indistinguishable from a rendered site."
               echo
               echo '```'
               tail -n 40 "$PREVIEW_LOG"
               echo '```'
             } | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "::error::Local preview never became ready — the render check measured nothing."
+            echo "::error::Local preview never became ready (${WHY}) — the render check measured nothing."
             exit 1
           fi
 
