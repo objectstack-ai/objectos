@@ -312,6 +312,188 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+      # #274. The 09-04 outage was found by a human looking at the live site.
+      # #269 answered that with detection and recovery — the deploy is gated on
+      # CI, the published artifact is the one CI tested, the live site is
+      # smoke-checked after deploying, and a bad deploy auto-rolls back — but
+      # the only environment in which a rendering defect is DETECTED is still
+      # production, and the chain `deploy succeeds -> smoke fails -> rollback
+      # fires` has never once executed end to end. A check that fires before
+      # merge costs a red pull request; the same check firing after merge costs
+      # a live outage plus a recovery path nobody has ever seen run.
+      #
+      # ## The same script, pointed at a different base
+      #
+      # `.github/scripts/smoke-docs.mjs` is the post-deploy check
+      # `deploy-docs.yml` runs against `https://docs.objectos.ai`. It is
+      # invoked here unmodified, with `--base` pointing at a local preview.
+      # NOT a second implementation of "does the site render": two copies of
+      # those rules drift, and the copy that drifts is the one nobody watches.
+      # Its live negative control — a `/docs/` slug no page claims, which must
+      # produce findings or the run fails on `negative-control-passed` — comes
+      # along with it, which is what makes a green here worth reading.
+      #
+      # ## This is not a second build
+      #
+      # `opennextjs-cloudflare preview` does not build. It populates the
+      # incremental cache (for this app, a copy of `.open-next/cache` into the
+      # Workers static assets) and then runs `wrangler dev` on the `.open-next`
+      # package the step above produced with `--skipNextBuild`. Since #262
+      # removed the `main`-only condition from that packaging step, that
+      # package exists on every pull request, so this step adds a preview boot
+      # and four fetches and nothing else. Measured in this repo's container,
+      # against the package already sitting in the tree: `Ready on` at 41 s,
+      # the smoke run itself 1 s. No `opennextjs-cloudflare build`, no
+      # `next build`, no Cloudflare credentials — `wrangler dev` serves the
+      # Worker locally under real workerd.
+      #
+      # ## Why it runs LAST, after the artifact upload
+      #
+      # `preview` copies `.open-next/cache` into `.open-next/assets/cdn-cgi`,
+      # which for this app is 268 MB: measured, `.open-next` goes from 386 MB
+      # to 653 MB the moment the preview boots. `opennextjs-cloudflare deploy`
+      # makes that same copy in the deploy job from `.open-next/cache`, which
+      # the artifact already carries — so running this before the upload would
+      # add 268 MB to every `main` artifact, both ways across the wire, to
+      # ship a copy the deploy remakes anyway. Placed here, the uploaded bundle
+      # is byte-for-byte what it was before this step existed, and the gating
+      # is unchanged: `deploy-docs` needs the whole `build` job, so a red here
+      # keeps a bad render off production just as a red anywhere above it does.
+      #
+      # ## A dead server must not read as a pass
+      #
+      # "No findings" from a preview that never started is indistinguishable
+      # from "the site renders", and this lane logged four probes of exactly
+      # that shape in a single day. So readiness is asserted from wrangler's
+      # own `Ready on` line before anything is judged, with the preview log
+      # printed into the step summary when it does not arrive, and the step
+      # exits 1 rather than reporting a measurement it never took.
+      #
+      # `setsid` is load-bearing, not tidiness. The preview is a chain of six
+      # processes — pnpm, node, sh, pnpm, wrangler, workerd — and a SIGTERM to
+      # the pnpm wrapper at the top leaves workerd running and holding the
+      # port. Measured here: the cleanup `wait` never returned and the whole
+      # thing hung. Starting it in its own process group lets the trap signal
+      # the GROUP and take the chain with it; the `$$` comparison is there so
+      # that a `setsid` which did not take effect can never turn that into the
+      # step killing itself.
+      - name: The docs site renders — smoke-check a local preview
+        working-directory: apps/docs
+        shell: bash
+        env:
+          PREVIEW_PORT: '8792'
+          # Boot budget for the preview. Measured at 41 s in this repo's
+          # container; the margin is for a cold runner, and overrunning it is
+          # a finding (NOT MEASURED), never a skip.
+          PREVIEW_READY_TIMEOUT_S: '180'
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+
+          BASE="http://127.0.0.1:${PREVIEW_PORT}"
+          PREVIEW_LOG="$RUNNER_TEMP/preview.log"
+          SMOKE_LOG="$RUNNER_TEMP/smoke.log"
+          : > "$PREVIEW_LOG"
+
+          setsid pnpm exec opennextjs-cloudflare preview -- \
+            --port "$PREVIEW_PORT" --ip 127.0.0.1 > "$PREVIEW_LOG" 2>&1 &
+          PREVIEW_PID=$!
+          SELF_PGID="$(ps -o pgid= -p $$ | tr -d ' ')"
+
+          # The preview's process group is read HERE, at kill time, and never
+          # cached at launch. `setsid` only changes the group once the forked
+          # child has exec'd it, so a `ps` issued straight after `&` is a race
+          # that can still see the STEP's own group. Measured on a GitHub
+          # runner, run 34250422860: the cached read lost that race, the guard
+          # below fell back to signalling the pnpm wrapper alone, and the
+          # runner's own orphan sweeper had to terminate esbuild and two
+          # workerd processes after the job. The identical code cleaned up
+          # correctly in this repo's container every time — which is exactly
+          # how a race presents, and why the group is resolved at use.
+          cleanup() {
+            PREVIEW_PGID="$(ps -o pgid= -p "$PREVIEW_PID" 2>/dev/null | tr -d ' ' || true)"
+            if [ -z "$PREVIEW_PGID" ]; then
+              : # already gone — nothing to signal
+            elif [ "$PREVIEW_PGID" != "$SELF_PGID" ]; then
+              kill -TERM "-$PREVIEW_PGID" 2>/dev/null || true
+              for _ in 1 2 3 4 5; do
+                pgrep -g "$PREVIEW_PGID" >/dev/null 2>&1 || break
+                sleep 1
+              done
+              kill -KILL "-$PREVIEW_PGID" 2>/dev/null || true
+            else
+              # `setsid` did not take effect and the preview is sharing this
+              # step's group, which must NEVER be signalled as a group or the
+              # step kills itself. Signal the pid and say so out loud rather
+              # than leaving a silent orphan for the runner to sweep.
+              kill -TERM "$PREVIEW_PID" 2>/dev/null || true
+              echo "::warning::preview pid $PREVIEW_PID is in this step's own process group — signalled the pid alone, its descendants may survive."
+            fi
+          }
+          trap cleanup EXIT
+
+          READY=0
+          for _ in $(seq 1 "$PREVIEW_READY_TIMEOUT_S"); do
+            if grep -q 'Ready on http' "$PREVIEW_LOG"; then READY=1; break; fi
+            if ! kill -0 "$PREVIEW_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            # Which of the two shapes it was. They call for different fixes —
+            # a crashed preview is a broken bundle, an exhausted budget is a
+            # slow runner — and the log below is the same either way, so the
+            # sentence has to say which one the reader is looking at.
+            if kill -0 "$PREVIEW_PID" 2>/dev/null; then
+              WHY="the ${PREVIEW_READY_TIMEOUT_S}s boot budget ran out with the preview still starting"
+            else
+              WHY="the preview process exited before it was ready"
+            fi
+            {
+              echo "### Pre-merge render check — NOT MEASURED"
+              echo
+              echo "The local preview never printed \`Ready on\`: ${WHY}. Nothing was checked."
+              echo "Failing rather than passing: \"no findings\" from a server that never started"
+              echo "is indistinguishable from a rendered site."
+              echo
+              echo '```'
+              tail -n 40 "$PREVIEW_LOG"
+              echo '```'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::error::Local preview never became ready (${WHY}) — the render check measured nothing."
+            exit 1
+          fi
+
+          echo "preview ready: $(grep -m1 'Ready on http' "$PREVIEW_LOG" || true)"
+          echo "preview pid $PREVIEW_PID in process group $(ps -o pgid= -p "$PREVIEW_PID" | tr -d ' '), step in $SELF_PGID"
+
+          # Exit code captured before anything pipes it. `cmd | tee` hands back
+          # tee's status, and this step's verdict is the script's.
+          set +e
+          node "$GITHUB_WORKSPACE/.github/scripts/smoke-docs.mjs" --base "$BASE" \
+            > "$SMOKE_LOG" 2>&1
+          SMOKE_EXIT=$?
+          set -e
+
+          cat "$SMOKE_LOG"
+          {
+            if [ "$SMOKE_EXIT" -eq 0 ]; then
+              echo "### Pre-merge render check — the site renders"
+            else
+              echo "### Pre-merge render check — FINDINGS"
+            fi
+            echo
+            echo "Ran \`.github/scripts/smoke-docs.mjs\` — the same script \`deploy-docs.yml\` runs"
+            echo "against the live site — against a local \`opennextjs-cloudflare preview\` of the"
+            echo "Worker this job packaged, at \`$BASE\`."
+            echo
+            echo '```'
+            cat "$SMOKE_LOG"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$SMOKE_EXIT"
+
   # Defect 1 of #269: `deploy-docs.yml` used to hang off `push: branches:
   # [main]` exactly as this workflow does, so the two ran in PARALLEL and a
   # commit that failed any gate above still deployed. There was no `needs:` and
