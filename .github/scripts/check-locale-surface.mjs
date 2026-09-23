@@ -854,7 +854,9 @@ function bodyEncoding({ surface, bodies }) {
     entries.push({ consumer: 'llms-full.txt', ...bodies.full });
   }
 
-  let expected = 0;
+  // Orphans (no English source) are reported separately and have no body.
+  const english = [...surface.pages].filter(([, page]) => page.locales.has(surface.defaultLanguage));
+  const expected = english.length;
   if (!bodies.mdx) {
     findings.push({
       rule: 'artifact-missing',
@@ -866,9 +868,7 @@ function bodyEncoding({ surface, bodies }) {
     });
   } else {
     consumers.push('llms.mdx');
-    for (const [path, page] of surface.pages) {
-      if (!page.locales.has(surface.defaultLanguage)) continue; // orphan; reported separately
-      expected += 1;
+    for (const [path, page] of english) {
       if (!bodies.mdx.has(path)) {
         findings.push({
           rule: 'llms-page-body-missing',
@@ -1196,7 +1196,7 @@ function gate() {
     console.log(
       t
         ? `| \`${consumer}\` | ${t.bodies} | ${expected} | ${t.references} | ${t.targets} | ${t.malformed} |`
-        : `| \`${consumer}\` | NOT MEASURED — not built | ${expected || '—'} | — | — | — |`,
+        : `| \`${consumer}\` | NOT MEASURED — not built | ${expected} | — | — | — |`,
     );
   }
   for (const [consumer, t] of encoding.tally) {
