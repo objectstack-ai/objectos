@@ -46,15 +46,40 @@
 # Delete this file, remove `pnpm.patchedDependencies` from the root `package.json`,
 # re-run `pnpm install`, and rebuild `apps/docs` -- the reference count must stay 0.
 #
-# ON A VERSION BUMP, THIS PATCH IS EXPECTED TO FAIL LOUDLY
-# --------------------------------------------------------
-# It is pinned to 16.8.12 by the key in `package.json`, so any other version simply
-# does not receive it and the defect returns silently -- which is why the counts
-# above are worth re-measuring on any bump. Beyond that, 16.15.x reformats an
-# `if` in the same function two hunks up, so a patch generated here does not
-# necessarily line up there. A Dependabot bump of this package therefore cannot be
-# merged on green: regenerate the patch against the new version in the same PR
-# (`pnpm patch fumadocs-core@<new>`), or drop it if upstream has landed the fix.
+# ON A VERSION BUMP
+# -----------------
+# The pin is keyed to 16.8.12 by `pnpm.patchedDependencies` in the root
+# `package.json`, so no other version receives this patch. What pnpm 10.28.2 does
+# when `apps/docs/package.json` moves `fumadocs-core` from 16.8.12 to 16.15.2 and
+# nothing else changes, measured on `cb0c146` for
+# https://github.com/objectstack-ai/objectos/issues/284:
+#
+# - Regenerating the lockfile FAILS LOUDLY. `pnpm install --no-frozen-lockfile`
+#   and `pnpm install --lockfile-only` both exit 1 with `ERR_PNPM_UNUSED_PATCH  The
+#   following patches were not used: fumadocs-core@16.8.12`. (Before that,
+#   `pnpm install --frozen-lockfile` on the not-yet-updated lockfile exits 1
+#   because its specifiers no longer match.)
+# - Two ways past that error end in an install that exits 0 and prints nothing:
+#   1. Deleting the pin from `package.json`, the first remedy the error text
+#      offers ("Either remove them from patchedDependencies or update them").
+#      16.15.2 is then installed unpatched, and a full build puts the defect back
+#      at the counts above: 67 references and 4 of 661 malformed link targets, in
+#      both outputs.
+#   2. Regenerating the lockfile with `--config.allow-unused-patches=true`, which
+#      exits 0 with one WARN. CI's `pnpm install --frozen-lockfile` then accepts
+#      that lockfile: the frozen install does not check for an unused patch.
+#
+# What catches the defect after an install that passed: CI's `Locale surface`
+# step (`.github/scripts/check-locale-surface.mjs`, since
+# https://github.com/objectstack-ai/objectos/pull/285) fails the build when either
+# output carries a numeric character reference or a malformed link target. It was
+# measured red on the pin-deleted tree of path 1.
+#
+# So handle this patch in the same PR as any bump of this package: regenerate it
+# against the new version (`pnpm patch fumadocs-core@<new>`), or delete it as
+# described above if upstream has landed the fix. 16.15.x also reformats an `if`
+# earlier in the same function (3 lines become 5 on 16.15.2), so this hunk's
+# context sits 2 lines lower there.
 #
 diff --git a/dist/mdx-plugins/stringifier.js b/dist/mdx-plugins/stringifier.js
 index cf19eea9336acb66414cf3e2e75f2b1aa2bfd138..636346eec49cd0760d84f874c2a352bd78a804fd 100644
