@@ -107,6 +107,61 @@
  * so a real translation file never trips it; only a dot that survives into
  * the derived URL segment does (`probe.dotted.mdx` → `docs/probe.dotted`).
  *
+ * ## The `llms` bodies are markdown, not HTML (#282)
+ *
+ * `page.data.getText('processed')` is what `/llms-full.txt` and every per-page
+ * `/llms.mdx` body serve. In `fumadocs-core` it encodes markdown punctuation
+ * as HTML numeric character references (#197) — into files no reader runs
+ * through an HTML parser, and in four places into the closing `)` of a link,
+ * which stops that link being a link. #197 fixed it at the producer with
+ * `patches/fumadocs-core@16.8.12.patch`, pinned to that exact version string,
+ * and #197 measured the defect in 16.15.1, 16.15.2 and 16.15.8 as well, so
+ * upgrading does not remove it. What a bump does to the pin, measured with
+ * pnpm 10.28.2 and #239's 16.15.2 (#282): a lockfile-updating install
+ * refuses the now-unused pin with `ERR_PNPM_UNUSED_PATCH`, exit 1 — but the
+ * first remedy that error offers is to delete the pin, after which install
+ * exits 0 and the defect is back at its full count; and `--frozen-lockfile`,
+ * what CI runs, does not check for an unused patch at all.
+ *
+ * So this gate asserts the OUTCOME, on the built bytes of BOTH consumers — the
+ * `llms-full.txt` body and every `.body` file under `llms.mdx/` — rather than
+ * the mechanism, which an upstream fix would make obsolete:
+ *
+ *   - `numeric-character-reference`: any decimal or hex numeric reference, the
+ *     only form `mdast-util-to-markdown`'s encoder emits;
+ *   - `malformed-link-target`: a `](` opener whose target does not close with
+ *     a literal `)` before whitespace. Same cause, different question, and the
+ *     one with the user-visible consequence: two such targets also escaped the
+ *     absolute-URL rewrite in `app/llms-full.txt/route.ts`, whose `SITE_LINK`
+ *     needs that literal `)`, and were served relative.
+ *
+ * Measured off `.next` on the two real commits either side of the fix, with
+ * the same figures in each consumer: `d725081` 67 references and 4 of 661
+ * targets malformed; `cb0c146` 0 and 0 of 661.
+ *
+ * Neither rule may pass over nothing. The oracle says which `llms.mdx` bodies
+ * must exist — one per page with an English source — so a directory that was
+ * never written, or half written, is `llms-page-body-missing` rather than a
+ * clean scan of zero files. A consumer in which no link target could be read
+ * at all is `no-link-targets`, because the malformed-target rule would then
+ * have measured nothing. And every gate run first feeds the #197 shape
+ * through the same scan for both consumers and requires both rules to fire;
+ * if either stays silent, `negative-control-passed` fails the run. That is a
+ * live control, on every run, not only the `--self-test` fixtures.
+ *
+ * Deliberately the whole body, code fences included. All 661 targets in
+ * today's corpus sit outside a fence and no English source page carries a
+ * reference, so this costs nothing now, while tracking fences across a
+ * concatenated body would let one page's unclosed fence hide every later page
+ * from the scan. A page that one day needs a literal reference in a code
+ * sample, or a titled link (`[a](url "t")`, which the second rule reads as
+ * malformed), is a reason to change this rule on purpose, not to weaken it.
+ *
+ * These rules live in this gate rather than in a script of their own because
+ * this gate already reads the `llms-full.txt` body right after the build, and
+ * the content-tree oracle above is the thing that says which `llms.mdx`
+ * bodies must exist.
+ *
  * ## Usage
  *
  *   node .github/scripts/check-locale-surface.mjs              # the gate (needs a build)
@@ -135,7 +190,19 @@ const RULES = [
   'missing-locale-title',
   'translation-orphan',
   'dotted-slug',
+  'numeric-character-reference',
+  'malformed-link-target',
+  'no-link-targets',
+  'llms-page-body-missing',
 ];
+
+/**
+ * The rule the live negative control fires when the encoding scan could not
+ * go red on the #197 shape. Not in `RULES`: no artifact can trip it, only a
+ * scan that has gone blind, so the self-test demonstrates it by blinding the
+ * scan rather than with a fixture tree.
+ */
+const CONTROL_RULE = 'negative-control-passed';
 
 /**
  * Canonical production host. Must match `SITE_URL` in `apps/docs/lib/seo.ts`.
@@ -619,6 +686,280 @@ const ARTIFACTS = [
   },
 ];
 
+/* --------------------------------------------- llms body encoding (#282) -- */
+
+/** The one-file consumer: the same body the `llms-full.txt` entry above reads. */
+const LLMS_FULL_BODY = ARTIFACTS.find((a) => a.id === 'llms-full.txt').file;
+
+/**
+ * The per-page consumer: `app/llms.mdx/docs/[[...slug]]/route.ts`, prerendered
+ * to one `.body` file per page. A page at site path `docs/build/data` is
+ * served from `/llms.mdx/docs/build/data` and built to
+ * `llms.mdx/docs/build/data.body`. Re-declared rather than read out of the
+ * route, for the same reason `SITE_URL` is.
+ */
+const LLMS_MDX_DIR = 'apps/docs/.next/server/app/llms.mdx';
+
+/** The two consumers, by the id every finding and table row names them with. */
+const LLMS_CONSUMERS = ['llms-full.txt', 'llms.mdx'];
+
+/** Decimal or hex, the terminating `;` required — what the encoder emits. */
+const NUMERIC_REFERENCE = /&#(?:[0-9]+|[xX][0-9a-fA-F]+);/g;
+
+/** Where a markdown link target starts. */
+const LINK_OPENER = '](';
+
+/**
+ * Printable form of a stretch of body text. Every `&` becomes `AMP` — the
+ * tracker convention from #197 — because this output lands in a markdown step
+ * summary, and a renderer that decodes the references back into the
+ * characters they encode would make the evidence read as the clean text.
+ */
+const printable = (s) => JSON.stringify(s.replace(/&/g, 'AMP'));
+
+/** 1-based line of a character offset. */
+const lineAt = (text, index) => {
+  let line = 1;
+  for (let i = text.indexOf('\n'); i !== -1 && i < index; i = text.indexOf('\n', i + 1)) line += 1;
+  return line;
+};
+
+/**
+ * Every numeric character reference, every link target, and the targets that
+ * are malformed, in one body.
+ *
+ * A target runs from the `](` to the first `)` or whitespace. Well-formed means
+ * the character that stopped it is a literal `)`. The #197 shape is a target
+ * whose `)` was itself encoded, so the run goes on through the reference and
+ * into the prose until the next space or line break.
+ */
+function scanBody(text) {
+  const references = [...text.matchAll(NUMERIC_REFERENCE)].map((m) => ({ index: m.index, text: m[0] }));
+
+  let targets = 0;
+  const malformed = [];
+  for (let i = text.indexOf(LINK_OPENER); i !== -1; i = text.indexOf(LINK_OPENER, i + 1)) {
+    targets += 1;
+    let end = i + LINK_OPENER.length;
+    while (end < text.length && text[end] !== ')' && !/\s/.test(text[end])) end += 1;
+    if (text[end] !== ')') malformed.push({ index: i, text: text.slice(i, end) });
+  }
+
+  return { references, targets, malformed };
+}
+
+/** Every `.body` file under `dir`, keyed by its path relative to `dir` without `.body`. */
+function readBodies(dir, base = dir, out = new Map()) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    if (entry.isDirectory()) readBodies(p, base, out);
+    else if (entry.isFile() && entry.name.endsWith('.body')) {
+      out.set(relative(base, p).split('\\').join('/').slice(0, -'.body'.length), p);
+    }
+  }
+  return out;
+}
+
+/**
+ * Findings and per-consumer tallies for a list of bodies, each
+ * `{ consumer, path, text }`. `consumers` names the consumers that were
+ * actually found on disk, so one that is present with no bodies in it still
+ * gets a tally row — and a `no-link-targets` finding — instead of vanishing.
+ *
+ * Shared by the gate, the live control and the self-test, and `scan` is a
+ * parameter only so that the self-test can hand the live control a blinded
+ * scan and watch it go red.
+ */
+function encodingFindings(bodies, consumers, scan = scanBody) {
+  const findings = [];
+  const tally = new Map(
+    consumers.map((c) => [c, { bodies: 0, references: 0, targets: 0, malformed: 0, kinds: new Map() }]),
+  );
+
+  for (const body of bodies) {
+    const t = tally.get(body.consumer);
+    const found = scan(body.text);
+    t.bodies += 1;
+    t.references += found.references.length;
+    t.targets += found.targets;
+    t.malformed += found.malformed.length;
+    for (const r of found.references) t.kinds.set(r.text, (t.kinds.get(r.text) ?? 0) + 1);
+
+    const where = rel(body.path);
+    if (found.references.length) {
+      const kinds = new Map();
+      for (const r of found.references) kinds.set(r.text, (kinds.get(r.text) ?? 0) + 1);
+      const first = found.references[0];
+      findings.push({
+        rule: 'numeric-character-reference',
+        artifact: body.consumer,
+        detail:
+          `${body.consumer}: ${found.references.length} numeric character reference(s) in ${where} — ` +
+          [...kinds].map(([k, n]) => `${k.replace(/&/g, 'AMP')} ×${n}`).join(', ') +
+          `; first at line ${lineAt(body.text, first.index)}: ` +
+          printable(body.text.slice(Math.max(0, first.index - 24), first.index + first.text.length + 24)),
+      });
+    }
+    if (found.malformed.length) {
+      findings.push({
+        rule: 'malformed-link-target',
+        artifact: body.consumer,
+        detail:
+          `${body.consumer}: ${found.malformed.length} of ${found.targets} link target(s) in ${where} ` +
+          'do not close with a literal ")" — ' +
+          found.malformed
+            .slice(0, 3)
+            .map((m) => `line ${lineAt(body.text, m.index)}: ${printable(m.text.slice(0, 80))}`)
+            .join('; '),
+      });
+    }
+  }
+
+  for (const [consumer, t] of tally) {
+    if (t.targets === 0) {
+      findings.push({
+        rule: 'no-link-targets',
+        artifact: consumer,
+        detail:
+          `${consumer}: no "](" link target could be read in ${t.bodies} body file(s), so ` +
+          '`malformed-link-target` measured nothing — either the links stopped being ' +
+          'inline markdown links or the bodies are empty',
+      });
+    }
+  }
+
+  return { findings, tally };
+}
+
+/**
+ * The encoding findings for the built bodies, measured against the oracle for
+ * which `llms.mdx` bodies must exist.
+ *
+ * A missing `llms-full.txt` body is not reported here: the `llms-full.txt`
+ * entry in `ARTIFACTS` reads the same file and already fails
+ * `artifact-missing` on it. A missing `llms.mdx` directory has no such entry,
+ * so it is reported here, under the same rule.
+ *
+ * An oracle with no English page at all cannot make this pass over nothing:
+ * it also leaves both `llms` title comparisons with nothing expected, and
+ * `nothing-expected` fails the run.
+ */
+function bodyEncoding({ surface, bodies }) {
+  const findings = [];
+  const entries = [];
+  const consumers = [];
+
+  if (bodies.full) {
+    consumers.push('llms-full.txt');
+    entries.push({ consumer: 'llms-full.txt', ...bodies.full });
+  }
+
+  // Orphans (no English source) are reported separately and have no body.
+  const english = [...surface.pages].filter(([, page]) => page.locales.has(surface.defaultLanguage));
+  const expected = english.length;
+  if (!bodies.mdx) {
+    findings.push({
+      rule: 'artifact-missing',
+      artifact: 'llms.mdx',
+      detail:
+        `llms.mdx: no built directory at ${LLMS_MDX_DIR} — run \`pnpm turbo run build\` first. ` +
+        'Not finding it is a failure, never a skip: a scan of a directory that was never ' +
+        'written finds no references.',
+    });
+  } else {
+    consumers.push('llms.mdx');
+    for (const [path, page] of english) {
+      if (!bodies.mdx.has(path)) {
+        findings.push({
+          rule: 'llms-page-body-missing',
+          artifact: 'llms.mdx',
+          detail:
+            `llms.mdx: ${path} has an English source (${page.files.get(surface.defaultLanguage)}) ` +
+            `but no built body at ${LLMS_MDX_DIR}/${path}.body — that page's served text was ` +
+            'never scanned',
+        });
+      }
+    }
+    for (const [, body] of bodies.mdx) entries.push({ consumer: 'llms.mdx', ...body });
+  }
+
+  const scanned = encodingFindings(entries, consumers);
+  return { findings: [...findings, ...scanned.findings], tally: scanned.tally, expected };
+}
+
+/**
+ * The live negative control: the #197 shape — a link whose closing `)` was
+ * encoded — fed through the same scan as the real bodies, once per consumer,
+ * before they are judged. Both rules must fire for both consumers, or this
+ * run's green would be a claim rather than a measurement.
+ */
+const CONTROL_BODY =
+  '# Dashboards\n\nDescribe the dashboard to [AI Builder](/docs/build/ai-builder&#x29; — ' +
+  'it drafts the widgets.\n';
+
+function encodingControl(scan = scanBody) {
+  const { findings } = encodingFindings(
+    LLMS_CONSUMERS.map((consumer) => ({ consumer, path: join(ROOT, '(negative control)'), text: CONTROL_BODY })),
+    LLMS_CONSUMERS,
+    scan,
+  );
+  const fired = new Set(findings.map((f) => `${f.artifact}:${f.rule}`));
+  const silent = LLMS_CONSUMERS.flatMap((c) =>
+    ['numeric-character-reference', 'malformed-link-target']
+      .filter((rule) => !fired.has(`${c}:${rule}`))
+      .map((rule) => `${c}:${rule}`),
+  );
+
+  if (silent.length === 0) {
+    return {
+      findings: [],
+      line:
+        'Live negative control: the #197 shape (a link target whose `)` is encoded as `AMP#x29;`) ' +
+        'was fed through this scan for both consumers and fired `numeric-character-reference` and ' +
+        '`malformed-link-target` for each — the scan below can go red, so its result is a measurement.',
+    };
+  }
+  return {
+    findings: [
+      {
+        rule: CONTROL_RULE,
+        detail:
+          `the #197 shape was fed through the encoding scan and ${silent.join(', ')} stayed silent — ` +
+          'this scan cannot currently tell an encoded body from a clean one, so its result on the ' +
+          'real bodies means nothing',
+      },
+    ],
+    line: `Live negative control: FAILED — ${silent.join(', ')} did not fire on the #197 shape.`,
+  };
+}
+
+/**
+ * Which `fumadocs-core` the docs app resolves, and which version(s) a patch is
+ * pinned to. Diagnosis only — printed beside the table, never a finding —
+ * because a mismatch is the likeliest reason the table above it is red, and
+ * the one a Dependabot bump produces.
+ */
+function fumadocsPin(root) {
+  const pinned = new Set();
+  for (const file of ['package.json', 'pnpm-workspace.yaml']) {
+    try {
+      const text = readFileSync(join(root, file), 'utf8');
+      for (const m of text.matchAll(/["']?fumadocs-core@([0-9][^"':\s]*)["']?\s*:/g)) pinned.add(m[1]);
+    } catch {
+      // absent file: nothing pinned there
+    }
+  }
+  let installed;
+  try {
+    installed = JSON.parse(
+      readFileSync(join(root, 'apps/docs/node_modules/fumadocs-core/package.json'), 'utf8'),
+    ).version;
+  } catch {
+    installed = undefined;
+  }
+  return { pinned: [...pinned], installed };
+}
+
 /* ---------------------------------------------------------------- collect -- */
 
 function collect(root) {
@@ -633,12 +974,25 @@ function collect(root) {
     return { spec, found: true, path, advertised: spec.read(readFileSync(path, 'utf8')) };
   });
 
-  return { surface, artifacts };
+  // The encoding rules read the bodies as TEXT, not as the entries the
+  // readers above extract, so they are collected on their own.
+  const fullPath = join(root, LLMS_FULL_BODY);
+  const mdxDir = join(root, LLMS_MDX_DIR);
+  const bodies = {
+    full: existsSync(fullPath) ? { path: fullPath, text: readFileSync(fullPath, 'utf8') } : null,
+    mdx: existsSync(mdxDir)
+      ? new Map(
+          [...readBodies(mdxDir)].map(([page, path]) => [page, { path, text: readFileSync(path, 'utf8') }]),
+        )
+      : null,
+  };
+
+  return { surface, artifacts, bodies };
 }
 
 /* --------------------------------------------------------------- evaluate -- */
 
-function evaluate({ surface, artifacts }) {
+function evaluate({ surface, artifacts, bodies }) {
   const findings = [];
   const { defaultLanguage, languages } = surface;
 
@@ -764,6 +1118,9 @@ function evaluate({ surface, artifacts }) {
     };
   }
 
+  const encoding = bodyEncoding({ surface, bodies });
+  findings.push(...encoding.findings);
+
   // Per-locale docs composition, for the summary. Reported whether or not the
   // run is green: a green with the counts printed is a measurement, a bare
   // green is a claim.
@@ -774,7 +1131,7 @@ function evaluate({ surface, artifacts }) {
     for (const lang of languages) if (page.locales.has(lang)) perLocale[lang] += 1;
   }
 
-  return { findings, perLocale };
+  return { findings, perLocale, encoding };
 }
 
 /* ------------------------------------------------------------------- gate -- */
@@ -784,8 +1141,13 @@ function gate() {
   // the objects it was handed, so re-collecting would print a table of dashes
   // over a run that really did measure something.
   const collected = collect(ROOT);
-  const { findings, perLocale } = evaluate(collected);
+  const { findings, perLocale, encoding } = evaluate(collected);
   const { surface, artifacts } = collected;
+
+  // Run before the real bodies are judged, and its findings join theirs: a
+  // scan that cannot go red on the #197 shape fails this run by itself.
+  const control = encodingControl();
+  findings.push(...control.findings);
 
   const docsTotal = Object.values(perLocale).reduce((a, b) => a + b, 0);
   const logical = [...surface.pages.values()].filter((p) =>
@@ -820,11 +1182,51 @@ function gate() {
   }
   console.log('');
 
+  console.log('## `llms` bodies are markdown, not HTML\n');
+  console.log(
+    'In this section `AMP` stands for one literal ampersand, so that a markdown renderer cannot ' +
+      'decode a reference back into the character it encodes and make the evidence read clean.\n',
+  );
+  console.log(`${control.line}\n`);
+  console.log('| consumer | bodies read | bodies expected | numeric references | link targets | malformed targets |');
+  console.log('|---|---:|---:|---:|---:|---:|');
+  for (const consumer of LLMS_CONSUMERS) {
+    const t = encoding.tally.get(consumer);
+    const expected = consumer === 'llms.mdx' ? encoding.expected : 1;
+    console.log(
+      t
+        ? `| \`${consumer}\` | ${t.bodies} | ${expected} | ${t.references} | ${t.targets} | ${t.malformed} |`
+        : `| \`${consumer}\` | NOT MEASURED — not built | ${expected} | — | — | — |`,
+    );
+  }
+  for (const [consumer, t] of encoding.tally) {
+    if (!t.kinds.size) continue;
+    console.log(
+      `\nReferences by kind in \`${consumer}\`: ` +
+        [...t.kinds]
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, n]) => `\`${k.replace(/&/g, 'AMP')}\` ×${n}`)
+          .join(', '),
+    );
+  }
+  const pin = fumadocsPin(ROOT);
+  console.log(
+    `\n\`fumadocs-core\` resolved by \`apps/docs\`: **${pin.installed ?? 'not found'}** · ` +
+      `patch pinned to: **${pin.pinned.join(', ') || 'none'}**` +
+      (pin.installed && pin.pinned.length && !pin.pinned.includes(pin.installed)
+        ? ' — the pin does not name the installed version, so pnpm applied no patch to it. ' +
+          'Regenerate it against the new version (`pnpm patch fumadocs-core@<version>`), or drop it ' +
+          'if that version carries the upstream `peek` fix; see `patches/fumadocs-core@16.8.12.patch`.'
+        : ''),
+  );
+  console.log('');
+
   if (findings.length === 0) {
     console.log(
       '✓ every advertised URL has a source file and every source file is advertised; both ' +
         `\`llms\` bodies carry every ${surface.defaultLanguage}-only page title and none from ` +
-        'the other locales; and no page slug in the content tree contains a dot',
+        'the other locales; no page slug in the content tree contains a dot; and neither ' +
+        '`llms` consumer carries a numeric character reference or a malformed link target',
     );
     return;
   }
@@ -924,9 +1326,15 @@ const llmsIndex = (titles) =>
 
 /**
  * An `llms-full.txt` body: page texts joined, each opening with the `# <title>`
- * line `getLLMText` prepends.
+ * line `getLLMText` prepends. Each page links somewhere, as real pages do, so
+ * that a clean fixture has link targets for `malformed-link-target` to read
+ * and does not trip `no-link-targets`.
  */
-const llmsFull = (titles) => `${titles.map((t) => `# ${t}\n\nBody of ${t}.`).join('\n\n')}\n`;
+const llmsFull = (titles) =>
+  `${titles.map((t) => `# ${t}\n\nBody of ${t}, see [the overview](https://docs.objectos.ai/docs).`).join('\n\n')}\n`;
+
+/** One per-page `llms.mdx` body: what `getLLMText` returns for a single page. */
+const llmsPage = (title) => `# ${title}\n\nBody of ${title}, see [the overview](/docs).\n`;
 
 /** Artifact paths by id — never by index, so adding an artifact cannot repoint one. */
 const fileOf = (id) => ARTIFACTS.find((a) => a.id === id).file;
@@ -1058,7 +1466,7 @@ const CASES = [
     // bullets: the reader matches nothing and the artifact must fail rather
     // than pass over zero entries.
     name: 'llms-full.txt present but unreadable',
-    fullBody: 'Home\n\nBody of Home.\n\nGuide\n\nBody of Guide.\n',
+    fullBody: 'Home\n\nBody of Home, see [Guide](/docs/guide).\n\nGuide\n\nBody of Guide.\n',
     expect: ['artifact-empty'],
   },
   {
@@ -1105,6 +1513,84 @@ const CASES = [
     fullBody: llmsFull(['Shared']),
     expect: ['nothing-expected'],
   },
+
+  /* ----------------------------------------- llms body encoding (#282) -- */
+
+  {
+    // The bulk of #197: 58 of its 67 references encoded the asterisk that
+    // opens an emphasis run, in prose, with every link intact.
+    name: 'llms-full.txt carries a numeric character reference',
+    fullBody: `${llmsFull(BASE_TITLES)}\nAn &#x2A;emphasised* word.\n`,
+    expect: ['numeric-character-reference'],
+  },
+  {
+    // A target that runs on into the prose, and no reference anywhere — so
+    // the malformed-target rule is shown to fire on its own.
+    name: 'llms-full.txt carries a malformed link target',
+    fullBody: `${llmsFull(BASE_TITLES)}\nSee [Guide](/docs/guide, then read on.\n`,
+    expect: ['malformed-link-target'],
+  },
+  {
+    // The #197 shape exactly: the closing `)` is itself encoded. One defect,
+    // both rules.
+    name: 'a link whose ) is encoded (the #197 shape)',
+    fullBody: `${llmsFull(BASE_TITLES)}\nAsk [AI Builder](/docs/build/ai-builder&#x29;, say what you need.\n`,
+    expect: ['malformed-link-target', 'numeric-character-reference'],
+  },
+  {
+    // Decimal this time: the rule is about the form, not the one spelling
+    // the encoder happens to use today.
+    name: 'an llms.mdx body carries a numeric character reference',
+    mdx: (pages) => ({ ...pages, 'docs/guide': `${pages['docs/guide']}\nA &#96;literal backtick.\n` }),
+    expect: ['numeric-character-reference'],
+  },
+  {
+    name: 'an llms.mdx body carries a malformed link target',
+    mdx: (pages) => ({
+      ...pages,
+      'docs/deep': `${pages['docs/deep']}\nSee [Home](https://docs.objectos.ai/docs then read on.\n`,
+    }),
+    expect: ['malformed-link-target'],
+  },
+  {
+    // One page's body not built: its text was never scanned, and a clean
+    // scan of the other bodies must not read as covering it.
+    name: 'an English page has no llms.mdx body',
+    mdx: (pages) => Object.fromEntries(Object.entries(pages).filter(([path]) => path !== 'docs/guide')),
+    expect: ['llms-page-body-missing'],
+  },
+  {
+    // A directory that exists and was never written: zero bodies must not
+    // read as zero references.
+    name: 'llms.mdx built but empty',
+    mdx: () => ({}),
+    expect: ['llms-page-body-missing', 'no-link-targets'],
+  },
+  {
+    // The other three artifacts built, this one not at all.
+    name: 'llms.mdx not built',
+    mdx: null,
+    expect: ['artifact-missing'],
+  },
+  {
+    // Links that stop being inline markdown links (reference-style,
+    // autolinks, HTML) would leave the malformed-target rule passing over
+    // nothing.
+    name: 'no link target anywhere in llms-full.txt',
+    fullBody: `${BASE_TITLES.map((t) => `# ${t}\n\nBody of ${t}.`).join('\n\n')}\n`,
+    expect: ['no-link-targets'],
+  },
+  {
+    // Green on purpose: shapes a careless pattern would call a defect. A bare
+    // ampersand in prose or a query string is not a reference; `&#` with no
+    // terminating `;` is not one in markdown either; and a target with a `(`
+    // in it still closes on a literal `)`.
+    name: 'ampersands and parentheses in a URL are not findings',
+    fullBody:
+      `${llmsFull(BASE_TITLES)}\nR&D at AT&T, see [search](https://docs.objectos.ai/docs?q=a&b=c) ` +
+      'and [Foo](https://en.wikipedia.org/wiki/Foo_(bar)); issue &#197 is prose.\n',
+    expect: [],
+  },
 ];
 
 function selfTest() {
@@ -1112,6 +1598,8 @@ function selfTest() {
   let failed = 0;
   /** Artifact ids that some fixture actually drove into a finding. */
   const exercised = new Set();
+  /** `artifact:rule` pairs that some fixture actually fired. */
+  const pairs = new Set();
 
   try {
     for (const c of CASES) {
@@ -1146,12 +1634,35 @@ function selfTest() {
         writeFileSync(p, bytes);
       }
 
+      // `llms.mdx`: one clean body per page with an English source, derived
+      // from THIS case's content, so that a case adding a page cannot trip
+      // `llms-page-body-missing` by accident. `c.mdx` transforms that
+      // path-to-body map; `null` leaves the directory unbuilt.
+      if (c.artifacts !== null && c.mdx !== null) {
+        const i18n = readI18n(dir);
+        const defaults = {};
+        for (const [path, page] of readDocsPages(dir, i18n).pages) {
+          if (!page.locales.has(i18n.defaultLanguage)) continue;
+          defaults[path] = llmsPage(page.titles.get(i18n.defaultLanguage) ?? path);
+        }
+        mkdirSync(join(dir, LLMS_MDX_DIR), { recursive: true });
+        for (const [path, body] of Object.entries(c.mdx ? c.mdx(defaults) : defaults)) {
+          const p = join(dir, LLMS_MDX_DIR, `${path}.body`);
+          mkdirSync(dirname(p), { recursive: true });
+          writeFileSync(p, body);
+        }
+      }
+
       const { findings } = evaluate(collect(dir));
       // `artifact-missing` deliberately does not count. The `no built artifact`
       // case omits every file at once, so any entry added to ARTIFACTS fires it
       // for free — counting it would let a new artifact satisfy the coverage
       // check below without one line of its reader ever having run.
-      for (const f of findings) if (f.artifact && f.rule !== 'artifact-missing') exercised.add(f.artifact);
+      for (const f of findings) {
+        if (!f.artifact || f.rule === 'artifact-missing') continue;
+        exercised.add(f.artifact);
+        pairs.add(`${f.artifact}:${f.rule}`);
+      }
       const fired = [...new Set(findings.map((f) => f.rule))].sort();
       const want = [...c.expect].sort();
       const ok = fired.join(',') === want.join(',');
@@ -1242,6 +1753,49 @@ function selfTest() {
     console.log(`${threw ? '✓' : '✗'} unreadable i18n.ts rejected: ${name}`);
   }
 
+  // The encoding scan's own arithmetic (#282), asserted as exact counts: hex,
+  // decimal and upper-case-X references; a well-formed target, one with a `(`
+  // inside it, one broken by whitespace and one cut off at the end of the
+  // body. The tallies this produces are the numbers the gate prints.
+  {
+    const found = scanBody(
+      'a &#x2A;b* c &#42; d &#X2a; [x](/y) [z](/w &#x29; [p](https://h/q_(r)) tail [end](/e',
+    );
+    const got = {
+      references: found.references.map((r) => r.text),
+      targets: found.targets,
+      malformed: found.malformed.map((m) => m.text),
+    };
+    const want = {
+      references: ['&#x2A;', '&#42;', '&#X2a;', '&#x29;'],
+      targets: 4,
+      malformed: ['](/w', '](/e'],
+    };
+    const ok = JSON.stringify(got) === JSON.stringify(want);
+    if (!ok) failed += 1;
+    console.log(
+      `${ok ? '✓' : '✗'} encoding scan tally ${JSON.stringify(got).replace(/&/g, 'AMP')}` +
+        (ok ? '' : `  expected ${JSON.stringify(want).replace(/&/g, 'AMP')}`),
+    );
+  }
+
+  // The live negative control (#282) must pass with the real scan and go red
+  // with a scan blinded to either rule. It never meets a fixture tree, so this
+  // is how `negative-control-passed` is shown able to fire.
+  for (const [name, scan, wantRed] of [
+    ['the real scan', scanBody, false],
+    ['a scan blind to references', (t) => ({ ...scanBody(t), references: [] }), true],
+    ['a scan blind to malformed targets', (t) => ({ ...scanBody(t), malformed: [] }), true],
+  ]) {
+    const red = encodingControl(scan).findings.some((f) => f.rule === CONTROL_RULE);
+    const ok = red === wantRed;
+    if (!ok) failed += 1;
+    console.log(
+      `${ok ? '✓' : '✗'} live negative control with ${name}: ${red ? `red (${CONTROL_RULE})` : 'green'}` +
+        (ok ? '' : `  expected ${wantRed ? 'red' : 'green'}`),
+    );
+  }
+
   console.log('');
   const covered = new Set(CASES.flatMap((c) => c.expect));
   for (const rule of RULES) {
@@ -1267,6 +1821,19 @@ function selfTest() {
     }
   }
 
+  // Both encoding rules, for both consumers (#282). Rule coverage alone would
+  // pass with every reference fixture written against `llms-full.txt`, and
+  // the 79 `llms.mdx` bodies would then have a rule nobody had seen fire on
+  // them — the mistake #197 already recorded once.
+  for (const consumer of LLMS_CONSUMERS) {
+    for (const rule of ['numeric-character-reference', 'malformed-link-target']) {
+      if (!pairs.has(`${consumer}:${rule}`)) {
+        console.error(`✗ no fixture drives "${rule}" red on the ${consumer} consumer`);
+        failed += 1;
+      }
+    }
+  }
+
   if (failed) {
     console.error(`\n✗ self-test: ${failed} case(s) did not behave as declared`);
     process.exit(1);
@@ -1274,7 +1841,8 @@ function selfTest() {
   console.log(
     `✓ self-test: ${CASES.length} case(s) over ${RULES.length} rule(s) and ${ARTIFACTS.length} ` +
       'artifact(s) — every rule demonstrated able to fail and every artifact demonstrated ' +
-      'able to fail it, on fixtures read through the real readers',
+      'able to fail it, on fixtures read through the real readers; both encoding rules ' +
+      `demonstrated on both \`llms\` consumers; and the live control demonstrated able to fire ${CONTROL_RULE}`,
   );
 }
 

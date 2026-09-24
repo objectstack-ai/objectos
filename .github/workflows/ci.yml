@@ -126,6 +126,17 @@ jobs:
       # below still runs this script's `--self-test`, which is what keeps its
       # rules provably able to fail.
       #
+      # #282 made the same step the guard for #197: no HTML numeric character
+      # reference and no malformed link target in the `llms-full.txt` body or
+      # in any per-page `llms.mdx` body. #197's fix is a patch pinned to one
+      # exact `fumadocs-core` version. On a bump, pnpm refuses the stale pin
+      # when the lockfile is regenerated, but the first remedy its error
+      # offers is deleting the pin, and after that install is green and the
+      # defect is back; this is where that turns red. Every run first feeds
+      # the #197 shape through the same scan and fails unless it goes red,
+      # and the log says so. It reads `.next`, not `.open-next`, so it sits
+      # here after `build` and not behind the artifact upload.
+      #
       # `shell: bash` is load-bearing, not tidiness. The DEFAULT shell for a
       # `run:` step is `bash -e {0}` with no pipefail, so in `node ... | tee`
       # the step takes tee's exit status and a gate that exits 1 passes the job
