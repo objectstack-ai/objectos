@@ -60,12 +60,14 @@ You'll see:
 
 That's it. You're running ObjectOS.
 
-That block is transcribed from `@objectstack/cli` 17.3.0 booting an empty
+That block is transcribed from `@objectstack/cli` 17.4.0 booting an empty
 kernel. Home paths show as `~/…` — the CLI prints yours expanded. Your own boot
 also prints a `No objectstack.config.ts or artifact found` line before the
 server starts, plus startup advisories (local storage driver, dev crypto key,
-schema-sync notes from the SQL driver, boot diagnostics) and the full list of
-loaded plugin names, both of which depend on your environment.
+boot diagnostics) and the full list of loaded plugin names, both of which
+depend on your environment. It also logs two SQL-driver errors that do not stop
+the server: a `DATABASE_ERROR` for a missing `_objectstack_sequences` table, and
+an `Insert operation failed` on `sys_oauth_resource` with a stack trace.
 
 ### What's running
 
@@ -160,7 +162,7 @@ You'll see:
 
 ◆ Compile
 ────────────────────────────────────────
-  ✓ Build complete (143ms)
+  ✓ Build complete (97ms)
 
   Data: 1 Objects  3 Fields
   UI: 0 Apps
@@ -196,13 +198,16 @@ You'll see:
 ```
 
 That block is transcribed from `pnpm dev` on a scaffold created by
-`@objectstack/cli` 17.3.0. Project paths show as `my-app/…` — the CLI prints
+`@objectstack/cli` 17.4.0. Project paths show as `my-app/…` — the CLI prints
 yours expanded, and the `Build complete` timing is whatever the transcribing
 machine measured, so yours will differ. Your own run also prints pnpm's script
 header above the block, per-step compile progress, startup advisories
-(configuration load, dev secret-field crypto, schema-sync notes from the SQL
-driver), the full list of loaded plugin names, boot diagnostics, and an MCP
-connection trailer above the banner.
+(configuration load, dev secret-field crypto), the full list of loaded plugin
+names, and an MCP connection trailer. A separate process prints that trailer,
+so it usually follows `Press Ctrl+C to stop` but can land inside the banner. The
+run also logs SQL-driver errors that do not stop the server: a `DATABASE_ERROR`
+for a missing `_objectstack_sequences` table (printed twice), and an
+`Insert operation failed` on `sys_oauth_resource` with a stack trace.
 
 Note the dev server asks for port **3000**, the same port `os start` uses. If
 that port is taken it binds the next free one and says so:
