@@ -285,10 +285,15 @@ Either path gives you these plugins automatically:
 > FLS), Audit, Sharing, Platform objects, Metadata, ObjectQL, the default
 > datasource plus the external-datasource and datasource-admin services, Queue,
 > Jobs, Cache, Settings, Email, SMS, Messaging, Storage, Analytics, external
-> validation, Marketplace, the Setup and Account apps, and the Console UI.
+> validation, Marketplace, Package management, the Setup and Account apps, and
+> the Console UI.
 
-You don't import or wire any of them — they activate when something
-declares it needs them.
+Path B also loads the automation service plus the record-change, schedule,
+time-relative and inbound HTTP/webhook flow triggers, because the scaffold's
+`objectstack.config.ts` declares `requires: ['automation', 'triggers']`.
+
+You don't import or wire any of them — the list above loads even when nothing
+declares it, and the rest activate when something declares it needs them.
 
 ## Next steps
 
