@@ -85,12 +85,11 @@
  *
  * `check-positioning.mjs` is listed for its `--self-test` only (#171). Its gate
  * mode reads `apps/docs/.next/` the way `check-locale-surface.mjs` does and is
- * a `ci.yml` step after the build for the same reason. The fixtures here are
- * temporary trees carrying a stub positioning constant, stub consumers, a stub
- * build and stub pages; they prove that every one of its rules — the three
- * copies of the positioning constant agreeing with it, the one brand spelling
- * in shipped output, the stale sentences staying gone — can still go red, and
- * stays silent on the shapes the rulings on #171 accepted.
+ * a `ci.yml` step after the build for the same reason. Its fixtures are inline
+ * strings, one good and one bad per rule; they prove that each of its three
+ * rules — the copies of the positioning constant agreeing with it, the one
+ * brand spelling in shipped output, the stale sentences staying gone — can
+ * still go red, and stays silent on the shapes the rulings on #171 accepted.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
