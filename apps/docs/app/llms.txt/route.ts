@@ -1,28 +1,28 @@
 import type { Folder, Item, Node } from 'fumadocs-core/page-tree';
 import { llms } from 'fumadocs-core/source/llms';
 import { i18n } from '@/lib/i18n';
+import { POSITIONING } from '@/lib/positioning';
 import { SITE_URL, localeUrl } from '@/lib/seo';
-import { source } from '@/lib/source';
+import { SITE_NAME, source } from '@/lib/source';
 
 export const revalidate = false;
 
 /**
- * The one place this site states what ObjectOS is.
- *
- * Taken verbatim from the marketing site's own `/llms.txt`
- * (`www.objectos.ai`, `src/pages/llms.txt.ts`) — the current authoritative
- * positioning string for the two products. It is deliberately NOT re-derived
- * from `content/docs/index.mdx`: that page's framing is itself under review,
- * and `llms.txt` must not become the place a second version of it appears.
- *
- * If the positioning changes, change this constant. Nothing else in this file
- * encodes it.
+ * The summary line is the positioning paragraph in `lib/positioning.ts` — the
+ * one constant this site states ObjectOS in, quoted from the objectstack
+ * README (objectos#171, Q4). This file used to carry its own literal, taken
+ * from the marketing site's `/llms.txt`, which was a second version of the
+ * positioning by construction; both sites now quote the README, and
+ * `check-positioning.mjs` compares the BUILT summary line against the
+ * constant, so a literal reintroduced here goes red in CI.
  */
-const SUMMARY =
-  'ObjectStack is the open target format and runtime for AI-written enterprise software; ObjectOS is the commercial production platform where teams build, review, deploy, and operate ObjectStack applications.';
+const SUMMARY = POSITIONING;
 
-/** Title line: the product this documentation is for. */
-const TITLE = 'ObjectOS';
+/**
+ * Title line: the product this documentation is for, spelled the one way
+ * `SITE_NAME` spells it.
+ */
+const TITLE = SITE_NAME;
 
 /** Heading for the pages that sit at the tree root rather than in a section. */
 const ROOT_HEADING = 'Overview';

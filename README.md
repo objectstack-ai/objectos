@@ -2,7 +2,7 @@
 
 > ## Build & ask online. Keep the data you own.
 >
-> ObjectOS is the **commercial runtime environment for
+> **The ontology is the software.** ObjectOS is the **commercial runtime environment for
 > [ObjectStack](https://github.com/objectstack-ai/objectstack) apps — built
 > and operated entirely in the browser**: tell the built-in AI Builder what
 > your business needs — a helpdesk, an approval flow, a CRM — and it's running

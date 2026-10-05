@@ -3,8 +3,9 @@ title: Architecture
 description: What you're actually running — for the engineer evaluating whether to bring this in.
 ---
 
-A practical view of what runs on your machines when you deploy
-ObjectOS, what data leaves your network, and what doesn't.
+A practical view of what runs when you deploy ObjectOS — on your own
+machines with **ObjectOS Enterprise**, or operated for you on **ObjectOS
+Cloud** — what data leaves your network, and what doesn't.
 
 The mental model is two thin layers:
 
@@ -22,7 +23,9 @@ metadata after a HITL approval.
 
 ## What you deploy
 
-One Node.js process, serving one app. That's it.
+One Node.js process, serving one app. That's it. On ObjectOS Cloud we run
+that process for you; on ObjectOS Enterprise you deploy it, from the
+licensed runtime image described under [Deployment](/docs/deploy).
 
 ```text
 ┌─────────────────────────────────────────────────────┐
@@ -58,6 +61,12 @@ one; see [Docker](/docs/deploy/docker).
 
 ## Where your data lives
 
+On **ObjectOS Enterprise** — the self-managed edition this table describes —
+nothing below leaves your network. On **ObjectOS Cloud** the same process
+runs in our infrastructure instead, and on either edition the ontology
+itself is yours: export it and run it on the open-source ObjectStack
+runtime.
+
 | Data | Lives in | Leaves your network? |
 |---|---|---|
 | Business records | Your database | **No** |
@@ -67,9 +76,10 @@ one; see [Docker](/docs/deploy/docker).
 | Uploaded files | Your disk or your S3/R2 bucket | **No** |
 | The compiled app definition (`objectstack.json`) | A file on disk or fetched from your control plane | Optional |
 
-ObjectOS does not call home. No telemetry. No license check. If you cut
-internet access entirely, it keeps running indefinitely. See
-[Air-gapped](/docs/deploy/air-gapped).
+Self-managed ObjectOS validates its licence online; Enterprise air-gapped
+licences validate offline, so a deployment with no internet access at all
+keeps running. See [Air-gapped](/docs/deploy/air-gapped) for the supported
+licence and cloud-posture pairs.
 
 ## How a request is served
 
@@ -92,14 +102,14 @@ authentication, the permission checks, and one compiled query.
 
 ## The three layers (only matters if you're integrating)
 
-Most customers deploy only **ObjectOS**. The other two layers exist if
-you want to know where the artifact comes from:
+Most customers run only **ObjectOS**. The other two layers exist if you
+want to know where the artifact comes from:
 
 | Layer | What it is | Where it runs |
 |---|---|---|
 | **Framework** (`@objectstack/*`) | Open-source kernel, ObjectQL, plugins, drivers | npm — pulled in at build time |
 | **Control plane** (optional) | Publishes compiled `objectstack.json` artifacts; you can use the hosted ObjectOS Cloud, run your own, or skip it entirely | Your CI, our cloud, or your laptop |
-| **ObjectOS** | The runtime you operate | **Your infrastructure** |
+| **ObjectOS** | The commercial runtime environment built on the framework | **ObjectOS Cloud** (we operate it) or **your infrastructure** (ObjectOS Enterprise) |
 
 If you're shipping a single app, you don't need a control plane —
 compile `objectstack.config.ts → dist/objectstack.json` in your CI and
@@ -122,7 +132,7 @@ carries the exact contract for each.
 
 Whether the deployment also talks to a **control plane** is a separate
 decision, made by the cloud-posture variable — a connected deployment can be
-any of the modes above. A self-hosted runtime authenticates to a control plane
+any of the modes above. A self-managed runtime authenticates to a control plane
 with a token minted when the deployment was **bound** to it, not with a key
 pasted into a file, and pairing the wrong licence mode with the wrong cloud
 posture is [refused at startup](/docs/deploy/air-gapped).

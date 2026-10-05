@@ -1,13 +1,23 @@
 ---
 title: Quickstart
-description: From zero to a running ObjectOS — install one CLI, run one command, you have an app.
+description: From zero to a running app on the open-source ObjectStack runtime — install one CLI, run one command. ObjectOS Cloud needs none of it, sign in and build in the browser.
 ---
 
-There are two ways to start, depending on what you're doing.
+This page boots the **open-source ObjectStack runtime** on your own
+machine — the stack ObjectOS is built on. ObjectOS itself needs none of
+it: **ObjectOS Cloud** is hosted in the browser with nothing to install
+(sign in at [www.objectos.ai](https://www.objectos.ai)), and **ObjectOS
+Enterprise** is the same runtime environment self-managed on your
+infrastructure, deployed from the licensed image described under
+[Deployment](/docs/deploy). What you build here is ordinary ObjectStack
+metadata, so it runs on either.
+
+There are two ways to start the open runtime, depending on what you're
+doing.
 
 | You are … | Start here |
 |---|---|
-| Trying ObjectOS for the first time, or running it in production | [Path A — `os start`](#path-a--os-start-operator-first-time-evaluator) |
+| Trying the open runtime for the first time, or running it in production | [Path A — `os start`](#path-a--os-start-operator-first-time-evaluator) |
 | Building or customizing an app in code | [Path B — `os init`](#path-b--os-init-developer) |
 
 Both produce a running server with the UI — account sign-in, registration
@@ -58,7 +68,10 @@ You'll see:
   Press Ctrl+C to stop
 ```
 
-That's it. You're running ObjectOS.
+That's it. You're running the open-source ObjectStack runtime — the stack
+ObjectOS is built on, not ObjectOS itself. See
+[License & Pricing](/docs/resources/license) for what the ObjectOS editions
+add on top of it.
 
 That block is transcribed from `@objectstack/cli` 17.5.0 booting an empty
 kernel. Home paths show as `~/…` — the CLI prints yours expanded. Your own boot
@@ -93,8 +106,12 @@ show which probe goes where.
 
 ### Build by chat — the AI Builder
 
-Once you're signed in, open the AI assistant (top-right
-sparkle icon) and describe what you need:
+The in-product AI Builder is ObjectOS's: it ships in ObjectOS Cloud and
+ObjectOS Enterprise, not in the open runtime you just started, whose AI
+path is the MCP endpoint printed in the banner
+(`http://localhost:3000/api/v1/mcp` — point Claude Code or any MCP client
+at it). On ObjectOS, once you're signed in, open the AI assistant
+(top-right sparkle icon) and describe what you need:
 
 > *"I need to track customer support tickets. Each has a subject,
 > description, priority (low/medium/high/urgent), status, and
@@ -107,8 +124,8 @@ for the full vocabulary.
 
 > **Hand-coding in your IDE?** Run `npx skills add objectstack-ai/objectstack/skills`
 > to teach Claude Code / Cursor / Copilot / Codex how to author
-> ObjectOS metadata against the real Zod schemas. See
-> [Build → IDE Skills](/docs/build/ai-skills).
+> ObjectStack metadata — the ontology ObjectOS runs — against the real Zod
+> schemas. See [Build → IDE Skills](/docs/build/ai-skills).
 
 ### Install an app from the marketplace
 
@@ -258,8 +275,9 @@ my-app/
 └── tsconfig.json
 ```
 
-`dist/objectstack.json` is what you ship to production — mount it on a
-running ObjectOS container and that becomes your app.
+`dist/objectstack.json` is what you ship to production — mount it on the
+runtime, the open ObjectStack image or an ObjectOS Enterprise deployment,
+and that becomes your app.
 
 ### Or start from a template
 

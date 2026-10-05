@@ -36,6 +36,19 @@ runtime (e.g. CRM + Helpdesk + Setup).
 The auth library powering `@objectstack/plugin-auth`. You don't
 configure Better Auth directly; the plugin wraps it.
 
+### Business ontology
+
+Your app's definition — objects and fields, relations, actions,
+permissions, flows, and agent and tool definitions — as one executable,
+versioned whole: authored as typed ObjectStack metadata, validated rather
+than reasoned over, and run by the runtime, which derives the database,
+REST API, UI and MCP tools from it. Views, dashboards, apps and
+translations are projections of it, not part of it. It is yours on either
+ObjectOS edition: export it and run it on the open-source ObjectStack
+runtime. The full account is
+[Business Ontology](https://objectstack.ai/docs/concepts/ontology) in the
+ObjectStack docs.
+
 ### Capability
 
 An optional runtime feature declared by an artifact in its `requires`
@@ -72,7 +85,7 @@ See [AI Service](/docs/configure/ai).
 ### Environment
 
 A deployment's own identity — the id it reports as `OS_ENVIRONMENT_ID`,
-persisted once a cloud binding completes. A self-hosted ObjectOS is a
+persisted once a cloud binding completes. A self-managed ObjectOS is a
 **single-environment** runtime: one process, one environment, one app.
 Holding many environments, and publishing an artifact for each, is what a
 control plane does. See
@@ -135,8 +148,12 @@ RBAC checkpoints automatically. See [Data Model](/docs/build/data).
 
 ### ObjectOS
 
-The runtime — a single Node.js process that serves your apps. Open
-source, Apache-2.0. **This documentation site is for ObjectOS.**
+The commercial runtime environment built on ObjectStack: hosted in the
+browser with nothing to install (**ObjectOS Cloud**) or self-managed on
+your own infrastructure (**ObjectOS Enterprise**), licensed per AI seat.
+Not open source — the stack it runs is, and on either edition you can
+export your ontology and run it on that open runtime. **This
+documentation site is for ObjectOS.**
 
 ### ObjectQL
 
@@ -146,9 +163,11 @@ flows — all the same engine.
 
 ### ObjectStack
 
-The umbrella project: the framework (`@objectstack/*` npm packages),
-the runtime (ObjectOS), the optional cloud service, and the
-marketplace. Sometimes called "the platform."
+The open stack, Apache-2.0: the protocol, microkernel, SDK, CLI and
+production runtime that execute a business ontology — the `@objectstack/*`
+npm packages and the runtime image. ObjectOS is the commercial runtime
+environment built on it; the two are different products under different
+licences.
 
 ### ObjectUI
 

@@ -2,6 +2,7 @@ import './global.css';
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/seo';
+import { POSITIONING } from '@/lib/positioning';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -9,7 +10,12 @@ export const metadata: Metadata = {
     template: '%s | ObjectOS',
     default: 'ObjectOS',
   },
-  description: 'Customer-hosted runtime for ObjectStack applications. Private, compliant, yours.',
+  // The site-wide description is the positioning paragraph, one constant
+  // quoted from the objectstack README (objectos#171, Q4). It used to be a
+  // literal here that contradicted the index page and the glossary; now
+  // `check-positioning.mjs` asserts this field reads the constant and that the
+  // other copies agree with it.
+  description: POSITIONING,
   icons: {
     icon: '/logo.svg',
   },

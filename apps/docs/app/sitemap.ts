@@ -12,9 +12,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   // Top-level static pages (paths are locale-independent slugs).
   const staticPaths: Array<{ path: string; priority: number; locales: readonly string[] }> = [
-    // The root exists in every locale: it is a language dispatch page that
-    // redirects to that locale's /docs.
-    { path: '', priority: 1, locales: i18n.languages },
+    // The root is deliberately absent. `app/page.tsx` and `app/[lang]/page.tsx`
+    // are language-dispatch redirects to that locale's `/docs` — a URL that
+    // serves no content — and this file used to submit it in every locale at
+    // `priority: 1`, the highest entry in the sitemap (objectos#171, reading
+    // 1). www.objectos.ai is the precedent: its root is a `noindex` dispatch
+    // page filtered out of its sitemap. `check-locale-surface.mjs` expects the
+    // same absence, so a root entry creeping back is an `unexpected-url`.
+    //
     // `privacy` and `terms` carry their copy in a `content` record inside their
     // own route component, and render `content[lang] ?? content.en` for every
     // other locale — the same fallback shape the docs pages had. So the locales

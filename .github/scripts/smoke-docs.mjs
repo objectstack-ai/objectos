@@ -428,7 +428,7 @@ function goodPage({
   title = 'Quickstart | ObjectOS',
   h1 = 'Quickstart',
   links = 20,
-  prose = 'ObjectOS is a self-hosted runtime for building internal tools. '.repeat(20),
+  prose = 'The ontology is the software, and this fixture carries enough prose to clear the floor. '.repeat(20),
 } = {}) {
   const nav = Array.from({ length: links }, (_, i) => `<a href="/docs/page-${i}">Page ${i}</a>`).join('');
   return (

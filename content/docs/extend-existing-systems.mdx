@@ -1,18 +1,24 @@
 ---
 title: Extend Existing Systems
-description: Connect ObjectOS to the business systems you already run, then add AI-native query, analysis, and automation — without a migration.
+description: Federate a database you already run into ObjectOS as an external datasource — read-only by default, and early — and model the tables you care about as objects, without a migration.
 ---
 
 Most teams evaluating ObjectOS already have a system of record — a CRM, an
 ERP, a ticketing tool, a homegrown back office sitting on a production
 SQL or MongoDB database. The question is rarely "should we throw it away
-and rebuild?" It's "can we make the thing we already have **AI-native**,
-without a risky migration?"
+and rebuild?" It's "can we work with the thing we already have, without a
+risky migration?"
 
-That's exactly the path this page describes: **connect ObjectOS to your
-existing database, model the tables you care about as objects, and let AI
-agents query, analyze, and act on that data** — under your permissions,
-on your infrastructure, with the original system untouched.
+One boundary first, because it decides what this page can promise. The
+ontology ObjectOS runs is **not a semantic layer over your existing
+systems**: it is the system — the database, API, UI and agent tools are
+derived from it. What it offers for a system you already run is narrower,
+and stated the way the
+[ObjectStack](https://github.com/objectstack-ai/objectstack) README states
+it: **federating an external datasource is read-only by default and
+early.** You connect the database as a datasource, model the tables you
+care about as objects, and ObjectOS reads them through the same permission
+model as everything else. The system of record stays the system of record.
 
 ## The shape of the move
 
@@ -20,27 +26,29 @@ You don't replace your business system. You put ObjectOS *next to* it and
 point it at the same database:
 
 1. **Connect** the existing database as a [datasource](/docs/configure/data-sources).
-   Credentials come from your environment; the connection can be
-   read-only if you only want to analyze.
+   Credentials come from your environment. Start read-only — a `readOnly`
+   datasource, or a read-only database user — and enable writes
+   deliberately.
 2. **Model** the tables as objects — by hand, or by letting a coding
    agent scan the schema and generate source-level object files for you.
 3. **Bind** each object to the datasource (per object, or with a routing
    rule for a whole namespace).
-4. **Use AI** — the moment a table is an object, every agent, tool, flow,
-   and dashboard works on it, routed automatically to the right database.
+4. **Read** — the moment a table is an object, every view, dashboard, flow
+   and agent tool can read it, routed automatically to the right database
+   and gated by the same permissions.
 
 Nothing about the legacy application changes. The rows stay where they
-are. ObjectOS becomes the AI-native, permission-aware surface on top.
+are, and the legacy application keeps writing them.
 
 ## Why this works without a rewrite
 
 | Concern | How ObjectOS handles it |
 |---|---|
 | "We can't move the data" | The data never moves. ObjectOS connects to your database in place. |
-| "We can't risk writes to production" | Bind objects to a **read-only** datasource (or a read-only DB user). Analyze safely first; enable writes deliberately. |
+| "We can't risk writes to production" | Start read-only — the `readOnly` capability, or a read-only database user — and enable writes deliberately, per object, once you trust the model. |
 | "Modeling every table is weeks of work" | A coding agent scans the schema and generates one object file per table — you review and refine, you don't hand-type. |
 | "AI can't be trusted with our data" | Agents run as the **signed-in user** and obey object-, record-, and field-level permissions. They never see more than the person behind them. |
-| "Our data can't leave our network" | ObjectOS runs in your environment. Business data and prompts stay inside your perimeter. |
+| "Our data can't leave our network" | On ObjectOS Enterprise, ObjectOS runs in your environment: business data and prompts stay inside your perimeter. |
 
 ## Generating objects with a coding agent
 
@@ -67,16 +75,25 @@ Once the tables are modeled as objects bound to your existing database:
 - **Natural-language analysis.** Users ask questions about the real
   records — "which deals slipped this quarter and who owns them?" — and
   the answer is computed against live data through ObjectQL.
-- **Governed automation.** Flows and actions can read and (where allowed)
-  write the same data, with every step audited.
+- **Governed automation.** Flows and actions read the same data and —
+  where you have enabled writes — write it, with every step audited.
 - **A generated API and UI.** REST endpoints and admin screens come
-  from the same metadata — no extra integration layer.
+  from the same metadata.
 - **One permission model.** The boundary that applies to humans applies
   identically to AI traffic.
+
+## What it is not, yet
+
+Federation is early. Expect the read path to be the mature one, and check
+[Data Sources](/docs/configure/data-sources) and the framework's own
+[External Datasources](https://docs.objectstack.ai/docs/data-modeling/external-datasources)
+guide for what each datasource protocol supports today. If what you need
+is a semantic layer that *describes* many systems without running any of
+them, that is a different kind of product.
 
 ## Start here
 
 - [Data Sources](/docs/configure/data-sources) — connect a database, bind objects, route queries
 - [AI Agents](/docs/build/agents) — declarative agents over your objects
 - [Permissions](/docs/configure/permissions) — the model AI inherits
-- [Quickstart](/docs/quickstart) — stand up a runtime in minutes
+- [Quickstart](/docs/quickstart) — stand up the open runtime in minutes
