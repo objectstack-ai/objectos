@@ -226,8 +226,12 @@ const SITE_URL = 'https://docs.objectos.ai';
  * outcome, not a maintenance tax: unlike the docs counts, it does not move on
  * every content PR.
  *
- * The site root is separate: it exists in every locale because it is a
- * language dispatch page that redirects to that locale's `/docs`.
+ * The site root is deliberately NOT here, and not expected anywhere below. It
+ * is a language dispatch page that redirects to that locale's `/docs` — a URL
+ * that serves no content — and `sitemap.ts` stopped submitting it under
+ * objectos#171, following www.objectos.ai's `noindex` dispatch page excluded
+ * from its sitemap. A root URL in the artifact is therefore `unexpected-url`,
+ * which is what keeps the redirect from creeping back in at `priority: 1`.
  */
 const STATIC_PAGES = [
   { path: 'privacy', locales: ['en', 'zh-Hans'] },
@@ -382,15 +386,13 @@ function localeUrl(lang, path, defaultLanguage) {
 }
 
 /**
- * The full expected sitemap URL set: the root in every locale, the two legal
- * pages in the locales they are written in, and every docs page in the locales
- * that really have it.
+ * The full expected sitemap URL set: the two legal pages in the locales they
+ * are written in, and every docs page in the locales that really have it.
+ * Not the root — see `STATIC_PAGES`.
  */
 function expectedSitemapUrls(surface) {
   const { languages, defaultLanguage, pages } = surface;
   const urls = new Set();
-
-  for (const lang of languages) urls.add(localeUrl(lang, '', defaultLanguage));
 
   for (const { path, locales } of STATIC_PAGES) {
     for (const lang of locales) {
@@ -1051,8 +1053,9 @@ function evaluate({ surface, artifacts, bodies }) {
     // An oracle that expects nothing cannot contradict anything, so a green
     // over it is a claim and not a measurement — the same reason `artifact-empty`
     // above is a failure rather than a skip. It is reachable only for a
-    // vocabulary with a `universe`: the sitemap's expected set always holds at
-    // least the site root in each of the locales `readI18n` guarantees.
+    // vocabulary with a `universe` in practice: the sitemap's expected set
+    // holds the legal pages in every locale `STATIC_PAGES` names, so it is
+    // empty only for a locale list that declares none of them.
     if (expected.size === 0) {
       findings.push({
         rule: 'nothing-expected',
@@ -1290,14 +1293,11 @@ const BASE_CONTENT = {
 const BASE_TITLES = ['Home', 'Guide', 'Deep'];
 
 /**
- * The sitemap the base fixture SHOULD produce: root in all three locales, the
- * two legal pages in their two, `docs` and `docs/deep` in English only, and
- * `docs/guide` in English and Japanese.
+ * The sitemap the base fixture SHOULD produce: the two legal pages in their
+ * two locales, `docs` and `docs/deep` in English only, and `docs/guide` in
+ * English and Japanese. No root in any locale — see `STATIC_PAGES`.
  */
 const BASE_URLS = [
-  'https://docs.objectos.ai',
-  'https://docs.objectos.ai/zh-Hans',
-  'https://docs.objectos.ai/ja',
   'https://docs.objectos.ai/privacy',
   'https://docs.objectos.ai/zh-Hans/privacy',
   'https://docs.objectos.ai/terms',
@@ -1346,6 +1346,14 @@ const CASES = [
   {
     name: 'clean baseline',
     expect: [],
+  },
+  {
+    // objectos#171, reading 1: the redirecting root used to be submitted in
+    // every locale at `priority: 1`. It is excluded now, and a sitemap that
+    // advertises it again is the regression this case keeps red.
+    name: 'the redirecting root creeps back into the sitemap',
+    urls: ['https://docs.objectos.ai', 'https://docs.objectos.ai/ja', ...BASE_URLS],
+    expect: ['unexpected-url'],
   },
   {
     // The #169 defect, in miniature: every page advertised in every locale.
@@ -1499,9 +1507,6 @@ const CASES = [
     name: 'no title is exclusive to any locale',
     content: { 'index.mdx': mdx('Shared'), 'index.ja.mdx': mdx('Shared') },
     urls: [
-      'https://docs.objectos.ai',
-      'https://docs.objectos.ai/zh-Hans',
-      'https://docs.objectos.ai/ja',
       'https://docs.objectos.ai/privacy',
       'https://docs.objectos.ai/zh-Hans/privacy',
       'https://docs.objectos.ai/terms',

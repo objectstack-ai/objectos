@@ -82,6 +82,14 @@
  * still refuse a bundle whose prerender cache is incomplete — the bundle shape
  * that publishes a Worker returning 404 for every page while the deploy step
  * exits 0.
+ *
+ * `check-positioning.mjs` is listed for its `--self-test` only (#171). Its gate
+ * mode reads `apps/docs/.next/` the way `check-locale-surface.mjs` does and is
+ * a `ci.yml` step after the build for the same reason. Its fixtures are inline
+ * strings, one good and one bad per rule; they prove that each of its three
+ * rules — the copies of the positioning constant agreeing with it, the one
+ * brand spelling in shipped output, the stale sentences staying gone — can
+ * still go red, and stays silent on the shapes the rulings on #171 accepted.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -103,6 +111,7 @@ const SELF_TESTED = [
   'smoke-docs.mjs',
   'check-prerender-cache.mjs',
   'check-translation-ownership.mjs',
+  'check-positioning.mjs',
 ];
 
 /**

@@ -6,20 +6,26 @@ description: Answers to questions we get asked the most.
 ## Getting started
 
 **Q: What's the absolute fastest way to try ObjectOS?**
-A: `npm i -g @objectstack/cli && os start` — then open
+A: Sign in to [ObjectOS Cloud](https://www.objectos.ai) — hosted in the
+browser, nothing to install. To run the open-source ObjectStack runtime on
+your own machine instead, `npm i -g @objectstack/cli && os start` and open
 http://localhost:3000. See [Quickstart](/docs/quickstart).
 
 **Q: Do I need Docker?**
-A: No. Node 22+ and the CLI are enough. Docker is the recommended
-production deployment shape.
+A: No. ObjectOS Cloud needs nothing installed. For the open runtime, Node
+22+ and the CLI are enough; Docker is the recommended shape for a
+self-managed production deployment.
 
 **Q: Do I need a database?**
-A: No, not to start — ObjectOS uses local SQLite by default. Swap for
-Postgres / MySQL / Turso / Mongo when you go to production.
+A: No, not to start — ObjectOS Cloud is managed for you, and the open
+runtime uses local SQLite by default. A self-managed deployment swaps in
+Postgres / MySQL / Turso / Mongo when it goes to production.
 
 **Q: Do I need an account / cloud service?**
-A: No. ObjectOS is fully self-contained. ObjectOS Cloud is optional
-for multi-environment / multi-app deployments with a control plane.
+A: ObjectOS Cloud *is* the account: sign in and build. ObjectOS Enterprise
+is self-managed and needs no cloud service to run — connecting it to a
+control plane is optional. The open-source ObjectStack runtime needs no
+account at all.
 
 ## Architecture
 
@@ -154,8 +160,8 @@ for files + your secret manager for `OS_AUTH_SECRET`. See
 [Production Readiness](/docs/operate/production).
 
 **Q: Does ObjectOS have a status page?**
-A: For your self-hosted deployment, status is your concern — point your
-monitor at `/api/v1/health` for liveness and `/api/v1/ready` for readiness,
+A: For a self-managed (Enterprise) deployment, status is your concern — point
+your monitor at `/api/v1/health` for liveness and `/api/v1/ready` for readiness,
 the pair [Docker](/docs/deploy/docker) and
 [Kubernetes](/docs/deploy/kubernetes) wire up. For hosted services, see
 [status.objectstack.ai](https://status.objectstack.ai).

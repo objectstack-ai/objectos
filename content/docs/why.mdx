@@ -8,19 +8,31 @@ other doc to figure out whether ObjectOS is right for you.
 
 ## The shape of the bet
 
-ObjectOS makes one opinionated bet: **AI writes your application's
-metadata, you own the runtime that runs it.**
+**The ontology is the software.** One executable business ontology. AI
+writes it, the runtime runs it, agents operate it, you own it. Four
+promises — and ObjectOS keeps them hosted in the browser with nothing to
+install (**ObjectOS Cloud**) or self-managed on your own infrastructure
+(**ObjectOS Enterprise**):
 
-You don't hand-write objects, fields, views, flows, and permissions
-file-by-file. Your users describe what they need in plain language to
-the built-in [AI Builder](/docs/build/ai-builder); it calls a small
-set of audited tools, queues every change for human approval, and the
-result is live — REST endpoints, generated screens, RBAC, audit log,
-everything generated from the same metadata.
-
-The runtime sits in **your** VPC, on **your** database — the underlying
-**ObjectStack runtime is Apache-2.0**, yours to fork. The model talks to a
-sandboxed metadata API, not your data warehouse.
+- **Executable.** Your objects, fields, relations, actions, permissions,
+  flows and agent definitions are one typed, versioned definition that the
+  runtime runs. REST endpoints, generated screens, RBAC, the audit log and
+  the MCP tools are all derived from it — no code generation step, no
+  deploy pipeline between "described" and "live".
+- **AI-writable.** You don't hand-write that definition file by file.
+  Describe what the business needs to the built-in
+  [AI Builder](/docs/build/ai-builder); it calls a small set of audited
+  tools, every mutation queues for human approval, and the result is a
+  small diff you can actually read.
+- **Agent-operable.** Every object and every exposed action doubles as an
+  MCP tool, so agents operate the running app under the same permissions,
+  row-level security and audit as a person — never raw SQL, never a scraped
+  UI.
+- **You own it.** The ontology is ordinary
+  [ObjectStack](https://github.com/objectstack-ai/objectstack) metadata,
+  Apache-2.0, and on either edition you can export it and run it on that
+  open-source runtime. ObjectOS Enterprise also keeps the runtime and the
+  database on your infrastructure.
 
 That's the whole pitch. The rest of this page is who that fits and
 who it doesn't.
@@ -30,7 +42,8 @@ who it doesn't.
 - need an internal tool, admin panel, or back-office app, **and**
 - want the people who use it (or the AI agents acting for them) to be
   able to *extend* it without filing a ticket, **and**
-- can't (or won't) put the data in someone else's cloud, **and**
+- want it hosted and operated for you (ObjectOS Cloud) — or must run it
+  inside your own perimeter (ObjectOS Enterprise), **and**
 - don't want to rebuild auth + RBAC + audit + file uploads + jobs +
   webhooks for the tenth time.
 
@@ -38,10 +51,10 @@ Common scenarios where it's a fit:
 
 | Scenario | Why it works |
 |---|---|
-| Replacing a Retool / Appsmith app because data sovereignty came up in security review | ObjectOS runs in your VPC; data never leaves |
+| Replacing a Retool / Appsmith app because data sovereignty came up in security review | ObjectOS Enterprise runs in your VPC; data never leaves |
 | Building a compliance / risk / vendor management tool for a regulated business | Audit log, RBAC, field security, row-level isolation are first-class — and every AI-driven change is itself an audit entry |
-| Standing up an internal admin for a SaaS product | One Node process, slots in next to your existing services |
-| Air-gapped or on-prem deployment for an enterprise customer | First-class deployment target, no internet egress required (BYO local model) |
+| Standing up an internal admin for a SaaS product | One Node process, slots in next to your existing services — or a Cloud tenant with nothing to run |
+| Air-gapped or on-prem deployment for an enterprise customer | A first-class ObjectOS Enterprise target: air-gapped licences validate offline, and the AI service can point at a local model |
 | Multi-tenant internal portal (several organizations, one deployment) | A walled tenancy posture puts up the per-organization isolation wall, enforced inside the runtime — an Enterprise capability, see [License & Pricing](/docs/resources/license). It separates the organizations' data and memberships, not their schema: they share one database and one metadata set |
 | You want your users to "vibe-code" their own extensions safely | The AI Builder + HITL approval queue + audit log are the whole point |
 
@@ -51,8 +64,9 @@ Common scenarios where it's a fit:
   framework, you'll have more control.
 - need a pixel-perfect bespoke UI for end users → the generated UI is
   for admin/internal use; pair it with your own front-end via REST.
-- want a no-code drag-and-drop builder for non-engineers and a hosted
-  cloud → use Retool, Bubble, or Airtable. ObjectOS is code-first AI-driven, self-hosted.
+- want a drag-and-drop canvas for non-engineers → use Retool, Bubble, or
+  Airtable. ObjectOS generates its UI from the ontology; the builder is
+  the AI and the diff it proposes, not a canvas.
 - need real-time collaborative editing (Figma-style) → not what the
   realtime plugin solves.
 
@@ -62,26 +76,26 @@ Common scenarios where it's a fit:
 
 | | Retool | ObjectOS |
 |---|---|---|
-| Data location | Their cloud (or self-hosted at higher tier) | Your network, always |
+| Data location | Their cloud (or self-hosted at higher tier) | ObjectOS Cloud, or your network on ObjectOS Enterprise |
 | UI builder | Drag-and-drop, very polished | Metadata-driven, generated; less custom |
-| Pricing | Per-user, scales painfully | Self-hostable (open-source ObjectStack); ObjectOS bills AI seats only |
+| Pricing | Per-user, scales painfully | AI seats only; viewers free. Free self-hosting is the open-source ObjectStack runtime |
 | Workflow / triggers | Their workflow engine | Declarative flows + plugins |
 | Backend logic | Limited to their query editor | Full TypeScript, full Node ecosystem |
-| Best for | Quick dashboards on top of existing APIs | Apps that *own* their data |
+| Best for | Quick dashboards on top of existing APIs | Apps whose definition you own |
 
 ### vs. Supabase / Firebase
 
 | | Supabase | ObjectOS |
 |---|---|---|
 | Setup time | ~30 seconds | ~30 seconds |
-| Database | Postgres, theirs (self-host possible) | Any Postgres / MySQL / SQLite / Turso / Mongo, **yours** |
+| Database | Postgres, theirs (self-host possible) | Managed on ObjectOS Cloud; any Postgres / MySQL / SQLite / Turso / Mongo, **yours**, on ObjectOS Enterprise |
 | Auth | Built in | Built in |
 | Generated APIs | PostgREST | ObjectQL-generated REST |
 | Admin UI | Console (basic) | Setup + Account |
 | RBAC | Row-level via Postgres RLS | RBAC + row-level + field-level, declarative |
 | Audit log | DIY | First-class |
-| Vendor lock-in | Their auth + their storage + their realtime | None — every layer is a plugin |
-| Best for | New apps that want a BaaS | Apps that need to own the runtime |
+| Vendor lock-in | Their auth + their storage + their realtime | The ontology exports to the open-source ObjectStack runtime; every layer is a plugin |
+| Best for | New apps that want a BaaS | Apps that need to own their definition — and, on Enterprise, their runtime |
 
 ### vs. Salesforce / NetSuite / ServiceNow
 
@@ -89,9 +103,9 @@ Common scenarios where it's a fit:
 |---|---|---|
 | Data model | Objects + fields + relationships | Same |
 | Permissions | Profile + permission sets + sharing rules + FLS | **Same vocabulary**, declarative TypeScript |
-| Per-user cost | $150-300/user/month | $0 |
+| Per-user cost | $150-300/user/month | Viewers and non-AI users free; you pay for AI seats only |
 | Customization | Apex + Lightning + flows | TypeScript + flows |
-| Where it runs | Their cloud, period | Your infrastructure |
+| Where it runs | Their cloud, period | ObjectOS Cloud, or your infrastructure (ObjectOS Enterprise) |
 | Time to "we own it" | Months of consultant work | One afternoon |
 | Best for | Sales-led companies who'll pay for the ecosystem | Teams who want the model without the tax |
 
@@ -114,25 +128,28 @@ Common scenarios where it's a fit:
   metadata. You can pair it with a custom front-end (the REST API is
   the same one the UI uses), but if you need a hand-crafted pixel-
   perfect UI, build it yourself and use ObjectOS as the backend.
-- **TypeScript-first.** Non-engineers won't author objects directly.
-  Salesforce admins are used to clicking through a UI builder; here,
-  it's `git`.
+- **TypeScript-first.** Non-engineers won't author objects directly in a
+  repo. Salesforce admins are used to clicking through a UI builder; here,
+  it's the AI Builder's diff or `git`.
 - **Newer than Salesforce.** Salesforce has 25 years of edge cases
   documented. We have a few hundred. The protocol is stable; the
   ecosystem is growing.
-- **Open-source foundation.** The underlying ObjectStack framework is
-  Apache-2.0 — use it in commercial products, embed it, modify it
-  privately, no copyleft surprises. ObjectOS (the commercial layer) and
-  support subscriptions are available separately.
+- **Open-source foundation, commercial product.** The underlying
+  ObjectStack stack is Apache-2.0 — use it in commercial products, embed
+  it, modify it privately, no copyleft surprises. ObjectOS itself is
+  commercial, in two editions, Cloud and Enterprise; there is no
+  open-source edition of ObjectOS.
 
 ## Reality check
 
-The smallest viable ObjectOS deployment is a single `pnpm dev` or a
-single Docker container with SQLite. The largest in production today
-serves tens of thousands of internal users across multiple regions with
-Postgres + S3 + Redis. Both are the same software.
+The smallest ObjectOS is a Free tenant on ObjectOS Cloud; the smallest
+self-managed one is a single-node container with SQLite. The largest in
+production today serves tens of thousands of internal users across
+multiple regions with Postgres + S3 + Redis. All of them run the same
+software.
 
-Start with `npx @objectstack/cli init my-app` and decide in 5 minutes.
-If it's not for you, you've burned 5 minutes.
+Start on [ObjectOS Cloud](https://www.objectos.ai), or boot the open
+ObjectStack runtime with `npx @objectstack/cli init my-app`, and decide in
+5 minutes. If it's not for you, you've burned 5 minutes.
 
 [**Try the Quickstart →**](/docs/quickstart)

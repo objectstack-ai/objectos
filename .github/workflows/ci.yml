@@ -146,6 +146,20 @@ jobs:
         shell: bash
         run: node .github/scripts/check-locale-surface.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # #171: one positioning constant (`apps/docs/lib/positioning.ts`, quoting
+      # the objectstack README), one brand spelling, and no stale sentence
+      # coming back. The brand and the positioning copies are read off the
+      # BUILT pages and `llms` bodies — the 2026-09-08 mandate is about shipped
+      # output, and a source scan would flag the code comment in `lib/i18n.ts`
+      # that the ruling on #171 accepted — so this sits after `build`, on the
+      # same footing as `Locale surface` above: not a turbo task, its
+      # `--self-test` under `pnpm turbo run test` below, `shell: bash` for the
+      # same pipefail reason. The stale-sentence rules read the English sources
+      # under `content/docs/`, so a finding names the `path:line` to open.
+      - name: Positioning
+        shell: bash
+        run: node .github/scripts/check-positioning.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       - run: pnpm turbo run test
 
       # Defect 2 of #269: the deploy used to run its own `pnpm install` and its

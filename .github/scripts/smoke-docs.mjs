@@ -146,10 +146,16 @@ const TARGET_DEFAULTS = {
  * table, so it exercises the part of the route tree a shallow check misses.
  * Both content pages predate the version currently serving (added 2026-05-24
  * and earlier), so this list is runnable against the pinned live version.
+ *
+ * The index H1 is `Introduction` since #171 gave `content/docs/index.mdx` a
+ * real title instead of the bare brand. A version from before that change
+ * renders `ObjectOS` there and reads as `h1-mismatch` against this list —
+ * which is what a rollback to such a version would show, and is correct: the
+ * list describes the site this tree ships, not every version ever served.
  */
 const TARGETS = [
-  { path: '/', finalPath: '/docs', h1: /^ObjectOS$/i },
-  { path: '/en/docs', finalPath: '/docs', h1: /^ObjectOS$/i },
+  { path: '/', finalPath: '/docs', h1: /^Introduction$/i },
+  { path: '/en/docs', finalPath: '/docs', h1: /^Introduction$/i },
   { path: '/docs/quickstart', finalPath: '/docs/quickstart', h1: /^Quickstart$/i },
   {
     path: '/docs/build/interface/views',
@@ -428,7 +434,7 @@ function goodPage({
   title = 'Quickstart | ObjectOS',
   h1 = 'Quickstart',
   links = 20,
-  prose = 'ObjectOS is a self-hosted runtime for building internal tools. '.repeat(20),
+  prose = 'The ontology is the software, and this fixture carries enough prose to clear the floor. '.repeat(20),
 } = {}) {
   const nav = Array.from({ length: links }, (_, i) => `<a href="/docs/page-${i}">Page ${i}</a>`).join('');
   return (
