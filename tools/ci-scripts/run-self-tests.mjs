@@ -40,11 +40,17 @@
  *     not listed → failure, naming the file. A new self-test joins the CI step
  *     by being written, not by someone remembering this list.
  *
- * Deliberately NOT run here: the GATE mode of `check-translations.mjs`, and
- * `check-translation-ownership.mjs` entirely. Running either for real would
- * make the required `build` job fail on the corpus's translation debt — which
- * is the `Translations` workflow's job, and reported-not-blocking there by
- * design. `check-translation-ownership.mjs` declares no self-test at all.
+ * Deliberately NOT run here: the GATE mode of `check-translations.mjs`, which
+ * would make the required `build` job fail on the corpus's translation debt —
+ * the `Translations` workflow's job, and reported-not-blocking there by design
+ * — and the gate mode of `check-translation-ownership.mjs`, which judges a pull
+ * request's diff and author, neither of which exists here.
+ *
+ * `check-translation-ownership.mjs` is listed for its `--self-test` only
+ * (#291). Its fixtures are change lists written to a temporary directory, so
+ * they never read git or `content/docs/`. They run the gate's real entry point
+ * with the variable set and unset, and prove that a human deletion of a locale
+ * sibling still passes while an addition or modification still fails.
  *
  * `check-translations.mjs` is listed for its `--self-test` only, on the same
  * footing as `check-locale-surface.mjs` below: the fixtures run against
@@ -96,6 +102,7 @@ const SELF_TESTED = [
   'check-deploy-version.mjs',
   'smoke-docs.mjs',
   'check-prerender-cache.mjs',
+  'check-translation-ownership.mjs',
 ];
 
 /**

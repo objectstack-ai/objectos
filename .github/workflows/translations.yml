@@ -49,6 +49,12 @@ jobs:
       # Humans write English, the translation account writes translations.
       # Enforced by PR author login, which cannot be forged; inert until the
       # repo variable TRANSLATION_BOT_LOGIN names the account.
+      #
+      # --name-status, because a human PR may DELETE a locale sibling (retiring
+      # or renaming a page, AGENTS.md step 3) and --name-only cannot tell a
+      # deletion from an edit (#291). --no-renames, so a rename is listed as
+      # the delete + add it is, and both paths reach the check. This list is
+      # the Ownership step's alone: Output below builds its own.
       - name: Ownership
         if: github.event_name == 'pull_request'
         env:
@@ -56,7 +62,7 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           TRANSLATION_BOT_LOGIN: ${{ vars.TRANSLATION_BOT_LOGIN }}
         run: |
-          git diff --name-only "origin/${BASE_REF}...HEAD" > changed.txt
+          git diff --name-status --no-renames "origin/${BASE_REF}...HEAD" > changed.txt
           node .github/scripts/check-translation-ownership.mjs \
             --actor "$PR_AUTHOR" --files changed.txt
 
