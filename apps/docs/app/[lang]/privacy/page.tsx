@@ -5,11 +5,11 @@ import { baseOptions } from '@/lib/layout.shared';
 const content = {
   en: {
     title: 'Privacy Policy',
-    updated: 'Last updated: May 27, 2026',
+    updated: 'Last updated: October 6, 2026',
     body: [
       {
         heading: 'Overview',
-        text: 'ObjectOS is a customer-hosted runtime. When you self-host ObjectOS inside your own infrastructure, ObjectStack AI LLC does not collect, store, or process the data flowing through your deployment. This policy describes the limited information we collect when you interact with our public web properties (objectstack.ai, docs.objectstack.ai) and optional cloud services.',
+        text: 'ObjectOS runs hosted (ObjectOS Cloud) or self-managed on your own infrastructure (ObjectOS Enterprise). When you run ObjectOS self-managed inside your own infrastructure, ObjectStack AI LLC does not collect, store, or process the data flowing through your deployment. The data handling of ObjectOS Cloud is governed by its service agreement, presented at the time you sign up. This policy describes the limited information we collect when you interact with our public web properties (objectstack.ai, docs.objectstack.ai) and optional cloud services.',
       },
       {
         heading: 'What we collect',
@@ -17,7 +17,7 @@ const content = {
       },
       {
         heading: 'What we do not collect',
-        text: 'We do not collect data that lives inside a self-hosted ObjectOS deployment. The runtime does not phone home, and your application records never leave the perimeter you operate.',
+        text: 'We do not collect data that lives inside a self-managed ObjectOS deployment (ObjectOS Enterprise) or inside a deployment of the open-source ObjectStack runtime, and your application records never leave the perimeter you operate. ObjectOS Self-Managed validates its license online (Enterprise air-gapped licenses are offline-validated); the open-source ObjectStack runtime has no telemetry, no license check, and no update ping.',
       },
       {
         heading: 'Contact',
@@ -28,11 +28,11 @@ const content = {
   },
   'zh-Hans': {
     title: '隐私政策',
-    updated: '最近更新：2026 年 5 月 27 日',
+    updated: '最近更新：2026 年 10 月 6 日',
     body: [
       {
         heading: '概述',
-        text: 'ObjectOS 是一款客户自托管的运行时。当你把 ObjectOS 部署在你自己的基础设施中时，ObjectStack AI LLC 不会收集、存储或处理流经你部署的数据。本政策仅描述你访问我们的公开网站（objectstack.ai、docs.objectstack.ai）及任选的云服务时，我们所收集的有限信息。',
+        text: 'ObjectOS 以托管方式运行（ObjectOS Cloud），或由你自管部署在自己的基础设施中（ObjectOS Enterprise）。当你在自己的基础设施中自管运行 ObjectOS 时，ObjectStack AI LLC 不会收集、存储或处理流经你部署的数据。ObjectOS Cloud 的数据处理，受其在你注册时呈现的服务协议约束。本政策仅描述你访问我们的公开网站（objectstack.ai、docs.objectstack.ai）及任选的云服务时，我们所收集的有限信息。',
       },
       {
         heading: '我们会收集什么',
@@ -40,7 +40,7 @@ const content = {
       },
       {
         heading: '我们不会收集什么',
-        text: '我们不会收集自托管 ObjectOS 部署内部的数据。运行时不会回传任何信息，你的应用数据始终留在你自己的边界内。',
+        text: '我们不会收集自管 ObjectOS 部署（ObjectOS Enterprise）内部的数据，也不会收集开源 ObjectStack 运行时部署内部的数据；你的应用数据始终留在你自己运营的边界内。ObjectOS Self-Managed 会在线校验许可证（Enterprise 隔离网络许可证为离线校验）；开源的 ObjectStack 运行时没有遥测、没有许可证校验、没有更新探活。',
       },
       {
         heading: '联系方式',

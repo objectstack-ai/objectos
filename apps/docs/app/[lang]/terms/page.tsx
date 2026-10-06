@@ -5,19 +5,19 @@ import { baseOptions } from '@/lib/layout.shared';
 const content = {
   en: {
     title: 'Terms of Service',
-    updated: 'Last updated: May 27, 2026',
+    updated: 'Last updated: October 6, 2026',
     body: [
       {
         heading: 'License',
-        text: 'ObjectOS is distributed under the Apache License 2.0. You may use, modify, and redistribute the software in accordance with that license. The "ObjectOS" name and logo are trademarks of ObjectStack AI LLC and are not granted under the Apache 2.0 license — see TRADEMARK.md in the repository.',
+        text: 'ObjectOS is a commercial product with no open-source edition. Your use of ObjectOS is governed by the license or service agreement of the edition you use — ObjectOS Cloud or ObjectOS Enterprise. The contents of the repository behind this documentation site (the documentation and the site code) are licensed under the Apache License 2.0, and the open-source ObjectStack framework and its runtime are licensed under the Apache License 2.0 in their own repository. The "ObjectOS" name and logo are trademarks of ObjectStack AI LLC and are not granted under the Apache 2.0 license — see TRADEMARK.md in the repository.',
       },
       {
         heading: 'Self-hosted deployments',
-        text: 'When you run ObjectOS inside your own infrastructure, you are solely responsible for the operation, security, availability, backups, and compliance of that deployment. ObjectStack AI LLC provides no warranty for self-hosted use beyond what the Apache License 2.0 specifies.',
+        text: 'When you run ObjectOS self-managed inside your own infrastructure (ObjectOS Enterprise), you are solely responsible for the operation, security, availability, backups, and compliance of that deployment, and ObjectStack AI LLC provides no warranty for it beyond what your commercial agreement specifies. When you self-host the open-source ObjectStack runtime instead, it is licensed under the Apache License 2.0, and ObjectStack AI LLC provides no warranty beyond what that license specifies.',
       },
       {
         heading: 'Hosted services',
-        text: 'Any hosted services operated by ObjectStack AI LLC (for example, the optional control plane or future SaaS offering) are subject to a separate service agreement that will be presented at the time you sign up. Nothing on this site constitutes such an agreement.',
+        text: 'Any hosted services operated by ObjectStack AI LLC (for example, ObjectOS Cloud) are subject to a separate service agreement that will be presented at the time you sign up. Nothing on this site constitutes such an agreement.',
       },
       {
         heading: 'Changes',
@@ -32,19 +32,19 @@ const content = {
   },
   'zh-Hans': {
     title: '服务条款',
-    updated: '最近更新：2026 年 5 月 27 日',
+    updated: '最近更新：2026 年 10 月 6 日',
     body: [
       {
         heading: '许可',
-        text: 'ObjectOS 以 Apache License 2.0 发布。你可以在该许可证下使用、修改与再分发本软件。"ObjectOS" 名称与 Logo 为 ObjectStack AI LLC 的商标，不在 Apache 2.0 的授权范围内 —— 详见仓库内的 TRADEMARK.md。',
+        text: 'ObjectOS 是商业产品，没有开源版本。你对 ObjectOS 的使用，受你所使用版本（ObjectOS Cloud 或 ObjectOS Enterprise）的许可协议或服务协议约束。本文档站点所在仓库的内容（文档与站点代码）以 Apache License 2.0 授权；开源的 ObjectStack 框架及其运行时在其自己的仓库中以 Apache License 2.0 授权。"ObjectOS" 名称与 Logo 为 ObjectStack AI LLC 的商标，不在 Apache 2.0 的授权范围内 —— 详见仓库内的 TRADEMARK.md。',
       },
       {
         heading: '自托管部署',
-        text: '当你在自己的基础设施中运行 ObjectOS 时，该部署的运行、安全、可用性、备份与合规性，完全由你自行负责。除 Apache License 2.0 明文约定外，ObjectStack AI LLC 对自托管使用不提供任何保证。',
+        text: '当你在自己的基础设施中自管运行 ObjectOS（ObjectOS Enterprise）时，该部署的运行、安全、可用性、备份与合规性，完全由你自行负责；除你的商业协议明文约定外，ObjectStack AI LLC 对该部署不提供任何保证。若你自托管的是开源的 ObjectStack 运行时，则其以 Apache License 2.0 授权，除该许可证明文约定外，ObjectStack AI LLC 不提供任何保证。',
       },
       {
         heading: '托管服务',
-        text: 'ObjectStack AI LLC 运营的任何托管服务（例如可选的控制台、或未来的 SaaS 服务），适用单独的服务协议，将在你注册时另行呈现。本网站的任何内容均不构成此类协议。',
+        text: 'ObjectStack AI LLC 运营的任何托管服务（例如 ObjectOS Cloud），适用单独的服务协议，将在你注册时另行呈现。本网站的任何内容均不构成此类协议。',
       },
       {
         heading: '条款变更',

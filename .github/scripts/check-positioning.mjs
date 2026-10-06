@@ -11,7 +11,8 @@
  *     bodies. It reads the build, not the sources: `lib/i18n.ts` keeps
  *     "ObjectStack Documentation" in a comment that ships nowhere, as #171 allowed.
  * (c) The stale sentences #171 removed stay out of the English `content/docs/`
- *     sources, outside code fences and MDX comments.
+ *     sources, outside code fences and MDX comments, and out of the `en` entry
+ *     of the two legal pages (`terms`, `privacy`), whose licence facts PR 2 fixed.
  *
  * Run it after `pnpm turbo run build`; a missing build fails. `--self-test` runs the fixtures.
  */
@@ -25,6 +26,7 @@ const INDEX = 'content/docs/index.mdx';
 const GLOSSARY = 'content/docs/resources/glossary.mdx';
 const BUILD = 'apps/docs/.next/server/app';
 const LOCALE_SIBLING = /\.[a-z]{2}(?:-[A-Z][a-z]{3})?\.mdx$/;
+const LEGAL = ['apps/docs/app/[lang]/terms/page.tsx', 'apps/docs/app/[lang]/privacy/page.tsx']; // (c) reads their `en` entry
 
 const MISSPELT = /\b(?:ObjectStack Protocol|ObjectStack Documentation|Object OS|objectOS|ObjectOs)\b/;
 const STALE = [
@@ -35,6 +37,9 @@ const STALE = [
   /No\s+licen[cs]e\s+server/, // capital N: "no seats, ..., no license server" is the open runtime and stays
   /[Ff]ully\s+self-contained/,
   /[Ii]nside\s+your\s+firewall/,
+  /[Dd]oes\s+not\s+phone\s+home/,
+  /ObjectOS\s+is\s+distributed\s+under\s+the\s+Apache/, // ObjectOS only: the open ObjectStack runtime is, and may say so
+  /[Cc]ustomer-hosted\s+runtime/,
 ];
 const OPEN_SOURCE = /Open[\s-]+source,\s+Apache-2\.0/i; // checked inside the glossary's ObjectOS entry only
 
@@ -90,11 +95,18 @@ const ruleB = (files) =>
     return m ? [`(b) ${path} spells the brand ${JSON.stringify(m[0])}; it is ObjectOS`] : [];
   });
 
+/** A legal page's `en:` entry with the rest blanked so a finding's line holds; undefined when it has none, which (c) reports. */
+function englishEntry(tsx) {
+  const m = /^  en: \{[\s\S]*?^  \},/m.exec(tsx ?? '');
+  return m ? tsx.slice(0, m.index).replace(/[^\n]/g, ' ') + m[0] + tsx.slice(m.index + m[0].length).replace(/[^\n]/g, ' ') : undefined;
+}
+
 /** (c) No English source brings a stale sentence back. Fences and comments are blanked, lines kept. */
 function ruleC(files) {
   const out = [];
   const blank = (m) => m.replace(/[^\n]/g, ' ');
   for (const [path, text] of files) {
+    if (text === undefined) { out.push(`(c) ${path} has no English text this gate can read, so it was not measured`); continue; }
     const prose = text.replace(/\{\/\*[\s\S]*?\*\/\}|^ {0,3}(`{3,}|~{3,})[\s\S]*?^ {0,3}\1/gm, blank);
     for (const re of STALE) {
       const m = re.exec(prose);
@@ -123,14 +135,14 @@ function gate() {
   const findings = [
     ...ruleA({ ts: read(CONSTANT), index: read(INDEX), notFound: read(`${BUILD}/_not-found.html`), llms: read(`${BUILD}/llms.txt.body`) }),
     ...ruleB(shipped.map((p) => [p, read(p)])),
-    ...ruleC(sources.map((p) => [p, read(p)])),
+    ...ruleC([...sources.map((p) => [p, read(p)]), ...LEGAL.map((p) => [p, englishEntry(read(p))])]),
   ];
   for (const f of findings) console.error(`  ${f}`);
   if (findings.length) {
     console.error(`\n✗ positioning: ${findings.length} finding(s). The rules are in this script's header.`);
     return 1;
   }
-  console.log(`✓ positioning: 3 copies equal the constant; the brand is right in ${pages.length} pages and 2 llms bodies; no stale sentence in ${sources.length} English sources`);
+  console.log(`✓ positioning: 3 copies equal the constant; the brand is right in ${pages.length} pages and 2 llms bodies; no stale sentence in ${sources.length} English sources and the en entry of ${LEGAL.length} legal pages`);
   return 0;
 }
 
@@ -149,6 +161,8 @@ const A_BAD = {
 const B_BAD = ['ObjectStack Protocol', 'ObjectStack Documentation', 'Object OS', 'objectOS', 'ObjectOs'];
 const C_OK = 'No seats, no license server. Does ObjectOS phone home?\n\n```\nObjectOS is a self-hosted runtime\n```\n\n{/* was: never phones home */}\n';
 const C_BAD = 'ObjectOS is a self-hosted\nruntime. It never phones home, does not call home, never calls home.\n\nNo license server. Fully\nself-contained, inside your firewall.\n';
+const LEGAL_OK = "const content = {\n  en: {\n    text: 'ObjectOS Cloud is hosted. The open-source ObjectStack runtime has no telemetry, no license check, and no update ping.',\n  },\n  'zh-Hans': {\n    text: 'customer-hosted runtime; does not phone home',\n  },\n};\n";
+const LEGAL_BAD = "  en: {\n    text: 'ObjectOS is distributed under the Apache License 2.0. ObjectOS is a customer-hosted\nruntime that does not phone home.',\n  },\n";
 const glossary = (entry) => [GLOSSARY, `### ObjectOS\n\n${entry}\n\n### ObjectStack\n\nOpen source, Apache-2.0.\n`];
 const CASES = [
   ['(a) the three copies equal the constant', () => ruleA(A_OK), 0],
@@ -157,6 +171,8 @@ const CASES = [
   ['(b) the five wrong spellings, one file each', () => ruleB(B_BAD.map((s, i) => [`${i}.html`, `<p>${s} boots.</p>`])), 5],
   ['(c) list form, a question, a fenced quote, a comment', () => ruleC([glossary('Commercial. Not open source.'), ['a.mdx', C_OK]]), 0],
   ['(c) the eight stale sentences, three wrapped', () => ruleC([glossary('The runtime. Open\nsource, Apache-2.0.'), ['a.mdx', C_BAD]]), 8],
+  ['(c) a legal page: a true en entry; its stale zh-Hans entry is not read', () => ruleC([glossary('Commercial.'), [LEGAL[0], englishEntry(LEGAL_OK)]]), 0],
+  ['(c) a legal page: the three licence sentences, one wrapped; a page with no en entry', () => ruleC([glossary('Commercial.'), [LEGAL[0], englishEntry(LEGAL_BAD)], [LEGAL[1], englishEntry('export default 1;\n')]]), 4],
 ];
 
 function selfTest() {
