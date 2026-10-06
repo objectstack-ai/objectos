@@ -104,7 +104,7 @@ node .github/scripts/check-translations.mjs --worklist  # what the next pass wil
 
 From `apps/docs/`:
 - `npm run dev` — dev server on http://localhost:3000
-- `npm run type-check` — `fumadocs-mdx && next typegen && tsc --noEmit`
+- `npm run type-check` — `next typegen && fumadocs-mdx && tsc --noEmit`. ⛔ Keep this order (#311): `next typegen` can exit mid-way through the un-awaited `.source/*` rewrite that `createMDX()` in `next.config.mjs` starts, leaving a truncated `.source/server.ts` that `tsc` rejects (TS2306), so the awaited `fumadocs-mdx` CLI goes after it as the last writer.
 - `npm run build` — production build
 
 ## Turbo caching and content changes
