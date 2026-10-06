@@ -66,9 +66,9 @@ pnpm --filter @objectos/docs gen:zh-hant --check  # what CI runs
   every PR and fails on any byte of drift.
 - Retiring a page or its Simplified sibling takes the Traditional file with it —
   re-run the generator, which prunes what it no longer produces.
-- Coverage tracks Simplified exactly (62 of 79 pages today). The 17 without a
-  Simplified sibling have no Traditional one either, so they are never
-  advertised in the sitemap or an hreflang cluster — they simply render English.
+- Coverage tracks Simplified exactly. A page without a Simplified sibling has no
+  Traditional one either, so it is never advertised in the sitemap or an
+  hreflang cluster — it simply renders English.
 - Committed output, not on-the-fly conversion, because `lib/seo.ts` tells a real
   translation from an English fallback by the presence of a locale-suffixed
   file. A conversion done while rendering produces no such file, and the locale
