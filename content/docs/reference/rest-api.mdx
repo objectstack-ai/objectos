@@ -43,8 +43,10 @@ any route code:
   object from the REST surface entirely. Requests to its routes 404.
 - **`apiMethods`** (optional whitelist) — when set, only the listed operations
   are reachable; any other operation is rejected at the REST layer. Allowed
-  values: `get`, `list`, `create`, `update`, `delete`, `upsert`, `bulk`,
-  `aggregate`, `history`, `search`, `restore`, `purge`, `import`, `export`.
+  values: `get`, `list`, `create`, `update`, `delete`, `bulk`. The eight
+  older values — `upsert`, `aggregate`, `history`, `search`, `restore`,
+  `purge`, `import`, `export` — are retired: a declared one is stripped at
+  parse, with a warning that names its replacement.
 
 ```ts
 import { ObjectSchema } from '@objectstack/spec/data';
