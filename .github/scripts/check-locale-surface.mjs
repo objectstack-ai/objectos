@@ -171,6 +171,55 @@
  * for the reason given above. A code sample that one day needs a literal `{/*`
  * is a reason to change this rule on purpose.
  *
+ * ## The built docs pages: chrome names and page-tree languages (#308)
+ *
+ * #298 and #305 made two promises about every localized page that nothing
+ * checked afterwards. This gate now reads them off the prerendered HTML under
+ * `apps/docs/.next/server/app/<locale>/`, `<script>` bodies (the RSC payload)
+ * skipped, so it measures markup and not data:
+ *
+ *   - `english-chrome-name`: no accessible name on a localized page is one of
+ *     the English site's chrome names, unless the element sits inside
+ *     `lang="en"`. A name is an `aria-label`, `title`, `alt` or `placeholder`
+ *     value, an `svg` `<title>`, or the text of a `.sr-only` element (where
+ *     fumadocs 16.10 and later put the names 16.8.12 keeps in `aria-label`).
+ *     The English set is read off the built English pages, minus
+ *     `LANGUAGE_NEUTRAL_NAMES`, so a name fumadocs adds in a later release is
+ *     covered the day it ships. Measured on the pages `main` built at cec227a:
+ *     1067 in `zh-Hans` and `zh-Hant` and 821 in each other locale, all of
+ *     them fumadocs' own names (#305's 1375-1387 per locale also counted the
+ *     ones inside a fallback page's `lang="en"` body, which this rule
+ *     rightly does not); on #305's tree, 0.
+ *   - `untranslated-entry-unmarked`: a page-tree entry (a sidebar item, a
+ *     previous/next card) for a page the locale has no source file for shows
+ *     the English title, so its text must resolve to `lang="en"`. On cec227a:
+ *     687 such entries in `zh-Hans` and `zh-Hant` and 920 in each other
+ *     locale, none marked; on #305's tree, all of them marked.
+ *   - `translated-entry-marked-english`: the same entry for a page the locale
+ *     DOES have must not resolve to `en`. Without this half, marking every
+ *     entry English would pass the rule above.
+ *
+ * Folder names (a sidebar folder's button, the breadcrumb's crumbs) are not
+ * links and are not read: every folder has a `meta.<locale>.json` title
+ * today, so none is English.
+ *
+ * The oracle for "untranslated" is the content tree `readDocsPages` already
+ * builds, not the app's own detection, so the gate cannot agree with the app
+ * by construction. An entry is a link to `/<locale>/docs/...` outside the page
+ * body (`.prose`) whose text contains the target page's title in the language
+ * it should be shown in. The title test is what keeps the header logo, whose
+ * text is the brand and which links to the docs home, from reading as an
+ * entry; the body exclusion keeps a translated page's own prose links, which
+ * are content in the page's language, from reading as unmarked entries.
+ *
+ * Neither rule may pass over nothing: every page with an English source must
+ * have a built HTML file in every locale (`docs-page-html-missing`); the
+ * English pages must yield at least one chrome name (`no-chrome-names`); and a
+ * locale whose content tree has pages of a kind must show at least one entry
+ * of that kind (`no-tree-entries`), since each page's own sidebar entry is on
+ * its own page. A live control also feeds both #305 shapes, built from the
+ * real oracle values, through the same reader on every run.
+ *
  * ## Usage
  *
  *   node .github/scripts/check-locale-surface.mjs              # the gate (needs a build)
@@ -204,6 +253,12 @@ const RULES = [
   'mdx-comment',
   'no-link-targets',
   'llms-page-body-missing',
+  'english-chrome-name',
+  'untranslated-entry-unmarked',
+  'translated-entry-marked-english',
+  'docs-page-html-missing',
+  'no-chrome-names',
+  'no-tree-entries',
 ];
 
 /**
@@ -986,6 +1041,415 @@ function fumadocsPin(root) {
   return { pinned: [...pinned], installed };
 }
 
+/* ------------------------------------------- built docs pages (#308) -- */
+
+/** Where Next writes the prerendered HTML: `<locale>/docs/<slug>.html`. */
+const PAGES_DIR = 'apps/docs/.next/server/app';
+
+/** Attributes whose value is (part of) an element's accessible name. */
+const NAME_ATTRIBUTES = ['aria-label', 'title', 'alt', 'placeholder'];
+
+/**
+ * Names that are the same word in every language: a proper noun and a host
+ * name. They appear on the English pages and, rightly, verbatim on every
+ * other locale's. Anything added here is a claim that the string needs no
+ * translation; a translation that happens to equal its English source is the
+ * other reason to add one, and the finding says so.
+ */
+const LANGUAGE_NEUTRAL_NAMES = new Set(['GitHub', 'www.objectos.ai']);
+
+const VOID_ELEMENTS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr',
+]);
+
+/** Elements whose content is not markup: the RSC payload lives in `<script>`. */
+const SKIPPED_ELEMENTS = new Set(['script', 'style', 'template']);
+
+const decodeHtml = (s) =>
+  s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#([0-9]+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, '\u00a0')
+    .replace(/&amp;/g, '&');
+
+const squash = (s) => s.replace(/\s+/g, ' ').trim();
+
+/** Text or a double-quoted attribute value, made safe to put back into HTML. */
+const escapeHtml = (s) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** `en` for `en`, `en-US`; `zh` for `zh-Hans`. Undefined stays undefined. */
+const primaryLanguage = (tag) => tag?.toLowerCase().split('-')[0];
+
+const TAG = /<!--[\s\S]*?-->|<(\/?)([A-Za-z][A-Za-z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+const ATTRIBUTE = /([^\s"'=<>/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+
+function readAttributes(source) {
+  const attributes = new Map();
+  for (const m of source.matchAll(ATTRIBUTE)) {
+    attributes.set(m[1].toLowerCase(), decodeHtml(m[2] ?? m[3] ?? m[4] ?? ''));
+  }
+  return attributes;
+}
+
+/**
+ * The two things this gate reads off one built page, with the language each
+ * resolves to (the nearest `lang`, as a screen reader would apply it):
+ *
+ *   - `names`: every accessible name — the `NAME_ATTRIBUTES` values, `svg`
+ *     `<title>` text and `.sr-only` text;
+ *   - `links`: every `<a href>`, its text nodes, and whether it sits inside
+ *     the page body (`.prose`, fumadocs' `DocsBody`).
+ *
+ * Both leave out anything under `aria-hidden="true"`, which nobody hears.
+ *
+ * A small tag scanner rather than a parser: this gate takes no dependencies,
+ * and React's server output is regular — every attribute quoted, every
+ * non-void element closed. A stray close tag pops to its opener or is
+ * ignored. The content of `script`, `style` and `template` is skipped whole,
+ * which is what keeps the RSC payload, a JSON copy of every string on the
+ * page, from reading as markup.
+ */
+function readHtml(text) {
+  const names = [];
+  const links = [];
+  const stack = [{ tag: '#document', lang: undefined, content: false, hidden: false, srOnly: false, svg: false, link: null }];
+  const top = () => stack[stack.length - 1];
+
+  const addText = (raw) => {
+    const value = squash(decodeHtml(raw));
+    if (!value) return;
+    const frame = top();
+    if (frame.hidden) return;
+    if (frame.link) frame.link.texts.push({ text: value, lang: frame.lang });
+    if (frame.srOnly) names.push({ value, lang: frame.lang, where: 'sr-only text' });
+    else if (frame.svg && frame.tag === 'title') names.push({ value, lang: frame.lang, where: 'svg title' });
+  };
+
+  let last = 0;
+  TAG.lastIndex = 0;
+  for (let m = TAG.exec(text); m; m = TAG.exec(text)) {
+    addText(text.slice(last, m.index));
+    last = TAG.lastIndex;
+    if (m[0].startsWith('<!--')) continue;
+
+    const closing = m[1] === '/';
+    const tag = m[2].toLowerCase();
+
+    if (closing) {
+      const at = stack.findLastIndex((frame) => frame.tag === tag);
+      if (at > 0) stack.length = at;
+      continue;
+    }
+
+    if (SKIPPED_ELEMENTS.has(tag)) {
+      const close = new RegExp(`</${tag}`, 'gi');
+      close.lastIndex = TAG.lastIndex;
+      const end = close.exec(text)?.index ?? text.length;
+      last = end;
+      TAG.lastIndex = end;
+      continue;
+    }
+
+    const attributes = readAttributes(m[3]);
+    const parent = top();
+    const classes = (attributes.get('class') ?? '').split(/\s+/);
+    const frame = {
+      tag,
+      lang: attributes.has('lang') ? attributes.get('lang') : parent.lang,
+      content: parent.content || classes.includes('prose'),
+      hidden: parent.hidden || attributes.get('aria-hidden') === 'true',
+      srOnly: parent.srOnly || classes.includes('sr-only'),
+      svg: parent.svg || tag === 'svg',
+      link: parent.link,
+    };
+
+    if (!frame.hidden) {
+      for (const name of NAME_ATTRIBUTES) {
+        const value = squash(attributes.get(name) ?? '');
+        if (value) names.push({ value, lang: frame.lang, where: name });
+      }
+    }
+    if (tag === 'a' && attributes.has('href')) {
+      frame.link = { href: attributes.get('href'), content: frame.content, texts: [] };
+      links.push(frame.link);
+    }
+
+    if (!VOID_ELEMENTS.has(tag) && !m[3].trimEnd().endsWith('/')) stack.push(frame);
+  }
+  addText(text.slice(last));
+
+  return { names, links };
+}
+
+/** Every `.html` file under `dir`, keyed by its path relative to `dir` without `.html`. */
+function readHtmlFiles(dir, base = dir, out = new Map()) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    if (entry.isDirectory()) readHtmlFiles(p, base, out);
+    else if (entry.isFile() && entry.name.endsWith('.html')) {
+      out.set(relative(base, p).split('\\').join('/').slice(0, -'.html'.length), p);
+    }
+  }
+  return out;
+}
+
+/**
+ * The built pages of every locale, read: `<locale>.html` and everything under
+ * `<locale>/`. `null` when the build directory does not exist at all.
+ */
+function collectPages(root, languages, read = readHtml) {
+  const dir = join(root, PAGES_DIR);
+  if (!existsSync(dir)) return null;
+  const pages = new Map();
+  for (const lang of languages) {
+    const own = new Map();
+    const index = join(dir, `${lang}.html`);
+    if (existsSync(index)) own.set(lang, { path: index, ...read(readFileSync(index, 'utf8')) });
+    const sub = join(dir, lang);
+    if (existsSync(sub)) {
+      for (const [page, path] of readHtmlFiles(sub)) {
+        own.set(`${lang}/${page}`, { path, ...read(readFileSync(path, 'utf8')) });
+      }
+    }
+    pages.set(lang, own);
+  }
+  return pages;
+}
+
+/** The logical docs path a link targets in `lang`, or null: `/de/docs/build/data#x` → `docs/build/data`. */
+function docsTarget(href, lang, defaultLanguage) {
+  const prefix = lang === defaultLanguage ? '' : `/${lang}`;
+  if (!href.startsWith(`${prefix}/docs`)) return null;
+  const m = /^\/docs(?:\/([^?#]*?))?\/?(?:[?#].*)?$/.exec(href.slice(prefix.length));
+  return m ? (m[1] ? `docs/${m[1]}` : 'docs') : null;
+}
+
+/**
+ * The English site's chrome names: every accessible name on the built English
+ * pages, minus `LANGUAGE_NEUTRAL_NAMES`, each mapped to how many times those
+ * pages carry it, which is printed.
+ */
+function englishChromeNames(pages, defaultLanguage) {
+  const chrome = new Map();
+  for (const [, page] of pages.get(defaultLanguage) ?? []) {
+    for (const { value } of page.names) {
+      if (!LANGUAGE_NEUTRAL_NAMES.has(value)) chrome.set(value, (chrome.get(value) ?? 0) + 1);
+    }
+  }
+  return chrome;
+}
+
+/**
+ * Findings for one locale's built pages, and its tallies. Shared by the gate,
+ * the live control and the self-test.
+ */
+function pageFindings({ surface, lang, pages, chrome }) {
+  const { defaultLanguage } = surface;
+  const findings = [];
+  const t = { pages: 0, names: 0, english: 0, untranslated: 0, unmarked: 0, translated: 0, markedEnglish: 0 };
+
+  for (const [id, page] of pages) {
+    t.pages += 1;
+    const where = page.path === undefined ? id : rel(page.path);
+
+    for (const name of page.names) {
+      t.names += 1;
+      if (!chrome.has(name.value) || primaryLanguage(name.lang) === primaryLanguage(defaultLanguage)) continue;
+      t.english += 1;
+      findings.push({
+        rule: 'english-chrome-name',
+        artifact: 'docs pages',
+        detail:
+          `${where}: ${name.where} "${name.value}" is an English chrome name (×${chrome.get(name.value)} on ` +
+          `the English pages) in a page whose language there is "${name.lang ?? 'none'}" — it is read to a ` +
+          `${lang} reader in English with ${lang} pronunciation. Localize it through ` +
+          '`apps/docs/lib/ui-text`; if the string is really the same in every language, add it to ' +
+          '`LANGUAGE_NEUTRAL_NAMES` and say why',
+      });
+    }
+
+    if (lang === defaultLanguage) continue;
+    for (const link of page.links) {
+      if (link.content) continue;
+      const path = docsTarget(link.href, lang, defaultLanguage);
+      const target = path && surface.pages.get(path);
+      if (!target || !target.locales.has(defaultLanguage)) continue;
+
+      const translated = target.locales.has(lang);
+      const title = target.titles.get(translated ? lang : defaultLanguage);
+      // Joined with a space: each text node arrives trimmed, and "Why" + "ObjectOS"
+      // has to read as "Why ObjectOS" again.
+      if (!title || !squash(link.texts.map((x) => x.text).join(' ')).includes(squash(title))) continue;
+
+      const english = (x) => primaryLanguage(x.lang) === primaryLanguage(defaultLanguage);
+      if (translated) {
+        t.translated += 1;
+        const wrong = link.texts.filter(english);
+        if (wrong.length === 0) continue;
+        t.markedEnglish += 1;
+        findings.push({
+          rule: 'translated-entry-marked-english',
+          artifact: 'docs pages',
+          detail:
+            `${where}: the entry for ${path} ("${title}") is marked lang="${defaultLanguage}", but ${lang} ` +
+            `has its own page (${target.files.get(lang)}) — a ${lang} title is being read as English`,
+        });
+      } else {
+        t.untranslated += 1;
+        const wrong = link.texts.filter((x) => !english(x));
+        if (wrong.length === 0) continue;
+        t.unmarked += 1;
+        findings.push({
+          rule: 'untranslated-entry-unmarked',
+          artifact: 'docs pages',
+          detail:
+            `${where}: the entry for ${path} shows its English title "${title}" (${lang} has no ` +
+            `source file for it) but ${wrong.map((x) => `"${x.text}"`).join(', ')} resolves to ` +
+            `lang="${wrong[0].lang ?? 'none'}" — mark it lang="${defaultLanguage}" (the page-tree ` +
+            'transform in `app/[lang]/docs/layout.tsx`)',
+        });
+      }
+    }
+  }
+
+  return { findings, tally: t };
+}
+
+/**
+ * The live control: the two #305 shapes, built from THIS run's oracle values
+ * — a real English chrome name on a button, and a real untranslated page's
+ * English title in an unmarked sidebar link — read through `read` and judged
+ * by `pageFindings`, before the real pages are. Both rules must fire, or the
+ * run's green over the real pages is a claim rather than a measurement.
+ */
+function pagesControl(surface, chrome, read = readHtml) {
+  const lang = surface.languages.find((l) => l !== surface.defaultLanguage);
+  const untranslated = [...surface.pages].find(
+    ([, p]) => p.locales.has(surface.defaultLanguage) && !p.locales.has(lang) && p.titles.has(surface.defaultLanguage),
+  );
+  const name = chrome.keys().next().value;
+  if (!lang || !untranslated || name === undefined) {
+    return {
+      findings: [],
+      line: 'Live negative control: not constructible on this tree (no second locale, no untranslated page, or no chrome name); the rules above say why.',
+    };
+  }
+
+  const [path, page] = untranslated;
+  const html =
+    `<!DOCTYPE html><html lang="${lang}"><body><aside id="nd-sidebar">` +
+    `<button aria-label="${escapeHtml(name)}"></button>` +
+    `<a href="/${lang}/${path}">${escapeHtml(page.titles.get(surface.defaultLanguage))}</a>` +
+    '</aside></body></html>';
+  const { findings } = pageFindings({
+    surface,
+    lang,
+    pages: new Map([['(negative control)', read(html)]]),
+    chrome,
+  });
+  const fired = new Set(findings.map((f) => f.rule));
+  const silent = ['english-chrome-name', 'untranslated-entry-unmarked'].filter((r) => !fired.has(r));
+  if (silent.length === 0) {
+    return {
+      findings: [],
+      line:
+        `Live negative control: a ${lang} page with the English name "${name}" on a button and ` +
+        `${path}'s English title unmarked in its sidebar fired \`english-chrome-name\` and ` +
+        '`untranslated-entry-unmarked` — the scan below can go red, so its result is a measurement.',
+    };
+  }
+  return {
+    findings: [
+      {
+        rule: CONTROL_RULE,
+        detail:
+          `the two #305 shapes were fed through the built-page scan and ${silent.join(', ')} stayed ` +
+          'silent — this scan cannot currently tell a marked page from an unmarked one, so its result ' +
+          'on the real pages means nothing',
+      },
+    ],
+    line: `Live negative control: FAILED — ${silent.join(', ')} did not fire on the #305 shapes.`,
+  };
+}
+
+/** Every rule over the built pages, plus the guards that keep it from passing over nothing. */
+function builtPages({ surface, pages }) {
+  const { languages, defaultLanguage } = surface;
+  const findings = [];
+  const tally = new Map();
+
+  // No page in any locale is one finding, not one per page: the build did
+  // not run (or not this far), which `artifact-missing` already names.
+  if (!pages || [...pages.values()].every((own) => own.size === 0)) {
+    findings.push({
+      rule: 'artifact-missing',
+      artifact: 'docs pages',
+      detail:
+        `docs pages: no built page under ${PAGES_DIR}/<locale>/ — run \`pnpm turbo run build\` first. ` +
+        'Not finding them is a failure, never a skip.',
+    });
+    return { findings, tally, chrome: new Map() };
+  }
+
+  for (const [path, page] of surface.pages) {
+    if (!page.locales.has(defaultLanguage)) continue;
+    for (const lang of languages) {
+      if (!pages.get(lang).has(`${lang}/${path}`)) {
+        findings.push({
+          rule: 'docs-page-html-missing',
+          artifact: 'docs pages',
+          detail:
+            `${lang}: ${path} has an English source (${page.files.get(defaultLanguage)}) but no built ` +
+            `page at ${PAGES_DIR}/${lang}/${path}.html — that page's chrome and page tree were never read`,
+        });
+      }
+    }
+  }
+
+  const chrome = englishChromeNames(pages, defaultLanguage);
+  if (chrome.size === 0) {
+    findings.push({
+      rule: 'no-chrome-names',
+      artifact: 'docs pages',
+      detail:
+        `no accessible name could be read off the ${pages.get(defaultLanguage).size} built ` +
+        `${defaultLanguage} page(s), so \`english-chrome-name\` compared nothing — either the reader ` +
+        'went blind or every name is in `LANGUAGE_NEUTRAL_NAMES`',
+    });
+  }
+
+  for (const lang of languages) {
+    const result = pageFindings({ surface, lang, pages: pages.get(lang), chrome });
+    findings.push(...result.findings);
+    tally.set(lang, result.tally);
+    if (lang === defaultLanguage) continue;
+
+    const english = [...surface.pages.values()].filter((p) => p.locales.has(defaultLanguage));
+    for (const [kind, want, got] of [
+      ['untranslated', english.filter((p) => !p.locales.has(lang)).length, result.tally.untranslated],
+      ['translated', english.filter((p) => p.locales.has(lang)).length, result.tally.translated],
+    ]) {
+      if (want > 0 && got === 0) {
+        findings.push({
+          rule: 'no-tree-entries',
+          artifact: 'docs pages',
+          detail:
+            `${lang}: the content tree has ${want} ${kind} page(s), each with an entry in its own ` +
+            `sidebar, but no ${kind} page-tree entry could be recognised in ${result.tally.pages} built ` +
+            'page(s) — the entry rules measured nothing for this kind',
+        });
+      }
+    }
+  }
+
+  return { findings, tally, chrome };
+}
+
 /* ---------------------------------------------------------------- collect -- */
 
 function collect(root) {
@@ -1013,12 +1477,16 @@ function collect(root) {
       : null,
   };
 
-  return { surface, artifacts, bodies };
+  // Read as they are found and kept only as names and links: the HTML is
+  // most of a hundred megabytes, the extract a small fraction of it.
+  const html = collectPages(root, languages);
+
+  return { surface, artifacts, bodies, html };
 }
 
 /* --------------------------------------------------------------- evaluate -- */
 
-function evaluate({ surface, artifacts, bodies }) {
+function evaluate({ surface, artifacts, bodies, html }) {
   const findings = [];
   const { defaultLanguage, languages } = surface;
 
@@ -1148,6 +1616,9 @@ function evaluate({ surface, artifacts, bodies }) {
   const encoding = bodyEncoding({ surface, bodies });
   findings.push(...encoding.findings);
 
+  const built = builtPages({ surface, pages: html });
+  findings.push(...built.findings);
+
   // Per-locale docs composition, for the summary. Reported whether or not the
   // run is green: a green with the counts printed is a measurement, a bare
   // green is a claim.
@@ -1158,7 +1629,7 @@ function evaluate({ surface, artifacts, bodies }) {
     for (const lang of languages) if (page.locales.has(lang)) perLocale[lang] += 1;
   }
 
-  return { findings, perLocale, encoding };
+  return { findings, perLocale, encoding, built };
 }
 
 /* ------------------------------------------------------------------- gate -- */
@@ -1168,13 +1639,17 @@ function gate() {
   // the objects it was handed, so re-collecting would print a table of dashes
   // over a run that really did measure something.
   const collected = collect(ROOT);
-  const { findings, perLocale, encoding } = evaluate(collected);
+  const { findings, perLocale, encoding, built } = evaluate(collected);
   const { surface, artifacts } = collected;
 
   // Run before the real bodies are judged, and its findings join theirs: a
   // scan that cannot go red on the #197 shape fails this run by itself.
   const control = encodingControl();
   findings.push(...control.findings);
+
+  // The same for the built pages and the #305 shapes (#308).
+  const pagesLive = pagesControl(surface, built.chrome);
+  findings.push(...pagesLive.findings);
 
   const docsTotal = Object.values(perLocale).reduce((a, b) => a + b, 0);
   const logical = [...surface.pages.values()].filter((p) =>
@@ -1248,12 +1723,38 @@ function gate() {
   );
   console.log('');
 
+  console.log('## Built pages: chrome names and page-tree languages\n');
+  console.log(`${pagesLive.line}\n`);
+  console.log(
+    `English chrome names read off the built \`${surface.defaultLanguage}\` pages: ` +
+      ([...built.chrome].map(([name, n]) => `"${name}" ×${n}`).join(', ') || 'none') +
+      `. Language-neutral, not compared: ${[...LANGUAGE_NEUTRAL_NAMES].map((n) => `"${n}"`).join(', ')}.\n`,
+  );
+  console.log(
+    '| locale | pages read | names read | English chrome names | untranslated entries | of them unmarked | translated entries | of them marked English |',
+  );
+  console.log('|---|---:|---:|---:|---:|---:|---:|---:|');
+  for (const lang of surface.languages) {
+    const t = built.tally.get(lang);
+    const tree = lang === surface.defaultLanguage;
+    console.log(
+      t
+        ? `| \`${lang}\` | ${t.pages} | ${t.names} | ${tree ? 'n/a (the oracle)' : t.english} | ` +
+            `${tree ? 'n/a' : t.untranslated} | ${tree ? 'n/a' : t.unmarked} | ${tree ? 'n/a' : t.translated} | ` +
+            `${tree ? 'n/a' : t.markedEnglish} |`
+        : `| \`${lang}\` | NOT MEASURED — not built | — | — | — | — | — | — |`,
+    );
+  }
+  console.log('');
+
   if (findings.length === 0) {
     console.log(
       '✓ every advertised URL has a source file and every source file is advertised; both ' +
         `\`llms\` bodies carry every ${surface.defaultLanguage}-only page title and none from ` +
-        'the other locales; no page slug in the content tree contains a dot; and neither ' +
-        '`llms` consumer carries a numeric character reference, a malformed link target or an MDX comment',
+        'the other locales; no page slug in the content tree contains a dot; neither ' +
+        '`llms` consumer carries a numeric character reference, a malformed link target or an MDX comment; ' +
+        `and no built page outside \`${surface.defaultLanguage}\` names a control in English, ` +
+        'shows an untranslated page-tree entry without lang="en", or marks a translated one English',
     );
     return;
   }
@@ -1359,6 +1860,65 @@ const llmsFull = (titles) =>
 
 /** One per-page `llms.mdx` body: what `getLLMText` returns for a single page. */
 const llmsPage = (title) => `# ${title}\n\nBody of ${title}, see [the overview](/docs).\n`;
+
+/** Each fixture locale's word for the one chrome name the built-page fixtures carry. */
+const FIXTURE_CHROME = { en: 'Open Search', 'zh-Hans': '打开搜索', ja: '検索を開く' };
+
+/**
+ * The built pages a correct build of `dir`'s content produces (#308): one per
+ * page with an English source, in every locale, keyed `<locale>/<path>` like
+ * `collectPages`. Each carries what the real pages carry and the rules must
+ * get right, all of it clean:
+ *
+ *   - a sidebar listing every page, untranslated entries wrapped in
+ *     `<span lang="en">`, translated ones in the locale;
+ *   - the header logo linking to the docs home with the brand as its text,
+ *     which is no page's title, so it is not an entry;
+ *   - a button named in the page's locale, and a "GitHub" link
+ *     (`LANGUAGE_NEUTRAL_NAMES`);
+ *   - the body, marked `lang="en"` on a fallback;
+ *   - an RSC-payload `<script>` holding the English name as a string of
+ *     markup, which a reader that did not skip scripts would take for a
+ *     button named in English on every localized page.
+ */
+function fixturePages(dir, { languages, defaultLanguage }) {
+  const english = [...readDocsPages(dir, { languages, defaultLanguage }).pages].filter(([, p]) =>
+    p.locales.has(defaultLanguage),
+  );
+  const files = {};
+  for (const lang of languages) {
+    const prefix = lang === defaultLanguage ? '' : `/${lang}`;
+    const titleIn = (p) => escapeHtml(p.titles.get(p.locales.has(lang) ? lang : defaultLanguage) ?? '');
+    const sidebar = english
+      .map(([path, p]) => {
+        const title = titleIn(p);
+        const text = p.locales.has(lang) ? title : `<span lang="${defaultLanguage}">${title}</span>`;
+        return `<a data-active="false" href="${prefix}/${path}">${text}</a>`;
+      })
+      .join('');
+    for (const [path, p] of english) {
+      const marked = p.locales.has(lang) ? '' : ` lang="${defaultLanguage}"`;
+      files[`${lang}/${path}`] =
+        `<!DOCTYPE html><html lang="${lang}"><head><title>${titleIn(p)}</title></head><body>` +
+        '<aside id="nd-sidebar">' +
+        `<a href="${prefix}/docs"><img alt="" aria-hidden="true" src="/logo.svg"/>ObjectOS</a>` +
+        `<button type="button" aria-label="${FIXTURE_CHROME[lang]}"><svg aria-hidden="true"></svg></button>` +
+        '<a href="https://github.com/objectstack-ai/objectos" aria-label="GitHub"><svg aria-hidden="true"></svg></a>' +
+        `${sidebar}</aside>` +
+        `<article id="nd-page" role="main"><h1${marked}>${titleIn(p)}</h1>` +
+        `<div class="prose"${marked}><p>Body.</p></div></article>` +
+        '<script>self.__next_f.push([1,"<button aria-label=\\"Open Search\\"></button>"])</script>' +
+        '</body></html>';
+    }
+  }
+  return files;
+}
+
+/** Replace exactly one occurrence, or throw: a fixture edit that misses is a case that tests nothing. */
+const once = (html, from, to) => {
+  if (html.split(from).length !== 2) throw new Error(`fixture anchor not found exactly once: ${from}`);
+  return html.replace(from, () => to);
+};
 
 /** Artifact paths by id — never by index, so adding an artifact cannot repoint one. */
 const fileOf = (id) => ARTIFACTS.find((a) => a.id === id).file;
@@ -1632,6 +2192,106 @@ const CASES = [
       'and [Foo](https://en.wikipedia.org/wiki/Foo_(bar)); issue &#197 is prose; `/api/v1/data/*` is a path.\n',
     expect: [],
   },
+
+  /* ---------------------------------------------- built pages (#308) -- */
+  // `fixturePages` says what a clean page carries; the clean baseline above
+  // is also the green case for the logo link, the neutral "GitHub" name and
+  // the English name inside the RSC-payload script.
+
+  {
+    // #305's first shape, as main served it on every locale page: a fumadocs
+    // control still named in English inside <html lang="ja">.
+    name: 'a localized page names a control in English (the #305 shape)',
+    html: (f) => ({
+      ...f,
+      'ja/docs/guide': once(f['ja/docs/guide'], 'aria-label="検索を開く"', 'aria-label="Open Search"'),
+    }),
+    expect: ['english-chrome-name'],
+  },
+  {
+    // fumadocs 16.10 and later carry these names as `.sr-only` text rather
+    // than `aria-label`; an upgrade must not move them out of sight.
+    name: 'an English name in screen-reader-only text',
+    html: (f) => ({
+      ...f,
+      'zh-Hans/docs': once(
+        f['zh-Hans/docs'],
+        '</aside>',
+        '<button type="button"><span class="sr-only">Open Search</span></button></aside>',
+      ),
+    }),
+    expect: ['english-chrome-name'],
+  },
+  {
+    // Green on purpose: inside an element marked lang="en" (a fallback's
+    // body), an English name is announced as English, which is what it is.
+    name: 'an English name inside lang="en" is correctly marked',
+    html: (f) => ({
+      ...f,
+      'ja/docs/deep': once(f['ja/docs/deep'], '<p>Body.</p>', '<p>Body.</p><button aria-label="Open Search"></button>'),
+    }),
+    expect: [],
+  },
+  {
+    // #305's second shape: the English title of a page ja has no source file
+    // for, in ja's sidebar, read with Japanese rules.
+    name: 'an untranslated page-tree entry with no lang marker (the #305 shape)',
+    html: (f) => ({ ...f, 'ja/docs/guide': once(f['ja/docs/guide'], '<span lang="en">Deep</span>', 'Deep') }),
+    expect: ['untranslated-entry-unmarked'],
+  },
+  {
+    // The over-marking direction: marking every entry English would satisfy
+    // the rule above and mislabel every real translation.
+    name: 'a translated page-tree entry marked English',
+    html: (f) => ({ ...f, 'ja/docs/deep': once(f['ja/docs/deep'], '>ガイド</a>', '><span lang="en">ガイド</span></a>') }),
+    expect: ['translated-entry-marked-english'],
+  },
+  {
+    // Green on purpose: a translated page's own prose links an untranslated
+    // page in the page's language. That is content, not the page tree, and a
+    // reader that did not skip `.prose` calls it an unmarked entry.
+    name: 'a link in the page body is not a page-tree entry',
+    html: (f) => ({
+      ...f,
+      'ja/docs/guide': once(f['ja/docs/guide'], '<p>Body.</p>', '<p><a href="/ja/docs/deep">Deep のページ</a></p>'),
+    }),
+    expect: [],
+  },
+  {
+    // One page not built in one locale: its chrome and tree were never read,
+    // and a clean scan of the others must not read as covering it.
+    name: 'a page missing from one locale of the build',
+    html: (f) => Object.fromEntries(Object.entries(f).filter(([file]) => file !== 'ja/docs/deep')),
+    expect: ['docs-page-html-missing'],
+  },
+  {
+    // The oracle going blind: no English name, so nothing to compare.
+    name: 'no accessible name on any English page',
+    html: (f) =>
+      Object.fromEntries(
+        Object.entries(f).map(([file, h]) => [file, file.startsWith('en/') ? once(h, ' aria-label="Open Search"', '') : h]),
+      ),
+    expect: ['no-chrome-names'],
+  },
+  {
+    // The entry reader going blind: zh-Hans has three untranslated pages and
+    // its pages show none of them.
+    name: 'no page-tree entry recognisable in one locale',
+    html: (f) =>
+      Object.fromEntries(
+        Object.entries(f).map(([file, h]) => [
+          file,
+          file.startsWith('zh-Hans/') ? h.replace(/<a data-active[^>]*>[\s\S]*?<\/a>/g, '') : h,
+        ]),
+      ),
+    expect: ['no-tree-entries'],
+  },
+  {
+    // Every other artifact built, the pages not at all.
+    name: 'docs pages not built',
+    html: null,
+    expect: ['artifact-missing'],
+  },
 ];
 
 function selfTest() {
@@ -1691,6 +2351,19 @@ function selfTest() {
           const p = join(dir, LLMS_MDX_DIR, `${path}.body`);
           mkdirSync(dirname(p), { recursive: true });
           writeFileSync(p, body);
+        }
+      }
+
+      // Built pages (#308): every page in every locale, clean, derived from
+      // THIS case's content the same way. `c.html` transforms the
+      // `<locale>/<path>`-to-HTML map; `null` leaves the directory unbuilt.
+      if (c.artifacts !== null && c.html !== null) {
+        const files = fixturePages(dir, readI18n(dir));
+        mkdirSync(join(dir, PAGES_DIR), { recursive: true });
+        for (const [file, html] of Object.entries(c.html ? c.html(files) : files)) {
+          const p = join(dir, PAGES_DIR, `${file}.html`);
+          mkdirSync(dirname(p), { recursive: true });
+          writeFileSync(p, html);
         }
       }
 
@@ -1766,6 +2439,32 @@ function selfTest() {
       `${exclusiveOk ? '✓' : '✗'} locale-exclusive titles ${JSON.stringify(exclusive)}` +
         (exclusiveOk ? '' : `  expected ${JSON.stringify(wantExclusive)}`),
     );
+
+    // The built-page live control (#308) must pass with the real reader and
+    // go red with a reader blinded to names or to `lang`. It never meets a
+    // fixture tree, so this is how its `negative-control-passed` is shown
+    // able to fire.
+    const chrome = new Map([['Open Search', 3]]);
+    for (const [name, read, wantRed] of [
+      ['the real reader', readHtml, false],
+      ['a reader blind to names', (t) => ({ ...readHtml(t), names: [] }), true],
+      [
+        'a reader blind to lang',
+        (t) => {
+          const r = readHtml(t);
+          return { ...r, links: r.links.map((l) => ({ ...l, texts: l.texts.map((x) => ({ ...x, lang: 'en' })) })) };
+        },
+        true,
+      ],
+    ]) {
+      const red = pagesControl(collected.surface, chrome, read).findings.some((f) => f.rule === CONTROL_RULE);
+      const ok = red === wantRed;
+      if (!ok) failed += 1;
+      console.log(
+        `${ok ? '✓' : '✗'} built-page live control with ${name}: ${red ? `red (${CONTROL_RULE})` : 'green'}` +
+          (ok ? '' : `  expected ${wantRed ? 'red' : 'green'}`),
+      );
+    }
   } finally {
     rmSync(dir2, { recursive: true, force: true });
   }
@@ -1884,7 +2583,8 @@ function selfTest() {
     `✓ self-test: ${CASES.length} case(s) over ${RULES.length} rule(s) and ${ARTIFACTS.length} ` +
       'artifact(s) — every rule demonstrated able to fail and every artifact demonstrated ' +
       'able to fail it, on fixtures read through the real readers; the encoding and MDX-comment rules ' +
-      `demonstrated on both \`llms\` consumers; and the live control demonstrated able to fire ${CONTROL_RULE}`,
+      'demonstrated on both `llms` consumers; and both live controls (the #197 encoding shape and the ' +
+      `#305 built-page shapes) demonstrated able to fire ${CONTROL_RULE}`,
   );
 }
 
