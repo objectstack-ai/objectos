@@ -12,7 +12,7 @@ either depends on or enforces. Reproduce the properties; the YAML around them
 is yours.
 
 Everything on [Docker](/docs/deploy/docker) applies unchanged: same image,
-same licence rules, same cloud posture rules. Nothing about the orchestrator
+same license rules, same cloud posture rules. Nothing about the orchestrator
 changes what the deployment is entitled to.
 
 ## Properties to preserve
@@ -61,9 +61,9 @@ Multi-replica is not a matter of raising the replica count:
 So the secret material belongs in a `Secret` mounted identically by every
 pod — never generated per pod, never templated from a pod-unique value.
 
-### Licence and cloud posture are deployment-wide
+### License and cloud posture are deployment-wide
 
-The licence key, the licence mode, and the cloud-posture setting are part of
+The license key, the license mode, and the cloud-posture setting are part of
 the deployment's identity. They must be the same in every replica, and their
 supported combinations are checked **at startup** — a mismatched pod does not
 run degraded, it exits. See [Air-gapped](/docs/deploy/air-gapped) for the

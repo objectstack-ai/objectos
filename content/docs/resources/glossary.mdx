@@ -6,13 +6,6 @@ description: The vocabulary used across ObjectOS and ObjectStack — one definit
 
 A single canonical definition for each term used in this documentation.
 
-### Artifact
-
-A compiled `objectstack.json` file. Self-contained, immutable
-description of an app — manifest, objects, views, apps, flows,
-permissions, translations. Produced by `os compile`. The thing
-ObjectOS actually executes.
-
 ### Action
 
 A named operation declared in metadata, invocable via REST
@@ -26,11 +19,25 @@ Express, Fastify, Hono, Next.js, Nuxt, SvelteKit, NestJS. Most
 ObjectOS deployments don't need one; ObjectOS bundles its own HTTP
 server.
 
+### AI seat
+
+The unit ObjectOS is priced in, and the only billed seat in every edition.
+Viewers, app users who do not use the in-product AI, and developers
+building over MCP are free. See
+[License & Pricing](/docs/resources/license#editions).
+
 ### App
 
 A bundle of objects + views + permissions presented as a single
 navigable application. Multiple apps can coexist in one
 runtime (e.g. CRM + Helpdesk + Setup).
+
+### Artifact
+
+A compiled `objectstack.json` file. Self-contained, immutable
+description of an app — manifest, objects, views, apps, flows,
+permissions, translations. Produced by `os compile`. The thing
+ObjectOS actually executes.
 
 ### Better Auth
 
@@ -168,7 +175,7 @@ The open stack, Apache-2.0: the protocol, microkernel, SDK, CLI and
 production runtime that execute a business ontology — the `@objectstack/*`
 npm packages and the runtime image. ObjectOS is the commercial runtime
 environment built on it; the two are different products under different
-licences.
+licenses.
 
 ### ObjectUI
 
@@ -187,6 +194,15 @@ A framework package that extends the runtime with a capability —
 `plugin-auth`, `plugin-security`, `plugin-audit`, `plugin-webhooks`,
 `mcp`, etc. Activated via DI + lifecycle hooks
 (`init → start → destroy`).
+
+### Position
+
+The job function a user holds — "Sales Manager", "Support Agent",
+"Auditor". The single people-grouping concept since ObjectStack 13, and
+deliberately flat: reporting structure lives on the business-unit tree
+instead. A position targets apps and tabs at an audience, names approvers,
+and distributes permission sets to everyone who holds it. See
+[Positions](/docs/configure/permissions/positions).
 
 ### Project
 
@@ -209,7 +225,7 @@ The built-in administration app, at `/apps/setup` inside the UI served
 at `/_console/`, gated by the `setup.access` permission. Manages users,
 business units, teams, positions, permission sets, sharing rules,
 record shares and API keys, plus configuration, diagnostics and
-integrations. See [Administration](/docs/configure).
+integrations. See [Configure](/docs/configure).
 
 ### Sharing Rule
 
@@ -230,7 +246,7 @@ it: Setup operates a running deployment (its people, their grants, its
 configuration), Studio authors what that deployment runs — hence
 **permissions are designed in Studio, assigned in Setup**. Unlike
 Setup it is not an app under `/apps/`; the UI serves it as its own
-route subtree. See [Administration](/docs/configure#setup-and-studio).
+route subtree. See [Configure](/docs/configure#setup-and-studio).
 
 ### Surface
 

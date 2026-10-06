@@ -29,7 +29,7 @@ or wider default opens them up. Declare the model explicitly to restore
 open behavior:
 
 ```ts
-defineObject({
+ObjectSchema.create({
   name: 'crm_lead',
   sharingModel: 'public_read_write',
   // …

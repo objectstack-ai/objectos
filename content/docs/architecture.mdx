@@ -66,21 +66,13 @@ On **ObjectOS Enterprise** — the self-managed edition this table describes —
 nothing below leaves your network. On **ObjectOS Cloud** the same process
 runs in our infrastructure instead, and on either edition the ontology
 itself is yours: export it and run it on the open-source ObjectStack
-runtime.
+runtime. [Data residency](/docs/reference/security#data-residency) lists
+each class of data, where it lives, and whether it leaves your network.
 
-| Data | Lives in | Leaves your network? |
-|---|---|---|
-| Business records | Your database | **No** |
-| User accounts, sessions, OAuth tokens | Your database | **No** |
-| Audit log | Your database | **No** |
-| Settings, API keys, secrets | Your database / secret manager | **No** |
-| Uploaded files | Your disk or your S3/R2 bucket | **No** |
-| The compiled app definition (`objectstack.json`) | A file on disk or fetched from your control plane | Optional |
-
-Self-managed ObjectOS validates its licence online; Enterprise air-gapped
-licences validate offline, so a deployment with no internet access at all
-keeps running. See [Air-gapped](/docs/deploy/air-gapped) for the supported
-licence and cloud-posture pairs.
+Self-managed ObjectOS validates its license online; Enterprise air-gapped
+licenses validate offline. A deployment with no internet access at all
+therefore keeps running — see [Air-gapped](/docs/deploy/air-gapped) for the
+supported license and cloud-posture pairs.
 
 ## How a request is served
 
@@ -135,7 +127,7 @@ Whether the deployment also talks to a **control plane** is a separate
 decision, made by the cloud-posture variable — a connected deployment can be
 any of the modes above. A self-managed runtime authenticates to a control plane
 with a token minted when the deployment was **bound** to it, not with a key
-pasted into a file, and pairing the wrong licence mode with the wrong cloud
+pasted into a file, and pairing the wrong license mode with the wrong cloud
 posture is [refused at startup](/docs/deploy/air-gapped).
 
 ## Performance characteristics

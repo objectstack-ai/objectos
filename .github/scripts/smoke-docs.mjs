@@ -50,6 +50,22 @@
  * it, and the runner asserts that the set of rules with a red fixture is the
  * whole set. Weaken a rule and the self-test exits 1.
  *
+ * ## Search is checked too, in every locale
+ *
+ * `/api/search` is dynamic, so no build output records whether it works, and
+ * on 2026-10-06 it answered 500 in four locales while every page rendered
+ * (#296). `check-search-locales.mjs` now asks the BUILT route under Node; this
+ * asks the deployed Worker (#301). One request per locale declared in
+ * `apps/docs/lib/i18n.ts` — read as text from this checkout, because the
+ * script is zero-dependency — for `permissions`, which must answer 200 with a
+ * non-empty JSON array. A query no page contains is the search's own negative
+ * control: it must come back empty, or a cache that ignores the query string
+ * (every query answered with the same list) would read as green.
+ *
+ * The locale list is the tree's, not the serving version's. A locale added on
+ * a commit whose deploy was rejected is not on the live site yet, and its
+ * search request reads `search-no-results` — which is what that site does.
+ *
  * ## Usage
  *
  *   node .github/scripts/smoke-docs.mjs                      # default targets
@@ -70,6 +86,9 @@
  * than `main`. An expectation derived from the working tree would have been a
  * gate on content drift wearing a smoke check's name.
  */
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 /** The origin the checks run against unless `--base` says otherwise. */
 const DEFAULT_BASE = 'https://docs.objectos.ai';
@@ -92,6 +111,10 @@ const RULES = [
   'lang-mismatch',
   'final-path',
   'negative-control-passed',
+  'search-status',
+  'search-not-json',
+  'search-no-results',
+  'search-negative-control-passed',
 ];
 
 /**
@@ -174,6 +197,25 @@ const TARGETS = [
  * produced the greens.
  */
 const NEGATIVE_CONTROL_PATH = '/docs/objectos-smoke-negative-control-269';
+
+/**
+ * What the search requests ask. `permissions` finds pages in every locale,
+ * because an English fallback page carries it wherever a translation does not;
+ * the nonce is in no page, and prefix matching cannot reach a real word from
+ * it. `check-search-locales.mjs` asks the built route the same two.
+ */
+const SEARCH = { query: 'permissions', nonce: 'qzxvjwkq' };
+
+/** `languages` out of `apps/docs/lib/i18n.ts`. Throws rather than guessing, so a smoke run never silently skips search. */
+function searchLocales(text) {
+  const list = /languages:\s*\[([^\]]+)\]/.exec(text)?.[1];
+  const languages = list?.split(',').map((x) => x.trim().replace(/['"]/g, '')).filter(Boolean) ?? [];
+  if (!languages.length) throw new Error('could not read languages[] out of apps/docs/lib/i18n.ts');
+  return languages;
+}
+
+const searchPath = (locale, query) =>
+  `/api/search?locale=${encodeURIComponent(locale)}&query=${encodeURIComponent(query)}`;
 
 /* ------------------------------------------------------------- extraction -- */
 
@@ -305,6 +347,43 @@ function evaluate(target, res) {
   return { findings, measured };
 }
 
+/**
+ * Judge one search response. `expectHits` is true for the real query and
+ * false for the nonce. Same response shape as `evaluate`.
+ */
+function evaluateSearch({ locale, query, expectHits }, res) {
+  const findings = [];
+  const label = `search ${locale} ${JSON.stringify(query)}`;
+  const add = (rule, detail) => findings.push({ rule, detail: `${label}: ${detail}` });
+  if (res.error) {
+    add('fetch-failed', res.error);
+    return { findings, measured: { error: res.error } };
+  }
+  let hits;
+  try {
+    hits = JSON.parse(res.body ?? '');
+  } catch {
+    hits = undefined;
+  }
+  const measured = {
+    status: res.status,
+    contentType: res.contentType ?? null,
+    hits: Array.isArray(hits) ? hits.length : null,
+  };
+  if (res.status !== 200) add('search-status', `HTTP ${res.status}, expected 200`);
+  if (!/^application\/json\b/i.test(measured.contentType ?? '') || !Array.isArray(hits)) {
+    add('search-not-json', `content-type ${measured.contentType ?? '(none)'}, body ${Array.isArray(hits) ? 'an array' : 'not a JSON array'}`);
+  } else if (expectHits && hits.length === 0) {
+    add('search-no-results', 'found nothing');
+  } else if (!expectHits && hits.length > 0) {
+    add(
+      'search-negative-control-passed',
+      `matches no page yet found ${hits.length} hits — this check cannot tell a working search from one that ignores the query`,
+    );
+  }
+  return { findings, measured };
+}
+
 /* --------------------------------------------------------------- fetching -- */
 
 /**
@@ -373,6 +452,7 @@ async function run(options) {
     base,
     targets,
     negativeControlPath,
+    search = null,
     attempts = 3,
     timeoutMs = 20000,
     fetchImpl = fetch,
@@ -415,13 +495,44 @@ async function run(options) {
     console.log('');
   }
 
+  // One request per locale, then the nonce once. The nonce is a control, so
+  // it gets one attempt, like the page control above.
+  const asks = search
+    ? [
+        ...search.locales.map((locale) => ({ locale, query: search.query, expectHits: true })),
+        { locale: search.locales[0], query: search.nonce, expectHits: false },
+      ]
+    : [];
+  for (const ask of asks) {
+    const started = Date.now();
+    const res = await fetchTarget(base, searchPath(ask.locale, ask.query), {
+      attempts: ask.expectHits ? attempts : 1,
+      timeoutMs,
+      fetchImpl,
+    });
+    const result = evaluateSearch(ask, res);
+    const m = result.measured;
+    const ok = result.findings.length === 0;
+    const mark = ask.expectHits ? (ok ? '✓' : '✗') : ok ? '✓ (control, expected empty)' : '✗ (control)';
+    console.log(
+      `${mark} search ${ask.locale} ${JSON.stringify(ask.query)}  ` +
+        (m.error ? `transport: ${m.error}` : `http ${m.status}  ${m.contentType ?? '(no content-type)'}  ${m.hits ?? '-'} hits  ${Date.now() - started} ms`),
+    );
+    for (const f of result.findings) {
+      console.error(`    [${f.rule}] ${f.detail}`);
+      failures += 1;
+    }
+  }
+  if (asks.length) console.log('');
+
   if (failures) {
     console.error(`✗ smoke: ${failures} finding(s) against ${base}`);
     return 1;
   }
   console.log(
     `✓ smoke: ${targets.length} page(s) rendered against ${base}` +
-      (negativeControlPath ? ', negative control demonstrated red' : ''),
+      (negativeControlPath ? ', negative control demonstrated red' : '') +
+      (search ? `, search answered in ${search.locales.length} locale(s) and found nothing for a nonce` : ''),
   );
   return 0;
 }
@@ -523,6 +634,28 @@ const CASES = [
   },
 ];
 
+const JSON_RES = (body, over = {}) => ({
+  status: 200,
+  url: 'https://docs.objectos.ai/api/search',
+  contentType: 'application/json',
+  body: JSON.stringify(body),
+  ...over,
+});
+const HIT = { id: '/docs/a', type: 'page', url: '/docs/a', content: 'Permissions' };
+const ASK = { locale: 'ja', query: 'permissions', expectHits: true };
+const NONCE_ASK = { locale: 'en', query: 'qzxvjwkq', expectHits: false };
+
+const SEARCH_CASES = [
+  { name: 'a search with hits trips nothing', ask: ASK, res: JSON_RES([HIT]), expect: [] },
+  { name: 'an empty nonce search trips nothing', ask: NONCE_ASK, res: JSON_RES([]), expect: [] },
+  { name: 'search transport error', ask: ASK, res: { error: 'TypeError: fetch failed' }, expect: ['fetch-failed'] },
+  { name: 'search answers 500 (#296)', ask: ASK, res: JSON_RES({}, { status: 500, contentType: 'text/plain', body: 'Internal Server Error' }), expect: ['search-status', 'search-not-json'] },
+  { name: 'search answers an HTML page', ask: ASK, res: JSON_RES([], { contentType: 'text/html', body: '<html></html>' }), expect: ['search-not-json'] },
+  { name: 'search answers an object', ask: ASK, res: JSON_RES({ hits: [HIT] }), expect: ['search-not-json'] },
+  { name: 'search finds nothing', ask: ASK, res: JSON_RES([]), expect: ['search-no-results'] },
+  { name: 'the nonce finds something', ask: NONCE_ASK, res: JSON_RES([HIT]), expect: ['search-negative-control-passed'] },
+];
+
 /** Whole-run cases, driven through `run()` with an injected fetch. */
 async function runCases() {
   const results = [];
@@ -559,9 +692,58 @@ async function runCases() {
       throw new TypeError('fetch failed');
     },
   });
+  // A search that answers every query with the same list — a cache keyed
+  // without the query string — passes every per-locale request and is caught
+  // only by the nonce.
+  const pagesFine = async (url) => {
+    if (url.includes('/api/search')) {
+      return {
+        status: 200,
+        url,
+        headers: new Map([['content-type', 'application/json']]),
+        text: async () => JSON.stringify([HIT]),
+      };
+    }
+    return alwaysGood(url);
+  };
+  const codeSearch = await run({
+    base: 'https://example.invalid',
+    targets: [BASE_TARGET],
+    negativeControlPath: null,
+    search: { ...SEARCH, locales: ['en', 'ja'] },
+    attempts: 1,
+    fetchImpl: asResponse(pagesFine),
+  });
+  // The same run with a search that does read the query passes, so the red
+  // above is the nonce's and nothing else's.
+  const searchWorks = async (url) => {
+    if (url.includes('/api/search')) {
+      const nonce = new URL(url).searchParams.get('query') === SEARCH.nonce;
+      return {
+        status: 200,
+        url,
+        headers: new Map([['content-type', 'application/json']]),
+        text: async () => JSON.stringify(nonce ? [] : [HIT]),
+      };
+    }
+    return alwaysGood(url);
+  };
+  const codeSearchWorks = await run({
+    base: 'https://example.invalid',
+    targets: [BASE_TARGET],
+    negativeControlPath: null,
+    search: { ...SEARCH, locales: ['en', 'ja'] },
+    attempts: 1,
+    fetchImpl: asResponse(searchWorks),
+  });
   console.log = logs.log;
   console.error = logs.error;
 
+  results.push({
+    name: 'a search that ignores the query fails the run; one that reads it passes',
+    ok: codeSearch === 1 && codeSearchWorks === 0,
+    rule: 'search-negative-control-passed',
+  });
   results.push({
     name: 'a negative control that renders fails the run',
     ok: code === 1,
@@ -591,6 +773,19 @@ async function selfTest() {
     if (!ok) for (const f of findings) console.error(`      [${f.rule}] ${f.detail}`);
   }
 
+  for (const c of SEARCH_CASES) {
+    const { findings } = evaluateSearch(c.ask, c.res);
+    const fired = [...new Set(findings.map((f) => f.rule))].sort();
+    const want = [...c.expect].sort();
+    const ok = fired.join(',') === want.join(',');
+    if (!ok) failed += 1;
+    console.log(
+      `${ok ? '✓' : '✗'} ${c.name.padEnd(38)} fired [${fired.join(' ') || '—'}]` +
+        (ok ? '' : `  expected [${want.join(' ') || '—'}]`),
+    );
+    if (!ok) for (const f of findings) console.error(`      [${f.rule}] ${f.detail}`);
+  }
+
   console.log('');
   const runResults = await runCases();
   for (const r of runResults) {
@@ -599,7 +794,11 @@ async function selfTest() {
   }
 
   console.log('');
-  const covered = new Set([...CASES.flatMap((c) => c.expect), ...runResults.map((r) => r.rule)]);
+  const covered = new Set([
+    ...CASES.flatMap((c) => c.expect),
+    ...SEARCH_CASES.flatMap((c) => c.expect),
+    ...runResults.map((r) => r.rule),
+  ]);
   for (const rule of RULES) {
     if (!covered.has(rule)) {
       console.error(`✗ rule "${rule}" has no fixture that trips it`);
@@ -613,6 +812,22 @@ async function selfTest() {
     console.error('✗ no fixture asserts that a rendered page trips nothing');
     failed += 1;
   }
+  if (!SEARCH_CASES.some((c) => c.expect.length === 0 && c.ask.expectHits)) {
+    console.error('✗ no fixture asserts that a working search trips nothing');
+    failed += 1;
+  }
+  // The locale list is read off the checkout; an unreadable one must throw, not
+  // shrink the search check to nothing.
+  const read = searchLocales("defineI18n({ defaultLanguage: 'en', languages: ['en', 'zh-Hans'] })");
+  let refused = false;
+  try {
+    searchLocales('defineI18n({})');
+  } catch {
+    refused = true;
+  }
+  const i18nOk = read.join() === 'en,zh-Hans' && refused;
+  if (!i18nOk) failed += 1;
+  console.log(`${i18nOk ? '✓' : '✗'} i18n.ts locales are read, and an unreadable list is refused`);
 
   if (failed) {
     console.error(`\n✗ self-test: ${failed} case(s) did not behave as declared`);
@@ -620,8 +835,8 @@ async function selfTest() {
     return;
   }
   console.log(
-    `✓ self-test: ${CASES.length} response case(s) and ${runResults.length} run case(s) — ` +
-      `all ${RULES.length} rules demonstrated able to fail`,
+    `✓ self-test: ${CASES.length} page case(s), ${SEARCH_CASES.length} search case(s) and ` +
+      `${runResults.length} run case(s) — all ${RULES.length} rules demonstrated able to fail`,
   );
 }
 
@@ -663,10 +878,12 @@ async function main() {
     return;
   }
 
+  const i18nPath = fileURLToPath(new URL('../../apps/docs/lib/i18n.ts', import.meta.url));
   process.exitCode = await run({
     base: opts.base.replace(/\/+$/, ''),
     targets,
     negativeControlPath: opts.control,
+    search: { ...SEARCH, locales: searchLocales(readFileSync(i18nPath, 'utf8')) },
   });
 }
 

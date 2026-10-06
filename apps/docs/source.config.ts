@@ -1,5 +1,6 @@
 import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
 import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
+import { rehypeCodeDefaultOptions } from 'fumadocs-core/mdx-plugins';
 import path from 'node:path';
 
 export const docs = defineDocs({
@@ -79,6 +80,28 @@ export const docs = defineDocs({
 
 export default defineConfig({
   mdxOptions: {
-    // MDX options
+    rehypeCodeOptions: {
+      /**
+       * Code comments, recoloured to clear 4.5:1 (#301).
+       *
+       * fumadocs' default code themes are `github-light` and `github-dark`,
+       * and both colour comments #6a737d — and nothing else: that is the only
+       * scope it is assigned to in either theme. On fumadocs' code-block
+       * background it measured 3.65:1 in dark mode (#191919) and 4.26:1 in
+       * light mode (#f1f1f1). The replacements are GitHub's own accessible
+       * muted greys: #8b949e (5.71:1 on #191919) and #57606a (5.65:1 on
+       * #f1f1f1).
+       *
+       * Scoped by theme name, so each theme's comment colour is replaced on
+       * its own. fumadocs' defaults are spread in first — the two themes, the
+       * notation transformers, the meta parser — so this adds one option and
+       * replaces nothing.
+       */
+      ...rehypeCodeDefaultOptions,
+      colorReplacements: {
+        'github-dark': { '#6a737d': '#8b949e' },
+        'github-light': { '#6a737d': '#57606a' },
+      },
+    },
   },
 });

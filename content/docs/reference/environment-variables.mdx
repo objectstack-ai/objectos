@@ -32,7 +32,7 @@ differ, the template shipped with your image wins.
 | `OS_DB_USER`, `OS_DB_PASSWORD`, `OS_DB_NAME` | Provision the **bundled** database service in the shipped Compose stack. The credentials inside `OS_DATABASE_URL` must match them. Irrelevant once you use a managed database. |
 | `AI_GATEWAY_API_KEY` | The AI provider credential behind the "ask your data" agent. |
 
-## Licence and cloud posture
+## License and cloud posture
 
 These two are a pair. Setting one without reading the other is the most
 expensive mistake on this page, because unsupported pairings are **refused at
@@ -40,17 +40,17 @@ startup** rather than degraded.
 
 | Variable | Decides |
 |---|---|
-| `OS_LICENSE_KEY` | The deployment's entitlement. A licence also has a **mode** — ordinary licences are validated online against a control plane; air-gap licences are verified locally with no network traffic at all. The mode is a property of the licence you were issued, not something you configure here. |
-| `OS_CLOUD_URL` | Whether this deployment has a control plane, and which one. `off` (and its aliases `none`, `local`, `disabled`) means **no control plane**: no marketplace, and no licence validation either. |
+| `OS_LICENSE_KEY` | The deployment's entitlement. A license also has a **mode** — ordinary licenses are validated online against a control plane; air-gap licenses are verified locally with no network traffic at all. The mode is a property of the license you were issued, not something you configure here. |
+| `OS_CLOUD_URL` | Whether this deployment has a control plane, and which one. `off` (and its aliases `none`, `local`, `disabled`) means **no control plane**: no marketplace, and no license validation either. |
 
 Two consequences follow, and both surprise people:
 
 - **Unset is not "off".** An unset `OS_CLOUD_URL` resolves to the *public*
   control plane. It was never a neutral value — it selects the connected
   behaviour. A deployment meant to talk to nobody must say `off` out loud.
-- **An ordinary licence with `off` is refused at startup**, naming both
+- **An ordinary license with `off` is refused at startup**, naming both
   variables. It is not a degraded state but an impossible one: an online
-  licence is validated by an exchange that needs a control plane, so with none
+  license is validated by an exchange that needs a control plane, so with none
   configured the exchange is never made — not on this boot and not on a later
   one — and the grace window never starts, because grace runs from the last
   *successful* validation.
@@ -67,7 +67,7 @@ value is accepted; not deciding is not.
 
 | Variable | Decides |
 |---|---|
-| `OS_TENANCY_POSTURE` | Whether organizations are isolated from one another. The walled values are `isolated` and `group`. A walled posture **requires a licence**: without one the runtime exits at startup rather than serve traffic while pretending to be isolated. |
+| `OS_TENANCY_POSTURE` | Whether organizations are isolated from one another. The walled values are `isolated` and `group`. A walled posture **requires a license**: without one the runtime exits at startup rather than serve traffic while pretending to be isolated. |
 | `OS_AUTH_MEMBERSHIP_POLICY` | What a fresh sign-up joins. `auto` binds every new user to the deployment's default organization — right for a single-organization box, wrong where a membership *is* the tenant boundary. `invite-only` grants membership only by an explicit act: creating a workspace, accepting an invitation, an admin, or SSO provisioning. Also settable in **Setup → Authentication → Membership**; setting it here pins it and makes the Setup field read-only. |
 | `OS_AI_STUDIO_AGENTS` | Which AI agents are mounted, as a comma-separated subset of `ask` and `build`. Unset mounts **both**. `ask` reads; `build` **authors metadata** — and metadata is scoped to the deployment, not to an organization, so on a shared database one customer's `build` turn rewrites the schema every other customer runs on. The AI seat does not cover this: it is one flag for both agents. A misspelled value fails the boot rather than quietly falling back to mounting both. |
 
@@ -177,5 +177,5 @@ be removed in a future major version.
 |---|---|---|
 | `OS_PORT` | `PORT` | Emits a one-shot deprecation warning. |
 | `OS_AUTH_SECRET` | `AUTH_SECRET` | Emits a one-shot deprecation warning. |
-| `OS_TENANCY_POSTURE` | `OS_MULTI_ORG_ENABLED` | The posture derives from the legacy boolean only when `OS_TENANCY_POSTURE` is unset: `true` there means isolated. Declare the posture directly — it is the variable the licence and startup checks are written against. |
+| `OS_TENANCY_POSTURE` | `OS_MULTI_ORG_ENABLED` | The posture derives from the legacy boolean only when `OS_TENANCY_POSTURE` is unset: `true` there means isolated. Declare the posture directly — it is the variable the license and startup checks are written against. |
 | `OS_MULTI_ORG_ENABLED` | `OS_MULTI_TENANT` | |

@@ -18,8 +18,8 @@ The refusals you are most likely to meet:
 
 | The log says | What it means |
 |---|---|
-| Two settings are named together as an unsupported pairing | A licence mode and a cloud posture that cannot work together — most often an ordinary, online-validated licence on a deployment configured with no control plane. [Air-gapped](/docs/deploy/air-gapped) has the supported matrix. |
-| A walled deployment requires a licence | A multi-organization tenancy posture was asked for without a licence. Isolation is a licensed capability; the runtime will not serve traffic while pretending to have it. |
+| Two settings are named together as an unsupported pairing | A license mode and a cloud posture that cannot work together — most often an ordinary, online-validated license on a deployment configured with no control plane. [Air-gapped](/docs/deploy/air-gapped) has the supported matrix. |
+| A walled deployment requires a license | A multi-organization tenancy posture was asked for without a license. Isolation is a licensed capability; the runtime will not serve traffic while pretending to have it. |
 | A decision was not made | On a multi-organization posture, the new-sign-up membership policy and the set of mounted AI agents have no safe default. Declaring either available value is accepted; leaving it unset is not. |
 | A retired variable is set | An old artifact-selection variable refuses the boot and names its replacement. See [retired names](/docs/reference/environment-variables#retired-names). |
 | The cluster secret is missing | Turning on a cluster driver makes one shared secret key mandatory across every replica. |

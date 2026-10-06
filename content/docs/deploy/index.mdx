@@ -5,7 +5,7 @@ description: Run ObjectOS Self-Managed from the licensed runtime image — diges
 ---
 
 ObjectOS Self-Managed is delivered as a **licensed, pre-built runtime image**.
-You do not build it, and there is no public image to pull: your licence comes
+You do not build it, and there is no public image to pull: your license comes
 with registry credentials, and the release notes name the exact image digest
 to run. (ObjectOS is a commercial product — see
 [License & Pricing](/docs/resources/license). If you are looking for a free
@@ -17,8 +17,8 @@ different product.)
 | Decision | What it means |
 |---|---|
 | **Which bytes run** | The image is pinned **by digest**, never by a tag. A tag can be re-pointed; a digest is the same bytes forever. |
-| **Which licence** | A licence is part of the happy path, not an add-on. Some deployment shapes *refuse to start* without one. |
-| **Which cloud posture** | Whether this runtime talks to a control plane. This is **coupled to the licence mode**, and unsupported combinations are refused at startup rather than degrading quietly. |
+| **Which license** | A license is part of the happy path, not an add-on. Some deployment shapes *refuse to start* without one. |
+| **Which cloud posture** | Whether this runtime talks to a control plane. This is **coupled to the license mode**, and unsupported combinations are refused at startup rather than degrading quietly. |
 
 The last two are one decision in practice, and getting them wrong is a boot
 failure, not a slow leak. [Air-gapped](/docs/deploy/air-gapped) states the
@@ -32,7 +32,7 @@ templates for each supported shape, and a README with the exact commands for
 your version — including the registry reference, the digest, and the
 supply-chain verification steps.
 
-These pages carry the **decisions** — why a digest, which licence mode for
+These pages carry the **decisions** — why a digest, which license mode for
 which shape, what multi-node makes mandatory, what the runtime refuses. The
 bundle carries the **values you copy**. When the two ever seem to disagree,
 the bundle that shipped with your image is right: it is versioned with the
@@ -56,6 +56,6 @@ checks before it serves anything.
 
 ## Guides
 
-- [Docker](/docs/deploy/docker) — the supported stack: pull, verify, licence, run, scale, upgrade.
+- [Docker](/docs/deploy/docker) — the supported stack: pull, verify, license, run, scale, upgrade.
 - [Kubernetes](/docs/deploy/kubernetes) — the properties any orchestrator must preserve.
-- [Air-gapped](/docs/deploy/air-gapped) — air-gap as a **licence mode**, and the combinations that are refused at startup.
+- [Air-gapped](/docs/deploy/air-gapped) — air-gap as a **license mode**, and the combinations that are refused at startup.

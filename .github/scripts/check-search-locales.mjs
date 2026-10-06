@@ -23,6 +23,13 @@
  *     fallback pages make `permissions` match in every locale, and Orama's
  *     English tokenizer drops every CJK character, so a Chinese title would
  *     find nothing.
+ *   - `own-title-buried`: and found among the first three pages, not just
+ *     somewhere in the list (#301). Before the route weighted titles, a page's
+ *     title and another page's heading reading the same word scored the same,
+ *     and 49 of the 79 English pages did not come first for their own title.
+ *     Three and not one, because a few pages share a title (Approvals,
+ *     Dashboards and Notifications each appear twice) and only one of two
+ *     can be first.
  *   - `negative-control-passed`: a query no page contains must find nothing.
  *     It runs against the same handler in the same run. If it finds
  *     something, `no-results` cannot fire, so the run fails.
@@ -43,7 +50,9 @@ const ROUTE = 'apps/docs/.next/server/app/api/search/route.js';
 const QUERY = 'permissions';
 const NONCE = 'qzxvjwkq'; // in no page; prefix matching cannot reach a real word from it
 
-const RULES = ['threw', 'status', 'not-array', 'no-results', 'own-title-missed', 'negative-control-passed'];
+const TOP = 3; // `own-title-buried`: how far down its own title may rank a page
+
+const RULES = ['threw', 'status', 'not-array', 'no-results', 'own-title-missed', 'own-title-buried', 'negative-control-passed'];
 
 /** `languages` and `defaultLanguage` out of `i18n.ts`. Throws rather than guessing. */
 function readI18n(text) {
@@ -109,18 +118,25 @@ async function evaluate(GET, languages, pages) {
     if (probe.body.length === 0) add('no-results', locale, `?query=${QUERY} found nothing`);
     const own = pages.get(locale) ?? [];
     let found = 0;
+    let first = 0;
     for (const page of own) {
       const r = await ask(GET, locale, page.title);
       const broke = shape(r);
-      if (broke) add(broke[0], locale, `?query=${JSON.stringify(page.title)}: ${broke[1]}`);
-      else if (r.body.some((hit) => hit.type === 'page' && hit.url === page.url)) found += 1;
-      else add('own-title-missed', locale, `${page.file}: its title ${JSON.stringify(page.title)} does not find ${page.url} (${r.body.length} hits)`);
+      if (broke) {
+        add(broke[0], locale, `?query=${JSON.stringify(page.title)}: ${broke[1]}`);
+        continue;
+      }
+      const rank = r.body.filter((hit) => hit.type === 'page').findIndex((hit) => hit.url === page.url) + 1;
+      if (rank === 0) add('own-title-missed', locale, `${page.file}: its title ${JSON.stringify(page.title)} does not find ${page.url} (${r.body.length} hits)`);
+      else if (rank > TOP) add('own-title-buried', locale, `${page.file}: its title ${JSON.stringify(page.title)} ranks ${page.url} page ${rank}, below the first ${TOP}`);
+      if (rank > 0) found += 1;
+      if (rank === 1) first += 1;
     }
     const control = await ask(GET, locale, NONCE);
     if (!shape(control) && control.body.length > 0) {
       add('negative-control-passed', locale, `?query=${NONCE} matches no page yet found ${control.body.length} hits, so no-results cannot fire`);
     }
-    lines.push(`  ${locale}: 200, ${probe.body.length} hits for "${QUERY}", ${found}/${own.length} own pages found by title`);
+    lines.push(`  ${locale}: 200, ${probe.body.length} hits for "${QUERY}", ${found}/${own.length} own pages found by title, ${first} of them first`);
   }
   return { findings, lines };
 }
@@ -145,7 +161,7 @@ async function gate() {
     return 1;
   }
   console.log(lines.join('\n'));
-  console.log(`✓ search locales: all ${languages.length} locales answer 200, find "${QUERY}", find every own page by its title, and find nothing for a nonce`);
+  console.log(`✓ search locales: all ${languages.length} locales answer 200, find "${QUERY}", find every own page by its title within the first ${TOP} pages, and find nothing for a nonce`);
   return 0;
 }
 
@@ -155,6 +171,7 @@ const PAGES = new Map([
   ['en', [{ file: 'a.mdx', title: 'Alpha', url: '/docs/a' }]],
   ['ja', [{ file: 'a.ja.mdx', title: '権限', url: '/ja/docs/a' }]],
 ]);
+const others = (n) => Array.from({ length: n }, (_, i) => ({ type: 'page', url: `/docs/other-${i}` }));
 const json = (body, status = 200) => Response.json(body, { status });
 /** A handler that finds a page by its exact title, and finds `permissions` everywhere. */
 const good = (override = () => undefined) => async (req) => {
@@ -174,6 +191,9 @@ const CASES = [
   ['nothing finds permissions', good((l, q) => (q === QUERY ? json([]) : undefined)), ['no-results', 'no-results']],
   ['ja titles find nothing, as an English tokenizer would', good((l, q) => (l === 'ja' && q !== QUERY ? json([]) : undefined)), ['own-title-missed']],
   ['a hit under a heading is not the page', good((l, q) => (l === 'en' && q === 'Alpha' ? json([{ type: 'heading', url: '/docs/a' }]) : undefined)), ['own-title-missed']],
+  ['a page third for its own title is found', good((l, q) => (l === 'en' && q === 'Alpha' ? json([...others(TOP - 1), { type: 'page', url: '/docs/a' }]) : undefined)), []],
+  ['a page fourth for its own title is buried', good((l, q) => (l === 'en' && q === 'Alpha' ? json([...others(TOP), { type: 'page', url: '/docs/a' }]) : undefined)), ['own-title-buried']],
+  ['headings above it do not bury a page', good((l, q) => (l === 'en' && q === 'Alpha' ? json([{ type: 'heading', url: '/docs/x#a' }, { type: 'heading', url: '/docs/x#b' }, { type: 'text', url: '/docs/x' }, { type: 'page', url: '/docs/a' }]) : undefined)), []],
   ['every query matches', good(() => json([{ type: 'page', url: '/docs/a' }, { type: 'page', url: '/ja/docs/a' }])), ['negative-control-passed', 'negative-control-passed']],
 ];
 

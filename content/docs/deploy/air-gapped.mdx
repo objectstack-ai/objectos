@@ -1,27 +1,27 @@
 ---
 title: Air-gapped Deployment
-seoTitle: "Air-gapped Deployment: Licence Mode and Settings"
-description: Air-gap is a licence mode, not a firewall setting — the two settings a disconnected deployment must declare, and the combinations refused at startup.
+seoTitle: "Air-gapped Deployment: License Mode and Settings"
+description: Air-gap is a license mode, not a firewall setting — the two settings a disconnected deployment must declare, and the combinations refused at startup.
 ---
 
-## Air-gap is a licence mode
+## Air-gap is a license mode
 
 You cannot reach an air-gapped deployment by unplugging the network. An
-ordinary ObjectOS licence is validated **online**: the runtime exchanges your
-licence key for a short-term entitlement at a control plane and re-checks
-periodically. Cut that path and the licence does not "fall back to offline" —
+ordinary ObjectOS license is validated **online**: the runtime exchanges your
+license key for a short-term entitlement at a control plane and re-checks
+periodically. Cut that path and the license does not "fall back to offline" —
 it can never take effect at all.
 
-An **air-gap licence is a different licence**, issued offline by us on
+An **air-gap license is a different license**, issued offline by us on
 purpose. It is verified locally against a public key embedded in the image and
 mounts your entitlements with **zero network traffic**. Air-gapped operation
 is an Enterprise capability — see
-[License & Pricing](/docs/resources/license) — and the licence you need is
+[License & Pricing](/docs/resources/license) — and the license you need is
 requested, not configured.
 
 A disconnected deployment therefore declares **two** things, together:
 
-- an **air-gap licence**, and
+- an **air-gap license**, and
 - **no control plane**: the cloud-posture setting explicitly set to `off`
   (its aliases `none`, `local` and `disabled` mean the same thing).
 
@@ -41,20 +41,20 @@ to nobody. Declaring a posture is accepted; **not deciding is not.** Write
 ## The supported combinations
 
 These are checked when configuration is loaded, **before** anything
-licence-shaped happens. An unsupported combination is not a warning and not a
+license-shaped happens. An unsupported combination is not a warning and not a
 degrade: the runtime prints a fatal error naming *both* settings and exits.
 
-| Licence | Cloud posture | Outcome |
+| License | Cloud posture | Outcome |
 |---|---|---|
-| Air-gap licence | `off` | **Runs, fully licensed, with zero network traffic.** The disconnected answer. |
-| No licence | `off` | Runs with Community behaviour. Note that a multi-organization posture still requires a licence. |
-| Ordinary (online) licence | reachable control plane, with the device binding completed | The normal connected deployment. |
-| Ordinary (online) licence | `off` | **Refused at startup.** |
-| Ordinary (online) licence | unset | Treated as the public control plane — see above. Whether it runs depends on whether that control plane is actually reachable and bound. |
+| Air-gap license | `off` | **Runs, fully licensed, with zero network traffic.** The disconnected answer. |
+| No license | `off` | Runs with Community behaviour. Note that a multi-organization posture still requires a license. |
+| Ordinary (online) license | reachable control plane, with the device binding completed | The normal connected deployment. |
+| Ordinary (online) license | `off` | **Refused at startup.** |
+| Ordinary (online) license | unset | Treated as the public control plane — see above. Whether it runs depends on whether that control plane is actually reachable and bound. |
 
 ### Why the refusal exists
 
-An online licence is validated by an exchange that must present a runtime
+An online license is validated by an exchange that must present a runtime
 token minted during the deployment's binding to a control plane. With no
 control plane there is no binding, so the token cannot exist, so the exchange
 is never made — not on this boot, not on a later one. The grace period does
@@ -63,7 +63,7 @@ there would never be a first one.
 
 Left unenforced, that configuration fails later and blames the wrong thing:
 on a multi-organization posture it ends as a complaint that the deployment
-"requires a licence" — when the licence was the one thing that was never
+"requires a license" — when the license was the one thing that was never
 wrong. The runtime refuses earlier instead, and says which two settings
 disagree. Because the refusal is taken before any validation attempt, a
 refused boot sends **no packets at all**.
@@ -74,8 +74,8 @@ If you run the **composed** shape — a published app booted as this
 deployment's app, with several organizations sharing one database behind the
 isolation wall — then air-gap licensing is not optional there either. That
 mode declines the marketplace and cloud-connection surfaces outright, so the
-binding that an online licence would need can never happen on it. It requires
-an air-gap licence and `off`, both enforced at startup, and it has its own
+binding that an online license would need can never happen on it. It requires
+an air-gap license and `off`, both enforced at startup, and it has its own
 environment template in the deploy bundle. Do not adapt the single-environment
 template to reach it; copy the composed one, so every value it decides comes
 with it.
@@ -101,7 +101,7 @@ air-gapped network it may be the only copy you have to roll back to.
 
 ## What still has to be reachable
 
-Air-gapped means no traffic is required *by ObjectOS itself* — no licence
+Air-gapped means no traffic is required *by ObjectOS itself* — no license
 validation, no marketplace, no update ping. It does not mean the deployment
 has no network. Inside your perimeter it still needs:
 
@@ -112,11 +112,11 @@ has no network. Inside your perimeter it still needs:
   OIDC, that identity provider has to be reachable from this network, or you
   use local accounts instead.
 
-The licence itself carries an expiry, checked locally at each boot — there is
+The license itself carries an expiry, checked locally at each boot — there is
 no phone-home, so plan renewal as a delivery rather than as something the
 runtime will fetch.
 
 ## Next
 
-- [Docker](/docs/deploy/docker) — verification, licence, scaling and upgrade in full.
+- [Docker](/docs/deploy/docker) — verification, license, scaling and upgrade in full.
 - [Upgrade](/docs/operate/upgrade) and [Backup](/docs/operate/backup) — the procedures the steps above summarise.
