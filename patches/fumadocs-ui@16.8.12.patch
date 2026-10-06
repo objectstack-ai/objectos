@@ -1,5 +1,5 @@
 # Read fumadocs-ui's hard-coded English accessible names from its i18n context
-# (#305), and fix three roles and names axe reports on every docs page (#308).
+# (#305), and fix four roles and names axe reports on every docs page (#308).
 #
 # WHY THIS PIN EXISTS
 # -------------------
@@ -77,14 +77,15 @@
 # app has its own, localized), the Orama/Algolia dialog footers, and
 # `layouts/home/not-found.js` (the app has `app/not-found.tsx`).
 #
-# THREE ROLES AND NAMES AXE REPORTS (#308)
-# ----------------------------------------
+# FOUR ROLES AND NAMES AXE REPORTS (#308)
+# ---------------------------------------
 # axe 4.14.0, one page per docs section in en, zh-Hans and de, light and dark
 # (48 runs), on the build carrying only the hunks above: every run failed
 # `label-content-name-mismatch` and `svg-img-alt`, and the 24 runs on a page
-# with two or more code blocks failed `landmark-unique`. English included, so
-# not a translation defect. Three more hunks, none of them upstream (all three
-# are unchanged in 16.16.2, latest on 2026-10-06):
+# with two or more code blocks failed `landmark-unique`; below 1280px every
+# page failed it once more (the table-of-contents bar, last bullet). English
+# included, so not a translation defect. Four more hunks, none of them
+# upstream (all four are unchanged in 16.16.2, latest on 2026-10-06):
 #
 # - layouts/shared/slots/language-select.js: the trigger shows the current
 #   language ("English", "Deutsch") and was named "Choose a language" only, so
@@ -112,8 +113,15 @@
 #   by, titles repeat within a page, and a page with ten code landmarks buries
 #   its real landmarks in a screen reader's landmark list. The role is set
 #   after `...viewportProps`, so no prop can remove it; hence a hunk.
+# - layouts/docs/page/slots/toc.js: the table-of-contents bar shown below
+#   1280px (`xl:hidden`) was a `<header>` outside every sectioning element,
+#   which makes it a second banner landmark beside the site header
+#   (`#nd-subnav`) at phone and tablet widths. It is a disclosure for the page's
+#   headings, not a banner, so it is a `<div>` now. No CSS selects `header`
+#   by element, and the before/after screenshots are byte-identical. The
+#   options reach only the bar's outer wrapper, so this too is a hunk.
 #
-# The fourth #308 finding, no `main` landmark, needs no hunk: DocsPage passes
+# The remaining #308 finding, no `main` landmark, needs no hunk: DocsPage passes
 # its other props to the `<article>` it renders, so the docs page sets
 # `role="main"` there (`app/[lang]/docs/[[...slug]]/page.tsx`).
 #
@@ -123,7 +131,7 @@
 # eight backported keys' hunks (16.9.0 and later have the keys; 16.10.0 and
 # later replace the flat Translations object with string-keyed
 # `t("Open Search")` lookups, so `lib/ui-text.ts` changes shape too), and
-# re-check the four hunks upstream does not have: `navMain` and the three #308
+# re-check the five hunks upstream does not have: `navMain` and the four #308
 # hunks. Also drop `role="main"` from the docs page once DocsPage wraps its
 # article in a `<main>` of its own, which 16.16.2 does; keeping both gives the
 # page two main landmarks.
@@ -275,6 +283,19 @@ index 14f3da7862506421298dd7d225a846585739e43e..858f0c67e32559b21b841729d949be91
  };
  const I18nContext = createContext({ text: { ...defaultTranslations } });
  function I18nLabel(props) {
+diff --git a/dist/layouts/docs/page/slots/toc.js b/dist/layouts/docs/page/slots/toc.js
+index f46a9a97f8b0074ed460a6ecc5f92165ee071ab3..1b1329eacdd7ac7df002f0cab3e8ddbb775b7628 100644
+--- a/dist/layouts/docs/page/slots/toc.js
++++ b/dist/layouts/docs/page/slots/toc.js
+@@ -68,7 +68,7 @@ function TOCPopover({ container, trigger, content, header, footer, style = "norm
+ 			"data-toc-popover": "",
+ 			...container,
+ 			className: cn("sticky top-(--fd-docs-row-2) z-10 [grid-area:toc-popover] h-(--fd-toc-popover-height) xl:hidden max-xl:layout:[--fd-toc-popover-height:--spacing(10)]", container?.className),
+-			children: /* @__PURE__ */ jsxs("header", {
++			children: /* @__PURE__ */ jsxs("div", {
+ 				ref,
+ 				className: cn("border-b backdrop-blur-sm transition-colors", (!isNavTransparent || open) && "bg-fd-background/80", open && "shadow-lg"),
+ 				children: [/* @__PURE__ */ jsx(PageTOCPopoverTrigger, { ...trigger }), /* @__PURE__ */ jsxs(PageTOCPopoverContent, {
 diff --git a/dist/layouts/home/slots/header.js b/dist/layouts/home/slots/header.js
 index 7ee07bbf60fea995a5d3428d4252c96b1349a098..25fe17a35a203919580c4875f43c5a6a74b54233 100644
 --- a/dist/layouts/home/slots/header.js
