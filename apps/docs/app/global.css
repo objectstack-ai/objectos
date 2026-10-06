@@ -10,7 +10,7 @@
  * and the description under each page title, and it measured 4.12–4.35:1
  * against the backgrounds it sits on (#efefef to #f5f5f5), under the 4.5:1
  * WCAG AA floor for body text. 40% is #666666: 4.99:1 on the darkest of them,
- * the search button, and 5.25:1 on the page.
+ * the search button, and 5.27:1 on the page.
  *
  * Declared in `@theme`, where the neutral theme declares it, so it replaces
  * only the light value. The theme's dark value is set by a plain `.dark` rule,
