@@ -121,6 +121,20 @@
 #   by element, and the before/after screenshots are byte-identical. The
 #   options reach only the bar's outer wrapper, so this too is a hunk.
 #
+# THE LANGUAGE OF TWO LOCALIZED NAMES (#308 review)
+# --------------------------------------------------
+# #305's hunks localized the heading anchor's and the code block's copy
+# buttons. On a fallback page those buttons sit in the page body, which #298
+# marks `lang="en"`, so "Ankerlink kopieren" was read with English rules
+# (WCAG 3.1.2, the inverse of what #305 fixed). Measured on `main` at cf449fa:
+# 520 anchor and 115 copy names per Latin-script locale over 55 fallback pages,
+# 336 and 58 in `zh-Hans` and `zh-Hant` over 31. Both buttons now also take
+# `locale` from the `useI18n()` they already read and render it as their own
+# `lang`. On a page in the route locale that repeats what `<html lang>` says;
+# inside an English body it is what keeps the name in its own language.
+# `check-locale-surface.mjs` (`localized-name-marked-english`) reads it off
+# the built pages.
+#
 # The remaining #308 finding, no `main` landmark, needs no hunk: DocsPage passes
 # its other props to the `<article>` it renders, so the docs page sets
 # `role="main"` there (`app/[lang]/docs/[[...slug]]/page.tsx`).
@@ -146,7 +160,7 @@
 # ERR_PNPM_UNUSED_PATCH, which is what sends the person bumping it here.
 #
 diff --git a/dist/components/codeblock.js b/dist/components/codeblock.js
-index 1a85256dc660721dfd3afe07a50b13b13f209ea0..3747ef29084d933852213753e90467c771188e99 100644
+index 1a85256dc660721dfd3afe07a50b13b13f209ea0..14c850916b43d0d08ed6947c7a4850b89d4bdb35 100644
 --- a/dist/components/codeblock.js
 +++ b/dist/components/codeblock.js
 @@ -1,4 +1,5 @@
@@ -167,21 +181,22 @@ index 1a85256dc660721dfd3afe07a50b13b13f209ea0..3747ef29084d933852213753e90467c7
  	});
  }
  function CopyButton({ className, containerRef, ...props }) {
-+	const { text } = useI18n();
++	const { text, locale } = useI18n();
  	const [checked, onClick] = useCopyButton(() => {
  		const pre = containerRef.current?.getElementsByTagName("pre").item(0);
  		if (!pre) return;
-@@ -79,7 +80,7 @@ function CopyButton({ className, containerRef, ...props }) {
+@@ -79,7 +80,8 @@ function CopyButton({ className, containerRef, ...props }) {
  			className: "hover:text-fd-accent-foreground data-checked:text-fd-accent-foreground",
  			size: "icon-xs"
  		}), className),
 -		"aria-label": checked ? "Copied Text" : "Copy Text",
++		lang: locale,
 +		"aria-label": checked ? text.codeBlockCopied : text.codeBlockCopy,
  		onClick,
  		...props,
  		children: checked ? /* @__PURE__ */ jsx(Check, {}) : /* @__PURE__ */ jsx(Clipboard, {})
 diff --git a/dist/components/heading.js b/dist/components/heading.js
-index 3ae57ec4ae30dcfc4544f9df4729d5efd80314ac..ee4387034d944349d2f05ee5575a36c0c07723d8 100644
+index 3ae57ec4ae30dcfc4544f9df4729d5efd80314ac..50887e1f77290de8432835e56739085b30b8164e 100644
 --- a/dist/components/heading.js
 +++ b/dist/components/heading.js
 @@ -1,4 +1,5 @@
@@ -194,15 +209,16 @@ index 3ae57ec4ae30dcfc4544f9df4729d5efd80314ac..ee4387034d944349d2f05ee5575a36c0
  //#region src/components/heading.tsx
  function Heading({ as, ...props }) {
  	const As = as ?? "h1";
-+	const { text } = useI18n();
++	const { text, locale } = useI18n();
  	const [isChecked, onCopy] = useCopyButton(() => {
  		if (!props.id) return;
  		const url = new URL(window.location.href);
-@@ -22,7 +24,7 @@ function Heading({ as, ...props }) {
+@@ -22,7 +24,8 @@ function Heading({ as, ...props }) {
  			href: `#${props.id}`,
  			children: props.children
  		}), /* @__PURE__ */ jsx("button", {
 -			"aria-label": "Copy Anchor Link",
++			lang: locale,
 +			"aria-label": text.headingCopyAnchor,
  			className: cn(buttonVariants({
  				variant: "ghost",

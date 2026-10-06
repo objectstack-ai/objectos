@@ -198,6 +198,15 @@
  *   - `translated-entry-marked-english`: the same entry for a page the locale
  *     DOES have must not resolve to `en`. Without this half, marking every
  *     entry English would pass the rule above.
+ *   - `localized-name-marked-english` (#308 review): the inverse of the first
+ *     rule. One of the locale's OWN names inside a `lang="en"` region, with no
+ *     `lang` of its own, is read with English rules. #305 localized the
+ *     heading-anchor and code-copy buttons, and on a fallback page they sit in
+ *     the body #298 marks English: on `main` at cf449fa, 520 + 115 per
+ *     Latin-script locale over 55 fallback pages and 336 + 58 in `zh-Hans`
+ *     and `zh-Hant` over 31, and nothing else. The locale's own names are
+ *     read off its built pages the way the English set is: the names that
+ *     resolve to the locale there, minus the English set.
  *
  * Folder names (a sidebar folder's button, the breadcrumb's crumbs) are not
  * links and are not read: every folder has a `meta.<locale>.json` title
@@ -256,6 +265,7 @@ const RULES = [
   'english-chrome-name',
   'untranslated-entry-unmarked',
   'translated-entry-marked-english',
+  'localized-name-marked-english',
   'docs-page-html-missing',
   'no-chrome-names',
   'no-tree-entries',
@@ -1245,13 +1255,35 @@ function englishChromeNames(pages, defaultLanguage) {
 }
 
 /**
+ * One locale's own chrome names (#308 review): every accessible name on that
+ * locale's built pages that resolves to the locale itself, minus the English
+ * set and `LANGUAGE_NEUTRAL_NAMES`, each mapped to how many times it appears
+ * there. Read off the build, like the English set, so it needs no copy of
+ * `lib/ui-text`: a heading-anchor or code-copy name shows up on a translated
+ * page, where the body is in the locale. What it cannot see is a name that
+ * ONLY ever appears inside an English body, which needs a locale with no
+ * translated page at all; every locale has translated pages today.
+ */
+function localChromeNames(own, lang, chrome) {
+  const local = new Map();
+  for (const [, page] of own ?? []) {
+    for (const { value, lang: resolved } of page.names) {
+      if (primaryLanguage(resolved) !== primaryLanguage(lang)) continue;
+      if (chrome.has(value) || LANGUAGE_NEUTRAL_NAMES.has(value)) continue;
+      local.set(value, (local.get(value) ?? 0) + 1);
+    }
+  }
+  return local;
+}
+
+/**
  * Findings for one locale's built pages, and its tallies. Shared by the gate,
  * the live control and the self-test.
  */
-function pageFindings({ surface, lang, pages, chrome }) {
+function pageFindings({ surface, lang, pages, chrome, local = new Map() }) {
   const { defaultLanguage } = surface;
   const findings = [];
-  const t = { pages: 0, names: 0, english: 0, untranslated: 0, unmarked: 0, translated: 0, markedEnglish: 0 };
+  const t = { pages: 0, names: 0, english: 0, localEnglish: 0, untranslated: 0, unmarked: 0, translated: 0, markedEnglish: 0 };
 
   for (const [id, page] of pages) {
     t.pages += 1;
@@ -1259,6 +1291,25 @@ function pageFindings({ surface, lang, pages, chrome }) {
 
     for (const name of page.names) {
       t.names += 1;
+      // The inverse (#308 review): this locale's own name inside an English
+      // region with no `lang` of its own, read with English rules.
+      if (
+        lang !== defaultLanguage &&
+        local.has(name.value) &&
+        primaryLanguage(name.lang) === primaryLanguage(defaultLanguage)
+      ) {
+        t.localEnglish += 1;
+        findings.push({
+          rule: 'localized-name-marked-english',
+          artifact: 'docs pages',
+          detail:
+            `${where}: ${name.where} "${name.value}" is a ${lang} chrome name (×${local.get(name.value)} on ` +
+            `the ${lang} pages) inside a lang="${name.lang}" region with no lang of its own — it is read to a ` +
+            `${lang} reader with English rules. Give the element lang="${lang}" (the heading-anchor and ` +
+            'code-copy buttons take it from `useI18n().locale` in `patches/fumadocs-ui@16.8.12.patch`)',
+        });
+        continue;
+      }
       if (!chrome.has(name.value) || primaryLanguage(name.lang) === primaryLanguage(defaultLanguage)) continue;
       t.english += 1;
       findings.push({
@@ -1327,16 +1378,18 @@ function pageFindings({ surface, lang, pages, chrome }) {
  * by `pageFindings`, before the real pages are. Both rules must fire, or the
  * run's green over the real pages is a claim rather than a measurement.
  */
-function pagesControl(surface, chrome, read = readHtml) {
+function pagesControl(surface, chrome, localByLang = new Map(), read = readHtml) {
   const lang = surface.languages.find((l) => l !== surface.defaultLanguage);
   const untranslated = [...surface.pages].find(
     ([, p]) => p.locales.has(surface.defaultLanguage) && !p.locales.has(lang) && p.titles.has(surface.defaultLanguage),
   );
   const name = chrome.keys().next().value;
-  if (!lang || !untranslated || name === undefined) {
+  const local = localByLang.get(lang) ?? new Map();
+  const localName = local.keys().next().value;
+  if (!lang || !untranslated || name === undefined || localName === undefined) {
     return {
       findings: [],
-      line: 'Live negative control: not constructible on this tree (no second locale, no untranslated page, or no chrome name); the rules above say why.',
+      line: 'Live negative control: not constructible on this tree (no second locale, no untranslated page, or no chrome name in English or in that locale); the rules above say why.',
     };
   }
 
@@ -1345,22 +1398,27 @@ function pagesControl(surface, chrome, read = readHtml) {
     `<!DOCTYPE html><html lang="${lang}"><body><aside id="nd-sidebar">` +
     `<button aria-label="${escapeHtml(name)}"></button>` +
     `<a href="/${lang}/${path}">${escapeHtml(page.titles.get(surface.defaultLanguage))}</a>` +
-    '</aside></body></html>';
+    `</aside><div class="prose" lang="${surface.defaultLanguage}"><button aria-label="${escapeHtml(localName)}"></button></div>` +
+    '</body></html>';
   const { findings } = pageFindings({
     surface,
     lang,
     pages: new Map([['(negative control)', read(html)]]),
     chrome,
+    local,
   });
   const fired = new Set(findings.map((f) => f.rule));
-  const silent = ['english-chrome-name', 'untranslated-entry-unmarked'].filter((r) => !fired.has(r));
+  const silent = ['english-chrome-name', 'untranslated-entry-unmarked', 'localized-name-marked-english'].filter(
+    (r) => !fired.has(r),
+  );
   if (silent.length === 0) {
     return {
       findings: [],
       line:
-        `Live negative control: a ${lang} page with the English name "${name}" on a button and ` +
-        `${path}'s English title unmarked in its sidebar fired \`english-chrome-name\` and ` +
-        '`untranslated-entry-unmarked` — the scan below can go red, so its result is a measurement.',
+        `Live negative control: a ${lang} page with the English name "${name}" on a button, ` +
+        `${path}'s English title unmarked in its sidebar, and the ${lang} name "${localName}" on a button ` +
+        'inside lang="en" fired `english-chrome-name`, `untranslated-entry-unmarked` and ' +
+        '`localized-name-marked-english` — the scan below can go red, so its result is a measurement.',
     };
   }
   return {
@@ -1368,12 +1426,12 @@ function pagesControl(surface, chrome, read = readHtml) {
       {
         rule: CONTROL_RULE,
         detail:
-          `the two #305 shapes were fed through the built-page scan and ${silent.join(', ')} stayed ` +
+          `the #305 shapes and their inverse were fed through the built-page scan and ${silent.join(', ')} stayed ` +
           'silent — this scan cannot currently tell a marked page from an unmarked one, so its result ' +
           'on the real pages means nothing',
       },
     ],
-    line: `Live negative control: FAILED — ${silent.join(', ')} did not fire on the #305 shapes.`,
+    line: `Live negative control: FAILED — ${silent.join(', ')} did not fire on the #305 shapes or their inverse.`,
   };
 }
 
@@ -1393,7 +1451,7 @@ function builtPages({ surface, pages }) {
         `docs pages: no built page under ${PAGES_DIR}/<locale>/ — run \`pnpm turbo run build\` first. ` +
         'Not finding them is a failure, never a skip.',
     });
-    return { findings, tally, chrome: new Map() };
+    return { findings, tally, chrome: new Map(), local: new Map() };
   }
 
   for (const [path, page] of surface.pages) {
@@ -1423,8 +1481,12 @@ function builtPages({ surface, pages }) {
     });
   }
 
+  const local = new Map(
+    languages.filter((l) => l !== defaultLanguage).map((l) => [l, localChromeNames(pages.get(l), l, chrome)]),
+  );
+
   for (const lang of languages) {
-    const result = pageFindings({ surface, lang, pages: pages.get(lang), chrome });
+    const result = pageFindings({ surface, lang, pages: pages.get(lang), chrome, local: local.get(lang) });
     findings.push(...result.findings);
     tally.set(lang, result.tally);
     if (lang === defaultLanguage) continue;
@@ -1447,7 +1509,7 @@ function builtPages({ surface, pages }) {
     }
   }
 
-  return { findings, tally, chrome };
+  return { findings, tally, chrome, local };
 }
 
 /* ---------------------------------------------------------------- collect -- */
@@ -1648,7 +1710,7 @@ function gate() {
   findings.push(...control.findings);
 
   // The same for the built pages and the #305 shapes (#308).
-  const pagesLive = pagesControl(surface, built.chrome);
+  const pagesLive = pagesControl(surface, built.chrome, built.local);
   findings.push(...pagesLive.findings);
 
   const docsTotal = Object.values(perLocale).reduce((a, b) => a + b, 0);
@@ -1731,18 +1793,19 @@ function gate() {
       `. Language-neutral, not compared: ${[...LANGUAGE_NEUTRAL_NAMES].map((n) => `"${n}"`).join(', ')}.\n`,
   );
   console.log(
-    '| locale | pages read | names read | English chrome names | untranslated entries | of them unmarked | translated entries | of them marked English |',
+    '| locale | pages read | names read | English chrome names | own names read as English | untranslated entries | of them unmarked | translated entries | of them marked English |',
   );
-  console.log('|---|---:|---:|---:|---:|---:|---:|---:|');
+  console.log('|---|---:|---:|---:|---:|---:|---:|---:|---:|');
   for (const lang of surface.languages) {
     const t = built.tally.get(lang);
     const tree = lang === surface.defaultLanguage;
     console.log(
       t
         ? `| \`${lang}\` | ${t.pages} | ${t.names} | ${tree ? 'n/a (the oracle)' : t.english} | ` +
+            `${tree ? 'n/a' : `${t.localEnglish} (of ${built.local.get(lang)?.size ?? 0} own names)`} | ` +
             `${tree ? 'n/a' : t.untranslated} | ${tree ? 'n/a' : t.unmarked} | ${tree ? 'n/a' : t.translated} | ` +
             `${tree ? 'n/a' : t.markedEnglish} |`
-        : `| \`${lang}\` | NOT MEASURED — not built | — | — | — | — | — | — |`,
+        : `| \`${lang}\` | NOT MEASURED — not built | — | — | — | — | — | — | — |`,
     );
   }
   console.log('');
@@ -1754,6 +1817,7 @@ function gate() {
         'the other locales; no page slug in the content tree contains a dot; neither ' +
         '`llms` consumer carries a numeric character reference, a malformed link target or an MDX comment; ' +
         `and no built page outside \`${surface.defaultLanguage}\` names a control in English, ` +
+        'reads one of its own names inside lang="en" with English rules, ' +
         'shows an untranslated page-tree entry without lang="en", or marks a translated one English',
     );
     return;
@@ -1861,8 +1925,11 @@ const llmsFull = (titles) =>
 /** One per-page `llms.mdx` body: what `getLLMText` returns for a single page. */
 const llmsPage = (title) => `# ${title}\n\nBody of ${title}, see [the overview](/docs).\n`;
 
-/** Each fixture locale's word for the one chrome name the built-page fixtures carry. */
+/** Each fixture locale's word for the sidebar chrome name the built-page fixtures carry. */
 const FIXTURE_CHROME = { en: 'Open Search', 'zh-Hans': '打开搜索', ja: '検索を開く' };
+
+/** And for the heading-anchor button inside the body, which carries its own `lang` (#308 review). */
+const FIXTURE_ANCHOR = { en: 'Copy Anchor Link', 'zh-Hans': '复制锚点链接', ja: 'アンカーリンクをコピー' };
 
 /**
  * The built pages a correct build of `dir`'s content produces (#308): one per
@@ -1876,7 +1943,9 @@ const FIXTURE_CHROME = { en: 'Open Search', 'zh-Hans': '打开搜索', ja: '検�
  *     which is no page's title, so it is not an entry;
  *   - a button named in the page's locale, and a "GitHub" link
  *     (`LANGUAGE_NEUTRAL_NAMES`);
- *   - the body, marked `lang="en"` on a fallback;
+ *   - the body, marked `lang="en"` on a fallback, holding a heading whose
+ *     anchor button is named in the page's locale and says so with its own
+ *     `lang` (the #308 review fix);
  *   - an RSC-payload `<script>` holding the English name as a string of
  *     markup, which a reader that did not skip scripts would take for a
  *     button named in English on every localized page.
@@ -1906,7 +1975,8 @@ function fixturePages(dir, { languages, defaultLanguage }) {
         '<a href="https://github.com/objectstack-ai/objectos" aria-label="GitHub"><svg aria-hidden="true"></svg></a>' +
         `${sidebar}</aside>` +
         `<article id="nd-page" role="main"><h1${marked}>${titleIn(p)}</h1>` +
-        `<div class="prose"${marked}><p>Body.</p></div></article>` +
+        `<div class="prose"${marked}><h2 id="part"><a href="#part">Part</a>` +
+        `<button lang="${lang}" aria-label="${FIXTURE_ANCHOR[lang]}"></button></h2><p>Body.</p></div></article>` +
         '<script>self.__next_f.push([1,"<button aria-label=\\"Open Search\\"></button>"])</script>' +
         '</body></html>';
     }
@@ -2233,6 +2303,36 @@ const CASES = [
     expect: [],
   },
   {
+    // The inverse, as #305 shipped it: on a ja fallback page the heading's
+    // anchor button is named in Japanese, inside the English body, with no
+    // lang of its own — read with English rules.
+    name: 'a localized name inside lang="en" with no lang of its own',
+    html: (f) => ({
+      ...f,
+      'ja/docs/deep': once(
+        f['ja/docs/deep'],
+        '<button lang="ja" aria-label="アンカーリンクをコピー">',
+        '<button aria-label="アンカーリンクをコピー">',
+      ),
+    }),
+    expect: ['localized-name-marked-english'],
+  },
+  {
+    // The same name reaching the English body through an inherited lang: the
+    // button carries none, its parent says ja. Green, which is what lets the
+    // fix live on a wrapper as well as on the button.
+    name: 'a localized name inside lang="en" whose own wrapper says the locale',
+    html: (f) => ({
+      ...f,
+      'ja/docs/deep': once(
+        f['ja/docs/deep'],
+        '<button lang="ja" aria-label="アンカーリンクをコピー"></button>',
+        '<span lang="ja"><button aria-label="アンカーリンクをコピー"></button></span>',
+      ),
+    }),
+    expect: [],
+  },
+  {
     // #305's second shape: the English title of a page ja has no source file
     // for, in ja's sidebar, read with Japanese rules.
     name: 'an untranslated page-tree entry with no lang marker (the #305 shape)',
@@ -2269,7 +2369,12 @@ const CASES = [
     name: 'no accessible name on any English page',
     html: (f) =>
       Object.fromEntries(
-        Object.entries(f).map(([file, h]) => [file, file.startsWith('en/') ? once(h, ' aria-label="Open Search"', '') : h]),
+        Object.entries(f).map(([file, h]) => [
+          file,
+          file.startsWith('en/')
+            ? once(once(h, ' aria-label="Open Search"', ''), ' aria-label="Copy Anchor Link"', '')
+            : h,
+        ]),
       ),
     expect: ['no-chrome-names'],
   },
@@ -2445,6 +2550,7 @@ function selfTest() {
     // fixture tree, so this is how its `negative-control-passed` is shown
     // able to fire.
     const chrome = new Map([['Open Search', 3]]);
+    const localByLang = new Map([['zh-Hans', new Map([['打开搜索', 3]])]]);
     for (const [name, read, wantRed] of [
       ['the real reader', readHtml, false],
       ['a reader blind to names', (t) => ({ ...readHtml(t), names: [] }), true],
@@ -2456,8 +2562,18 @@ function selfTest() {
         },
         true,
       ],
+      [
+        // Every name resolved to the page's locale, `lang` on regions ignored:
+        // the inverse half goes silent.
+        'a reader blind to lang on names',
+        (t) => {
+          const r = readHtml(t);
+          return { ...r, names: r.names.map((n) => ({ ...n, lang: 'zh-Hans' })) };
+        },
+        true,
+      ],
     ]) {
-      const red = pagesControl(collected.surface, chrome, read).findings.some((f) => f.rule === CONTROL_RULE);
+      const red = pagesControl(collected.surface, chrome, localByLang, read).findings.some((f) => f.rule === CONTROL_RULE);
       const ok = red === wantRed;
       if (!ok) failed += 1;
       console.log(
@@ -2584,7 +2700,7 @@ function selfTest() {
       'artifact(s) — every rule demonstrated able to fail and every artifact demonstrated ' +
       'able to fail it, on fixtures read through the real readers; the encoding and MDX-comment rules ' +
       'demonstrated on both `llms` consumers; and both live controls (the #197 encoding shape and the ' +
-      `#305 built-page shapes) demonstrated able to fire ${CONTROL_RULE}`,
+      `#305 built-page shapes and their inverse) demonstrated able to fire ${CONTROL_RULE}`,
   );
 }
 
