@@ -160,6 +160,20 @@ jobs:
         shell: bash
         run: node .github/scripts/check-positioning.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # #296: `/api/search` answered 500 in `zh-Hans`, `zh-Hant`, `ja` and `ko`
+      # while every step above was green. The route is dynamic, so the build
+      # output records nothing about it, and only a request finds the defect.
+      # This step loads the BUILT handler out of `apps/docs/.next/` and asks it
+      # in every locale `lib/i18n.ts` declares: 200, hits for `permissions`,
+      # every page that locale has a source file for found by its own title,
+      # and nothing for a nonce. It is on the same footing as the two steps
+      # above: after `build`, not a turbo task, its `--self-test` under
+      # `pnpm turbo run test` below, and `shell: bash` for the same pipefail
+      # reason.
+      - name: Search answers every locale
+        shell: bash
+        run: node .github/scripts/check-search-locales.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       - run: pnpm turbo run test
 
       # Defect 2 of #269: the deploy used to run its own `pnpm install` and its

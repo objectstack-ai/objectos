@@ -90,6 +90,13 @@
  * rules — the copies of the positioning constant agreeing with it, the one
  * brand spelling in shipped output, the stale sentences staying gone — can
  * still go red, and stays silent on the shapes the rulings on #171 accepted.
+ *
+ * `check-search-locales.mjs` is listed for its `--self-test` only (#296). Its
+ * gate mode loads the built `/api/search` handler out of `apps/docs/.next/`
+ * and is a `ci.yml` step after the build, like the two gates above. Its
+ * fixtures are fake handlers. They prove that each rule (a throw, a non-200,
+ * a non-array, no hits, a page its own title cannot find, a negative control
+ * that matches) can still go red.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -112,6 +119,7 @@ const SELF_TESTED = [
   'check-prerender-cache.mjs',
   'check-translation-ownership.mjs',
   'check-positioning.mjs',
+  'check-search-locales.mjs',
 ];
 
 /**
