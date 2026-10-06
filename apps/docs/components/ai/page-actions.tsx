@@ -107,12 +107,20 @@ export function ViewOptions({
     openInGitHub: string;
     openInChatGPT: string;
     openInClaude: string;
+    /**
+     * The sentence the assistant is opened with, in the route locale, with
+     * `{url}` where the read URL goes (#308). Upstream fumadocs-ui 16.9.0's
+     * `pageActionsOpenInLLMPrompt`, same placeholder and same English.
+     */
+    openInLLMPrompt: string;
   };
 }) {
   const items = useMemo(() => {
     const fullReadUrl =
       typeof window !== 'undefined' ? new URL(readUrl, window.location.origin) : 'loading';
-    const q = `Read ${fullReadUrl}, I want to ask questions about it.`;
+    // A replacer function, not a replacement string: in a replacement string
+    // `$&` and its kin are patterns, and nothing stops a URL containing `$`.
+    const q = labels.openInLLMPrompt.replace('{url}', () => String(fullReadUrl));
 
     return [
       {

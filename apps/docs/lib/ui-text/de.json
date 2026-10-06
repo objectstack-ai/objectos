@@ -23,6 +23,7 @@
   "openInGitHub": "In GitHub öffnen",
   "openInChatGPT": "In ChatGPT öffnen",
   "openInClaude": "In Claude öffnen",
+  "pageActionsOpenInLLMPrompt": "Lies {url}, ich möchte Fragen dazu stellen.",
   "notTranslated": "Diese Seite ist noch nicht übersetzt; angezeigt wird die englische Fassung.",
   "legalNav": "Rechtliches",
   "privacy": "Datenschutz",
