@@ -4,9 +4,10 @@
  *
  * (a) Each copy of the positioning equals `apps/docs/lib/positioning.ts` (its
  *     literals, joined as its own `POSITIONING = [...].join(...)` says): the
- *     `content/docs/index.mdx` frontmatter `description` (MDX cannot import), the
+ *     opening paragraph of `content/docs/index.mdx` (MDX cannot import), the
  *     site-wide meta description on the built `_not-found.html` (that route sets
- *     only a title), and the built `/llms.txt` `> ` summary line.
+ *     only a title), and the built `/llms.txt` `> ` summary line. That file's
+ *     frontmatter `description` equals `POSITIONING_SHORT` (#299).
  * (b) The brand is spelled ObjectOS in every built HTML page and both `llms`
  *     bodies. It reads the build, not the sources: `lib/i18n.ts` keeps
  *     "ObjectStack Documentation" in a comment that ships nowhere, as #171 allowed.
@@ -43,17 +44,21 @@ const STALE = [
 ];
 const OPEN_SOURCE = /Open[\s-]+source,\s+Apache-2\.0/i; // checked inside the glossary's ObjectOS entry only
 
-/** POSITIONING as the constant's file composes it, or undefined when it cannot be read. */
-function composed(ts) {
+/** The constant file's literals by name, plus POSITIONING as it composes it (undefined when it cannot be read). */
+function constants(ts) {
   const literal = {};
   for (const m of ts.matchAll(/export const (\w+) =\s*(['"])((?:\\.|(?!\2).)*)\2;/g)) {
     literal[m[1]] = m[3].replace(/\\(.)/g, '$1');
   }
   const join = /export const POSITIONING = \[([^\]]*)\]\.join\((['"])(.*?)\2\)/.exec(ts.replace(/\s*\n\s*/g, ' '));
   const parts = join?.[1].split(',').map((s) => s.trim()).filter(Boolean) ?? [];
-  if (!parts.length || parts.some((p) => literal[p] === undefined)) return undefined;
-  return parts.map((p) => literal[p]).join(join[3]);
+  const ok = parts.length && parts.every((p) => literal[p] !== undefined);
+  return { ...literal, POSITIONING: ok ? parts.map((p) => literal[p]).join(join[3]) : undefined };
 }
+
+/** The first paragraph after the frontmatter, its wrapped lines joined by single spaces. */
+const lede = (mdx) =>
+  mdx.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '').trim().split(/\r?\n[ \t]*\r?\n/)[0].replace(/[ \t]*\r?\n[ \t]*/g, ' ');
 
 function frontmatterDescription(mdx) {
   const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(mdx)?.[1] ?? '';
@@ -73,18 +78,19 @@ const decode = (s) =>
   );
 const metaDescription = (html) => decode(/<meta name="description" content="([^"]*)"/.exec(html)?.[1]);
 
-/** (a) Each copy is byte-equal to the constant. A missing file reads as undefined, which differs. */
+/** (a) Each copy is byte-equal to its constant. A missing file reads as undefined, which differs. */
 function ruleA({ ts, index, notFound, llms }) {
-  const want = composed(ts ?? '');
-  if (want === undefined) return [`(a) ${CONSTANT} composes no POSITIONING this gate can read`];
-  const copies = {
-    [`${INDEX} frontmatter description`]: index && frontmatterDescription(index),
-    'site-wide meta description (built _not-found.html)': notFound && metaDescription(notFound),
-    'built /llms.txt summary line': llms?.split('\n').find((l) => l.startsWith('> '))?.slice(2),
-  };
-  return Object.entries(copies)
-    .filter(([, got]) => got !== want)
-    .map(([what, got]) => `(a) ${what} is not POSITIONING\n      got:  ${JSON.stringify(got)}\n      want: ${JSON.stringify(want)}`);
+  const c = constants(ts ?? '');
+  if (c.POSITIONING === undefined || c.POSITIONING_SHORT === undefined) return [`(a) ${CONSTANT} has no POSITIONING or POSITIONING_SHORT this gate can read`];
+  const copies = [
+    [`${INDEX} frontmatter description`, index && frontmatterDescription(index), 'POSITIONING_SHORT'],
+    [`${INDEX} opening paragraph`, index && lede(index), 'POSITIONING'],
+    ['site-wide meta description (built _not-found.html)', notFound && metaDescription(notFound), 'POSITIONING'],
+    ['built /llms.txt summary line', llms?.split('\n').find((l) => l.startsWith('> '))?.slice(2), 'POSITIONING'],
+  ];
+  return copies
+    .filter(([, got, name]) => got !== c[name])
+    .map(([what, got, name]) => `(a) ${what} is not ${name}\n      got:  ${JSON.stringify(got)}\n      want: ${JSON.stringify(c[name])}`);
 }
 
 /** (b) No shipped file spells the brand another way. A missing file is a finding: it was not measured. */
@@ -142,19 +148,19 @@ function gate() {
     console.error(`\n✗ positioning: ${findings.length} finding(s). The rules are in this script's header.`);
     return 1;
   }
-  console.log(`✓ positioning: 3 copies equal the constant; the brand is right in ${pages.length} pages and 2 llms bodies; no stale sentence in ${sources.length} English sources and the en entry of ${LEGAL.length} legal pages`);
+  console.log(`✓ positioning: 4 copies equal their constants; the brand is right in ${pages.length} pages and 2 llms bodies; no stale sentence in ${sources.length} English sources and the en entry of ${LEGAL.length} legal pages`);
   return 0;
 }
 
 /* Self-test: per rule, a good fixture that must give 0 findings and a bad one that must give exactly N. */
 const A_OK = {
-  ts: "export const A = 'One ontology.';\nexport const B =\n  \"It's yours.\";\nexport const POSITIONING = [\n  A,\n  B,\n].join(' ');\n",
-  index: `---\ntitle: Introduction\ndescription: "One ontology. It's yours."\n---\n\nBody.\n`,
+  ts: "export const A = 'One ontology.';\nexport const B =\n  \"It's yours.\";\nexport const POSITIONING = [\n  A,\n  B,\n].join(' ');\nexport const POSITIONING_SHORT = 'Yours.';\n",
+  index: `---\ntitle: Introduction\ndescription: "Yours."\n---\n\nOne ontology.\nIt's yours.\n\nBody.\n`,
   notFound: '<title>404</title><meta name="description" content="One ontology. It&#x27;s yours."/>',
   llms: "# ObjectOS\n\n> One ontology. It's yours.\n",
 };
 const A_BAD = {
-  index: '---\ndescription: One ontology, yours.\n---\n',
+  index: '---\ndescription: One ontology, yours.\n---\n\nOne ontology. Yours.\n',
   notFound: '<meta name="description" content="A self-hosted runtime."/>',
   llms: "> One ontology.\nIt's yours.\n",
 };
@@ -165,8 +171,8 @@ const LEGAL_OK = "const content = {\n  en: {\n    text: 'ObjectOS Cloud is hoste
 const LEGAL_BAD = "  en: {\n    text: 'ObjectOS is distributed under the Apache License 2.0. ObjectOS is a customer-hosted\nruntime that does not phone home.',\n  },\n";
 const glossary = (entry) => [GLOSSARY, `### ObjectOS\n\n${entry}\n\n### ObjectStack\n\nOpen source, Apache-2.0.\n`];
 const CASES = [
-  ['(a) the three copies equal the constant', () => ruleA(A_OK), 0],
-  ['(a) index paraphrased, site meta stale, llms line split', () => ruleA({ ...A_OK, ...A_BAD }), 3],
+  ['(a) the four copies equal their constants, the opening paragraph wrapped', () => ruleA(A_OK), 0],
+  ['(a) index description and paragraph paraphrased, site meta stale, llms line split', () => ruleA({ ...A_OK, ...A_BAD }), 4],
   ['(b) ObjectOS, the host and the package scope', () => ruleB([['a.html', 'Intro | ObjectOS, docs.objectos.ai, @objectos/docs']]), 0],
   ['(b) the five wrong spellings, one file each', () => ruleB(B_BAD.map((s, i) => [`${i}.html`, `<p>${s} boots.</p>`])), 5],
   ['(c) list form, a question, a fenced quote, a comment', () => ruleC([glossary('Commercial. Not open source.'), ['a.mdx', C_OK]]), 0],

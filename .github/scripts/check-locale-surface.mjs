@@ -162,6 +162,15 @@
  * the content-tree oracle above is the thing that says which `llms.mdx`
  * bodies must exist.
  *
+ * #299 adds a third rule on the same bodies, `mdx-comment`: no `{/*` in either
+ * consumer. An MDX comment is a note to the page's next editor. It renders
+ * nothing, but the processed Markdown kept it as text, so the internal naming
+ * note in `resources/license.mdx` shipped in both consumers and in what Copy
+ * Markdown copies. `getLLMText` in `apps/docs/lib/source.ts` now strips them,
+ * except inside a code fence. This rule reads the whole body, fences included,
+ * for the reason given above. A code sample that one day needs a literal `{/*`
+ * is a reason to change this rule on purpose.
+ *
  * ## Usage
  *
  *   node .github/scripts/check-locale-surface.mjs              # the gate (needs a build)
@@ -192,6 +201,7 @@ const RULES = [
   'dotted-slug',
   'numeric-character-reference',
   'malformed-link-target',
+  'mdx-comment',
   'no-link-targets',
   'llms-page-body-missing',
 ];
@@ -747,7 +757,9 @@ function scanBody(text) {
     if (text[end] !== ')') malformed.push({ index: i, text: text.slice(i, end) });
   }
 
-  return { references, targets, malformed };
+  const comments = [...text.matchAll(/\{\/\*/g)].map((m) => ({ index: m.index }));
+
+  return { references, targets, malformed, comments };
 }
 
 /** Every `.body` file under `dir`, keyed by its path relative to `dir` without `.body`. */
@@ -775,7 +787,7 @@ function readBodies(dir, base = dir, out = new Map()) {
 function encodingFindings(bodies, consumers, scan = scanBody) {
   const findings = [];
   const tally = new Map(
-    consumers.map((c) => [c, { bodies: 0, references: 0, targets: 0, malformed: 0, kinds: new Map() }]),
+    consumers.map((c) => [c, { bodies: 0, references: 0, targets: 0, malformed: 0, comments: 0, kinds: new Map() }]),
   );
 
   for (const body of bodies) {
@@ -785,6 +797,7 @@ function encodingFindings(bodies, consumers, scan = scanBody) {
     t.references += found.references.length;
     t.targets += found.targets;
     t.malformed += found.malformed.length;
+    t.comments += found.comments.length;
     for (const r of found.references) t.kinds.set(r.text, (t.kinds.get(r.text) ?? 0) + 1);
 
     const where = rel(body.path);
@@ -813,6 +826,17 @@ function encodingFindings(bodies, consumers, scan = scanBody) {
             .slice(0, 3)
             .map((m) => `line ${lineAt(body.text, m.index)}: ${printable(m.text.slice(0, 80))}`)
             .join('; '),
+      });
+    }
+    if (found.comments.length) {
+      const first = found.comments[0].index;
+      findings.push({
+        rule: 'mdx-comment',
+        artifact: body.consumer,
+        detail:
+          `${body.consumer}: ${found.comments.length} MDX comment(s) in ${where}; first at line ` +
+          `${lineAt(body.text, first)}: ${printable(body.text.slice(first, first + 60))} — an editor's ` +
+          'note shipped as text, which `getLLMText` in `apps/docs/lib/source.ts` strips',
       });
     }
   }
@@ -1191,15 +1215,15 @@ function gate() {
       'decode a reference back into the character it encodes and make the evidence read clean.\n',
   );
   console.log(`${control.line}\n`);
-  console.log('| consumer | bodies read | bodies expected | numeric references | link targets | malformed targets |');
-  console.log('|---|---:|---:|---:|---:|---:|');
+  console.log('| consumer | bodies read | bodies expected | numeric references | link targets | malformed targets | MDX comments |');
+  console.log('|---|---:|---:|---:|---:|---:|---:|');
   for (const consumer of LLMS_CONSUMERS) {
     const t = encoding.tally.get(consumer);
     const expected = consumer === 'llms.mdx' ? encoding.expected : 1;
     console.log(
       t
-        ? `| \`${consumer}\` | ${t.bodies} | ${expected} | ${t.references} | ${t.targets} | ${t.malformed} |`
-        : `| \`${consumer}\` | NOT MEASURED — not built | ${expected} | — | — | — |`,
+        ? `| \`${consumer}\` | ${t.bodies} | ${expected} | ${t.references} | ${t.targets} | ${t.malformed} | ${t.comments} |`
+        : `| \`${consumer}\` | NOT MEASURED — not built | ${expected} | — | — | — | — |`,
     );
   }
   for (const [consumer, t] of encoding.tally) {
@@ -1558,6 +1582,18 @@ const CASES = [
     expect: ['malformed-link-target'],
   },
   {
+    // #299: the internal note in `resources/license.mdx`, as the processed
+    // Markdown carried it — a whole-line comment over several lines.
+    name: 'llms-full.txt carries an MDX comment',
+    fullBody: `${llmsFull(BASE_TITLES)}\n{/*\n  Naming, decided under #79.\n  */}\n`,
+    expect: ['mdx-comment'],
+  },
+  {
+    name: 'an llms.mdx body carries an MDX comment',
+    mdx: (pages) => ({ ...pages, 'docs/guide': `${pages['docs/guide']}\nText {/* aside */} more.\n` }),
+    expect: ['mdx-comment'],
+  },
+  {
     // One page's body not built: its text was never scanned, and a clean
     // scan of the other bodies must not read as covering it.
     name: 'an English page has no llms.mdx body',
@@ -1593,7 +1629,7 @@ const CASES = [
     name: 'ampersands and parentheses in a URL are not findings',
     fullBody:
       `${llmsFull(BASE_TITLES)}\nR&D at AT&T, see [search](https://docs.objectos.ai/docs?q=a&b=c) ` +
-      'and [Foo](https://en.wikipedia.org/wiki/Foo_(bar)); issue &#197 is prose.\n',
+      'and [Foo](https://en.wikipedia.org/wiki/Foo_(bar)); issue &#197 is prose; `/api/v1/data/*` is a path.\n',
     expect: [],
   },
 ];
@@ -1826,12 +1862,13 @@ function selfTest() {
     }
   }
 
-  // Both encoding rules, for both consumers (#282). Rule coverage alone would
-  // pass with every reference fixture written against `llms-full.txt`, and
+  // The encoding rules (#282) and `mdx-comment` (#299), for both consumers.
+  // Rule coverage alone would pass with every reference fixture written
+  // against `llms-full.txt`, and
   // the 79 `llms.mdx` bodies would then have a rule nobody had seen fire on
   // them — the mistake #197 already recorded once.
   for (const consumer of LLMS_CONSUMERS) {
-    for (const rule of ['numeric-character-reference', 'malformed-link-target']) {
+    for (const rule of ['numeric-character-reference', 'malformed-link-target', 'mdx-comment']) {
       if (!pairs.has(`${consumer}:${rule}`)) {
         console.error(`✗ no fixture drives "${rule}" red on the ${consumer} consumer`);
         failed += 1;
@@ -1846,7 +1883,7 @@ function selfTest() {
   console.log(
     `✓ self-test: ${CASES.length} case(s) over ${RULES.length} rule(s) and ${ARTIFACTS.length} ` +
       'artifact(s) — every rule demonstrated able to fail and every artifact demonstrated ' +
-      'able to fail it, on fixtures read through the real readers; both encoding rules ' +
+      'able to fail it, on fixtures read through the real readers; the encoding and MDX-comment rules ' +
       `demonstrated on both \`llms\` consumers; and the live control demonstrated able to fire ${CONTROL_RULE}`,
   );
 }

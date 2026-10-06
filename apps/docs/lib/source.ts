@@ -57,8 +57,30 @@ export function getPageImage(page: InferPageType<typeof source>, lang: string) {
   };
 }
 
+/**
+ * A fenced code block, a whole-line MDX comment with the blank lines after it,
+ * or an inline MDX comment. These are one alternation so that a fence is
+ * consumed whole, and a `{/* … *\/}` inside a code sample is kept as code.
+ */
+const FENCE_OR_MDX_COMMENT =
+  /^ {0,3}(`{3,}|~{3,})[\s\S]*?^ {0,3}\1|^[ \t]*\{\/\*[\s\S]*?\*\/\}[ \t]*(?:\n[ \t]*)*\n|\{\/\*[\s\S]*?\*\/\}/gm;
+
+/**
+ * Removes MDX comments from a page's processed Markdown (#299).
+ *
+ * `{/* … *\/}` is how a page leaves a note for its next editor. It renders
+ * nothing on the page, but fumadocs' processed Markdown keeps it as text, so
+ * `resources/license.mdx`'s internal naming note was shipped in
+ * `/llms-full.txt`, in `/docs/resources/license.mdx` and in what Copy Markdown
+ * copies. `check-locale-surface.mjs` fails the build if an `llms` body carries
+ * one again.
+ */
+function stripMdxComments(markdown: string): string {
+  return markdown.replace(FENCE_OR_MDX_COMMENT, (match, fence?: string) => (fence ? match : ''));
+}
+
 export async function getLLMText(page: InferPageType<typeof source>) {
-  const processed = await page.data.getText('processed');
+  const processed = stripMdxComments(await page.data.getText('processed'));
 
   return `# ${page.data.title}
 
