@@ -55,6 +55,10 @@ const en = {
    * string is translated from, so it is kept.
    */
   notTranslated: 'This page is not yet translated; showing English.',
+  /** The sidebar footer's links to `/privacy` and `/terms`, and their nav's name. */
+  legalNav: 'Legal',
+  privacy: 'Privacy',
+  terms: 'Terms',
 } satisfies Translations & Record<string, string>;
 
 export type UiText = Record<keyof typeof en, string>;

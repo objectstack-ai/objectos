@@ -14,5 +14,8 @@
   "openInGitHub": "Ouvrir dans GitHub",
   "openInChatGPT": "Ouvrir dans ChatGPT",
   "openInClaude": "Ouvrir dans Claude",
-  "notTranslated": "Cette page n'est pas encore traduite. Elle s'affiche en anglais."
+  "notTranslated": "Cette page n'est pas encore traduite. Elle s'affiche en anglais.",
+  "legalNav": "Mentions légales",
+  "privacy": "Confidentialité",
+  "terms": "Conditions"
 }

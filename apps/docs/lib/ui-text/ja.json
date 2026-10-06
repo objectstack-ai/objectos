@@ -14,5 +14,8 @@
   "openInGitHub": "GitHub で開く",
   "openInChatGPT": "ChatGPT で開く",
   "openInClaude": "Claude で開く",
-  "notTranslated": "このページはまだ翻訳されていません。英語版を表示しています。"
+  "notTranslated": "このページはまだ翻訳されていません。英語版を表示しています。",
+  "legalNav": "法的情報",
+  "privacy": "プライバシー",
+  "terms": "利用規約"
 }

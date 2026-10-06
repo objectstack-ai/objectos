@@ -14,5 +14,8 @@
   "openInGitHub": "GitHub에서 열기",
   "openInChatGPT": "ChatGPT에서 열기",
   "openInClaude": "Claude에서 열기",
-  "notTranslated": "이 페이지는 아직 번역되지 않았습니다. 영어 원문을 표시합니다."
+  "notTranslated": "이 페이지는 아직 번역되지 않았습니다. 영어 원문을 표시합니다.",
+  "legalNav": "법적 고지",
+  "privacy": "개인정보 보호",
+  "terms": "이용약관"
 }
