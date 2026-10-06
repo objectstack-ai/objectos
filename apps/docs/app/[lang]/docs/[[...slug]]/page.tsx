@@ -268,10 +268,10 @@ export default async function Page(props: {
   const loaded = await page.data.load();
   const MDX = loaded.body;
 
-  // Resolved once and handed to both controls (the copy button takes it through
-  // `copySource` below), so they cannot drift apart and
+  // Resolved once and handed to both controls (through `copySource` and
+  // `assistantReadUrl` below), so they cannot drift apart and
   // so a third control added below inherits the locale-independent URL instead
-  // of re-deriving one from `page.url`. That re-derivation is the whole defect:
+  // of re-deriving a `.mdx` URL from `page.url`. That re-derivation is the whole defect:
   // it is invisible in the rendered markup — `markdownUrl` reaches the browser
   // only as a client-component prop in the RSC payload — so a broken value
   // produces no build error, no console warning and no failing gate, and shows
@@ -312,6 +312,13 @@ export default async function Page(props: {
     contentLang === i18n.defaultLanguage
       ? { url: pageMarkdownUrl }
       : { text: await getLLMText(page) };
+
+  // "Open in ChatGPT / Claude" follows the same rule (#305): the assistant is
+  // sent to the page on screen. The English Markdown when that is the English
+  // page; the translated page itself when it is a translation — `page.url` is
+  // this locale's URL, the one being read — because its Markdown has no URL and
+  // is too long to inline into the prompt (`ViewOptions` has the measurement).
+  const assistantReadUrl = contentLang === i18n.defaultLanguage ? pageMarkdownUrl : page.url;
 
   // Structured data. Emitted from the page rather than from `generateMetadata`,
   // which can only produce meta/link elements — the Metadata API has no channel
@@ -357,7 +364,7 @@ export default async function Page(props: {
         <div className="flex flex-row gap-2 items-center border-b pb-6">
           <LLMCopyButton markdown={copySource} label={text.copyMarkdown} />
           <ViewOptions
-            markdownUrl={pageMarkdownUrl}
+            readUrl={assistantReadUrl}
             githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
             labels={{
               open: text.openMenu,

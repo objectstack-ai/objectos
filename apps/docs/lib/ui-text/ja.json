@@ -9,6 +9,15 @@
   "previousPage": "前のページ",
   "chooseTheme": "テーマ",
   "editOnGithub": "GitHub で編集",
+  "searchOpen": "検索を開く",
+  "themeToggle": "テーマを切り替える",
+  "sidebarOpen": "サイドバーを開く",
+  "sidebarCollapse": "サイドバーを折りたたむ",
+  "headingCopyAnchor": "アンカーリンクをコピー",
+  "codeBlockCopy": "テキストをコピー",
+  "codeBlockCopied": "テキストをコピーしました",
+  "menuToggle": "メニューを切り替える",
+  "navMain": "メインナビゲーション",
   "copyMarkdown": "Markdown をコピー",
   "openMenu": "開く",
   "openInGitHub": "GitHub で開く",
@@ -17,5 +26,6 @@
   "notTranslated": "このページはまだ翻訳されていません。英語版を表示しています。",
   "legalNav": "法的情報",
   "privacy": "プライバシー",
-  "terms": "利用規約"
+  "terms": "利用規約",
+  "notFound": "このページは見つかりませんでした。"
 }

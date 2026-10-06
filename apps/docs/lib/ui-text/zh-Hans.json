@@ -9,6 +9,15 @@
   "previousPage": "上一页",
   "chooseTheme": "主题",
   "editOnGithub": "在 GitHub 上编辑",
+  "searchOpen": "打开搜索",
+  "themeToggle": "切换主题",
+  "sidebarOpen": "打开侧边栏",
+  "sidebarCollapse": "收起侧边栏",
+  "headingCopyAnchor": "复制锚点链接",
+  "codeBlockCopy": "复制文本",
+  "codeBlockCopied": "已复制文本",
+  "menuToggle": "切换菜单",
+  "navMain": "主导航",
   "copyMarkdown": "复制 Markdown",
   "openMenu": "打开",
   "openInGitHub": "在 GitHub 中打开",
@@ -17,5 +26,6 @@
   "notTranslated": "本页尚未翻译，以下显示英文原文。",
   "legalNav": "法律信息",
   "privacy": "隐私",
-  "terms": "条款"
+  "terms": "条款",
+  "notFound": "找不到此页面。"
 }

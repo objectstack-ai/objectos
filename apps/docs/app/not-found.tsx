@@ -1,4 +1,5 @@
 import { i18n } from '@/lib/i18n';
+import { uiText } from '@/lib/ui-text';
 import type { Metadata } from 'next';
 
 /**
@@ -72,21 +73,22 @@ import type { Metadata } from 'next';
  */
 
 /**
- * 404 copy per locale. English is the source; a locale missing from this table
- * keeps English, which is the same fallback Fumadocs applies to an untranslated
- * page. `content/docs/` translations are derived artifacts refreshed by a
- * separate pass (AGENTS.md, "Translation workflow"); this table is UI copy in
- * app code, the shape `app/[lang]/privacy/page.tsx` already uses.
+ * 404 copy per locale, read from `lib/ui-text.ts` (`notFound`). English is the
+ * source, written there; the other locales are that table's UI copy, not
+ * `content/docs/` translations.
+ *
+ * It used to be a table of its own here, and that table had no `zh-Hant` entry
+ * (#305): a Traditional Chinese reader got the English message, because the
+ * locale is generated from Simplified by `scripts/gen-zh-hant.mjs` and nothing
+ * generated a file-local constant. In `lib/ui-text/` it is one more key of the
+ * table that generator already converts — `ui-text/zh-Hant.json` is produced
+ * from `ui-text/zh-Hans.json` and `gen-zh-hant --check` holds it to the bytes —
+ * so the Traditional string is derived, never hand-typed, and `UiText`'s
+ * exact-key check makes every locale in `lib/i18n.ts` carry one.
  */
-const COPY: Record<string, string> = {
-  en: 'This page could not be found.',
-  'zh-Hans': '找不到此页面。',
-  ja: 'このページは見つかりませんでした。',
-  de: 'Diese Seite konnte nicht gefunden werden.',
-  es: 'No se ha podido encontrar esta página.',
-  fr: 'Cette page est introuvable.',
-  ko: '이 페이지를 찾을 수 없습니다.',
-};
+const COPY: Record<string, string> = Object.fromEntries(
+  i18n.languages.map((lang) => [lang, uiText(lang).notFound]),
+);
 
 /**
  * The document title, used in two places that have to agree.
@@ -123,8 +125,13 @@ export const metadata: Metadata = {
 
 /**
  * Inlined verbatim into a `script` element, so it must stay free of anything
- * that could close that element early. Every value it embeds is a compile-time
- * constant in this file and in `lib/i18n.ts`; none carries markup.
+ * that could close that element early. Every value it embeds is a build-time
+ * constant from `lib/ui-text/` and `lib/i18n.ts`. The copy now comes from a data
+ * file rather than from this one, so every `<` in it is written as the JSON
+ * escape (the same rule `jsonLdHtml` applies on the docs page): a string that
+ * ever carried a closing script tag would then still parse back to itself
+ * instead of ending this element. No current string has one, so the bytes are
+ * unchanged.
  *
  * `i18n.languages` is read rather than `Object.keys(COPY)` on purpose: the
  * locale list is the authority for what may appear as a first segment, and a
@@ -132,7 +139,7 @@ export const metadata: Metadata = {
  * rather than be treated as an unknown segment.
  */
 const APPLY_LOCALE = `(function(){try{
-var copy=${JSON.stringify(COPY)};
+var copy=${JSON.stringify(COPY).replace(/</g, '\\u003c')};
 var langs=${JSON.stringify(i18n.languages)};
 var seg=location.pathname.split('/')[1];
 if(langs.indexOf(seg)===-1||!copy[seg])return;
@@ -197,7 +204,7 @@ export default function NotFound() {
                   margin: 0,
                 }}
               >
-                This page could not be found.
+                {COPY.en}
               </h2>
             </div>
           </div>
