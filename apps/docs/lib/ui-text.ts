@@ -11,15 +11,27 @@ import zhHant from './ui-text/zh-Hant.json';
 /**
  * The docs site's interface copy — the chrome around a page, never the page.
  *
- * Two kinds of string live here. The first ten keys are Fumadocs' own
+ * Two kinds of string live here. The first nineteen keys are Fumadocs' own
  * `Translations` (the search box, "On this page", "Choose a language", the
- * previous/next footer, …); `fumadocsTranslations()` hands exactly those to
- * `RootProvider`, which is the only channel Fumadocs reads them through. The
- * rest are this app's own controls and notices, read by the docs page.
+ * previous/next footer, the accessible names of its icon buttons, …);
+ * `fumadocsTranslations()` hands exactly those to `RootProvider`, which is the
+ * only channel Fumadocs reads them through. The rest are this app's own
+ * controls and notices, read by the docs page and the 404 page.
  *
  * English is the source, written here and nowhere else (AGENTS.md rule 1). The
  * Fumadocs values are its built-in defaults verbatim, so the English site
  * renders byte-identically to before this table existed.
+ *
+ * Nine of the Fumadocs keys — `searchOpen` through `navMain` — do not exist in
+ * fumadocs-ui 16.8.12 as published: there the names are English literals in
+ * the components, outside the Translations API, so every locale page announced
+ * "Open Search" and "Copy Anchor Link" inside `<html lang="de">`.
+ * `patches/fumadocs-ui@16.8.12.patch` adds them: eight are a backport of
+ * upstream 16.9.0's own fix (the same key names, the same English defaults),
+ * and `navMain` replaces the `aria-label="Main"` Radix's navigation menu puts
+ * on the legal pages' header, which upstream has not localized. They arrive
+ * here through the one channel the other ten already use. The patch header
+ * says why a patch rather than slot overrides, and when it can go.
  *
  * The locale tables are UI copy in app code — the shape `app/not-found.tsx`
  * and `app/[lang]/privacy/page.tsx` already use — not `content/docs/`
@@ -42,6 +54,17 @@ const en = {
   previousPage: 'Previous Page',
   chooseTheme: 'Theme',
   editOnGithub: 'Edit on GitHub',
+  /** The icon buttons' accessible names: no visible text, only `aria-label`. */
+  searchOpen: 'Open Search',
+  themeToggle: 'Toggle Theme',
+  sidebarOpen: 'Open Sidebar',
+  sidebarCollapse: 'Collapse Sidebar',
+  headingCopyAnchor: 'Copy Anchor Link',
+  codeBlockCopy: 'Copy Text',
+  codeBlockCopied: 'Copied Text',
+  /** The legal pages' header (`HomeLayout`): its menu button on a narrow screen, and its own name. */
+  menuToggle: 'Toggle Menu',
+  navMain: 'Main',
 
   copyMarkdown: 'Copy Markdown',
   openMenu: 'Open',
@@ -59,6 +82,13 @@ const en = {
   legalNav: 'Legal',
   privacy: 'Privacy',
   terms: 'Terms',
+  /**
+   * The 404 page's message. `app/not-found.tsx` sits above the locale segment
+   * and applies it in the browser from the URL's first segment (that file says
+   * why); it lives here so that its Traditional Chinese string is generated from
+   * the Simplified one like every other string in this table.
+   */
+  notFound: 'This page could not be found.',
 } satisfies Translations & Record<string, string>;
 
 export type UiText = Record<keyof typeof en, string>;
@@ -123,7 +153,7 @@ export function uiText(lang: string): UiText {
  *
  * Picked rather than spread: the provider merges whatever it is given into the
  * context every Fumadocs component reads, and this app's own keys have no
- * business there. It also keeps the serialized client prop to ten strings.
+ * business there. It also keeps the serialized client prop to nineteen strings.
  */
 export function fumadocsTranslations(text: UiText): FumadocsTranslations {
   return {
@@ -137,5 +167,14 @@ export function fumadocsTranslations(text: UiText): FumadocsTranslations {
     previousPage: text.previousPage,
     chooseTheme: text.chooseTheme,
     editOnGithub: text.editOnGithub,
+    searchOpen: text.searchOpen,
+    themeToggle: text.themeToggle,
+    sidebarOpen: text.sidebarOpen,
+    sidebarCollapse: text.sidebarCollapse,
+    headingCopyAnchor: text.headingCopyAnchor,
+    codeBlockCopy: text.codeBlockCopy,
+    codeBlockCopied: text.codeBlockCopied,
+    menuToggle: text.menuToggle,
+    navMain: text.navMain,
   };
 }

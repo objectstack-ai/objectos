@@ -9,6 +9,15 @@
   "previousPage": "Page précédente",
   "chooseTheme": "Thème",
   "editOnGithub": "Modifier sur GitHub",
+  "searchOpen": "Ouvrir la recherche",
+  "themeToggle": "Changer de thème",
+  "sidebarOpen": "Ouvrir la barre latérale",
+  "sidebarCollapse": "Réduire la barre latérale",
+  "headingCopyAnchor": "Copier le lien d'ancre",
+  "codeBlockCopy": "Copier le texte",
+  "codeBlockCopied": "Texte copié",
+  "menuToggle": "Afficher ou masquer le menu",
+  "navMain": "Navigation principale",
   "copyMarkdown": "Copier le Markdown",
   "openMenu": "Ouvrir",
   "openInGitHub": "Ouvrir dans GitHub",
@@ -17,5 +26,6 @@
   "notTranslated": "Cette page n'est pas encore traduite. Elle s'affiche en anglais.",
   "legalNav": "Mentions légales",
   "privacy": "Confidentialité",
-  "terms": "Conditions"
+  "terms": "Conditions",
+  "notFound": "Cette page est introuvable."
 }

@@ -75,14 +75,26 @@ export function LLMCopyButton({
 }
 
 export function ViewOptions({
-  markdownUrl,
+  readUrl,
   githubUrl,
   labels,
 }: {
   /**
-   * A URL to the raw Markdown/MDX content of page
+   * The site-relative URL "Open in ChatGPT / Claude" asks the assistant to
+   * read: the page on screen, by the same rule `MarkdownSource` follows for
+   * Copy Markdown (#305).
+   *
+   * - An English page, or a locale URL serving the English page as a fallback:
+   *   the page's `.mdx` Markdown, which IS the page on screen.
+   * - A real translation: the translated page's own URL. Its Markdown has no
+   *   URL to point at (the `.mdx` surface is English-only, see `MarkdownSource`),
+   *   and it does not fit in the query string instead — measured over the 230
+   *   locale pages, the prompt with the page inlined runs from 2089 to 25630
+   *   characters, 165 of them over 8 KiB, and the two assistants publish no
+   *   limit to hold that to. The page URL is short, stable and serves exactly
+   *   the text the reader sees.
    */
-  markdownUrl: string;
+  readUrl: string;
 
   /**
    * Source file URL on GitHub
@@ -98,9 +110,9 @@ export function ViewOptions({
   };
 }) {
   const items = useMemo(() => {
-    const fullMarkdownUrl =
-      typeof window !== 'undefined' ? new URL(markdownUrl, window.location.origin) : 'loading';
-    const q = `Read ${fullMarkdownUrl}, I want to ask questions about it.`;
+    const fullReadUrl =
+      typeof window !== 'undefined' ? new URL(readUrl, window.location.origin) : 'loading';
+    const q = `Read ${fullReadUrl}, I want to ask questions about it.`;
 
     return [
       {
@@ -149,7 +161,7 @@ export function ViewOptions({
         ),
       },
     ];
-  }, [githubUrl, markdownUrl, labels]);
+  }, [githubUrl, readUrl, labels]);
 
   return (
     <Popover>

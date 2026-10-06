@@ -9,6 +9,15 @@
   "previousPage": "Página anterior",
   "chooseTheme": "Tema",
   "editOnGithub": "Editar en GitHub",
+  "searchOpen": "Abrir la búsqueda",
+  "themeToggle": "Cambiar de tema",
+  "sidebarOpen": "Abrir la barra lateral",
+  "sidebarCollapse": "Contraer la barra lateral",
+  "headingCopyAnchor": "Copiar enlace de anclaje",
+  "codeBlockCopy": "Copiar texto",
+  "codeBlockCopied": "Texto copiado",
+  "menuToggle": "Mostrar u ocultar el menú",
+  "navMain": "Navegación principal",
   "copyMarkdown": "Copiar Markdown",
   "openMenu": "Abrir",
   "openInGitHub": "Abrir en GitHub",
@@ -17,5 +26,6 @@
   "notTranslated": "Esta página aún no está traducida; se muestra en inglés.",
   "legalNav": "Información legal",
   "privacy": "Privacidad",
-  "terms": "Términos"
+  "terms": "Términos",
+  "notFound": "No se ha podido encontrar esta página."
 }

@@ -9,6 +9,15 @@
   "previousPage": "上一頁",
   "chooseTheme": "主題",
   "editOnGithub": "在 GitHub 上編輯",
+  "searchOpen": "開啟搜尋",
+  "themeToggle": "切換主題",
+  "sidebarOpen": "開啟側邊欄",
+  "sidebarCollapse": "收起側邊欄",
+  "headingCopyAnchor": "複製錨點連結",
+  "codeBlockCopy": "複製文本",
+  "codeBlockCopied": "已複製文本",
+  "menuToggle": "切換選單",
+  "navMain": "主導航",
   "copyMarkdown": "複製 Markdown",
   "openMenu": "開啟",
   "openInGitHub": "在 GitHub 中開啟",
@@ -17,5 +26,6 @@
   "notTranslated": "本頁尚未翻譯，以下顯示英文原文。",
   "legalNav": "法律資訊",
   "privacy": "隱私",
-  "terms": "條款"
+  "terms": "條款",
+  "notFound": "找不到此頁面。"
 }
