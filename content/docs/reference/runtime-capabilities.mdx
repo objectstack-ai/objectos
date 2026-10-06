@@ -27,7 +27,7 @@ loads matching framework packages when present in the image.
 | Capability | Package | Purpose |
 |---|---|---|
 | `automation` | `@objectstack/service-automation` | Flow/DAG execution and automation nodes |
-| `ai` | `@objectstack/service-ai` | LLM adapters, conversations, tools, SSE routes |
+| `ai` | Not a framework package: the AI runtime ships with ObjectOS ([AI Service](/docs/configure/ai)) | LLM adapters, conversations, tools, SSE routes |
 | `analytics` | `@objectstack/service-analytics` | Cubes, analytics queries, reporting data |
 | `audit` | `@objectstack/plugin-audit` | Audit log object and audit trail |
 | `cache` | `@objectstack/service-cache` | Cache abstraction and adapters |
@@ -35,7 +35,6 @@ loads matching framework packages when present in the image.
 | `queue` | `@objectstack/service-queue` | Queue abstraction and workers |
 | `job` | `@objectstack/service-job` | Scheduled/background jobs |
 | `realtime` | `@objectstack/service-realtime` | WebSocket and pub/sub realtime |
-| `feed` | `@objectstack/service-feed` | Comments, reactions, subscriptions, activity feed |
 | `settings` | `@objectstack/service-settings` | Settings manifests and K/V resolver |
 
 If a capability is requested but the image does not include the package,
