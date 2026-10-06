@@ -85,6 +85,9 @@ function clampDescription(description: string | undefined, title: string): strin
   }
   const space = head.lastIndexOf(' ');
   if (space > head.length / 2) head = head.slice(0, space);
+  // Never end inside a parenthesis the cut left open: "(ObjectOS…" reads as broken.
+  const open = Math.max(head.lastIndexOf('('), head.lastIndexOf('（'));
+  if (open > 0 && open > Math.max(head.lastIndexOf(')'), head.lastIndexOf('）'))) head = head.slice(0, open);
   return `${head.replace(/[\s,.;:–—\-、。，：；]+$/u, '')}…`;
 }
 
