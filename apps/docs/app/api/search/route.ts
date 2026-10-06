@@ -137,10 +137,15 @@ async function indexes(locale: Locale): Promise<AdvancedIndex[]> {
  *
  * `createFromSource` with i18n builds every locale's index on the first search
  * in any locale, so the first reader after a cold start paid for all eight:
- * loading the compiled body of every page in every locale (about 600) and
- * segmenting four CJK corpora. #296 measured that first search at 7.2–7.4 s
- * under Node and about 6.2 s under workerd, against 30–60 ms warm. Building
- * only the requested locale makes the first search pay for one.
+ * loading the compiled body of all 79 pages eight times over and segmenting
+ * four CJK corpora. Building only the requested locale makes the first search
+ * pay for one. Measured on one box, `main` @ `601bb37` against this change,
+ * first search after boot: 8.7–10.1 s → 0.6–1.4 s under `next start`, and
+ * 4.7–5.1 s → 0.8–1.0 s under workerd (`opennextjs-cloudflare preview`). The
+ * first search in each further locale costs that locale's build, 0.5–2.2 s;
+ * a warm one, 23–222 ms either way. The results are identical: with the
+ * weights above set to 1, every locale and query compared byte for byte
+ * against `createFromSource` in one process.
  *
  * Built in the request, not at build time, on purpose. fumadocs' build-time
  * export (`staticGET`) is a client-side search: it ships every locale's index
