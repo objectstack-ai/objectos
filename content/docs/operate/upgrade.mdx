@@ -1,64 +1,51 @@
 ---
 title: Upgrade and Rollback
-description: Upgrade ObjectOS and application artifacts safely.
+description: Upgrade or roll back ObjectOS Self-Managed by changing the image digest it pins, after backing up the database.
 ---
 
-ObjectOS has two version streams:
+On ObjectOS Self-Managed, the image you run is pinned by **digest**, never by
+a tag, so an upgrade is a change of digest and a rollback is the previous
+one. [Docker → Upgrade and rollback](/docs/deploy/docker#upgrade-and-rollback)
+documents this procedure and the reason for each step; this page repeats it as
+a checklist.
 
-| Version | Owner | Rollback |
-|---|---|---|
-| ObjectOS image/runtime | Platform/runtime team | Previous container tag |
-| Application artifact | Application/control-plane release | Previous artifact or project version pointer |
+## Upgrade
 
-Do not mutate artifacts in place. Publish a new artifact and switch the
-runtime to it.
+1. Take the **new digest** from the release notes and read the image's
+   [release manifest](/docs/deploy/docker#the-image-can-tell-you-what-it-is)
+   before rolling it out: confirm the product major line is the one you are
+   on, and check whether the embedded runtime's compatibility range moved. A
+   runtime major-version move means breaking changes underneath — read that
+   release's notes first.
+2. **Back up the database.** Schema migrations are *forward*: rolling the
+   image back does not roll the schema back.
+3. Change the image digest and restart the stack. The migration runs to
+   completion before new replicas take traffic.
+4. Confirm readiness (`/api/v1/ready`) returns 200 and the replicas report
+   healthy.
 
-## Upgrade ObjectOS
+## Roll back
 
-For Docker Compose:
+Keep the **previous** digest: that is what a rollback is. To roll back,
+restore the previous digest and repeat step 3 — valid as long as the version
+you are leaving made no incompatible schema change (the release notes say
+when it did).
 
-```bash
-docker compose -f docker/docker-compose.yml pull
-docker compose -f docker/docker-compose.yml up -d
-```
+## On Kubernetes and air-gapped sites
 
-For Kubernetes, update the image tag and let the deployment roll.
+- **Kubernetes** — upgrading is the same change of image digest, with the
+  migration Job running to completion before the new replicas serve. See
+  [Kubernetes → Rolling upgrades change the digest](/docs/deploy/kubernetes#rolling-upgrades-change-the-digest).
+- **Air-gapped** — verify the new digest outside, transfer it in, change the
+  pinned digest, restart. Keep the previous digest: inside an air-gapped
+  network it may be the only copy you have to roll back to. See
+  [Air-gapped → Getting the image inside the network](/docs/deploy/air-gapped#getting-the-image-inside-the-network).
 
-## Upgrade artifact
+## The app versions separately
 
-File-backed mode:
-
-```bash
-cp objectstack-2026-05-24.json docker/artifacts/objectstack.json
-docker compose -f docker/docker-compose.yml restart objectos
-```
-
-Cloud-connected mode:
-
-1. Publish the new artifact to the control plane.
-2. Move the current project/environment pointer to the new version.
-3. Let ObjectOS refetch after cache expiry or restart to force reload.
-
-## Rollback
-
-Rollback ObjectOS: pin the previous image tag in your Compose file (or
-deployment manifest), then re-apply it.
-
-```bash
-docker compose -f docker/docker-compose.yml up -d objectos
-```
-
-Rollback artifact:
-
-- restore the previous mounted file; or
-- move the control-plane pointer back to the previous artifact version.
-
-## Compatibility checks
-
-Before upgrading:
-
-- confirm the artifact was built against a compatible ObjectStack version;
-- confirm required capabilities are available in the ObjectOS image;
-- confirm database migrations or schema sync behavior are understood;
-- run authentication and permission smoke tests;
-- verify rollback does not require destructive data changes.
+The app itself, when it is delivered as a published artifact, versions
+independently of the image — see
+[Deployment → How the app gets in](/docs/deploy#how-the-app-gets-in). Treat
+published artifacts as immutable: if you overwrite one in place, you lose the
+ability to roll back cleanly even when the database backup is perfect
+([Backup → Artifact versioning](/docs/operate/backup#artifact-versioning)).

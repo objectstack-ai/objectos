@@ -1,166 +1,159 @@
 ---
 title: AI Service
-description: LLMs, embedders, RAG, and MCP — pluggable across providers, swappable at runtime.
+description: Where ObjectOS's AI is configured — the in-product AI runtime's provider settings, the open embedder and knowledge packages, and the MCP server.
 ---
 
-ObjectOS treats AI as a first-class capability with **three pluggable
-layers**:
+ObjectOS adds an **in-product AI runtime** — the `ask` data-query assistant,
+the `build` authoring assistant, and the `/api/v1/ai/*` chat endpoints — on
+top of AI primitives that ship in the open-source ObjectStack framework: the
+MCP server, the Knowledge Protocol and its adapters, and the embedder.
 
-| Layer | Package | What it does |
+On a Self-Managed deployment, a licence is what unlocks the in-product AI. A
+single-organization deployment without one runs with Community behaviour —
+the open MCP server, bring your own AI — and with one, the AI Builder and
+"ask your data" are unlocked on your own infrastructure. See
+[Docker → Licence](/docs/deploy/docker#licence).
+
+## What is configured where
+
+| Layer | Where it is configured | Ships in |
 |---|---|---|
-| **Chat / generation** | `@objectstack/service-ai` | Conversations, tool calls, streaming |
-| **Embeddings** | `@objectstack/embedder-openai` (OpenAI-compatible) | Text → vectors for semantic search and RAG |
-| **Knowledge / RAG** | `@objectstack/service-knowledge` + adapter | Documents → indexed knowledge bases |
+| **Chat model provider** | The `ai` settings namespace: **Setup → Configuration → AI & Embedder**, or `OS_AI_*` environment variables | ObjectOS |
+| **Embeddings** | `@objectstack/embedder-openai`, an OpenAI-compatible embedder | Open framework |
+| **Knowledge / RAG** | `@objectstack/service-knowledge` plus an adapter plugin | Open framework |
+| **MCP server** | On by default at `/api/v1/mcp`; `OS_MCP_SERVER_ENABLED=false` turns it off | Open framework |
 
-All three are optional, all three are provider-agnostic, and all three
-can be reconfigured at runtime from **Setup → Configuration**
-without a restart.
+## Chat model provider
 
-## Chat / generation
+There is no AI package to install or register. `@objectstack/service-ai`
+left the open ObjectStack distribution in 11.0; the AI runtime it provides
+ships with ObjectOS, not with the open-source framework.
 
-Powered by the [Vercel AI SDK](https://ai-sdk.dev). Install the
-provider(s) you want as peer deps:
+The provider, model and credentials are settings in the `ai` namespace, so
+they resolve like every other setting: an environment variable wins over the
+value stored in Setup, and locks it ([System Settings → Resolution order](/docs/configure/system-settings#resolution-order)).
+
+| Variable | Sets |
+|---|---|
+| `OS_AI_PROVIDER` | The provider. Supported values include `gateway`, `openai`, `anthropic`, `google`, `deepseek`, `dashscope`, `cloudflare`, `siliconflow`, and `openrouter`. |
+| `OS_AI_OPENAI_API_KEY` · `OS_AI_OPENAI_MODEL` · `OS_AI_OPENAI_BASE_URL` | OpenAI, or any OpenAI-compatible API — Azure, a local gateway, a third-party endpoint — with `OS_AI_PROVIDER=openai`. The model defaults to `gpt-4o`. |
+| `OS_AI_ANTHROPIC_API_KEY` · `OS_AI_ANTHROPIC_MODEL` | Anthropic, with `OS_AI_PROVIDER=anthropic`. |
+| `OS_AI_GOOGLE_API_KEY` · `OS_AI_GOOGLE_MODEL` | Google, with `OS_AI_PROVIDER=google`. |
+| `OS_AI_GATEWAY_MODEL` · `OS_AI_GATEWAY_API_KEY` | Vercel AI Gateway, with `OS_AI_PROVIDER=gateway`. |
+| `OS_AI_DEEPSEEK_API_KEY`, `OS_AI_DASHSCOPE_API_KEY`, … | One `_API_KEY` and one `_MODEL` variable per preset OpenAI-compatible provider, for example `OS_AI_DEEPSEEK_MODEL=deepseek-chat`. |
+
+For example, to lock a third-party OpenAI-compatible provider for the whole
+deployment without using Setup:
 
 ```bash
-pnpm add @ai-sdk/openai          # OpenAI
-pnpm add @ai-sdk/anthropic       # Claude
-pnpm add @ai-sdk/google          # Gemini
-pnpm add @ai-sdk/gateway         # AI gateway / OpenRouter / proxies
+OS_AI_PROVIDER=openai
+OS_AI_OPENAI_API_KEY=sk-...
+OS_AI_OPENAI_MODEL=your-model
+OS_AI_OPENAI_BASE_URL=https://your-provider.example.com/v1
 ```
 
-Then register the AI service plugin with a Vercel-SDK adapter:
+Use `OS_AI_OPENAI_BASE_URL` for an OpenAI-compatible base URL, or the same
+field in Setup; `OPENAI_BASE_URL` is not a platform-level variable.
 
-```ts
-import { AIServicePlugin, VercelLLMAdapter } from '@objectstack/service-ai';
-import { openai } from '@ai-sdk/openai';
+### When no provider is set
 
-kernel.use(new AIServicePlugin({
-  adapter: new VercelLLMAdapter({ model: openai('gpt-4o') }),
-  models: [
-    { id: 'fast',  provider: 'openai', model: 'gpt-4o-mini' },
-    { id: 'smart', provider: 'openai', model: 'gpt-4o' },
-  ],
-  defaultModelId: 'fast',
-}));
-```
+The runtime picks an adapter at boot from the first upstream credential it
+finds:
 
-The `models` list feeds the runtime model registry — it drives
-default-model resolution and cost attribution in traces. By default the
-plugin also binds to the `ai` settings namespace and rebuilds the
-adapter live when an operator edits the provider/credentials/model in
-Setup, so no restart is needed.
+1. `AI_GATEWAY_MODEL` (with `AI_GATEWAY_API_KEY`), through the Vercel AI Gateway;
+2. `OPENAI_API_KEY`;
+3. `ANTHROPIC_API_KEY`;
+4. `GOOGLE_GENERATIVE_AI_API_KEY`;
+5. none of them: `MemoryLLMAdapter`, an echo mode with no real provider behind it.
 
-Provider API keys come from each SDK's normal env vars:
+These keep their upstream names; they are not renamed to `OS_*`. `OS_AI_MODEL`
+overrides the model id for the direct OpenAI, Anthropic and Google detection.
+After boot, the runtime reads the `ai` settings namespace and swaps the
+adapter when the provider comes from an environment variable or a value
+stored in Setup.
 
-| Provider | Env var |
-|---|---|
-| OpenAI | `OPENAI_API_KEY` |
-| Anthropic | `ANTHROPIC_API_KEY` |
-| Google | `GOOGLE_GENERATIVE_AI_API_KEY` |
-| AI Gateway | `AI_GATEWAY_API_KEY` |
+### Calling it
 
-In Setup you can paste these as runtime settings instead — they go
-through the same precedence (env > settings) but live editing means
-no restart.
-
-### Using the AI service from code
-
-```ts
-const ai = kernel.getService<IAIService>('ai');
-
-// One-shot chat
-const result = await ai.chat(
-  [{ role: 'user', content: 'Summarize ObjectStack in two sentences.' }],
-  { model: 'smart' },
-);
-
-// Structured output
-const { object } = await ai.generateObject(
-  [{ role: 'user', content: 'Classify this ticket: ...' }],
-  { schema, model: 'fast' },
-);
-```
-
-The service also exposes `complete()`, `streamChat()`, `embed()`, and
-`listModels()`. Conversations are persisted as `ai_conversations` /
-`ai_messages` records and managed over the REST API
-(`POST /api/v1/ai/chat`, `POST /api/v1/ai/conversations`).
-
-### Using it from agents and flows
-
-For declarative AI — agents, skills, and tools — see
-[AI Agents](/docs/build/agents). Flows can invoke any registered action
-(including actions that wrap an `ai.chat()` / `ai.generateObject()`
-call) as an `action` node; see [Flows & Automation](/docs/build/automation/flows)
-for the surrounding context.
+The in-product AI is served under `/api/v1/ai/*` — chat (JSON or streaming),
+completion, the models an environment offers, and conversations — and the
+`@objectstack/client` SDK reaches it through its `ai` namespace: `ai.chat`,
+`ai.chatStream`, `ai.complete`, `ai.models`, and `ai.conversations`. For
+declarative AI — agents, skills, and tools — see [AI Agents](/docs/build/agents).
 
 ## Embedders
 
-The embedder converts text to dense vectors. A single OpenAI-compatible
-adapter, `@objectstack/embedder-openai`, covers OpenAI plus any provider
-that exposes an OpenAI-compatible `/v1/embeddings` endpoint — pick one
-with a **preset** (which sets the base URL for you) or point `baseUrl`
-at a custom endpoint.
-
-| Provider | `preset` | Notes |
-|---|---|---|
-| OpenAI | `openai` | `text-embedding-3-small`/`-large` |
-| Azure OpenAI | `azure` | Provide full deployment URL via `baseUrl` |
-| 阿里通义 DashScope | `dashscope` | `text-embedding-v3` |
-| 智谱 GLM | `zhipu` | `embedding-2` |
-| 硅基流动 SiliconFlow | `siliconflow` | Aggregator of OSS models |
-| 火山 Doubao | `doubao` | ByteDance |
-| MiniMax | `minimax` | — |
-| Ollama (self-hosted) | `ollama` | Air-gapped friendly (`http://localhost:11434/v1`) |
-| Custom | _(omit; set `baseUrl`)_ | Bring your own OpenAI-compatible endpoint |
-
-Configure in code:
+`@objectstack/embedder-openai` works against any endpoint that speaks the
+OpenAI `POST /v1/embeddings` shape: OpenAI, Azure OpenAI, DashScope, Zhipu
+BigModel, SiliconFlow, Doubao, MiniMax, Ollama, or your own gateway. A
+**preset** fills in the base URL of a known provider; `baseUrl` points at any
+other endpoint.
 
 ```ts
 import { createOpenAIEmbedder } from '@objectstack/embedder-openai';
 
 const embedder = createOpenAIEmbedder({
-  preset: 'openai',
-  model: 'text-embedding-3-small',
-  // apiKey from OPENAI_API_KEY env if omitted
+  preset: 'dashscope',
+  apiKey: process.env.DASHSCOPE_API_KEY!,
+  model: 'text-embedding-v3',
 });
 ```
 
-Or pick at runtime from **Setup → Configuration → AI → Embedder**.
-Switch providers without restart; existing vectors stay searchable
-(you can re-index in the background).
+`apiKey` is required. The
+[package README](https://github.com/objectstack-ai/objectstack/tree/main/packages/plugins/embedder-openai)
+lists the base URL and a typical model for each provider.
+
+No knowledge adapter in the open framework consumes an embedder yet:
+`@objectstack/knowledge-memory` and `@objectstack/knowledge-ragflow` take no
+embedder option.
 
 ## Knowledge / RAG
 
-The knowledge service orchestrates document ingestion, chunking,
-embedding (via the embedder service), and retrieval. The actual
-storage and search backend is pluggable:
+The knowledge service declares knowledge sources and filters what comes back
+by permission; an adapter plugin does the retrieval itself.
 
 | Adapter | Backend | Good for |
 |---|---|---|
-| `@objectstack/knowledge-memory` | In-process | Dev, demos, small KBs |
-| `@objectstack/knowledge-ragflow` | [RAGFlow](https://github.com/infiniflow/ragflow) | High-quality OSS RAG with chunking + reranking |
+| `@objectstack/knowledge-memory` | In-process | Dev environments and tests — not for production: no persistence |
+| `@objectstack/knowledge-ragflow` | [RAGFlow](https://github.com/infiniflow/ragflow) | Chunking, embedding, hybrid retrieval, and reranking, done by RAGFlow |
+
+In the open framework the wiring is:
 
 ```ts
 import { KnowledgeServicePlugin } from '@objectstack/service-knowledge';
 import { KnowledgeRagflowPlugin } from '@objectstack/knowledge-ragflow';
 
-kernel.use(new KnowledgeServicePlugin({ defaultTopK: 10 }));
+kernel.use(new KnowledgeServicePlugin({
+  sources: [{
+    id: 'product_docs',
+    label: 'Product documentation',
+    adapter: 'ragflow',
+    source: { kind: 'http', urls: ['https://docs.example.com/sitemap.xml'] },
+    adapterConfig: { datasetId: 'rgf_doc_dataset_id' }, // RAGFlow dataset to bind
+  }],
+}));
 kernel.use(new KnowledgeRagflowPlugin({
-  endpoint: process.env.RAGFLOW_ENDPOINT, // e.g. http://localhost:9380
-  apiKey:   process.env.RAGFLOW_API_KEY,
+  endpoint: process.env.RAGFLOW_ENDPOINT!, // e.g. http://localhost:9380
+  apiKey: process.env.RAGFLOW_API_KEY!,
 }));
 ```
 
-Indexed knowledge bases become first-class objects — query them from
-flows, surface them in your apps, attach them to AI assistants as
-retrieval context.
+The RAGFlow adapter does not create datasets: create one once in the RAGFlow
+UI, where you pick the chunking method, embedding model, and rerank policy.
+
+Every hit that carries a source record is re-checked against the caller's
+permissions — the same row-level security that gates a plain ObjectQL query.
+Exposing retrieval to the in-product chat as the `search_knowledge` tool is
+part of the ObjectOS runtime.
 
 ## MCP — Model Context Protocol
 
-ObjectOS can expose itself as a tool server to AI agents (Claude
-Desktop, IDEs, custom agents) via the open [Model Context
-Protocol](https://modelcontextprotocol.io).
+Every ObjectOS deployment already serves the
+[Model Context Protocol](https://modelcontextprotocol.io) at `/api/v1/mcp` —
+on by default, no plugin to install — and can serve it over stdio as well.
+[Connect AI Tools (MCP)](/docs/configure/mcp) covers connecting a client, the
+stdio switch, and the tools an agent gets.
+
+Registering the MCP server plugin explicitly, in the open framework:
 
 ```ts
 import { MCPServerPlugin } from '@objectstack/mcp';
@@ -171,30 +164,17 @@ kernel.use(new MCPServerPlugin({
 }));
 ```
 
-Agents discover and invoke ObjectOS tools through MCP — subject to the
-calling user's permissions. The server bridges the AI service's tool
-registry, including universal tools such as `list_objects`,
-`describe_object`, `query_records`, `get_record`, and `aggregate_data`.
-
-## Operational guarantees
-
-- **No mandatory cloud dependency.** Use Ollama for chat + Ollama
-  embedder + memory knowledge — entirely air-gapped.
-- **Live swappable.** Change provider in Setup; new requests use the
-  new provider on next call. No restart.
-- **Per-tenant config.** Each Environment has its own AI settings.
-  Tenant A on OpenAI, tenant B on Anthropic — same runtime.
-- **Audit log entries.** Every conversation, tool call, and embedder
-  request can be audited (`@objectstack/plugin-audit`).
-- **Cost-aware.** Token counts and provider IDs flow through to the
-  audit log for chargeback / cost analysis.
+Tools are not opted into per option: the plugin bridges the AI tool
+registry, the metadata service and the data engine when it starts. Every call
+runs under the calling user's permissions.
 
 ## Where to go next
 
 - [AI Agents](/docs/build/agents) — declarative agents, skills, and tools
-- [Flows & Automation](/docs/build/automation/flows) — call AI from declarative business logic
-- [Marketplace](/docs/build/marketplace) — AI-powered apps in the default catalog
+- [Connect AI Tools (MCP)](/docs/configure/mcp) — point an external client at your app
+- [System Settings](/docs/configure/system-settings) — how a setting resolves, and what an environment variable locks
 - [Security & Compliance](/docs/reference/security) — how AI data flows are isolated
-- [`@objectstack/service-ai` source](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-ai)
 - [`@objectstack/embedder-openai` source](https://github.com/objectstack-ai/objectstack/tree/main/packages/plugins/embedder-openai)
 - [`@objectstack/service-knowledge` source](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-knowledge)
+- [`@objectstack/knowledge-ragflow` source](https://github.com/objectstack-ai/objectstack/tree/main/packages/plugins/knowledge-ragflow)
+- [`@objectstack/mcp` source](https://github.com/objectstack-ai/objectstack/tree/main/packages/mcp)
