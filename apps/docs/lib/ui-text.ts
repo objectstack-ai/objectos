@@ -72,6 +72,13 @@ const en = {
   openInChatGPT: 'Open in ChatGPT',
   openInClaude: 'Open in Claude',
   /**
+   * What "Open in ChatGPT / Claude" asks the assistant (#308): `{url}` is
+   * replaced by the page's read URL. The key, the placeholder and the English
+   * are upstream fumadocs-ui 16.9.0's own. It is an app key, not passed to
+   * fumadocs: the page actions are this app's component.
+   */
+  pageActionsOpenInLLMPrompt: 'Read {url}, I want to ask questions about it.',
+  /**
    * The notice on a locale URL whose page has no source file in that locale,
    * so the body below it is the English page. Never rendered in English — an
    * English page is never a fallback — but it is the source every locale's
@@ -103,6 +110,11 @@ export type FumadocsTranslations = { [K in keyof Translations]: Translations[K] 
 
 type Locale = (typeof i18n.languages)[number];
 
+/** The `{name}` placeholders a string carries, sorted, one entry per occurrence. */
+function placeholders(value: string): string[] {
+  return (value.match(/\{[A-Za-z]+\}/g) ?? []).sort();
+}
+
 /**
  * A locale table, held to EXACTLY the English key set.
  *
@@ -111,8 +123,26 @@ type Locale = (typeof i18n.languages)[number];
  * parameter type closes that: any key English does not have must be `never`,
  * which a JSON string value is not, so a stale or misspelled key is a type
  * error instead of dead weight nobody reads.
+ *
+ * Placeholders are held to English too, which a type cannot do for a JSON
+ * string. A translation that drops `{url}` from `pageActionsOpenInLLMPrompt`
+ * would open the assistant on a prompt naming no page, so a mismatch throws
+ * while this module loads, which fails `next build` on the first page that
+ * renders.
  */
-function table<T extends UiText>(text: T & Record<Exclude<keyof T, keyof UiText>, never>): UiText {
+function table<T extends UiText>(
+  locale: string,
+  text: T & Record<Exclude<keyof T, keyof UiText>, never>,
+): UiText {
+  for (const key of Object.keys(en) as (keyof UiText)[]) {
+    const want = placeholders(en[key]).join(' ');
+    const got = placeholders(text[key]).join(' ');
+    if (got !== want) {
+      throw new Error(
+        `lib/ui-text/${locale}.json: "${key}" has placeholders [${got}], English has [${want}]`,
+      );
+    }
+  }
   return text;
 }
 
@@ -123,13 +153,13 @@ function table<T extends UiText>(text: T & Record<Exclude<keyof T, keyof UiText>
  */
 const TEXT: Record<Locale, UiText> = {
   en,
-  'zh-Hans': table(zhHans),
-  'zh-Hant': table(zhHant),
-  ja: table(ja),
-  de: table(de),
-  es: table(es),
-  fr: table(fr),
-  ko: table(ko),
+  'zh-Hans': table('zh-Hans', zhHans),
+  'zh-Hant': table('zh-Hant', zhHant),
+  ja: table('ja', ja),
+  de: table('de', de),
+  es: table('es', es),
+  fr: table('fr', fr),
+  ko: table('ko', ko),
 };
 
 function isLocale(lang: string): lang is Locale {
