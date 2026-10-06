@@ -19,8 +19,11 @@ Three rules hold the model together:
    matches its source is indistinguishable from one that does.
 3. **A stale translation is worse than a missing one.** A missing translation
    renders correct English — Fumadocs falls back automatically. A stale one
-   renders content the English source no longer claims. When in doubt, delete
-   rather than leave behind.
+   renders content the English source no longer claims. So an English
+   correction that removes or reverses a capability assertion deletes that
+   page's locale siblings in the same PR; wording and number drift (a port
+   number, a timing) stay with the translation pass
+   ([ruling on #256](https://github.com/objectstack-ai/objectos/issues/256#issuecomment-5989567068)).
 
 ## Running a pass
 
@@ -193,8 +196,9 @@ Delete the English source and its locale siblings in the same PR. A translation
 whose English source is gone is reported as **orphaned** and blocks the gate:
 it can never be reached and can never be refreshed.
 
-Never leave a translation behind for a page that was rewritten to say something
-different. Deleting it is the correct action — English renders in its place.
+Never leave a translation behind for a page that was rewritten to remove or
+reverse a capability assertion (rule 3). Deleting it is the correct action —
+English renders in its place.
 
 ## Derived locales
 
