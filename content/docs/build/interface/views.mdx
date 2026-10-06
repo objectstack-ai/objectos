@@ -97,21 +97,29 @@ The container and its rules are documented in full in ObjectStack's
 
 ## List view types
 
-| `type` | Renders | Required config |
-|:--|:--|:--|
-| `grid` | Data table (default) | `columns` |
-| `kanban` | Board with columns | `kanban: { groupByField }` |
-| `gallery` | Card deck | `gallery: { coverField, titleField }` |
-| `calendar` | Month / week / day | `calendar: { startDateField, titleField }` |
-| `timeline` | Chronological feed | `timeline: { startDateField, titleField }` |
-| `gantt` | Project timeline + dependencies | `gantt: { startDateField, endDateField, titleField }` |
-| `map` | Geospatial pins | `map: { locationField }` |
-| `tree` | Self-referencing hierarchy | `tree: { parentField, labelField }` |
-| `chart` | Embedded chart | `chart: { chartType, dataset }` |
+Every list view needs a top-level `columns`, whatever its type. The rest
+of a type's settings go in a config block named after it:
+
+| `type` | Renders | Config block, with its required keys | Common optional keys |
+|:--|:--|:--|:--|
+| `grid` | Data table (default) | — | |
+| `kanban` | Board with columns | `kanban: { groupByField, columns }` | `summarizeField`, `titleField` |
+| `gallery` | Card deck | `gallery` (none required) | `coverField`, `titleField` |
+| `calendar` | Month / week / day | `calendar: { startDateField }` | `endDateField`, `titleField`, `colorField` |
+| `timeline` | Chronological feed | `timeline: { startDateField, titleField }` | `endDateField`, `groupByField` |
+| `gantt` | Project timeline + dependencies | `gantt: { startDateField, endDateField, titleField }` | `progressField`, `dependenciesField` |
+| `map` | Geospatial pins | `map` (none required) | `locationField`, or `latitudeField` + `longitudeField` |
+| `tree` | Self-referencing hierarchy | `tree` (none required) | `parentField`, `labelField` |
+| `chart` | Embedded chart | `chart: { dataset, values }` | `chartType`, `dimensions` |
+
+The fragments below are single list views. Each goes in a `defineView`
+container — as its `list`, or as a `listViews` entry — with `data`
+naming its object, as above.
 
 ### Common list options
 
 ```ts
+// One list view; the container and `data` are omitted (see above).
 // P is the predicate template tag: import { P } from '@objectstack/spec'
 {
   type: 'grid',
@@ -130,7 +138,7 @@ The container and its rules are documented in full in ObjectStack's
   bulkActions: ['bulk_close','bulk_export'],
 
   conditionalFormatting: [
-    { condition: P`record.priority == 'urgent'`, style: { background: '#fef2f2', fontWeight: 600 } }
+    { condition: P`record.priority == 'urgent'`, style: { background: '#fef2f2', fontWeight: '600' } }   // style values are strings
   ],
 
   exportOptions: ['csv','xlsx'],
@@ -144,8 +152,10 @@ The container and its rules are documented in full in ObjectStack's
 ### Kanban
 
 ```ts
+// One list view; the container and `data` are omitted (see above).
 {
   type: 'kanban',
+  columns: ['subject', 'priority', 'assignee'],  // still required at the top level
   kanban: {
     groupByField:   'status',                // discrete field — usually a select
     summarizeField: 'amount',                // optional total per column
@@ -163,8 +173,10 @@ field — same permission rules as a manual edit.
 ### Calendar
 
 ```ts
+// One list view; the container and `data` are omitted (see above).
 {
   type: 'calendar',
+  columns: ['subject', 'start_at', 'end_at', 'priority'],
   calendar: {
     startDateField: 'start_at',
     endDateField:   'end_at',                // optional — single-point if omitted
@@ -177,8 +189,10 @@ field — same permission rules as a manual edit.
 ### Gantt
 
 ```ts
+// One list view; the container and `data` are omitted (see above).
 {
   type: 'gantt',
+  columns: ['name', 'start_at', 'due_at', 'percent_complete'],
   gantt: {
     startDateField:    'start_at',
     endDateField:      'due_at',
@@ -192,8 +206,10 @@ field — same permission rules as a manual edit.
 ### Tree
 
 ```ts
+// One list view; the container and `data` are omitted (see above).
 {
   type: 'tree',
+  columns: ['name'],
   tree: {
     parentField: 'parent_id',                // self-lookup that builds the hierarchy
     labelField:  'name',                     // shown indented in the first column
@@ -213,8 +229,10 @@ metric once and every chart, dashboard, and report bound to the same dataset
 stays consistent:
 
 ```ts
+// One list view; the container and `data` are omitted (see above).
 {
   type: 'chart',
+  columns: ['status'],
   chart: {
     chartType:  'bar',                       // 'bar' | 'line' | 'pie' | 'area' | 'scatter'
     dataset:    'tickets_by_status',         // a dataset declared with defineDataset(...)
@@ -240,6 +258,7 @@ dataset. For richer, cross-object analytics use the dedicated reports surface.
 | `modal` | Dialog form |
 
 ```ts
+// One form view; the container and `data` are omitted (see above).
 {
   type: 'tabbed',
   sections: [
@@ -256,6 +275,7 @@ dataset. For richer, cross-object analytics use the dedicated reports surface.
 Forms can be made anonymous-accessible:
 
 ```ts
+// One form view; the container and `data` are omitted (see above).
 {
   type: 'simple',
   sections: [ { fields: ['name','email','message'] } ],
