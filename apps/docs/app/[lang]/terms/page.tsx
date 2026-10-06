@@ -1,9 +1,22 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
+import { Callout } from 'fumadocs-ui/components/callout';
 import { baseOptions } from '@/lib/layout.shared';
 import { staticPageMetadata } from '@/lib/seo';
+import { i18n } from '@/lib/i18n';
+import { uiText } from '@/lib/ui-text';
+import zhHans from './zh-Hans.json';
+import zhHant from './zh-Hant.json';
 
+/**
+ * This page's copy, one entry per locale it is written in. English is written
+ * here. The Simplified entry is `zh-Hans.json`, and `zh-Hant.json` is GENERATED
+ * from it by `scripts/gen-zh-hant.mjs` (OpenCC `s2twp`, the converter behind
+ * every other zh-Hant string on this site), so never edit it by hand: CI runs
+ * `gen-zh-hant --check`. Both are JSON because that generator converts a data
+ * file, the same reason `lib/ui-text/` is JSON.
+ */
 const content = {
   en: {
     title: 'Terms of Service',
@@ -33,34 +46,8 @@ const content = {
     ],
     back: '← Back to home',
   },
-  'zh-Hans': {
-    title: '服务条款',
-    description: 'ObjectOS 各版本的许可方式、本站内容采用的 Apache-2.0 许可、ObjectOS 商标，以及自管部署的责任归属。',
-    updated: '最近更新：2026 年 10 月 6 日',
-    body: [
-      {
-        heading: '许可',
-        text: 'ObjectOS 是商业产品，没有开源版本。你对 ObjectOS 的使用，受你所使用版本（ObjectOS Cloud 或 ObjectOS Enterprise）的许可协议或服务协议约束。本文档站点所在仓库的内容（文档与站点代码）以 Apache License 2.0 授权；开源的 ObjectStack 框架及其运行时在其自己的仓库中以 Apache License 2.0 授权。"ObjectOS" 名称与 Logo 为 ObjectStack AI LLC 的商标，不在 Apache 2.0 的授权范围内 —— 详见仓库内的 TRADEMARK.md。',
-      },
-      {
-        heading: '自托管部署',
-        text: '当你在自己的基础设施中自管运行 ObjectOS（ObjectOS Enterprise）时，该部署的运行、安全、可用性、备份与合规性，完全由你自行负责；除你的商业协议明文约定外，ObjectStack AI LLC 对该部署不提供任何保证。若你自托管的是开源的 ObjectStack 运行时，则其以 Apache License 2.0 授权，除该许可证明文约定外，ObjectStack AI LLC 不提供任何保证。',
-      },
-      {
-        heading: '托管服务',
-        text: 'ObjectStack AI LLC 运营的任何托管服务（例如 ObjectOS Cloud），适用单独的服务协议，将在你注册时另行呈现。本网站的任何内容均不构成此类协议。',
-      },
-      {
-        heading: '条款变更',
-        text: '本条款可能不时更新。重大变更将通过上方的"最近更新"日期反映。',
-      },
-      {
-        heading: '联系方式',
-        text: '关于本条款的问题，请联系 legal@objectstack.ai。',
-      },
-    ],
-    back: '← 返回首页',
-  },
+  'zh-Hans': zhHans,
+  'zh-Hant': zhHant,
 };
 
 /**
@@ -95,14 +82,27 @@ export default async function TermsPage({
   params: Promise<{ lang: string }>;
 }) {
   const { lang } = await params;
-  const t = content[lang as keyof typeof content] ?? content.en;
+  // Any other locale is served the English entry. That text is English inside
+  // `<html lang="LOCALE">`, so it is marked `lang="en"` and introduced by the
+  // notice docs pages show on a fallback (#298), in the route locale and before
+  // the English it describes. An English or written page is unchanged.
+  const isFallback = !Object.hasOwn(content, lang);
+  const t = isFallback ? content.en : content[lang as keyof typeof content];
+  const contentLang = isFallback ? i18n.defaultLanguage : undefined;
 
   return (
     <HomeLayout {...baseOptions(lang)} i18n>
-      <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-24">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">{t.title}</h1>
-        <p className="text-sm text-foreground/60 mb-12">{t.updated}</p>
-        <div className="space-y-8">
+      {/* An article, not a main: HomeLayout already renders main#nd-home-layout
+          around this, and a second main nested in it is a duplicate landmark. */}
+      <article className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-24">
+        {isFallback && (
+          <Callout type="info" role="note" className="mt-0 mb-8" data-untranslated-notice="">
+            {uiText(lang).notTranslated}
+          </Callout>
+        )}
+        <h1 lang={contentLang} className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">{t.title}</h1>
+        <p lang={contentLang} className="text-sm text-foreground/60 mb-12">{t.updated}</p>
+        <div lang={contentLang} className="space-y-8">
           {t.body.map((s) => (
             <section key={s.heading}>
               <h2 className="text-xl font-semibold mb-3">{s.heading}</h2>
@@ -110,12 +110,12 @@ export default async function TermsPage({
             </section>
           ))}
         </div>
-        <div className="mt-16 pt-8 border-t border-border/60">
+        <div lang={contentLang} className="mt-16 pt-8 border-t border-border/60">
           <Link href={`/${lang}`} className="text-sm text-primary hover:underline">
             {t.back}
           </Link>
         </div>
-      </main>
+      </article>
     </HomeLayout>
   );
 }

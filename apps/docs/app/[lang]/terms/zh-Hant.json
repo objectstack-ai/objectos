@@ -1,0 +1,28 @@
+{
+  "title": "服務條款",
+  "description": "ObjectOS 各版本的許可方式、本站內容採用的 Apache-2.0 許可、ObjectOS 商標，以及自管部署的責任歸屬。",
+  "updated": "最近更新：2026 年 10 月 6 日",
+  "body": [
+    {
+      "heading": "許可",
+      "text": "ObjectOS 是商業產品，沒有開源版本。你對 ObjectOS 的使用，受你所使用版本（ObjectOS Cloud 或 ObjectOS Enterprise）的許可協議或服務協議約束。本文件站點所在倉庫的內容（文件與站點程式碼）以 Apache License 2.0 授權；開源的 ObjectStack 框架及其執行時在其自己的倉庫中以 Apache License 2.0 授權。\"ObjectOS\" 名稱與 Logo 為 ObjectStack AI LLC 的商標，不在 Apache 2.0 的授權範圍內 —— 詳見倉庫內的 TRADEMARK.md。"
+    },
+    {
+      "heading": "自託管部署",
+      "text": "當你在自己的基礎設施中自管執行 ObjectOS（ObjectOS Enterprise）時，該部署的執行、安全、可用性、備份與合規性，完全由你自行負責；除你的商業協議明文約定外，ObjectStack AI LLC 對該部署不提供任何保證。若你自託管的是開源的 ObjectStack 執行時，則其以 Apache License 2.0 授權，除該許可證明文約定外，ObjectStack AI LLC 不提供任何保證。"
+    },
+    {
+      "heading": "託管服務",
+      "text": "ObjectStack AI LLC 運營的任何託管服務（例如 ObjectOS Cloud），適用單獨的服務協議，將在你註冊時另行呈現。本網站的任何內容均不構成此類協議。"
+    },
+    {
+      "heading": "條款變更",
+      "text": "本條款可能不時更新。重大變更將通過上方的\"最近更新\"日期反映。"
+    },
+    {
+      "heading": "聯絡方式",
+      "text": "關於本條款的問題，請聯絡 legal@objectstack.ai。"
+    }
+  ],
+  "back": "← 返回首頁"
+}
