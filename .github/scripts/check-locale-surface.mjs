@@ -1253,7 +1253,7 @@ function gate() {
       '✓ every advertised URL has a source file and every source file is advertised; both ' +
         `\`llms\` bodies carry every ${surface.defaultLanguage}-only page title and none from ` +
         'the other locales; no page slug in the content tree contains a dot; and neither ' +
-        '`llms` consumer carries a numeric character reference or a malformed link target',
+        '`llms` consumer carries a numeric character reference, a malformed link target or an MDX comment',
     );
     return;
   }
