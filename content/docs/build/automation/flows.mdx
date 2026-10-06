@@ -14,99 +14,154 @@ Most customers create flows by asking the AI:
 > *"When a high-priority ticket sits in 'new' for 30 minutes, notify
 > the manager on Slack."*
 
-The AI generates the flow below. This page describes the shape so you
+The AI generates flow metadata in the shape this page describes, so you
 can read and edit it.
+
+A flow is a graph: `nodes` do the work, `edges` connect them, and the
+`start` node says what launches the flow. The shape is ObjectStack's
+`FlowSchema`, documented in full in ObjectStack's
+[Flow metadata](https://docs.objectstack.ai/docs/automation/flows).
 
 Enable the capability in your stack:
 
 ```ts
 export default defineStack({
   // ...
-  requires: ['automation'],
+  requires: ['automation', 'triggers'],  // the flow engine, and the triggers that start flows
 });
 ```
 
+Both tokens are needed. `defineStack` refuses a stack with a flow that
+starts on a record change, a schedule or an API call while `requires`
+lacks either one, because such a flow would register and never run.
+
 ## Flow types
 
-| Type | Triggered by | Use for |
+| `type` | Started by | Use for |
 |---|---|---|
-| **Autolaunched** | A record change (insert/update/delete) | "Send welcome email when user registers" |
-| **Scheduled** | Cron expression or interval | "Mark stale tasks every night at 2am" |
-| **Time-relative** *(16.0)* | A date field's proximity to today, via a daily sweep | "Remind me 60 days before the contract ends" |
-| **Manual** | User clicks a button, or an API call | "Approve invoice" actions |
+| `record_change` | A record insert, update or delete, bound on the start node | "Email the assignee when a ticket is created" |
+| `schedule` | A cron schedule on the start node | "Mark stale tasks every night at 2am" |
+| `schedule`, time-relative *(16.0)* | A date field's proximity to today, via a daily sweep | "Remind me 60 days before the contract ends" |
+| `autolaunched` | An action button, another flow, or an API call | "Approve invoice" actions |
+| `screen` | A user, through one or more screens | Guided data entry |
+| `api` | An HTTP request | An endpoint for an external system |
 
-## Autolaunched: react to a record change
+## Record change: react to a record change
 
 ```ts
-// src/flows/welcome_email.ts
+// src/flows/ticket_assigned_email.ts
 import { defineFlow } from '@objectstack/spec';
 
-export const welcomeEmail = defineFlow({
-  name: 'welcome_email',
-  type: 'autolaunched',
-  trigger: {
-    object: 'sys_user',
-    when: 'after_insert',
-  },
-  steps: [
+export const ticketAssignedEmail = defineFlow({
+  name: 'ticket_assigned_email',
+  label: 'Email the assignee of a new ticket',
+  type: 'record_change',
+  status: 'active',
+  nodes: [
     {
-      type: 'action',
-      action: 'send_email',
-      inputs: {
-        to:      '{!trigger.record.email}',
-        subject: 'Welcome to {!org.name}',
-        body:    'Hi {!trigger.record.name}, welcome aboard.',
+      id: 'start',
+      type: 'start',
+      label: 'Ticket created',
+      config: { objectName: 'support_ticket', triggerType: 'record-after-create' },
+    },
+    {
+      id: 'email_assignee',
+      type: 'notify',
+      label: 'Email the assignee',
+      config: {
+        recipients: '{record.assignee}',
+        title: 'New ticket: {record.subject}',
+        message: 'You have been assigned {record.subject}, priority {record.priority}.',
+        channels: ['email'],
       },
     },
+    { id: 'end', type: 'end', label: 'End' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'email_assignee' },
+    { id: 'e2', source: 'email_assignee', target: 'end' },
   ],
 });
 ```
 
-Variable interpolation: `{!trigger.record.<field>}`, `{!org.<field>}`,
-`{!user.<field>}`, `{!step.<step-name>.output}`. Use CEL expressions in
-`condition:` blocks.
+Email goes out through a `notify` node; there is no separate email node
+type. `channels: ['email']` sends the notification on the email channel,
+through the transport configured on [Email](/docs/configure/email).
+Without `channels`, a notification goes to the in-app inbox only. To send
+a stored email template instead of inline text, set `template` (a
+`sys_email_template` name) in place of `title` and `message`.
 
-Trigger timing:
+Field values and notification text in a node's `config` are templates:
+`{record.<field>}` reads the triggering record, `{<variable>}` a flow
+variable, `{$User.Id}` the current user, and `{NOW()}` / `{TODAY()}` are
+the date macros. Conditions are bare CEL with no braces — see
+[Conditions and branches](#conditions-and-branches).
 
-| `when` | Fires |
+The start node's `triggerType` picks the event, and its optional
+`condition` narrows it, for example `condition: "record.priority == 'high'"`:
+
+| `triggerType` | Fires |
 |---|---|
-| `before_insert` | Inside the write transaction, before INSERT |
-| `after_insert` | After commit |
-| `before_update` | Inside the write transaction, before UPDATE |
-| `after_update` | After commit |
-| `before_delete` | Inside the write transaction, before DELETE |
-| `after_delete` | After commit |
+| `record-after-create` | After an insert |
+| `record-after-update` | After an update |
+| `record-after-delete` | After a delete |
+| `record-after-write` | After an insert **or** an update |
+| `record-before-create` | Before an insert |
+| `record-before-update` | Before an update |
+| `record-before-delete` | Before a delete |
+| `record-before-write` | Before an insert **or** an update |
 
-`before_*` flows can mutate the record being written (compute fields,
-normalize data). `after_*` flows run async and can call slow external
-services.
+On an update, `previous` holds the record as it was:
+`condition: 'record.stage != previous.stage'`. To change the pending
+record within the same write, before it is saved, use a before hook
+rather than a flow; flows are for the side effects of a save — creating
+records, notifying, calling HTTP, requesting approval (ObjectStack's
+[Hooks vs flows](https://docs.objectstack.ai/docs/automation/hooks#hooks-vs-flows)).
 
 ## Scheduled: run on a clock
 
 ```ts
 export const nightlyCleanup = defineFlow({
   name: 'nightly_cleanup',
-  type: 'scheduled',
-  schedule: { cron: '0 2 * * *', timezone: 'America/New_York' },
-  steps: [
+  label: 'Mark overdue tasks',
+  type: 'schedule',
+  status: 'active',
+  runAs: 'system',  // a scheduled run has no user, so its data operations need an explicit identity
+  nodes: [
     {
-      type: 'query',
-      query: { object: 'task', filter: 'status:open AND due_lt:now()' },
-      output: 'stale',
+      id: 'start',
+      type: 'start',
+      label: 'Every night at 2am',
+      config: {
+        triggerType: 'schedule',
+        schedule: { type: 'cron', expression: '0 2 * * *', timezone: 'America/New_York' },
+      },
     },
     {
-      type: 'foreach',
-      items: '{!step.stale}',
-      do: [
-        { type: 'update', record: '{!item.id}', fields: { status: 'overdue' } },
-      ],
+      id: 'mark_overdue',
+      type: 'update_record',
+      label: 'Mark open tasks past due',
+      config: {
+        objectName: 'task',
+        filter: { status: 'open', due_date: { $lt: '{TODAY()}' } },
+        fields: { status: 'overdue' },
+        multi: true,  // update every match; without it, a filter that is not a single id is refused
+      },
     },
+    { id: 'end', type: 'end', label: 'End' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'mark_overdue' },
+    { id: 'e2', source: 'mark_overdue', target: 'end' },
   ],
 });
 ```
 
 Backed by the `@objectstack/service-job` capability — see
-[Runtime Capabilities](/docs/reference/runtime-capabilities).
+[Runtime Capabilities](/docs/reference/runtime-capabilities). A
+time-triggered flow has no caller to inherit an organization from;
+ObjectStack's [Flow metadata](https://docs.objectstack.ai/docs/automation/flows#the-acting-organization)
+says when its start node must declare one with `organization`.
 
 ## Time-relative: fire relative to a date field (16.0)
 
@@ -121,12 +176,15 @@ schedule and launches the flow **once per matching record**:
 ```ts
 export const renewalReminder = defineFlow({
   name: 'contract_renewal_reminder',
+  label: 'Contract renewal reminder',
   type: 'schedule',
   status: 'active',
+  runAs: 'system',  // a sweep has no user to act as
   nodes: [
     {
       id: 'start',
       type: 'start',
+      label: 'Start',
       config: {
         timeRelative: {
           object: 'contracts',
@@ -138,8 +196,13 @@ export const renewalReminder = defineFlow({
         schedule: { type: 'cron', expression: '0 8 * * *' },
       },
     },
-    { id: 'notify_owner', type: 'notify', label: 'Notify Owner' },
-    { id: 'end', type: 'end' },
+    {
+      id: 'notify_owner',
+      type: 'notify',
+      label: 'Notify Owner',
+      config: { recipients: '{record.owner}', title: 'Contract {record.name} ends on {record.end_date}' },
+    },
+    { id: 'end', type: 'end', label: 'End' },
   ],
   edges: [
     { id: 'e1', source: 'start', target: 'notify_owner' },
@@ -161,6 +224,8 @@ Exactly **one** of `offsetDays` or `withinDays` must be set. The two other
 common shapes:
 
 ```ts
+// Two variants of the start node's config.timeRelative; the rest of the flow is as above.
+
 // "Expiring soon" — fires every day a document is within 30 days of expiry.
 timeRelative: { object: 'hr_document', dateField: 'expires_on', withinDays: 30 }
 
@@ -182,94 +247,161 @@ define, and when an auto-triggered flow is left in `draft` status.
 > `today()`. Use that for a real "due today" condition; use
 > `timeRelative` for anything of the form "N days before/after a date".
 
-## Manual: actions and approvals
+## Started by hand: actions and API calls
 
 ```ts
 export const approveInvoice = defineFlow({
   name: 'approve_invoice',
-  type: 'manual',
-  inputs: {
-    invoice_id: { type: 'lookup', reference: 'invoice', required: true },
-    note:       { type: 'textarea' },
-  },
-  steps: [
+  label: 'Approve invoice',
+  type: 'autolaunched',
+  status: 'active',
+  variables: [
+    { name: 'invoice_id', type: 'text', isInput: true },
+  ],
+  nodes: [
+    { id: 'start', type: 'start', label: 'Start' },
     {
-      type: 'update',
-      record: '{!inputs.invoice_id}',
-      fields: { status: 'approved', approved_by: '{!user.id}' },
+      id: 'approve',
+      type: 'update_record',
+      label: 'Approve the invoice',
+      config: {
+        objectName: 'invoice',
+        filter: { id: '{invoice_id}' },
+        fields: { status: 'approved', approved_by: '{$User.Id}' },
+      },
     },
+    { id: 'end', type: 'end', label: 'End' },
+  ],
+  edges: [
+    { id: 'e1', source: 'start', target: 'approve' },
+    { id: 'e2', source: 'approve', target: 'end' },
   ],
 });
 ```
 
-Surface it as a button on the Invoice view, or call it via
+Surface it as a button on the Invoice view, with an
+[action](/docs/build/interface/actions) of type `flow`, or call it via
 REST:
 
 ```bash
-curl -X POST https://app.example.com/api/v1/actions/invoice/approve_invoice \
+curl -X POST https://app.example.com/api/v1/automation/approve_invoice/trigger \
   -H 'Authorization: Bearer <token>' \
-  -d '{"inputs": {"invoice_id": "inv_123", "note": "OK"}}'
+  -H 'Content-Type: application/json' \
+  -d '{"params": {"invoice_id": "inv_123"}}'
 ```
 
-## Step types
+Inputs are flow variables declared with `isInput: true`, sent in `params`
+under the same names; only declared inputs are bound. The caller's
+identity is forwarded into the run, so the update runs under the caller's
+permissions.
 
-| Step | Purpose |
+## Node types
+
+| Node `type` | Purpose |
 |---|---|
-| `query` | Read records via ObjectQL |
-| `create` / `update` / `delete` | Write to objects |
-| `action` | Invoke a built-in or plugin-registered action (email, webhook, AI call, …) |
-| `condition` | Branch on a CEL expression |
-| `foreach` | Iterate over a collection |
-| `parallel` | Run sub-steps concurrently |
-| `wait` | Pause for duration / until timestamp / until condition |
+| `get_record` | Read records via ObjectQL — one, or a list when `limit` is above 1 |
+| `create_record` / `update_record` / `delete_record` | Write to objects (`multi: true` to update or delete every match) |
+| `notify` | Send a notification — the in-app inbox by default, email with `channels: ['email']` |
+| `http` | Call an HTTP endpoint |
+| `connector_action` | Run an action on an installed connector (Slack, …) |
+| `script` | Call a registered function, named by `config.function` |
+| `decision` | Branch on edge conditions |
+| `assignment` | Set flow variables |
+| `loop` | Run a body region once per item of a collection |
+| `parallel` | Run branch regions concurrently |
+| `try_catch` | Catch, and optionally retry, a failure inside a region |
+| `wait` | Pause for a timer or a named signal |
+| `screen` | Pause for a user's input |
 | `subflow` | Call another flow |
-| `approval` | Block until a user approves (requires `@objectstack/plugin-approvals`) |
+| `approval` | Block until approvers decide (requires `@objectstack/plugin-approvals`) |
 
 ## Conditions and branches
 
 ```ts
-{
-  type: 'condition',
-  when: 'trigger.record.amount > 10000',
-  then: [
-    { type: 'action', action: 'send_slack', inputs: { /* ... */ } },
+export const expenseRouting = defineFlow({
+  name: 'expense_routing',
+  label: 'Route new expenses',
+  type: 'record_change',
+  status: 'active',
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      label: 'Expense submitted',
+      config: { objectName: 'expense', triggerType: 'record-after-create' },
+    },
+    { id: 'check_amount', type: 'decision', label: 'Over 10,000?' },
+    {
+      id: 'ask_approver',
+      type: 'notify',
+      label: 'Ask the approver',
+      config: { recipients: '{record.approver}', title: 'Expense over 10,000: {record.name}' },
+    },
+    {
+      id: 'auto_approve',
+      type: 'update_record',
+      label: 'Auto-approve',
+      config: { objectName: 'expense', filter: { id: '{record.id}' }, fields: { status: 'auto_approved' } },
+    },
+    { id: 'end', type: 'end', label: 'End' },
   ],
-  else: [
-    { type: 'update', record: '{!trigger.record.id}', fields: { status: 'auto_approved' } },
+  edges: [
+    { id: 'e1', source: 'start', target: 'check_amount' },
+    { id: 'e_large', source: 'check_amount', target: 'ask_approver', condition: 'record.amount > 10000' },
+    { id: 'e_other', source: 'check_amount', target: 'auto_approve', isDefault: true },
+    { id: 'e2', source: 'ask_approver', target: 'end' },
+    { id: 'e3', source: 'auto_approve', target: 'end' },
   ],
-}
+});
 ```
+
+A `decision` node branches on its out-edges. They are evaluated in the
+order `edges` lists them, the first whose `condition` holds runs, and the
+`isDefault` edge runs when none does. Without `isDefault`, an edge with no
+condition runs on every pass, beside whichever branch matched.
 
 ## Error handling
 
-Each step accepts:
-
 ```ts
-{
-  type: 'action',
-  action: 'send_email',
-  inputs: { /* ... */ },
-  retry: { attempts: 3, backoffMs: 1000, multiplier: 2 },
-  onError: 'continue' | 'fail' | 'rollback',
-}
+// Keys of a record_change flow on `invoice`. The nodes are omitted: `charge_card` is an
+// `http` node, `mark_paid` an `update_record`, and `flag_for_review` a `notify`.
+edges: [
+  { id: 'e_ok',    source: 'charge_card', target: 'mark_paid' },
+  { id: 'e_fault', source: 'charge_card', target: 'flag_for_review', type: 'fault' },
+],
+errorHandling: { strategy: 'retry', maxRetries: 3, backoffMs: 1000, backoffMultiplier: 2 },
 ```
 
-For autolaunched `before_*` flows, `onError: 'fail'` (default) aborts
-the originating write transaction. For `after_*` flows, the originating
-write is already committed; failed flow runs land in the job retry
-queue.
+Without either mechanism, a node failure ends the run. They work at two
+scopes:
+
+| | Scope | On failure |
+|---|---|---|
+| A `fault` edge | One node | The run continues from the handler, and completes |
+| `errorHandling: { strategy: 'retry', maxRetries }` | The whole flow | The flow re-runs from the start, up to `maxRetries` more times |
+
+`strategy` is `'fail'` (the default), `'retry'` or `'continue'`. A retry
+replays every node that already succeeded — a second email, a second
+created record — so prefer a fault edge where the failure is local. A
+failure a fault edge handled is not a flow failure and does not consume a
+retry, and the failed step stays in the run's trace.
 
 ## Formulas and expressions (CEL)
 
-Conditions, dynamic field values, and filter expressions all accept
-**CEL** (Common Expression Language) — Google's language for safe
+Conditions — the start node's `condition`, an edge's `condition` — are
+**CEL** (Common Expression Language), Google's language for safe
 expression evaluation:
 
 ```ts
-'amount > 10000 && account.tier == "enterprise"'
-'duration(now() - created_at) > duration("30d")'
-'has(record.notes) && record.notes != ""'
+'record.amount > 10000 && record.tier == "enterprise"'
+'record.stage != previous.stage'
+'!isBlank(record.notes)'
 ```
+
+`record` and `previous` carry every declared field, and a field without a
+value reads as `null`, so `has(record.notes)` says that the field is
+declared, not that it has a value. Test for a value with
+`record.notes != null` or `isBlank(record.notes)`.
 
 CEL is sandboxed (no side effects, no I/O), evaluated server-side, and
 auditable in the flow builder.
@@ -284,18 +416,23 @@ Studio's **Automations** pillar.
 ## Testing flows
 
 ```bash
-os test --scenario "welcome email fires on signup"
+os test qa/ticket-email.test.json   # run a Quality Protocol test suite against a running server
 ```
+
+`os test` runs Quality Protocol scenarios, written as JSON test suites,
+against a running server; `--tags` selects scenarios by tag. See the
+[CLI reference](/docs/reference/cli).
 
 ## Limits & best practices
 
 - **Keep before-hooks small.** They block the write transaction.
-- **Use `wait` instead of long-running steps.** A flow that sleeps
-  blocks a worker; a `wait until` returns the worker to the pool.
-- **Use `parallel` for independent steps.** Sequential execution is
-  the default.
-- **Idempotency matters.** Retries can run the same step twice;
-  external side effects should dedupe (use the flow run id as the key).
+- **Use a `wait` node instead of a long-running step.** It parks the run
+  durably, and a timer or a named signal resumes it.
+- **Use a `parallel` block for independent work.** It runs its branches
+  concurrently and joins them before the flow continues.
+- **Idempotency matters.** A flow-level retry re-runs nodes that already
+  succeeded; external side effects should dedupe (use the flow run id as
+  the key).
 - **Audit-sensitive actions.** Flows that change permissions or
   delete records should themselves log to `sys_audit_log`.
 
@@ -303,8 +440,11 @@ os test --scenario "welcome email fires on signup"
 
 - [Webhooks](/docs/configure/webhooks) — outbound notifications, often
   triggered from flows
-- [Email](/docs/configure/email) — the `send_email` action's transport
-- [API Access](/docs/configure/api-access) — invoke manual flows from
+- [Email](/docs/configure/email) — the transport behind a `notify` node's
+  `email` channel
+- [Notifications](/docs/configure/notifications) — how recipients,
+  channels and templates resolve
+- [API Access](/docs/configure/api-access) — invoke flows from
   external systems
 - [@objectstack/service-automation](https://github.com/objectstack-ai/objectstack/tree/main/packages/services/service-automation)
   — source for the execution engine
