@@ -12,13 +12,14 @@
  *
  * ## Who reads it
  *
- * Three machine-facing surfaces carry `POSITIONING`: the site-wide meta
- * description (`app/layout.tsx`), the `/llms.txt` summary line
- * (`app/llms.txt/route.ts`) and the `description` frontmatter of
- * `content/docs/index.mdx`. MDX frontmatter cannot import, so that third copy is
- * a literal, and `.github/scripts/check-positioning.mjs` compares it to this
+ * Three surfaces carry `POSITIONING`: the site-wide meta description
+ * (`app/layout.tsx`), the `/llms.txt` summary line (`app/llms.txt/route.ts`) and
+ * the opening paragraph of `content/docs/index.mdx`. The `/docs` meta
+ * description carries `POSITIONING_SHORT` instead — the `description`
+ * frontmatter of that same file. MDX cannot import, so both `index.mdx` copies
+ * are literals, and `.github/scripts/check-positioning.mjs` compares each to its
  * constant on every pull request — a copy that differs fails CI. The same gate
- * reads the four literals below, so keep each one on the shape it parses: one
+ * reads the literals below, so keep each one on the shape it parses: one
  * `export const NAME =` followed by a single quoted string.
  *
  * ## The one departure from the README's bytes
@@ -68,3 +69,14 @@ export const POSITIONING = [
   OBJECTOS_DEFINITION,
   OBJECTOS_EDITIONS,
 ].join(' ');
+
+/**
+ * The positioning in 160 characters or fewer, for the `/docs` meta description
+ * (objectos#299). `POSITIONING` is 511, and a search snippet cut it off inside
+ * the headline, before the word "ObjectOS". So this one leads with ObjectOS and
+ * the two editions. It is built from the words above: the README's definition,
+ * the edition names, and "you own it" from the promise. It is not a fifth
+ * README quote. The full paragraph stays the page's opening paragraph.
+ */
+export const POSITIONING_SHORT =
+  'ObjectOS is the commercial runtime environment built on ObjectStack, hosted (ObjectOS Cloud) or self-managed (ObjectOS Enterprise). You own the ontology.';

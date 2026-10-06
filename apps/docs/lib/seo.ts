@@ -1,5 +1,6 @@
+import type { Metadata } from 'next';
 import { i18n } from '@/lib/i18n';
-import { source } from '@/lib/source';
+import { SITE_NAME, source } from '@/lib/source';
 import { SITE_HOST } from '@/lib/site';
 
 /**
@@ -95,4 +96,37 @@ export function languageAlternates(
   }
   languages['x-default'] = localeUrl(i18n.defaultLanguage, path);
   return languages;
+}
+
+/**
+ * Head metadata for a page that is not in `content/docs/` and keeps its copy in
+ * a per-locale record in its own route file: `privacy` and `terms` (#299).
+ * Before this, both pages inherited the root layout's head: the title
+ * "ObjectOS", the 511-character site description, and no canonical URL.
+ *
+ * `content` is that record. Its keys are the locales the page is really written
+ * in. Any other locale route renders the English entry, so it names the English
+ * URL as canonical, which is the rule docs pages follow through
+ * `canonicalLocale`. The hreflang cluster lists only the written locales, the
+ * same set `sitemap.ts` advertises for these paths.
+ *
+ * `openGraph.title` is set explicitly so the share preview reads "Privacy
+ * Policy", not the `%s | ObjectOS` tab title. `siteName` already carries the
+ * brand, as it does on docs pages.
+ */
+export function staticPageMetadata(
+  path: string,
+  lang: string,
+  content: Record<string, { title: string; description: string }>,
+): Metadata {
+  const contentLang = Object.hasOwn(content, lang) ? lang : i18n.defaultLanguage;
+  const { title, description } = content[contentLang];
+  const canonical = localeUrl(contentLang, path);
+
+  return {
+    title,
+    description,
+    alternates: { canonical, languages: languageAlternates(path, Object.keys(content)) },
+    openGraph: { type: 'website', url: canonical, siteName: SITE_NAME, title, description },
+  };
 }

@@ -1,10 +1,13 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import { baseOptions } from '@/lib/layout.shared';
+import { staticPageMetadata } from '@/lib/seo';
 
 const content = {
   en: {
     title: 'Privacy Policy',
+    description: 'What ObjectStack AI LLC collects from its public websites and hosted accounts, and the data inside a self-managed deployment that it does not collect.',
     updated: 'Last updated: October 6, 2026',
     body: [
       {
@@ -28,6 +31,7 @@ const content = {
   },
   'zh-Hans': {
     title: '隐私政策',
+    description: 'ObjectStack AI LLC 从公开网站和托管账号收集哪些信息，以及不会收集的自管部署内部数据。',
     updated: '最近更新：2026 年 10 月 6 日',
     body: [
       {
@@ -66,6 +70,16 @@ const content = {
  * exports and ignores additional ones.
  */
 export const contentLocales = Object.keys(content);
+
+/** Title, description, canonical and hreflang from `content`; see `staticPageMetadata`. */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  return staticPageMetadata('privacy', lang, content);
+}
 
 export default async function PrivacyPage({
   params,

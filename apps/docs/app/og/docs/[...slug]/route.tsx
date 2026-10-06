@@ -40,6 +40,57 @@ function isLocale(value: string): value is Locale {
   return (i18n.languages as readonly string[]).includes(value);
 }
 
+/** A character that renders about twice as wide as a Latin one: Han, kana, Hangul, CJK punctuation, full-width forms. */
+const WIDE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}　-〿＀-￯]/u;
+
+/** Width units the card's 82px title fits on one line, and its 52px description on one line. */
+const TITLE_LINE = 26;
+const DESCRIPTION_LINE = 40;
+
+function widthOf(text: string): number {
+  let units = 0;
+  for (const char of text) units += WIDE.test(char) ? 2 : 1;
+  return units;
+}
+
+/**
+ * The description as the card can show it: whole when it fits, otherwise cut at
+ * the last word boundary inside the budget, with an ellipsis (#299).
+ *
+ * `fumadocs-ui/og` puts the title, the description and the brand line in a
+ * fixed 1200x630 flex column and does not clip any of them. Text that does not
+ * fit is drawn on top of the next element. A 511-character index description
+ * covered the divider and the brand line, and a 186-character one went over a
+ * two-line title.
+ *
+ * The budget is in width units, so a CJK card is cut at the same width as an
+ * English one rather than at the same character count. It is three description
+ * lines, about 120 Latin characters, under a one-line title, and one line fewer
+ * for each extra line the title takes. Scripts without spaces have no word
+ * boundary to find, so they are cut between characters, which is where they
+ * wrap anyway.
+ */
+function clampDescription(description: string | undefined, title: string): string | undefined {
+  if (!description) return description;
+  const lines = Math.max(1, 4 - Math.ceil(widthOf(title) / TITLE_LINE));
+  const budget = lines * DESCRIPTION_LINE;
+  if (widthOf(description) <= budget) return description;
+
+  let head = '';
+  let units = 1; // the ellipsis
+  for (const char of description) {
+    units += WIDE.test(char) ? 2 : 1;
+    if (units > budget) break;
+    head += char;
+  }
+  const space = head.lastIndexOf(' ');
+  if (space > head.length / 2) head = head.slice(0, space);
+  // Never end inside a parenthesis the cut left open: "(ObjectOS…" reads as broken.
+  const open = Math.max(head.lastIndexOf('('), head.lastIndexOf('（'));
+  if (open > 0 && open > Math.max(head.lastIndexOf(')'), head.lastIndexOf('）'))) head = head.slice(0, open);
+  return `${head.replace(/[\s,.;:–—\-、。，：；]+$/u, '')}…`;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ slug: string[] }> },
@@ -58,7 +109,7 @@ export async function GET(
   return new ImageResponse(
     <DefaultImage
       title={page.data.title}
-      description={page.data.description}
+      description={clampDescription(page.data.description, page.data.title)}
       site={SITE_NAME}
     />,
     {

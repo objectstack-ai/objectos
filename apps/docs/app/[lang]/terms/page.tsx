@@ -1,10 +1,13 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import { baseOptions } from '@/lib/layout.shared';
+import { staticPageMetadata } from '@/lib/seo';
 
 const content = {
   en: {
     title: 'Terms of Service',
+    description: "How ObjectOS editions are licensed, the Apache-2.0 license of this site's content, the ObjectOS trademark, and responsibility for self-managed deployments.",
     updated: 'Last updated: October 6, 2026',
     body: [
       {
@@ -32,6 +35,7 @@ const content = {
   },
   'zh-Hans': {
     title: '服务条款',
+    description: 'ObjectOS 各版本的许可方式、本站内容采用的 Apache-2.0 许可、ObjectOS 商标，以及自管部署的责任归属。',
     updated: '最近更新：2026 年 10 月 6 日',
     body: [
       {
@@ -74,6 +78,16 @@ const content = {
  * exports and ignores additional ones.
  */
 export const contentLocales = Object.keys(content);
+
+/** Title, description, canonical and hreflang from `content`; see `staticPageMetadata`. */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  return staticPageMetadata('terms', lang, content);
+}
 
 export default async function TermsPage({
   params,
