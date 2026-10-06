@@ -92,7 +92,9 @@ export default async function TermsPage({
 
   return (
     <HomeLayout {...baseOptions(lang)} i18n>
-      <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-24">
+      {/* An article, not a main: HomeLayout already renders main#nd-home-layout
+          around this, and a second main nested in it is a duplicate landmark. */}
+      <article className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-24">
         {isFallback && (
           <Callout type="info" role="note" className="mt-0 mb-8" data-untranslated-notice="">
             {uiText(lang).notTranslated}
@@ -113,7 +115,7 @@ export default async function TermsPage({
             {t.back}
           </Link>
         </div>
-      </main>
+      </article>
     </HomeLayout>
   );
 }

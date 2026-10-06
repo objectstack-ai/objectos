@@ -514,10 +514,11 @@ function expectedSitemapUrls(surface) {
  *     text. Each means a rule above compared nothing.
  *
  * "`<main>`" means the page's content: text inside a `<main>` and outside any
- * `<header>` or `<nav>`. `HomeLayout` wraps its own header (logo, search,
- * language switcher) in an outer `<main id="nd-home-layout">`, and that chrome
- * is localized, not page copy. `<script>` and `<style>` content is skipped, so
- * the RSC payload (a JSON copy of every string) does not read as markup. The names are prefixed `legal` on
+ * `<header>` or `<nav>`. `HomeLayout`'s `<main id="nd-home-layout">` holds its
+ * own header (logo, search, language switcher), which is localized chrome and
+ * not page copy, next to the page's `<article>`. `<script>` and `<style>`
+ * content is skipped, so the RSC payload (a JSON copy of every string) does
+ * not read as markup. The names are prefixed `legal` on
  * purpose, so that this block stands alone next to any other HTML reader in
  * this file.
  */
@@ -2105,8 +2106,8 @@ const LEGAL_FIXTURE = {
  * `collectLegalPages`: each `STATIC_PAGES` path in every fixture locale. A
  * listed locale (en, zh-Hans) shows its own copy. `ja` is not listed, so it
  * shows the notice in Japanese and then the English entry, marked `lang="en"`.
- * Nested the way `HomeLayout` nests it: the header, whose brand text is the
- * same on every locale, inside an outer `<main>`.
+ * Nested the way the real page is: `HomeLayout`'s `<main>` holds its header,
+ * whose brand text is the same on every locale, and the page's `<article>`.
  * Every page carries an RSC-payload `<script>` with the English title in it,
  * which a reader that did not skip scripts would take for English text on the
  * `zh-Hans` page. No accessible names and no `/docs` links: these fixtures share
@@ -2122,10 +2123,10 @@ function legalFixturePages({ languages, defaultLanguage }) {
       const t = own ?? en;
       files[`${lang}/${path}`] =
         `<!DOCTYPE html><html lang="${lang}"><head><title>${t[path]}</title></head><body>` +
-        '<main id="nd-home-layout"><header id="nd-nav"><nav><a href="/">ObjectOS</a></nav></header><main class="mx-auto">' +
+        '<main id="nd-home-layout"><header id="nd-nav"><nav><a href="/">ObjectOS</a></nav></header><article class="mx-auto">' +
         (own ? '' : `<div role="note"><div>${LEGAL_FIXTURE[lang]?.notice ?? 'Notice.'}</div></div>`) +
         `<h1${mark}>${t[path]}</h1><div${mark}><section><p>${t.body}</p></section></div>` +
-        `<div${mark}><a href="/${lang}">${t.back}</a></div></main></main>` +
+        `<div${mark}><a href="/${lang}">${t.back}</a></div></article></main>` +
         `<script>self.__next_f.push([1,"<h1>${en[path]}</h1><p>${en.body}</p>"])</script></body></html>`;
     }
   }
