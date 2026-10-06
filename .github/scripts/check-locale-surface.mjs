@@ -1441,9 +1441,12 @@ function builtPages({ surface, pages }) {
   const findings = [];
   const tally = new Map();
 
-  // No page in any locale is one finding, not one per page: the build did
-  // not run (or not this far), which `artifact-missing` already names.
-  if (!pages || [...pages.values()].every((own) => own.size === 0)) {
+  // No docs page in any locale is one finding, not one per page: the build
+  // did not run (or not this far), which `artifact-missing` already names.
+  // Docs pages only: the legal pages and the locale roots live in the same
+  // directories and say nothing about whether the docs were built.
+  const isDocsPage = (id) => /^[^/]+\/docs(?:\/|$)/.test(id);
+  if (!pages || [...pages.values()].every((own) => ![...own.keys()].some(isDocsPage))) {
     findings.push({
       rule: 'artifact-missing',
       artifact: 'docs pages',
