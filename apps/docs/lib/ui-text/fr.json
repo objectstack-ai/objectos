@@ -1,0 +1,21 @@
+{
+  "search": "Rechercher",
+  "searchNoResult": "Aucun résultat",
+  "toc": "Sur cette page",
+  "tocNoHeadings": "Aucun titre",
+  "lastUpdate": "Dernière mise à jour le",
+  "chooseLanguage": "Choisir une langue",
+  "nextPage": "Page suivante",
+  "previousPage": "Page précédente",
+  "chooseTheme": "Thème",
+  "editOnGithub": "Modifier sur GitHub",
+  "copyMarkdown": "Copier le Markdown",
+  "openMenu": "Ouvrir",
+  "openInGitHub": "Ouvrir dans GitHub",
+  "openInChatGPT": "Ouvrir dans ChatGPT",
+  "openInClaude": "Ouvrir dans Claude",
+  "notTranslated": "Cette page n'est pas encore traduite. Elle s'affiche en anglais.",
+  "legalNav": "Mentions légales",
+  "privacy": "Confidentialité",
+  "terms": "Conditions"
+}

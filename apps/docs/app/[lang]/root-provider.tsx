@@ -11,6 +11,7 @@ import {
 import { FrameworkProvider, type Framework } from 'fumadocs-core/framework';
 import { RootProvider } from 'fumadocs-ui/provider/base';
 import { i18n as i18nConfig } from '@/lib/i18n';
+import type { FumadocsTranslations } from '@/lib/ui-text';
 
 /**
  * Map an internal Next.js route pathname onto the public URL path the browser
@@ -73,10 +74,19 @@ function usePublicPathname(): string {
 export function DocsRootProvider({
   locale,
   locales,
+  translations,
   children,
 }: {
   locale: string;
   locales: { name: string; locale: string }[];
+  /**
+   * Fumadocs' interface strings for `locale` — the search box, "On this
+   * page", the language picker's heading, the previous/next footer. Required:
+   * without it every Fumadocs component falls back to its built-in English,
+   * which is the defect `lib/ui-text.ts` exists to end, and an optional prop is
+   * how the next caller would reproduce it without anyone noticing.
+   */
+  translations: FumadocsTranslations;
   children: ReactNode;
 }) {
   return (
@@ -92,7 +102,7 @@ export function DocsRootProvider({
       Link={Link as Framework['Link']}
       Image={Image as Framework['Image']}
     >
-      <RootProvider i18n={{ locale, locales }}>{children}</RootProvider>
+      <RootProvider i18n={{ locale, locales, translations }}>{children}</RootProvider>
     </FrameworkProvider>
   );
 }

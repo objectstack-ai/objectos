@@ -47,6 +47,19 @@
  * two together — when Simplified goes stale, Traditional goes stale with it,
  * and refreshing Simplified plus a regeneration clears both.
  *
+ * ## The interface copy is the same conversion
+ *
+ * `apps/docs/lib/ui-text/zh-Hans.json` holds the Simplified strings for the
+ * site's chrome — the search box, "On this page", Copy Markdown, the notice on
+ * an untranslated page — and `apps/docs/lib/ui-text/zh-Hant.json` is produced
+ * from it here, by the same converter and preset, and committed. One generator
+ * for the locale rather than a second hand-kept Chinese voice for the chrome:
+ * the rule above holds for a button label exactly as it holds for a page.
+ * Converted whole, like `meta.<locale>.json` — the keys are ASCII, which the
+ * converter never touches — and checked by the same byte comparison. Unlike
+ * the content pair it is not discovered by walking a tree: it is one fixed
+ * pair, so a missing Simplified file is an error rather than nothing to do.
+ *
  * ## Hand-editing is a gate, not a convention
  *
  * `--check` regenerates every file in memory and compares bytes. A hand edit to
@@ -72,6 +85,9 @@ const DOCS = join(ROOT, 'content/docs');
 
 const SOURCE = 'zh-Hans';
 const TARGET = 'zh-Hant';
+
+/** The interface-copy pair (see "The interface copy is the same conversion"). */
+const UI_TEXT = join(ROOT, 'apps/docs/lib/ui-text');
 
 /**
  * Simplified (mainland) -> Traditional (Taiwan, with phrase conversion).
@@ -192,6 +208,15 @@ function plan() {
       items.push({ source: file, target, text: generateMeta(readFileSync(file, 'utf8')) });
     }
   }
+  // Read unconditionally: `readFileSync` throws on a missing source, which is
+  // the point — the docs page imports both files, so a deleted Simplified table
+  // is a broken build, not an empty plan.
+  const uiSource = join(UI_TEXT, `${SOURCE}.json`);
+  items.push({
+    source: uiSource,
+    target: join(UI_TEXT, `${TARGET}.json`),
+    text: generateMeta(readFileSync(uiSource, 'utf8')),
+  });
   return items.sort((a, b) => (a.target < b.target ? -1 : 1));
 }
 
@@ -252,7 +277,8 @@ function main() {
   }
   console.error(
     '\n  zh-Hant is generated, not authored. Edit the English source (the Simplified\n' +
-      '  page is derived from it, and the Traditional page from that), then run:\n' +
+      '  page is derived from it, and the Traditional page from that) — or, for the\n' +
+      '  interface copy, apps/docs/lib/ui-text/zh-Hans.json — then run:\n' +
       '      pnpm --filter @objectos/docs gen:zh-hant\n' +
       '  See docs/TRANSLATION.md and the header of this script.',
   );
