@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { i18n } from '@/lib/i18n';
+import { fumadocsTranslations, uiText } from '@/lib/ui-text';
 import { DocsRootProvider } from './root-provider';
 
 // Language display names mapping
@@ -53,6 +54,7 @@ export default async function LanguageLayout({
             name: LANGUAGE_NAMES[l] || l,
             locale: l,
           }))}
+          translations={fumadocsTranslations(uiText(lang))}
         >
           {children}
         </DocsRootProvider>

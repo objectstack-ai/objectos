@@ -1,0 +1,18 @@
+{
+  "search": "Suchen",
+  "searchNoResult": "Keine Ergebnisse gefunden",
+  "toc": "Auf dieser Seite",
+  "tocNoHeadings": "Keine Überschriften",
+  "lastUpdate": "Zuletzt aktualisiert am",
+  "chooseLanguage": "Sprache wählen",
+  "nextPage": "Nächste Seite",
+  "previousPage": "Vorherige Seite",
+  "chooseTheme": "Design",
+  "editOnGithub": "Auf GitHub bearbeiten",
+  "copyMarkdown": "Markdown kopieren",
+  "openMenu": "Öffnen",
+  "openInGitHub": "In GitHub öffnen",
+  "openInChatGPT": "In ChatGPT öffnen",
+  "openInClaude": "In Claude öffnen",
+  "notTranslated": "Diese Seite ist noch nicht übersetzt; angezeigt wird die englische Fassung."
+}

@@ -8,16 +8,33 @@ import { Popover, PopoverContent, PopoverTrigger } from 'fumadocs-ui/components/
 
 const cache = new Map<string, string>();
 
+/**
+ * Where the Markdown of the page being shown comes from.
+ *
+ * - `url`: fetched on click from the site's `.mdx` surface. That surface is
+ *   English-only by design (see `markdownUrl` in the docs page), so this is the
+ *   source for an English page and for a locale URL serving the English page
+ *   as a fallback — in both cases the page on screen IS the English one.
+ * - `text`: the Markdown itself, rendered into the page at build time. Used for
+ *   a real translation, whose Markdown has no URL to fetch from: publishing
+ *   one would make the `.mdx` surface locale-aware, which is a decision about
+ *   that whole surface and not this button's to make.
+ */
+export type MarkdownSource = { url: string } | { text: string };
+
 export function LLMCopyButton({
-  /**
-   * A URL to fetch the raw Markdown/MDX content of page
-   */
-  markdownUrl,
+  markdown,
+  label,
 }: {
-  markdownUrl: string;
+  markdown: MarkdownSource;
+  /** The button's visible text, in the route locale. */
+  label: string;
 }) {
   const [isLoading, setLoading] = useState(false);
   const [checked, onClick] = useCopyButton(async () => {
+    if ('text' in markdown) return navigator.clipboard.writeText(markdown.text);
+
+    const markdownUrl = markdown.url;
     const cached = cache.get(markdownUrl);
     if (cached) return navigator.clipboard.writeText(cached);
 
@@ -52,7 +69,7 @@ export function LLMCopyButton({
       onClick={onClick}
     >
       {checked ? <Check /> : <Copy />}
-      Copy Markdown
+      {label}
     </button>
   );
 }
@@ -60,6 +77,7 @@ export function LLMCopyButton({
 export function ViewOptions({
   markdownUrl,
   githubUrl,
+  labels,
 }: {
   /**
    * A URL to the raw Markdown/MDX content of page
@@ -70,6 +88,14 @@ export function ViewOptions({
    * Source file URL on GitHub
    */
   githubUrl: string;
+
+  /** The trigger's and the menu items' visible text, in the route locale. */
+  labels: {
+    open: string;
+    openInGitHub: string;
+    openInChatGPT: string;
+    openInClaude: string;
+  };
 }) {
   const items = useMemo(() => {
     const fullMarkdownUrl =
@@ -78,7 +104,7 @@ export function ViewOptions({
 
     return [
       {
-        title: 'Open in GitHub',
+        title: labels.openInGitHub,
         href: githubUrl,
         icon: (
           <svg fill="currentColor" role="img" viewBox="0 0 24 24">
@@ -88,7 +114,7 @@ export function ViewOptions({
         ),
       },
       {
-        title: 'Open in ChatGPT',
+        title: labels.openInChatGPT,
         href: `https://chatgpt.com/?${new URLSearchParams({
           hints: 'search',
           q,
@@ -106,7 +132,7 @@ export function ViewOptions({
         ),
       },
       {
-        title: 'Open in Claude',
+        title: labels.openInClaude,
         href: `https://claude.ai/new?${new URLSearchParams({
           q,
         })}`,
@@ -123,7 +149,7 @@ export function ViewOptions({
         ),
       },
     ];
-  }, [githubUrl, markdownUrl]);
+  }, [githubUrl, markdownUrl, labels]);
 
   return (
     <Popover>
@@ -136,7 +162,7 @@ export function ViewOptions({
           }),
         )}
       >
-        Open
+        {labels.open}
         <ChevronDown className="size-3.5 text-fd-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent className="flex flex-col">

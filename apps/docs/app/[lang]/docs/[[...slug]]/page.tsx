@@ -1,17 +1,20 @@
-import { SITE_NAME, getPageImage, source } from '@/lib/source';
+import { SITE_NAME, getLLMText, getPageImage, source } from '@/lib/source';
 import type { Metadata } from 'next';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
 import { notFound } from 'next/navigation';
 import { getMDXComponents } from '@/mdx-components';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
+import { Callout } from 'fumadocs-ui/components/callout';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
-import { LLMCopyButton, ViewOptions } from '@/components/ai/page-actions';
+import { LLMCopyButton, type MarkdownSource, ViewOptions } from '@/components/ai/page-actions';
 import { gitConfig } from '@/lib/layout.shared';
 import { SITE_URL, languageAlternates, localeUrl, translatedLocales } from '@/lib/seo';
 import { i18n } from '@/lib/i18n';
+import { uiText } from '@/lib/ui-text';
 import type { InferPageType } from 'fumadocs-core/source';
+import type { TOCItemType } from 'fumadocs-core/toc';
 
 /**
  * The page type the loader actually produces, frontmatter schema included.
@@ -126,6 +129,21 @@ function canonicalLocale(lang: string, translated: readonly string[]): string {
  */
 function canonicalUrl(lang: string, slugs: string[]): string {
   return localeUrl(canonicalLocale(lang, translatedLocales(slugs)), docsPath(slugs));
+}
+
+/**
+ * The table of contents of a page whose headings are in `contentLang`, ready to
+ * render inside a document declaring a different language.
+ *
+ * The TOC is the page's own headings, so on a fallback they are English — but
+ * Fumadocs renders them in its own container next to the localized "On this
+ * page" label, outside the element that carries the content's `lang`. Marking
+ * the container would mislabel that heading (and the "no headings" notice), so
+ * each item's title is wrapped instead: the list, the mobile popover and the
+ * popover trigger all render `title`, so this one wrap reaches all three.
+ */
+function tocInLanguage(toc: TOCItemType[], contentLang: string): TOCItemType[] {
+  return toc.map((item) => ({ ...item, title: <span lang={contentLang}>{item.title}</span> }));
 }
 
 /**
@@ -250,7 +268,8 @@ export default async function Page(props: {
   const loaded = await page.data.load();
   const MDX = loaded.body;
 
-  // Resolved once and handed to both controls, so they cannot drift apart and
+  // Resolved once and handed to both controls (the copy button takes it through
+  // `copySource` below), so they cannot drift apart and
   // so a third control added below inherits the locale-independent URL instead
   // of re-deriving one from `page.url`. That re-derivation is the whole defect:
   // it is invisible in the rendered markup — `markdownUrl` reaches the browser
@@ -265,6 +284,34 @@ export default async function Page(props: {
   // named the English URL while claiming `inLanguage: "ja"` would assert that
   // the English page is Japanese.
   const contentLang = canonicalLocale(params.lang, translatedLocales(page.slugs));
+
+  // A fallback is a locale route serving the English page because that locale
+  // has no source file for it. Exact, not inferred: fumadocs builds each
+  // locale's file system by copying the English file OBJECTS in and letting
+  // real translations overwrite them, so a fallback page carries the English
+  // file's own `path` (`operate/backup.mdx`, never `operate/backup.ja.mdx`) —
+  // the discriminator `translatedLocales` reads. `page.locale` cannot answer
+  // this: it is the locale the page was looked up under, on both kinds.
+  const isFallback = contentLang !== params.lang;
+
+  // What the content elements declare. Only a fallback needs anything: a
+  // translated or English page is already in the document's language, which
+  // `<html lang>` declares for the chrome and the content alike. `<html lang>`
+  // itself stays the route locale (#181) — the sidebar, search and buttons
+  // around this page ARE in that language.
+  const contentLangAttr = isFallback ? contentLang : undefined;
+  const text = uiText(params.lang);
+
+  // Copy Markdown copies the page on screen. For an English page and for a
+  // fallback that is the English page, served at `pageMarkdownUrl`. For a real
+  // translation it is this locale's text, which the `.mdx` surface does not
+  // serve (English-only, see `markdownUrl`), so it is rendered into the page
+  // instead: `getLLMText` builds it exactly as `/llms.mdx/docs/...` builds the
+  // English body, from the module `page.data.load()` above already loaded.
+  const copySource: MarkdownSource =
+    contentLang === i18n.defaultLanguage
+      ? { url: pageMarkdownUrl }
+      : { text: await getLLMText(page) };
 
   // Structured data. Emitted from the page rather than from `generateMetadata`,
   // which can only produce meta/link elements — the Metadata API has no channel
@@ -291,17 +338,36 @@ export default async function Page(props: {
           dangerouslySetInnerHTML={{ __html: jsonLdHtml(item) }}
         />
       ))}
-      <DocsPage toc={loaded.toc} full={page.data.full}>
-        <DocsTitle>{page.data.title}</DocsTitle>
-        <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
+      <DocsPage
+        toc={isFallback ? tocInLanguage(loaded.toc, contentLang) : loaded.toc}
+        full={page.data.full}
+      >
+        {isFallback && (
+          // In the route locale, outside every element marked `lang` below:
+          // the notice is addressed to this locale's reader, and it comes
+          // before the English it describes so it is read first.
+          <Callout type="info" role="note" className="my-0" data-untranslated-notice="">
+            {text.notTranslated}
+          </Callout>
+        )}
+        <DocsTitle lang={contentLangAttr}>{page.data.title}</DocsTitle>
+        <DocsDescription lang={contentLangAttr} className="mb-0">
+          {page.data.description}
+        </DocsDescription>
         <div className="flex flex-row gap-2 items-center border-b pb-6">
-          <LLMCopyButton markdownUrl={pageMarkdownUrl} />
+          <LLMCopyButton markdown={copySource} label={text.copyMarkdown} />
           <ViewOptions
             markdownUrl={pageMarkdownUrl}
             githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
+            labels={{
+              open: text.openMenu,
+              openInGitHub: text.openInGitHub,
+              openInChatGPT: text.openInChatGPT,
+              openInClaude: text.openInClaude,
+            }}
           />
         </div>
-        <DocsBody>
+        <DocsBody lang={contentLangAttr}>
           <MDX
             components={getMDXComponents({
               a: createRelativeLink(source, page),

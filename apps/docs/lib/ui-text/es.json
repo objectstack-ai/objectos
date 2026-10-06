@@ -1,0 +1,18 @@
+{
+  "search": "Buscar",
+  "searchNoResult": "No se encontraron resultados",
+  "toc": "En esta página",
+  "tocNoHeadings": "Sin encabezados",
+  "lastUpdate": "Última actualización el",
+  "chooseLanguage": "Elegir idioma",
+  "nextPage": "Página siguiente",
+  "previousPage": "Página anterior",
+  "chooseTheme": "Tema",
+  "editOnGithub": "Editar en GitHub",
+  "copyMarkdown": "Copiar Markdown",
+  "openMenu": "Abrir",
+  "openInGitHub": "Abrir en GitHub",
+  "openInChatGPT": "Abrir en ChatGPT",
+  "openInClaude": "Abrir en Claude",
+  "notTranslated": "Esta página aún no está traducida; se muestra en inglés."
+}

@@ -1,0 +1,18 @@
+{
+  "search": "検索",
+  "searchNoResult": "結果が見つかりませんでした",
+  "toc": "このページの内容",
+  "tocNoHeadings": "見出しはありません",
+  "lastUpdate": "最終更新日",
+  "chooseLanguage": "言語を選択",
+  "nextPage": "次のページ",
+  "previousPage": "前のページ",
+  "chooseTheme": "テーマ",
+  "editOnGithub": "GitHub で編集",
+  "copyMarkdown": "Markdown をコピー",
+  "openMenu": "開く",
+  "openInGitHub": "GitHub で開く",
+  "openInChatGPT": "ChatGPT で開く",
+  "openInClaude": "Claude で開く",
+  "notTranslated": "このページはまだ翻訳されていません。英語版を表示しています。"
+}
