@@ -1,8 +1,8 @@
-import type { Folder, Item, Node } from 'fumadocs-core/page-tree';
+import { flattenTree, type Folder, type Item, type Node, type Root } from 'fumadocs-core/page-tree';
 import { llms } from 'fumadocs-core/source/llms';
 import { i18n } from '@/lib/i18n';
 import { POSITIONING } from '@/lib/positioning';
-import { SITE_URL, localeUrl } from '@/lib/seo';
+import { SITE_URL, localeUrl, translatedLocales } from '@/lib/seo';
 import { SITE_NAME, source } from '@/lib/source';
 
 export const revalidate = false;
@@ -89,6 +89,26 @@ function absoluteNode(node: Node): Node {
 }
 
 /**
+ * The locale-prefixed URL the Other Languages section gives as its example:
+ * the first page, in navigation order, that has a real `lang` translation.
+ *
+ * It used to be a fixed `docs/quickstart`, and Quickstart has no `zh-Hans`
+ * source file, so the one example of a translated page was an English
+ * fallback (#301). Deriving it means a page losing its translation cannot
+ * leave the example pointing at English again. Navigation order rather than
+ * `source.getPages()` order, because the tree is what `meta.json` fixes.
+ */
+function translatedExample(tree: Root, lang: string): string | undefined {
+  for (const node of flattenTree(tree.children)) {
+    const page = source.getNodePage(node, LANG);
+    if (page && translatedLocales(page.slugs).includes(lang)) {
+      return localeUrl(lang, ['docs', ...page.slugs].join('/'));
+    }
+  }
+  return undefined;
+}
+
+/**
  * The header's two rules — append `.mdx`, and the locale prefixes announced
  * under Other Languages — are read by a machine that will compose them. So the
  * `.mdx` rule states its own scope: it used to say "appending `.mdx` to its
@@ -144,12 +164,14 @@ export async function GET() {
   }
 
   if (OTHER_LOCALES.length > 0) {
+    const example = translatedExample(tree, OTHER_LOCALES[0]);
     lines.push(
       '',
       '## Other Languages',
       '',
-      `Every page above is also published under a locale prefix — for example ` +
-        `\`${localeUrl(OTHER_LOCALES[0], 'docs/quickstart')}\`. Available locales: ` +
+      `Every page above is also published under a locale prefix` +
+        (example ? ` — for example \`${example}\`` : '') +
+        `. Available locales: ` +
         `${OTHER_LOCALES.map((lang) => `\`${lang}\``).join(', ')}. English is the ` +
         `source of truth; a page with no translation yet falls back to English.`,
     );

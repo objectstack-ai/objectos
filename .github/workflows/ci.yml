@@ -441,11 +441,14 @@ jobs:
       # package the step above produced with `--skipNextBuild`. Since #262
       # removed the `main`-only condition from that packaging step, that
       # package exists on every pull request, so this step adds a preview boot
-      # and four fetches and nothing else. Measured in this repo's container,
-      # against the package already sitting in the tree: `Ready on` at 41 s,
-      # the smoke run itself 1 s. No `opennextjs-cloudflare build`, no
-      # `next build`, no Cloudflare credentials — `wrangler dev` serves the
-      # Worker locally under real workerd.
+      # and a few fetches and nothing else: four pages and their control, and
+      # since #301 one `/api/search` per locale and its control. Measured in
+      # this repo's container, against the package already sitting in the
+      # tree: `Ready on` at 41 s, the smoke run itself 1 s, plus 0.6–0.9 s for
+      # each locale's first search, which builds that locale's index. No
+      # `opennextjs-cloudflare build`, no `next build`, no Cloudflare
+      # credentials — `wrangler dev` serves the Worker locally under real
+      # workerd.
       #
       # ## Why it runs LAST, after the artifact upload
       #

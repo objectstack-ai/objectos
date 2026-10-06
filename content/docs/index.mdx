@@ -70,18 +70,11 @@ On either edition, the ontology: your objects, fields, relations, actions,
 permissions, flows and agent definitions are ordinary ObjectStack metadata,
 and you can export them and run them on the open-source ObjectStack
 runtime. On **ObjectOS Enterprise**, everything else stays with you too:
+[Data residency](/docs/reference/security#data-residency) lists each class
+of data, where it lives, and whether it leaves your network.
 
-| Asset | Where it lives |
-|---|---|
-| Business data | **Your** database (Postgres, SQLite, MySQL, MongoDB) |
-| User identities & sessions | **Your** database |
-| Audit log | **Your** database |
-| Files | **Your** storage (local disk, S3, or S3-compatible like R2/MinIO) |
-| Secrets | **Your** secret manager |
-| The runtime itself | **Your** servers or containers |
-
-Self-managed ObjectOS validates its licence online; Enterprise air-gapped
-licences validate offline, so a network with no internet access is a
+Self-managed ObjectOS validates its license online; Enterprise air-gapped
+licenses validate offline. A network with no internet access is therefore a
 first-class Enterprise deployment target — see
 [Air-gapped](/docs/deploy/air-gapped).
 
@@ -94,7 +87,7 @@ matches how you use ObjectOS:
 |---|---|---|
 | **An everyday user** | Work in the apps: records, views, dashboards, approvals | [Use](/docs/use) |
 | **A builder** | Create apps: data models, interfaces, automation, AI agents | [Build](/docs/build) |
-| **An administrator** | Run the platform: users, permissions, settings, deployment | [Administration](/docs/configure), [Deploy](/docs/deploy), [Operate](/docs/operate/production) |
+| **An administrator** | Run the platform: users, permissions, settings, deployment | [Configure](/docs/configure), [Deploy](/docs/deploy), [Operate](/docs/operate/production) |
 
 ## Where to go next
 

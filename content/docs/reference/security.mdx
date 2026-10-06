@@ -10,8 +10,8 @@ answer "is it safe to bring this in?"
 
 ObjectOS runs as a single Node.js process that talks to one database —
 inside **your** network on **ObjectOS Enterprise**, in ours on **ObjectOS
-Cloud**. Self-managed, its only outbound call of its own is licence
-validation, and Enterprise air-gapped licences validate offline. The blast
+Cloud**. Self-managed, its only outbound call of its own is license
+validation, and Enterprise air-gapped licenses validate offline. The blast
 radius of a compromise is the data on the database it connects to —
 nothing more.
 
@@ -27,14 +27,16 @@ open-source ObjectStack runtime.
 | Business records | Your database | **No** |
 | User accounts, sessions, OAuth tokens | Your database | **No** |
 | Audit log | Your database | **No** |
-| Settings, API keys | Your database / your secret manager | **No** |
-| Uploaded files | Your disk or S3-compatible bucket | **No** |
+| Settings, API keys, secrets | Your database / your secret manager | **No** |
+| Uploaded files | Your disk or an S3-compatible bucket (S3, R2, MinIO) | **No** |
+| The compiled app definition (`objectstack.json`) | A file on disk, or fetched from your control plane | Optional |
+| The runtime itself | Your servers or containers | **No** |
 | Telemetry / usage data | — | **None collected** |
 
 Beyond the integrations you explicitly configure (OIDC discovery, email
 provider, AI provider, webhook targets, external storage), the one outbound
-call self-managed ObjectOS makes on its own is **licence validation** —
-Enterprise air-gapped licences validate offline, so an air-gapped
+call self-managed ObjectOS makes on its own is **license validation** —
+Enterprise air-gapped licenses validate offline, so an air-gapped
 deployment makes none. See [License & Pricing](/docs/resources/license#faq).
 
 ## Encryption
@@ -165,8 +167,8 @@ Required inbound:
 - HTTPS from your ingress / load balancer to ObjectOS on `:3000` (default).
 
 Required outbound:
-- Licence validation, for self-managed ObjectOS — Enterprise air-gapped
-  licences validate offline and need no egress for it.
+- License validation, for self-managed ObjectOS — Enterprise air-gapped
+  licenses validate offline and need no egress for it.
 
 Required outbound only if you configure these features:
 - Your database (Postgres / Mongo / Turso / …).
@@ -274,8 +276,7 @@ construction:
 When you configure a provider (OpenAI, Anthropic, …), only the
 following leaves your network:
 
-- The conversation history the model needs (subject to your AI service
-  `redact` config — see [Configure → AI](/docs/configure/ai))
+- The conversation history the model needs
 - Tool definitions (names, JSON schemas — no record data)
 - Tool outputs that the model needs to continue (e.g. a query result
   the user explicitly asked for)

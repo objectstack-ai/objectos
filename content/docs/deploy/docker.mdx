@@ -11,7 +11,7 @@ page is the decision map for what that bundle configures.
 
 ## What you are given
 
-Your licence comes with **registry credentials** for the private runtime
+Your license comes with **registry credentials** for the private runtime
 image. Signing in requires a token with package **read** access; there is no
 public image and no source build: the image is produced by our release
 pipeline from sources that are not distributed, so `docker build` is not a
@@ -67,28 +67,28 @@ questions:
 The bundle README carries the verification commands with the identity and
 issuer to check against, matched to your release.
 
-## Licence
+## License
 
-**A licence is part of the happy path.** How the runtime behaves without one
+**A license is part of the happy path.** How the runtime behaves without one
 depends on what you asked it to be:
 
-- **Single-organization, no licence** — the deployment runs with Community
+- **Single-organization, no license** — the deployment runs with Community
   behaviour: the open MCP server, bring your own AI. Nothing bricks.
 - **Single-organization, licensed** — the in-product AI is unlocked on your
   own infrastructure: the AI Builder and "ask your data".
-- **Multi-organization (a walled tenancy posture), no licence** — the runtime
-  **exits at startup**, naming the licence. Isolation between organizations
+- **Multi-organization (a walled tenancy posture), no license** — the runtime
+  **exits at startup**, naming the license. Isolation between organizations
   is a licensed capability, and a deployment that asked for isolation must
   never serve traffic pretending to have it.
 
 There is a second constraint on the same line, and it is the one that
-surprises people: **a licence has a mode, and the mode is coupled to your
-cloud posture.** An ordinary licence is validated online against a control
-plane; an air-gap licence is verified locally and needs no network at all.
-Pairing an ordinary licence with "no control plane" is not a degraded state,
+surprises people: **a license has a mode, and the mode is coupled to your
+cloud posture.** An ordinary license is validated online against a control
+plane; an air-gap license is verified locally and needs no network at all.
+Pairing an ordinary license with "no control plane" is not a degraded state,
 it is an impossible one — and it is **refused at startup**, naming both
 settings, rather than failing later with a misleading complaint about the
-licence. [Air-gapped](/docs/deploy/air-gapped) has the full matrix of
+license. [Air-gapped](/docs/deploy/air-gapped) has the full matrix of
 supported combinations.
 
 ### A walled deployment must declare two more decisions
@@ -169,6 +169,6 @@ Multi-node and high availability are Enterprise capabilities — see
 ## Next
 
 - [Kubernetes](/docs/deploy/kubernetes) — the same properties, on an orchestrator.
-- [Air-gapped](/docs/deploy/air-gapped) — the licence mode for disconnected sites.
+- [Air-gapped](/docs/deploy/air-gapped) — the license mode for disconnected sites.
 - [Production Readiness](/docs/operate/production) — pre-flight checklist.
 - [Observability](/docs/operate/observability) — logs, metrics, audit.

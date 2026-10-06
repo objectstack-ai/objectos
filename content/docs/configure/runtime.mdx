@@ -62,15 +62,15 @@ Some configurations are checked when configuration is loaded and **refused**
 rather than degraded. A refusal prints a fatal error naming the settings that
 disagree, and exits.
 
-- **Licence mode and cloud posture are coupled.** An ordinary licence is
-  validated online against a control plane; an air-gap licence is verified
-  locally with no network traffic. Pairing an ordinary licence with "no control
+- **License mode and cloud posture are coupled.** An ordinary license is
+  validated online against a control plane; an air-gap license is verified
+  locally with no network traffic. Pairing an ordinary license with "no control
   plane" is impossible, not degraded, and is refused before any validation is
   attempted. [Air-gapped](/docs/deploy/air-gapped) carries the full matrix.
 - **Leaving the cloud posture unset is not "no cloud".** Unset resolves to the
   *public* control plane. A deployment meant to talk to nobody has to say so
   explicitly.
-- **A multi-organization posture requires a licence**, and makes two further
+- **A multi-organization posture requires a license**, and makes two further
   decisions mandatory: what a new sign-up joins, and which AI agents are
   mounted. Declaring either available value is accepted; not deciding is not. A
   single-organization deployment sees neither check.
@@ -81,7 +81,7 @@ disagree, and exits.
 ## Connecting to a control plane
 
 A control plane is what serves the marketplace catalog and validates an
-ordinary licence. Connecting is a **binding**, not a pasted credential: the
+ordinary license. Connecting is a **binding**, not a pasted credential: the
 deployment is bound to the control plane once, and the runtime persists the
 token it was issued and presents that on every later call. There is no
 deployment API key to distribute or rotate by hand.

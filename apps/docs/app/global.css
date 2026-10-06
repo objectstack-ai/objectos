@@ -1,3 +1,92 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+/*
+ * Muted text, light mode (#301).
+ *
+ * The neutral theme's light `--color-fd-muted-foreground` is hsl(0 0% 45.1%),
+ * #737373. It colours the sidebar, the table of contents, the search button
+ * and the description under each page title, and it measured 4.12–4.35:1
+ * against the backgrounds it sits on (#efefef to #f5f5f5), under the 4.5:1
+ * WCAG AA floor for body text. 40% is #666666: 4.99:1 on the darkest of them,
+ * the search button, and 5.27:1 on the page.
+ *
+ * Declared in `@theme`, where the neutral theme declares it, so it replaces
+ * only the light value. The theme's dark value is set by a plain `.dark` rule,
+ * which wins over `@theme`, and it already measures 6.08:1.
+ */
+@theme {
+  --color-fd-muted-foreground: hsl(0, 0%, 40%);
+}
+
+/*
+ * Wide tables on a phone (#301).
+ *
+ * fumadocs puts every table in a scroll container, so a wide table scrolls
+ * instead of breaking the page. What it does not give is a sign that it
+ * scrolls: a phone draws an overlay scrollbar only while a swipe is already
+ * under way, so on the License page at 390 px the Enterprise column is simply
+ * cut off at the edge, and a reader who never swipes never learns it exists.
+ * The same treatment as the marketing site's article tables (www #157):
+ *
+ * 1. A scrollbar that is always drawn. Styling `::-webkit-scrollbar` opts the
+ *    container out of overlay scrollbars in Blink and WebKit. Do not add
+ *    `scrollbar-width` or `scrollbar-color` for those engines: Chrome 121+
+ *    ignores `::-webkit-scrollbar` on any element that sets either, and the
+ *    overlay scrollbar comes back. They are set only where
+ *    `::-webkit-scrollbar` does not exist (Firefox).
+ * 2. A fade on the trailing edge while there is more table to the right,
+ *    driven by the container's own scroll position, so it narrows over the
+ *    last tenth of the scroll and is gone at the end. A table that does not
+ *    overflow has no active scroll timeline, so the fade keeps its initial
+ *    width of 0 and the table is not masked at all.
+ */
+.docs-table {
+  overscroll-behavior-x: contain;
+}
+
+.docs-table::-webkit-scrollbar {
+  height: 6px;
+}
+
+.docs-table::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--color-fd-muted) 70%, transparent);
+  border-radius: 999px;
+}
+
+.docs-table::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--color-fd-foreground) 32%, transparent);
+  border-radius: 999px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .docs-table {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-fd-foreground) 32%, transparent) transparent;
+  }
+}
+
+@property --docs-table-fade {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@supports (animation-timeline: scroll(self inline)) {
+  .docs-table {
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--docs-table-fade)), transparent);
+    animation: docs-table-fade linear both;
+    animation-timeline: scroll(self inline);
+  }
+}
+
+@keyframes docs-table-fade {
+  0%,
+  90% {
+    --docs-table-fade: 40px;
+  }
+  100% {
+    --docs-table-fade: 0px;
+  }
+}

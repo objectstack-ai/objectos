@@ -20,38 +20,80 @@ Schema source:
 ## The shortest possible declaration
 
 Every object automatically gets a default grid list + simple form even
-if you declare no views. Add `view` to override or extend:
+if you declare no views. To override or extend them, declare the
+object's views in a `defineView` container, beside the object rather
+than inside it: `list` is the default list, `form` the default form,
+and each view names its object through `data`.
 
 ```ts
-import { defineObject, F, P } from '@objectstack/spec'
+// src/ui/views/support_ticket.view.ts
+import { defineView } from '@objectstack/spec';
 
-export default defineObject({
-  name: 'support_ticket',
-  fields: [ /* ... */ ],
+const data = { provider: 'object' as const, object: 'support_ticket' };
 
-  view: {
-    list: { type: 'grid', columns: ['subject', 'status', 'priority', 'assignee'] },
-    form: { sections: [ { label: 'Details', fields: ['subject','description','priority','status','assignee'] } ] }
-  }
-})
+export const SupportTicketViews = defineView({
+  list: {
+    type: 'grid',
+    data,
+    columns: ['subject', 'status', 'priority', 'assignee'],
+  },
+  form: {
+    type: 'simple',
+    data,
+    sections: [
+      { name: 'details', label: 'Details', fields: ['subject', 'description', 'priority', 'status', 'assignee'] },
+    ],
+  },
+});
+```
+
+Register the container on the stack, next to the object it describes:
+
+```ts
+// objectstack.config.ts
+export default defineStack({
+  // ...
+  views: [SupportTicketViews],
+});
 ```
 
 For multi-view objects (e.g. a Kanban *and* a calendar over the same
-data) use the named variants:
+data), add named views to the same container: `listViews` for the view
+switcher, `formViews` for forms opened by name. Every list view keeps a
+top-level `columns`, whatever its type:
 
 ```ts
-view: {
+export const SupportTicketViews = defineView({
+  list: { type: 'grid', data, columns: ['subject', 'status', 'priority', 'assignee'] },
   listViews: {
-    by_status:  { type: 'kanban',   kanban:   { groupByField: 'status' }, columns: ['subject','priority'] },
-    schedule:   { type: 'calendar', calendar: { startDateField: 'due_at', titleField: 'subject' } },
-    by_owner:   { type: 'grid', columns: ['subject','status','priority'], filterableFields: ['assignee'] }
+    by_status: {
+      label: 'By status', type: 'kanban', data, columns: ['subject', 'priority'],
+      kanban: { groupByField: 'status', columns: ['subject', 'priority'] },
+    },
+    schedule: {
+      label: 'Schedule', type: 'calendar', data, columns: ['subject', 'due_at'],
+      calendar: { startDateField: 'due_at', titleField: 'subject' },
+    },
+    by_owner: {
+      label: 'By owner', type: 'grid', data, columns: ['assignee', 'subject', 'status', 'priority'],
+      sort: [{ field: 'assignee', order: 'asc' }],
+    },
   },
   formViews: {
-    quick:    { type: 'modal',  sections: [ /* ... */ ] },
-    full:     { type: 'tabbed', sections: [ /* ... */ ] }
-  }
-}
+    quick: { type: 'modal', data, sections: [{ name: 'quick', label: 'Quick edit', fields: ['status', 'priority', 'assignee'] }] },
+    full: {
+      type: 'tabbed', data,
+      sections: [
+        { name: 'details', label: 'Details', fields: ['subject', 'description'] },
+        { name: 'triage', label: 'Triage', fields: ['status', 'priority', 'assignee'] },
+      ],
+    },
+  },
+});
 ```
+
+The container and its rules are documented in full in ObjectStack's
+[View metadata](https://docs.objectstack.ai/docs/ui/views).
 
 ## List view types
 
@@ -70,6 +112,7 @@ view: {
 ### Common list options
 
 ```ts
+// P is the predicate template tag: import { P } from '@objectstack/spec'
 {
   type: 'grid',
   columns: ['subject','status','priority','assignee','created_at'],

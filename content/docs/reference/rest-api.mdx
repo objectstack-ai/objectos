@@ -35,28 +35,33 @@ row-level security + field-level security inside the data engine.
 
 ## Restricting the API surface
 
-The auto-generated endpoints are governed per object, so you can take an
-object off the API or make it read-only without writing any route code:
+The auto-generated endpoints are governed per object, in its `enable` block,
+so you can take an object off the API or make it read-only without writing
+any route code:
 
 - **`apiEnabled`** (boolean, **default `true`**) — set `false` to omit the
   object from the REST surface entirely. Requests to its routes 404.
 - **`apiMethods`** (optional whitelist) — when set, only the listed operations
   are reachable; any other operation is rejected at the REST layer. Allowed
-  values: `get`, `list`, `create`, `update`, `delete`, `upsert`, `bulk`,
-  `aggregate`, `history`, `search`, `restore`, `purge`, `import`, `export`.
+  values: `get`, `list`, `create`, `update`, `delete`, `bulk`. The eight
+  older values — `upsert`, `aggregate`, `history`, `search`, `restore`,
+  `purge`, `import`, `export` — are retired: a declared one is stripped at
+  parse, with a warning that names its replacement.
 
 ```ts
+import { ObjectSchema } from '@objectstack/spec/data';
+
 // A read-only reference object, never writable over the API:
-defineObject({
+ObjectSchema.create({
   name: 'exchange_rate',
-  apiMethods: ['get', 'list'],
+  enable: { apiMethods: ['get', 'list'] },
   // ...fields
 })
 
 // An internal object that the API never exposes:
-defineObject({
+ObjectSchema.create({
   name: 'sync_cursor',
-  apiEnabled: false,
+  enable: { apiEnabled: false },
   // ...fields
 })
 ```
