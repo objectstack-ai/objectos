@@ -1,9 +1,22 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
+import { Callout } from 'fumadocs-ui/components/callout';
 import { baseOptions } from '@/lib/layout.shared';
 import { staticPageMetadata } from '@/lib/seo';
+import { i18n } from '@/lib/i18n';
+import { uiText } from '@/lib/ui-text';
+import zhHans from './zh-Hans.json';
+import zhHant from './zh-Hant.json';
 
+/**
+ * This page's copy, one entry per locale it is written in. English is written
+ * here. The Simplified entry is `zh-Hans.json`, and `zh-Hant.json` is GENERATED
+ * from it by `scripts/gen-zh-hant.mjs` (OpenCC `s2twp`, the converter behind
+ * every other zh-Hant string on this site), so never edit it by hand: CI runs
+ * `gen-zh-hant --check`. Both are JSON because that generator converts a data
+ * file, the same reason `lib/ui-text/` is JSON.
+ */
 const content = {
   en: {
     title: 'Privacy Policy',
@@ -29,30 +42,8 @@ const content = {
     ],
     back: '← Back to home',
   },
-  'zh-Hans': {
-    title: '隐私政策',
-    description: 'ObjectStack AI LLC 从公开网站和托管账号收集哪些信息，以及不会收集的自管部署内部数据。',
-    updated: '最近更新：2026 年 10 月 6 日',
-    body: [
-      {
-        heading: '概述',
-        text: 'ObjectOS 以托管方式运行（ObjectOS Cloud），或由你自管部署在自己的基础设施中（ObjectOS Enterprise）。当你在自己的基础设施中自管运行 ObjectOS 时，ObjectStack AI LLC 不会收集、存储或处理流经你部署的数据。ObjectOS Cloud 的数据处理，受其在你注册时呈现的服务协议约束。本政策仅描述你访问我们的公开网站（objectstack.ai、docs.objectstack.ai）及任选的云服务时，我们所收集的有限信息。',
-      },
-      {
-        heading: '我们会收集什么',
-        text: '我们会出于安全与运营目的，收集公开网站的标准请求日志（IP、User-Agent、Referer、请求 URL）。若你在我们运营的托管服务上注册账号，我们会收集你为完成登录而提供的身份标识与凭证。',
-      },
-      {
-        heading: '我们不会收集什么',
-        text: '我们不会收集自管 ObjectOS 部署（ObjectOS Enterprise）内部的数据，也不会收集开源 ObjectStack 运行时部署内部的数据；你的应用数据始终留在你自己运营的边界内。ObjectOS Self-Managed 会在线校验许可证（Enterprise 隔离网络许可证为离线校验）；开源的 ObjectStack 运行时没有遥测、没有许可证校验、没有更新探活。',
-      },
-      {
-        heading: '联系方式',
-        text: '隐私相关问题请联系 privacy@objectstack.ai。',
-      },
-    ],
-    back: '← 返回首页',
-  },
+  'zh-Hans': zhHans,
+  'zh-Hant': zhHant,
 };
 
 /**
@@ -87,14 +78,25 @@ export default async function PrivacyPage({
   params: Promise<{ lang: string }>;
 }) {
   const { lang } = await params;
-  const t = content[lang as keyof typeof content] ?? content.en;
+  // Any other locale is served the English entry. That text is English inside
+  // `<html lang="LOCALE">`, so it is marked `lang="en"` and introduced by the
+  // notice docs pages show on a fallback (#298), in the route locale and before
+  // the English it describes. An English or written page is unchanged.
+  const isFallback = !Object.hasOwn(content, lang);
+  const t = isFallback ? content.en : content[lang as keyof typeof content];
+  const contentLang = isFallback ? i18n.defaultLanguage : undefined;
 
   return (
     <HomeLayout {...baseOptions(lang)} i18n>
       <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-24">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">{t.title}</h1>
-        <p className="text-sm text-foreground/60 mb-12">{t.updated}</p>
-        <div className="space-y-8">
+        {isFallback && (
+          <Callout type="info" role="note" className="mt-0 mb-8" data-untranslated-notice="">
+            {uiText(lang).notTranslated}
+          </Callout>
+        )}
+        <h1 lang={contentLang} className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">{t.title}</h1>
+        <p lang={contentLang} className="text-sm text-foreground/60 mb-12">{t.updated}</p>
+        <div lang={contentLang} className="space-y-8">
           {t.body.map((s) => (
             <section key={s.heading}>
               <h2 className="text-xl font-semibold mb-3">{s.heading}</h2>
@@ -102,7 +104,7 @@ export default async function PrivacyPage({
             </section>
           ))}
         </div>
-        <div className="mt-16 pt-8 border-t border-border/60">
+        <div lang={contentLang} className="mt-16 pt-8 border-t border-border/60">
           <Link href={`/${lang}`} className="text-sm text-primary hover:underline">
             {t.back}
           </Link>

@@ -253,6 +253,9 @@ const RULES = [
   'unexpected-url',
   'missing-url',
   'duplicate-url',
+  'legal-english-unmarked',
+  'legal-translation-shows-english',
+  'legal-page-unread',
   'unexpected-locale-title',
   'missing-locale-title',
   'translation-orphan',
@@ -299,7 +302,13 @@ const SITE_URL = 'https://docs.objectos.ai';
  * code (see the header). This list changing is a deliberate act — translating
  * the privacy policy — so a drift going red and naming the page is the correct
  * outcome, not a maintenance tax: unlike the docs counts, it does not move on
- * every content PR.
+ * every content PR. `zh-Hant` is listed because its copy is generated from the
+ * `zh-Hans` entry by `apps/docs/scripts/gen-zh-hant.mjs` (#312), the way every
+ * other Traditional page is.
+ *
+ * The same list is the oracle for what the built legal pages SHOW (#312, see
+ * `legalPages` below): a listed locale shows its own copy, and any other
+ * locale shows the English entry marked `lang="en"`.
  *
  * The site root is deliberately NOT here, and not expected anywhere below. It
  * is a language dispatch page that redirects to that locale's `/docs` — a URL
@@ -309,8 +318,8 @@ const SITE_URL = 'https://docs.objectos.ai';
  * which is what keeps the redirect from creeping back in at `priority: 1`.
  */
 const STATIC_PAGES = [
-  { path: 'privacy', locales: ['en', 'zh-Hans'] },
-  { path: 'terms', locales: ['en', 'zh-Hans'] },
+  { path: 'privacy', locales: ['en', 'zh-Hans', 'zh-Hant'] },
+  { path: 'terms', locales: ['en', 'zh-Hans', 'zh-Hant'] },
 ];
 
 const rel = (p) => relative(ROOT, p);
@@ -483,6 +492,170 @@ function expectedSitemapUrls(surface) {
   }
 
   return urls;
+}
+
+/* ------------------------------------------------- the legal pages (#312) --
+ * `privacy` and `terms` in a locale `STATIC_PAGES` does not list render the
+ * English entry inside `<html lang="LOCALE">`. Until #312 nothing marked it, so
+ * a German screen reader read the privacy policy with German rules, and
+ * `zh-Hant` got that English too. Three rules over the built HTML, with the
+ * English page's own `<main>` text as the oracle for "English":
+ *
+ *   - `legal-english-unmarked`: on a locale that is not listed, every text
+ *     node of `<main>` that is also English-page text must resolve to
+ *     `lang="en"` (the nearest `lang`, as a screen reader applies it). The
+ *     notice above it is in the route locale and is not English-page text.
+ *   - `legal-translation-shows-english`: on a listed locale, no text node of
+ *     `<main>` is English-page text and none resolves to `en`. It catches a
+ *     locale that is advertised as written while it still shows English, the
+ *     way `zh-Hant` did.
+ *   - `legal-page-unread`: a built page missing in some locale, an English page
+ *     with no `<main>` text, or an unlisted locale showing none of the English
+ *     text. Each means a rule above compared nothing.
+ *
+ * "`<main>`" means the page's content: text inside a `<main>` and outside any
+ * `<header>` or `<nav>`. `HomeLayout` wraps its own header (logo, search,
+ * language switcher) in an outer `<main id="nd-home-layout">`, and that chrome
+ * is localized, not page copy. `<script>` and `<style>` content is skipped, so
+ * the RSC payload (a JSON copy of every string) does not read as markup. The names are prefixed `legal` on
+ * purpose, so that this block stands alone next to any other HTML reader in
+ * this file.
+ */
+
+/** Where Next writes a prerendered legal page: `<locale>/<path>.html`, English under `en/`. */
+const LEGAL_PAGES_DIR = 'apps/docs/.next/server/app';
+
+const LEGAL_VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+const LEGAL_TAG = /<!--[\s\S]*?-->|<(\/?)([A-Za-z][A-Za-z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+
+const legalText = (s) =>
+  s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#([0-9]+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const legalIsEnglish = (lang, defaultLanguage) =>
+  lang?.toLowerCase().split('-')[0] === defaultLanguage.toLowerCase().split('-')[0];
+
+/** Every text node of the page's content (see above), with the `lang` it resolves to. */
+function legalMainText(html) {
+  const texts = [];
+  const stack = [{ tag: '#document', lang: undefined, main: false, chrome: false }];
+  const tags = new RegExp(LEGAL_TAG.source, 'g');
+  let last = 0;
+  for (let m = tags.exec(html); m; m = tags.exec(html)) {
+    const top = stack[stack.length - 1];
+    const text = legalText(html.slice(last, m.index));
+    if (text && top.main && !top.chrome) texts.push({ text, lang: top.lang });
+    last = tags.lastIndex;
+    if (m[0].startsWith('<!--')) continue;
+    const tag = m[2].toLowerCase();
+    if (m[1] === '/') {
+      const at = stack.findLastIndex((frame) => frame.tag === tag);
+      if (at > 0) stack.length = at;
+      continue;
+    }
+    if (tag === 'script' || tag === 'style') {
+      const end = html.toLowerCase().indexOf(`</${tag}`, tags.lastIndex);
+      last = tags.lastIndex = end < 0 ? html.length : end;
+      continue;
+    }
+    const lang = /(?:^|\s)lang\s*=\s*"([^"]*)"/.exec(m[3])?.[1] ?? top.lang;
+    if (!LEGAL_VOID.has(tag) && !m[3].trimEnd().endsWith('/')) {
+      stack.push({ tag, lang, main: top.main || tag === 'main', chrome: top.chrome || tag === 'header' || tag === 'nav' });
+    }
+  }
+  return texts;
+}
+
+/** The built legal pages, keyed `<locale>/<path>`; an empty map when none is built. */
+function collectLegalPages(root, languages) {
+  const pages = new Map();
+  for (const { path } of STATIC_PAGES) {
+    for (const lang of languages) {
+      const file = join(root, LEGAL_PAGES_DIR, lang, `${path}.html`);
+      if (existsSync(file)) pages.set(`${lang}/${path}`, { file, texts: legalMainText(readFileSync(file, 'utf8')) });
+    }
+  }
+  return pages;
+}
+
+/** The three rules above, and one row per non-English page for the summary. */
+function legalPages({ surface, pages }) {
+  const { languages, defaultLanguage } = surface;
+  const findings = [];
+  const rows = [];
+  if (pages.size === 0) {
+    findings.push({
+      rule: 'artifact-missing',
+      artifact: 'legal pages',
+      detail:
+        `legal pages: no built page at ${LEGAL_PAGES_DIR}/<locale>/{${STATIC_PAGES.map((p) => p.path).join(',')}}.html ` +
+        '— run `pnpm turbo run build` first. Not finding them is a failure, never a skip.',
+    });
+    return { findings, rows };
+  }
+  const unread = (detail) => findings.push({ rule: 'legal-page-unread', artifact: 'legal pages', detail });
+
+  for (const { path, locales } of STATIC_PAGES) {
+    const english = pages.get(`${defaultLanguage}/${path}`);
+    const englishText = new Set((english?.texts ?? []).map((x) => x.text));
+    if (englishText.size === 0) {
+      unread(
+        `${defaultLanguage}/${path}: ${english ? `no <main> text in ${rel(english.file)}` : 'not built'} — ` +
+          'it is the oracle for what English looks like, so nothing about this page was compared',
+      );
+      continue;
+    }
+    for (const lang of languages) {
+      if (lang === defaultLanguage) continue;
+      const page = pages.get(`${lang}/${path}`);
+      if (!page) {
+        unread(`${lang}/${path}: no built page at ${LEGAL_PAGES_DIR}/${lang}/${path}.html, so it was never read`);
+        continue;
+      }
+      const written = locales.includes(lang);
+      const shown = page.texts.filter((x) => englishText.has(x.text));
+      const wrong = written
+        ? page.texts.filter((x) => englishText.has(x.text) || legalIsEnglish(x.lang, defaultLanguage))
+        : shown.filter((x) => !legalIsEnglish(x.lang, defaultLanguage));
+      rows.push({ page: `${lang}/${path}`, written, texts: page.texts.length, english: shown.length, wrong: wrong.length });
+
+      if (written && wrong.length) {
+        findings.push({
+          rule: 'legal-translation-shows-english',
+          artifact: 'legal pages',
+          detail:
+            `${rel(page.file)}: \`STATIC_PAGES\` says ${path} is written in ${lang}, but ${wrong.length} text ` +
+            `node(s) of its <main> are English-page text or marked English, first "${wrong[0].text.slice(0, 80)}" ` +
+            `(lang="${wrong[0].lang ?? 'none'}"). Add the ${lang} entry to the page's \`content\` (zh-Hant: run ` +
+            '`gen:zh-hant`), or drop the locale from `STATIC_PAGES`',
+        });
+      } else if (!written && shown.length === 0) {
+        unread(
+          `${lang}/${path}: none of the English page's ${englishText.size} text node(s) is in its <main> — either ` +
+            `${path} is now written in ${lang} (list it in \`STATIC_PAGES\`) or this reader has gone blind`,
+        );
+      } else if (!written && wrong.length) {
+        findings.push({
+          rule: 'legal-english-unmarked',
+          artifact: 'legal pages',
+          detail:
+            `${rel(page.file)}: ${wrong.length} of the ${shown.length} English text node(s) ${lang} shows for ` +
+            `${path} resolve to lang="${wrong[0].lang ?? 'none'}", first "${wrong[0].text.slice(0, 80)}" — a ` +
+            `${lang} reader hears English with ${lang} rules. Mark the English entry lang="${defaultLanguage}" ` +
+            `(\`app/[lang]/${path}/page.tsx\`)`,
+        });
+      }
+    }
+  }
+  return { findings, rows };
 }
 
 /**
@@ -1540,6 +1713,8 @@ function collect(root) {
           [...readBodies(mdxDir)].map(([page, path]) => [page, { path, text: readFileSync(path, 'utf8') }]),
         )
       : null,
+    // The built legal pages (#312), read as text too: their `<main>` text nodes.
+    legal: { pages: collectLegalPages(root, languages) },
   };
 
   // Read as they are found and kept only as names and links: the HTML is
@@ -1576,6 +1751,12 @@ function evaluate({ surface, artifacts, bodies, html }) {
         'it (#208)',
     });
   }
+
+  // The legal pages (#312). The rows hang off `bodies.legal`, as the artifact
+  // tallies below hang off each artifact, for the summary to print.
+  const legal = legalPages({ surface, pages: bodies.legal.pages });
+  findings.push(...legal.findings);
+  bodies.legal.rows = legal.rows;
 
   for (const artifact of artifacts) {
     const { spec } = artifact;
@@ -1749,6 +1930,18 @@ function gate() {
   }
   console.log('');
 
+  // #312: what each built legal page shows, against `STATIC_PAGES`.
+  console.log('## Legal pages: written, or English marked `lang="en"`\n');
+  console.log('| page | written in this locale | `<main>` text nodes | English-page text | wrong |');
+  console.log('|---|---|---:|---:|---:|');
+  for (const r of collected.bodies.legal.rows ?? []) {
+    console.log(`| \`${r.page}\` | ${r.written ? 'yes' : 'no, English fallback'} | ${r.texts} | ${r.english} | ${r.wrong} |`);
+  }
+  console.log(
+    '\n`wrong` counts, on a fallback, English-page text not resolving to `lang="en"`; on a written page, ' +
+      'English-page text or text marked English.\n',
+  );
+
   console.log('## `llms` bodies are markdown, not HTML\n');
   console.log(
     'In this section `AMP` stands for one literal ampersand, so that a markdown renderer cannot ' +
@@ -1900,6 +2093,45 @@ const BASE_URLS = [
   'https://docs.objectos.ai/docs/deep',
 ];
 
+/** Each fixture locale's legal copy (#312): a title and a body line, and the fallback notice. */
+const LEGAL_FIXTURE = {
+  en: { privacy: 'Privacy Policy', terms: 'Terms of Service', body: 'We collect request logs.', back: '← Back to home' },
+  'zh-Hans': { privacy: '隐私政策', terms: '服务条款', body: '我们收集请求日志。', back: '← 返回首页' },
+  ja: { notice: 'このページはまだ翻訳されていません。英語で表示しています。' },
+};
+
+/**
+ * The legal pages a correct build produces (#312), keyed `<locale>/<path>` like
+ * `collectLegalPages`: each `STATIC_PAGES` path in every fixture locale. A
+ * listed locale (en, zh-Hans) shows its own copy. `ja` is not listed, so it
+ * shows the notice in Japanese and then the English entry, marked `lang="en"`.
+ * Nested the way `HomeLayout` nests it: the header, whose brand text is the
+ * same on every locale, inside an outer `<main>`.
+ * Every page carries an RSC-payload `<script>` with the English title in it,
+ * which a reader that did not skip scripts would take for English text on the
+ * `zh-Hans` page. No accessible names and no `/docs` links: these fixtures share
+ * the build directory with other built-page fixtures.
+ */
+function legalFixturePages({ languages, defaultLanguage }) {
+  const files = {};
+  const en = LEGAL_FIXTURE[defaultLanguage];
+  for (const { path, locales } of STATIC_PAGES) {
+    for (const lang of languages) {
+      const own = locales.includes(lang) ? LEGAL_FIXTURE[lang] : null;
+      const mark = own ? '' : ` lang="${defaultLanguage}"`;
+      const t = own ?? en;
+      files[`${lang}/${path}`] =
+        `<!DOCTYPE html><html lang="${lang}"><head><title>${t[path]}</title></head><body>` +
+        '<main id="nd-home-layout"><header id="nd-nav"><nav><a href="/">ObjectOS</a></nav></header><main class="mx-auto">' +
+        (own ? '' : `<div role="note"><div>${LEGAL_FIXTURE[lang]?.notice ?? 'Notice.'}</div></div>`) +
+        `<h1${mark}>${t[path]}</h1><div${mark}><section><p>${t.body}</p></section></div>` +
+        `<div${mark}><a href="/${lang}">${t.back}</a></div></main></main>` +
+        `<script>self.__next_f.push([1,"<h1>${en[path]}</h1><p>${en.body}</p>"])</script></body></html>`;
+    }
+  }
+  return files;
+}
+
 const sitemapXml = (urls) =>
   '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
   urls.map((u) => `<url>\n<loc>${u}</loc>\n</url>`).join('\n') +
@@ -2037,6 +2269,43 @@ const CASES = [
     name: 'duplicated entries',
     urls: [...BASE_URLS, 'https://docs.objectos.ai/docs/guide'],
     expect: ['duplicate-url'],
+  },
+
+  /* ---------------------------------------------- legal pages (#312) -- */
+  // `legalFixturePages` says what a clean build carries; the clean baseline
+  // is also the green case for the notice in the route locale and for the
+  // English title inside the RSC-payload script on the zh-Hans page.
+
+  {
+    // The #312 shape, as main served /de/privacy: the English entry inside
+    // <html lang="de"> with nothing marking it.
+    name: 'a fallback legal page shows English unmarked (the #312 shape)',
+    legal: (f) => ({ ...f, 'ja/privacy': f['ja/privacy'].replaceAll(' lang="en"', '') }),
+    expect: ['legal-english-unmarked'],
+  },
+  {
+    // zh-Hant before #312, had it been listed: a locale advertised as written
+    // that shows the English entry.
+    name: 'a written legal page shows the English entry',
+    legal: (f) => ({ ...f, 'zh-Hans/terms': f['en/terms'].replace('<html lang="en">', '<html lang="zh-Hans">') }),
+    expect: ['legal-translation-shows-english'],
+  },
+  {
+    name: 'a legal page missing from one locale of the build',
+    legal: (f) => Object.fromEntries(Object.entries(f).filter(([file]) => file !== 'ja/terms')),
+    expect: ['legal-page-unread'],
+  },
+  {
+    // The oracle going blind: an English page whose <main> holds no text.
+    name: 'an English legal page with no main text',
+    legal: (f) => ({ ...f, 'en/privacy': f['en/privacy'].replace(/<main[\s\S]*<\/main>/, '<main></main>') }),
+    expect: ['legal-page-unread'],
+  },
+  {
+    // Every other artifact built, the legal pages not at all.
+    name: 'legal pages not built',
+    legal: null,
+    expect: ['artifact-missing'],
   },
   {
     name: 'no built artifact',
@@ -2441,6 +2710,18 @@ function selfTest() {
         const p = join(dir, file);
         mkdirSync(dirname(p), { recursive: true });
         writeFileSync(p, bytes);
+      }
+
+      // The legal pages (#312): every `STATIC_PAGES` path in every locale,
+      // clean. `c.legal` transforms the `<locale>/<path>`-to-HTML map; `null`
+      // leaves them unbuilt.
+      if (c.artifacts !== null && c.legal !== null) {
+        const files = legalFixturePages(readI18n(dir));
+        for (const [file, html] of Object.entries(c.legal ? c.legal(files) : files)) {
+          const p = join(dir, LEGAL_PAGES_DIR, `${file}.html`);
+          mkdirSync(dirname(p), { recursive: true });
+          writeFileSync(p, html);
+        }
       }
 
       // `llms.mdx`: one clean body per page with an English source, derived

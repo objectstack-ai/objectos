@@ -60,6 +60,12 @@
  * the content pair it is not discovered by walking a tree: it is one fixed
  * pair, so a missing Simplified file is an error rather than nothing to do.
  *
+ * The legal pages' copy is converted the same way (#312). `privacy` and `terms`
+ * are app routes, not `content/docs/` pages: each keeps its English entry in its
+ * `page.tsx` and its Simplified entry in `zh-Hans.json` beside it, and the
+ * `zh-Hant.json` there is produced here. A fixed pair each, like the interface
+ * copy, and the reason the Simplified entry is JSON rather than TypeScript.
+ *
  * ## Hand-editing is a gate, not a convention
  *
  * `--check` regenerates every file in memory and compares bytes. A hand edit to
@@ -86,8 +92,14 @@ const DOCS = join(ROOT, 'content/docs');
 const SOURCE = 'zh-Hans';
 const TARGET = 'zh-Hant';
 
-/** The interface-copy pair (see "The interface copy is the same conversion"). */
-const UI_TEXT = join(ROOT, 'apps/docs/lib/ui-text');
+/**
+ * The fixed pairs: in each directory, `zh-Hans.json` generates `zh-Hant.json`.
+ * The interface copy (see "The interface copy is the same conversion") and the
+ * two legal pages' copy.
+ */
+const FIXED_PAIRS = ['apps/docs/lib/ui-text', 'apps/docs/app/[lang]/privacy', 'apps/docs/app/[lang]/terms'].map(
+  (dir) => join(ROOT, dir),
+);
 
 /**
  * Simplified (mainland) -> Traditional (Taiwan, with phrase conversion).
@@ -209,14 +221,16 @@ function plan() {
     }
   }
   // Read unconditionally: `readFileSync` throws on a missing source, which is
-  // the point — the docs page imports both files, so a deleted Simplified table
-  // is a broken build, not an empty plan.
-  const uiSource = join(UI_TEXT, `${SOURCE}.json`);
-  items.push({
-    source: uiSource,
-    target: join(UI_TEXT, `${TARGET}.json`),
-    text: generateMeta(readFileSync(uiSource, 'utf8')),
-  });
+  // the point — the pages import both files, so a deleted Simplified table is
+  // a broken build, not an empty plan.
+  for (const dir of FIXED_PAIRS) {
+    const source = join(dir, `${SOURCE}.json`);
+    items.push({
+      source,
+      target: join(dir, `${TARGET}.json`),
+      text: generateMeta(readFileSync(source, 'utf8')),
+    });
+  }
   return items.sort((a, b) => (a.target < b.target ? -1 : 1));
 }
 
@@ -278,7 +292,8 @@ function main() {
   console.error(
     '\n  zh-Hant is generated, not authored. Edit the English source (the Simplified\n' +
       '  page is derived from it, and the Traditional page from that) — or, for the\n' +
-      '  interface copy, apps/docs/lib/ui-text/zh-Hans.json — then run:\n' +
+      '  interface copy, apps/docs/lib/ui-text/zh-Hans.json, and for the legal pages,\n' +
+      '  the zh-Hans.json beside app/[lang]/privacy and terms page.tsx — then run:\n' +
       '      pnpm --filter @objectos/docs gen:zh-hant\n' +
       '  See docs/TRANSLATION.md and the header of this script.',
   );

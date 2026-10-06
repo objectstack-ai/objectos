@@ -1,0 +1,24 @@
+{
+  "title": "隱私政策",
+  "description": "ObjectStack AI LLC 從公開網站和託管賬號收集哪些資訊，以及不會收集的自管部署內部資料。",
+  "updated": "最近更新：2026 年 10 月 6 日",
+  "body": [
+    {
+      "heading": "概述",
+      "text": "ObjectOS 以託管方式執行（ObjectOS Cloud），或由你自管部署在自己的基礎設施中（ObjectOS Enterprise）。當你在自己的基礎設施中自管執行 ObjectOS 時，ObjectStack AI LLC 不會收集、儲存或處理流經你部署的資料。ObjectOS Cloud 的資料處理，受其在你註冊時呈現的服務協議約束。本政策僅描述你訪問我們的公開網站（objectstack.ai、docs.objectstack.ai）及任選的雲服務時，我們所收集的有限資訊。"
+    },
+    {
+      "heading": "我們會收集什麼",
+      "text": "我們會出於安全與運營目的，收集公開網站的標準請求日誌（IP、User-Agent、Referer、請求 URL）。若你在我們運營的託管服務上註冊賬號，我們會收集你為完成登入而提供的身份標識與憑證。"
+    },
+    {
+      "heading": "我們不會收集什麼",
+      "text": "我們不會收集自管 ObjectOS 部署（ObjectOS Enterprise）內部的資料，也不會收集開源 ObjectStack 執行時部署內部的資料；你的應用資料始終留在你自己運營的邊界內。ObjectOS Self-Managed 會線上校驗許可證（Enterprise 隔離網路許可證為離線校驗）；開源的 ObjectStack 執行時沒有遙測、沒有許可證校驗、沒有更新探活。"
+    },
+    {
+      "heading": "聯絡方式",
+      "text": "隱私相關問題請聯絡 privacy@objectstack.ai。"
+    }
+  ],
+  "back": "← 返回首頁"
+}
