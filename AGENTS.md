@@ -66,9 +66,9 @@ pnpm --filter @objectos/docs gen:zh-hant --check  # what CI runs
   every PR and fails on any byte of drift.
 - Retiring a page or its Simplified sibling takes the Traditional file with it —
   re-run the generator, which prunes what it no longer produces.
-- Coverage tracks Simplified exactly (62 of 79 pages today). The 17 without a
-  Simplified sibling have no Traditional one either, so they are never
-  advertised in the sitemap or an hreflang cluster — they simply render English.
+- Coverage tracks Simplified exactly. A page without a Simplified sibling has no
+  Traditional one either, so it is never advertised in the sitemap or an
+  hreflang cluster — it simply renders English.
 - Committed output, not on-the-fly conversion, because `lib/seo.ts` tells a real
   translation from an English fallback by the presence of a locale-suffixed
   file. A conversion done while rendering produces no such file, and the locale
@@ -81,7 +81,7 @@ pnpm --filter @objectos/docs gen:zh-hant --check  # what CI runs
 When the English source changes:
 1. Edit the English `.mdx`; verify it renders. That is the whole task.
 2. Leave the locale siblings alone. They are stale now, the freshness gate says so on your PR, and the next pass fixes them. Stale is **reported, not blocking** — English landing on its own is the design, not an oversight.
-3. **Retiring or renaming a page is the exception:** delete its locale siblings in the same PR. An orphaned translation blocks the gate, and a translation of a page that was rewritten to assert something different is worse than none — a missing translation renders correct English, a stale one renders content the English source no longer claims.
+3. **Retiring or renaming a page is the exception, and so is an English correction that removes or reverses a capability assertion:** delete its locale siblings in the same PR. An orphaned translation blocks the gate, and a translation of a page that was rewritten to assert something different is worse than none — a missing translation renders correct English, a stale one renders content the English source no longer claims. Wording drift and number drift (a port number, a timing) do not count: they stay with the translation pass, as step 2 says ([ruling on #256](https://github.com/objectstack-ai/objectos/issues/256#issuecomment-5989567068)).
 4. Never hand-write the `translation:` frontmatter block. Only `check-translations.mjs --stamp` writes it; a hand-typed sha is a lie the gate cannot catch.
 
 Status at any time:
@@ -104,7 +104,7 @@ node .github/scripts/check-translations.mjs --worklist  # what the next pass wil
 
 From `apps/docs/`:
 - `npm run dev` — dev server on http://localhost:3000
-- `npm run type-check` — `fumadocs-mdx && next typegen && tsc --noEmit`
+- `npm run type-check` — `next typegen && fumadocs-mdx && tsc --noEmit`. ⛔ Keep this order (#311): `next typegen` can exit mid-way through the un-awaited `.source/*` rewrite that `createMDX()` in `next.config.mjs` starts, leaving a truncated `.source/server.ts` that `tsc` rejects (TS2306), so the awaited `fumadocs-mdx` CLI goes after it as the last writer.
 - `npm run build` — production build
 
 ## Turbo caching and content changes
