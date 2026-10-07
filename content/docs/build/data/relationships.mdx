@@ -12,7 +12,7 @@ the parent page, and `expand` in queries.
 | Type | Cardinality | Delete default | Use for |
 |---|---|---|---|
 | `lookup` | Many-to-one | `set_null` | Loose references (ticket → assignee) |
-| `masterDetail` | Many-to-one, owned | `cascade` | Parent-child ownership (order → line items) |
+| `master_detail` | Many-to-one, owned | `cascade` | Parent-child ownership (order → line items) |
 | `tree` | Self-referencing | — | Hierarchies (categories, org charts) |
 | `user` | Many-to-one | `set_null` | Person picker — a lookup specialized to `sys_user` |
 | `summary` | Roll-up onto parent | — | Aggregate children (sum, count, avg) |
@@ -84,7 +84,7 @@ inline as line items on the parent form.
 export const OrderLine = ObjectSchema.create({
   name: 'order_line',
   fields: {
-    order:    Field.masterDetail({ reference: 'order', label: 'Order' }),
+    order:    Field.masterDetail('order', { label: 'Order' }),
     product:  Field.lookup('product', { label: 'Product' }),
     quantity: Field.number({ label: 'Quantity', min: 1 }),
   },
@@ -141,9 +141,15 @@ object**: an object with two relationship fields, one to each side.
 export const Enrollment = ObjectSchema.create({
   name: 'enrollment',
   fields: {
-    student: Field.masterDetail({ reference: 'student', label: 'Student' }),
-    course:  Field.masterDetail({ reference: 'course',  label: 'Course' }),
-    grade:   Field.select({ label: 'Grade', options: [ /* ... */ ] }),
+    student: Field.masterDetail('student', { label: 'Student' }),
+    course:  Field.masterDetail('course',  { label: 'Course' }),
+    grade:   Field.select({
+      label: 'Grade',
+      options: [
+        { label: 'Pass', value: 'pass' },
+        { label: 'Fail', value: 'fail' },
+      ],
+    }),
   },
   indexes: [
     { fields: ['student', 'course'], unique: true },  // one enrollment per pair
@@ -161,7 +167,7 @@ Aggregate child records onto the parent with a `summary` field. Only
 valid on master objects — the parent side of a master-detail:
 
 ```ts
-// On the Order object
+// Fields of an object — this one belongs on the Order object.
 total_lines: {
   type: 'summary',
   label: 'Line Count',

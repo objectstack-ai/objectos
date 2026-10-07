@@ -27,6 +27,7 @@ Validation is layered — use the lowest layer that can express the rule:
 The universal modifiers work on every field type:
 
 ```ts
+// Fields of an object; the object around them is omitted.
 import { ObjectSchema, Field } from '@objectstack/spec/data';
 
 fields: {
@@ -76,7 +77,13 @@ export const Order = ObjectSchema.create({
   name: 'order',
   fields: {
     amount: Field.currency({ label: 'Amount', required: true }),
-    status: Field.select({ label: 'Status', options: [ /* ... */ ] }),
+    status: Field.select({
+      label: 'Status',
+      options: [
+        { label: 'Draft', value: 'draft' },
+        { label: 'Submitted', value: 'submitted' },
+      ],
+    }),
   },
 
   validations: [
@@ -126,6 +133,8 @@ Every rule type shares this base shape:
 Two rules you'll reach for constantly:
 
 ```ts
+// Two validation rules, entries of the object's `validations` array.
+
 // State machine — enforce the status flow
 {
   name: 'order_status_transitions',
@@ -176,14 +185,17 @@ SELECT-then-INSERT check is inherently racy (TOCTOU); a database unique
 constraint is not. Enforce uniqueness at the data layer:
 
 ```ts
-// Field-level
-email: Field.email({ label: 'Contact Email', unique: true }),
+// Keys of an object; its name and its other fields are omitted.
+fields: {
+  // Field-level
+  email: Field.email({ label: 'Contact Email', unique: true }),
+},
 
 // Composite / scoped via indexes
 indexes: [
   { fields: ['code', 'organization'], unique: true },
   // add `partial` for a scoped/conditional constraint
-]
+],
 ```
 
 The same logic excludes async/remote validation (a client-form concern

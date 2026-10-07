@@ -1,7 +1,7 @@
 ---
 title: Actions
 seoTitle: "Actions: REST Endpoints, Buttons and AI Tools"
-description: Named operations the platform exposes as REST endpoints, buttons, flow steps, and AI tools — from one declaration.
+description: Named operations the platform exposes as REST endpoints, buttons and AI tools — from one declaration.
 ---
 
 An **Action** is a named operation on an object. Declare it once and
@@ -9,17 +9,17 @@ it appears as:
 
 - a **REST endpoint** at `/api/v1/actions/<object>/<action>`
 - a **button** on the record detail page
-- a **flow step** (`type: 'action'`) for automation
 - an **AI tool** (`action_<name>`) for Agents and the AI Builder
 
-You don't repeat yourself across four surfaces. One declaration; four
-ways to call it.
+You don't repeat yourself across three surfaces. One declaration; three
+ways to call it. An action can also start a [flow](/docs/build/automation/flows)
+(`type: 'flow'`) when the work takes more than one step.
 
 ## Declare an action
 
 ```ts
 // src/actions/approve_invoice.action.ts
-import { Action } from '@objectstack/spec';
+import { Action } from '@objectstack/spec/ui';
 
 export const approveInvoice = Action.create({
   name: 'approve_invoice',          // lowercase snake_case (machine id)
@@ -28,7 +28,7 @@ export const approveInvoice = Action.create({
   icon: 'check',
   variant: 'primary',
   locations: ['record_header'],     // where the button shows
-  confirmText: 'Approve this invoice?',
+  description: 'Approve this invoice?',  // shown in the param dialog
   successMessage: 'Invoice approved',
   refreshAfter: true,
 
@@ -60,7 +60,6 @@ After `os dev` recompiles:
 
 - `POST /api/v1/actions/invoice/approve_invoice` works
 - The Invoice record page shows an **Approve Invoice** button
-- A flow can include `{ type: 'action', action: 'approve_invoice', inputs: { note: '…' } }`
 - The AI assistant can call `action_approve_invoice` if its skills allow
 
 ## Action types
@@ -112,27 +111,38 @@ result for `api`-type actions).
 
 ### From the UI
 
-By default, actions appear as buttons on the record detail page,
-filtered by the action's `visible` predicate. Override placement
-in your view config:
+Where a button shows is declared on the action itself: `locations`
+(`record_header`, `record_more`, `list_item`, `list_toolbar`, …) and
+`order`. The `visible` predicate then decides, record by record, whether it
+renders. A list view can also name actions for each row and for a selection
+of rows:
 
 ```ts
-defineView({
-  name: 'invoice_detail',
-  object: 'invoice',
-  actions: ['approve_invoice', 'reject_invoice', 'send_to_customer'],
-});
+// One list view; the container and `data` are omitted (see Views).
+{
+  type: 'grid',
+  columns: ['number', 'customer', 'amount', 'status'],
+  rowActions: ['approve_invoice', 'reject_invoice'],
+  bulkActions: ['send_to_customer'],
+}
 ```
 
-### From a flow
+### With a flow
+
+There is no flow node that calls an action. Go the other way: put the
+multi-step logic in a flow, and start it from an action with `type: 'flow'`
+and the flow's name in `target`:
 
 ```ts
-{
-  type: 'action',
-  action: 'approve_invoice',
-  inputs: { note: 'Auto-approved by SLA flow' },
-  record: '{!trigger.record.id}',
-}
+// flow type — start a flow by name
+Action.create({
+  name: 'run_invoice_approval',
+  objectName: 'invoice',
+  label: 'Run approval',
+  locations: ['record_more'],
+  type: 'flow',
+  target: 'approve_invoice',
+});
 ```
 
 ### From an AI Agent
@@ -193,11 +203,11 @@ This is your first stop for *"who pushed the button?"* questions.
 
 The [AI Builder](/docs/build/ai-builder) generates the action metadata and
 queues the change for approval. After approval, the action is callable from
-REST, the UI, flows, and — recursively — the AI itself.
+REST, the UI, and — recursively — the AI itself.
 
 ## Where to go next
 
-- [Flows](/docs/build/automation/flows) — compose multiple actions into business logic
+- [Flows](/docs/build/automation/flows) — the multi-step logic a `type: 'flow'` action starts
 - [Agents](/docs/build/agents) — expose actions as AI tools
 - [API Access](/docs/configure/api-access) — call actions from external systems
 - [Permissions](/docs/configure/permissions) — gate who can call what
