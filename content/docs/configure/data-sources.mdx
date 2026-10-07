@@ -46,31 +46,29 @@ The shipped drivers are:
 ## Declaring datasources
 
 Datasources are declared on the stack and assembled with `defineStack`.
-Define each connection as a typed `Datasource` object, then list them
-under `datasources`:
+Define each connection with `defineDatasource()`, then list them under
+`datasources`:
 
 ```ts
 // src/datasources/business.datasource.ts
-import type { Datasource } from '@objectstack/spec';
+import { defineDatasource } from '@objectstack/spec';
 
-// Connect to an EXISTING production database. Credentials come from the
-// environment — never inline secrets in source.
-export const BusinessDb: Datasource = {
+// Connect to an EXISTING production database. The password is never inline:
+// it lives in the secrets store, and the datasource only references it.
+export const BusinessDb = defineDatasource({
   name: 'business_primary',
   label: 'Business System (Postgres)',
   driver: 'postgres',
   config: {
-    connection: {
-      host: process.env.BIZ_DB_HOST,
-      port: Number(process.env.BIZ_DB_PORT ?? 5432),
-      user: process.env.BIZ_DB_USER,
-      password: process.env.BIZ_DB_PASSWORD,
-      database: process.env.BIZ_DB_NAME,
-    },
+    host: 'db.internal.example.com',
+    port: 5432,
+    database: 'business',
+    username: 'objectos',
   },
+  external: { credentialsRef: 'secret:business_db/password' },
   pool: { min: 1, max: 10 },
   active: true,
-};
+});
 ```
 
 ```ts
@@ -80,20 +78,32 @@ import * as objects from './src/objects/index.js';
 import { BusinessDb } from './src/datasources/business.datasource.js';
 
 export default defineStack({
-  manifest: { id: 'app.example.crm-extend', namespace: 'biz', version: '1.0.0' },
+  manifest: {
+    id: 'app.example.crm-extend',
+    namespace: 'biz',
+    version: '1.0.0',
+    type: 'app',
+    name: 'CRM extension',
+  },
   datasources: [BusinessDb],
   objects: Object.values(objects),
 });
 ```
 
-> **A `defineDatasource()` helper is also available.** The plain
-> `Datasource` object above is a valid datasource — it is exactly what the
-> `examples/app-crm` stack does in the framework repo — and
-> `defineDatasource()`, exported from `@objectstack/spec` (and
-> `@objectstack/spec/data`), takes the same config and runs the
+> **`defineDatasource()` validates where you write it.** Exported from
+> `@objectstack/spec` (and `@objectstack/spec/data`), it runs the
 > `DatasourceSchema` validation at the point of declaration, so a bad field
-> is reported where you wrote it. The framework's own federation guide uses
-> it.
+> is reported in the file that has it. The framework's `examples/app-crm`
+> stack declares its datasources this way. A plain object typed `Datasource`
+> (from `@objectstack/spec/data`) is also accepted, and is validated when the
+> stack is assembled.
+>
+> **Credentials are never inline.** `DatasourceSchema` refuses a `password`
+> in `config`, even one read from the environment: the datasource is stored
+> whole in `sys_metadata`, so an inline secret would sit there in cleartext.
+> Put the secret in the secrets store and name it in
+> `external.credentialsRef`. The resolved secret is injected at connect
+> time.
 
 ## Binding objects to a datasource
 
@@ -111,7 +121,13 @@ export const Customer = ObjectSchema.create({
   fields: {
     name:  Field.text({ label: 'Name', required: true }),
     email: Field.text({ label: 'Email' }),
-    tier:  Field.select({ label: 'Tier', options: [/* … */] }),
+    tier:  Field.select({
+      label: 'Tier',
+      options: [
+        { label: 'Standard', value: 'standard' },
+        { label: 'Premium', value: 'premium' },
+      ],
+    }),
   },
 });
 ```
@@ -136,6 +152,20 @@ packages, declare routing rules once on the stack. Rules are evaluated in
 order (or by `priority`); first match wins:
 
 ```ts
+// A second connection, for reporting.
+export const AnalyticsReplica = defineDatasource({
+  name: 'analytics_replica',
+  label: 'Analytics replica',
+  driver: 'postgres',
+  config: {
+    host: 'replica.internal.example.com',
+    port: 5432,
+    database: 'business',
+    username: 'objectos_reports',
+  },
+  external: { credentialsRef: 'secret:analytics_db/password' },
+});
+
 export default defineStack({
   datasources: [BusinessDb, AnalyticsReplica],
   datasourceMapping: [

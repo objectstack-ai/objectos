@@ -7,13 +7,14 @@ description: The expression language used for formulas, predicates, schedules, a
 ObjectOS uses [CEL](https://github.com/google/cel-spec) (Common
 Expression Language) for every place where you need a small, safe,
 sandboxed expression: formula fields, validation rules, visibility
-predicates, sharing conditions, flow guards, schedules, and templated
+predicates, sharing conditions, flow conditions, schedules, and templated
 strings.
 
 Authoring is done through **five tagged templates** imported from
 `@objectstack/spec`. They all produce a small JSON object the runtime
 parses:
 
+{/* doc-sample: skip — a type signature, not a value */}
 ```ts
 { dialect: 'cel' | 'template' | 'cron', source: string }
 ```
@@ -47,16 +48,16 @@ import { F, P, cel, tmpl, cron } from '@objectstack/spec'
 
 | Field on a spec | Tag | Example location |
 |:--|:--|:--|
-| `Field.expression` (formula type) | `F` | `*.object.ts` formula fields |
-| `Field.conditionalRequired` | `P` | object fields |
-| `Validation.predicate` | `P` | object validations |
+| A formula field's `expression` | `F` | `*.object.ts` formula fields |
+| A field's `requiredWhen` / `visibleWhen` / `readonlyWhen` | `P` | object fields |
+| A `script` validation rule's `condition` | `P` | object `validations` |
 | `SharingRule.condition` | `P` | sharing rules |
-| `View.conditionalFormatting[].condition` | `P` | views |
-| `Flow.step.when` / `Flow.transition.when` | `P` | flows |
-| `Action.guard` | `P` | actions |
-| Notification subjects / message bodies | `tmpl` | notifications |
-| `Schedule.cron` | `cron` | scheduled flows / reports |
-| Any value parameter | `cel` | flow step inputs |
+| A list view's `conditionalFormatting[].condition` | `P` | views |
+| A start node's `config.condition`, an edge's `condition` | `P` | flows |
+| An action's `visible` / `disabled` | `P` | actions |
+| A schedule's `expression` | `cron` | scheduled flows and jobs |
+| An object's `titleFormat` (deprecated) and AI prompt templates | `tmpl` | objects, AI models |
+| A field's `defaultValue` | `cel` | object fields |
 
 ## Variable scope
 
@@ -110,37 +111,65 @@ Native CEL string helpers (`.contains(...)`, `.startsWith(...)`,
 **Formula field** — line-item total:
 
 ```ts
-{ name: 'subtotal', type: 'formula', expression: F`record.quantity * record.unit_price` }
+subtotal: Field.formula({
+  label: 'Subtotal',
+  expression: F`record.quantity * record.unit_price`,
+}),
 ```
 
-**Validation** — close date must be after today:
+**Validation** — close date must be in the future. A `script` rule's
+`condition` describes the *invalid* record: when it is true, the write is
+refused.
 
 ```ts
-{ message: 'Close date must be in the future', predicate: P`record.close_date > today()` }
+// One validation rule, an entry of the object's `validations`
+{
+  type: 'script',
+  name: 'close_date_in_future',
+  message: 'Close date must be in the future',
+  condition: P`record.close_date <= today()`,
+}
 ```
 
-**Visibility** — show field only to managers:
+**Visibility** — show a field only once the deal is won:
 
 ```ts
-{ visibleIf: P`'manager' in os.user.positions` }
+close_reason: Field.textarea({
+  label: 'Close reason',
+  visibleWhen: P`record.stage == 'closed_won'`,
+}),
 ```
 
-**Flow guard** — skip step when amount is small:
+**Flow condition** — start a record-change flow only for large amounts:
 
 ```ts
-{ when: P`record.amount >= 1000` }
+// The `config` of a `start` node; the rest of the flow is omitted (see Flows).
+config: {
+  objectName: 'opportunity',
+  triggerType: 'record-after-update',
+  condition: P`record.amount >= 1000`,
+}
 ```
 
 **Schedule** — weekday 9am:
 
 ```ts
-{ schedule: cron`0 9 * * 1-5` }
+// The `config` of a `start` node; the rest of the flow is omitted (see Flows).
+config: {
+  triggerType: 'schedule',
+  schedule: { type: 'cron', expression: cron`0 9 * * 1-5` },
+}
 ```
 
-**Template** — notification subject:
+**Notification text** is not a `tmpl` slot. A `notify` node's `title` and
+`message` are plain strings with `{record.field}` placeholders:
 
 ```ts
-{ subject: tmpl`[{{record.priority}}] {{record.subject}}` }
+// The `config` of a `notify` node; the node around it is omitted.
+config: {
+  recipients: '{record.owner}',
+  title: '[{record.priority}] {record.subject}',
+}
 ```
 
 ## Errors
@@ -161,8 +190,8 @@ quietly corrupting a formula value or a guard decision.
 
 ## See also
 
-- [Field types](./field-types) — formula and conditional-required fields
+- [Field types](./field-types) — formula fields and `requiredWhen`
 - [Build → Data model](/docs/build/data) — validations and predicates
-- [Build → Flows](/docs/build/automation/flows) — guards and schedules
+- [Build → Flows](/docs/build/automation/flows) — conditions and schedules
 - [`@objectstack/spec/shared/expression.zod.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/spec/src/shared/expression.zod.ts) — schema
 - [`@objectstack/formula/stdlib.ts`](https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/src/stdlib.ts) — built-ins

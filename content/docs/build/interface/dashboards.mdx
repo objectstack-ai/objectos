@@ -6,16 +6,17 @@ description: Analytics pages built from chart widgets bound to named datasets �
 
 **A dashboard is a grid of widgets; every widget binds to a dataset.**
 The dataset is the semantic layer: it owns the base object, joins,
-dimensions, and certified measures. Widgets select those by name, so
+dimensions, and measures. Widgets select those by name, so
 "revenue" means the same thing on every dashboard and report that uses
 it.
 
 ```ts
+// One dashboard, bound to the `sales` dataset defined below.
 const salesDashboard = {
   name: 'sales_overview',
   label: 'Sales Overview',
   description: 'Key sales metrics and pipeline analysis',
-  refreshInterval: 300,                   // auto-refresh every 5 minutes
+  refreshIntervalSeconds: 300,            // auto-refresh every 5 minutes
 
   dateRange: {
     field: 'close_date',
@@ -45,7 +46,7 @@ const salesDashboard = {
 | `label` | `string` | yes | Display label |
 | `description` | `string` | — | Dashboard description |
 | `widgets` | `DashboardWidget[]` | yes | Chart and metric widgets |
-| `refreshInterval` | `number` | — | Auto-refresh interval (seconds) |
+| `refreshIntervalSeconds` | `number` | — | Auto-refresh interval, in seconds |
 | `dateRange` | `object` | — | Global date range filter |
 | `globalFilters` | `GlobalFilter[]` | — | Interactive filter controls |
 
@@ -66,7 +67,7 @@ export const salesDataset = defineDataset({
     { name: 'close_month', field: 'close_date',     type: 'date', dateGranularity: 'month' },
   ],
   measures: [
-    { name: 'revenue',    field: 'amount', aggregate: 'sum', certified: true },
+    { name: 'revenue',    field: 'amount', aggregate: 'sum' },
     { name: 'deal_count', aggregate: 'count' },
   ],
 })
@@ -129,6 +130,7 @@ object and joined objects — a dashboard never shows a user records their
 Widgets sit on a 12-column grid:
 
 ```ts
+// Keys of a dashboard widget; its other keys are omitted.
 layout: {
   x: 0,    // column position (0-11)
   y: 0,    // row position
@@ -160,6 +162,7 @@ detail through a `table` or `pivot` widget instead.
 A global time filter applies to all widgets:
 
 ```ts
+// Keys of a dashboard; its other keys are omitted.
 dateRange: { field: 'created_at', defaultRange: 'this_month', allowCustomRange: true }
 ```
 
@@ -170,6 +173,7 @@ Preset ranges: `today`, `yesterday`, `this_week`, `last_week`,
 Interactive global filters work the same way:
 
 ```ts
+// Keys of a dashboard; its other keys are omitted.
 globalFilters: [
   { name: 'region', field: 'region', label: 'Region',    type: 'select' },
   { field: 'owner',                  label: 'Sales Rep', type: 'lookup' },
@@ -188,6 +192,7 @@ widget stores the concept under a different field — or should ignore a
 filter — declare `filterBindings`:
 
 ```ts
+// Keys of a dashboard; each widget's dataset, values and title are omitted (`/* … */`).
 widgets: [
   // Default binding: dateRange → created_at, region → region.
   { id: 'invoices_by_status', /* … */ },
@@ -208,6 +213,7 @@ widgets: [
 Add a `dashboard` navigation entry to an [app](/docs/build/interface/apps):
 
 ```ts
+// One navigation item of an app.
 { id: 'nav_analytics', type: 'dashboard', label: 'Analytics',
   dashboardName: 'sales_overview', icon: 'bar-chart' }
 ```

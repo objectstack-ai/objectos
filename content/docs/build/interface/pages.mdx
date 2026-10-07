@@ -10,6 +10,7 @@ page combines multiple components, embeds views, and manages local state
 — your home screens, custom record layouts, and utility panels.
 
 ```ts
+// One page.
 const homePage = {
   name: 'sales_home',
   label: 'Sales Home',
@@ -59,6 +60,7 @@ shipped a renderer were removed from the schema.
 Regions are the layout zones; each holds components:
 
 ```ts
+// Keys of a page; its other keys, and the regions' components, are omitted.
 regions: [
   { name: 'sidebar', width: 'small', components: [/* … */] },
   { name: 'content', width: 'large', components: [/* … */] },
@@ -72,6 +74,7 @@ regions: [
 Components are the building blocks inside regions:
 
 ```ts
+// One page component; the page and region around it are omitted.
 {
   type: 'chart',
   id: 'revenue_chart',
@@ -120,6 +123,7 @@ string types are accepted for project-specific widgets.
 Pages hold local state shared across components:
 
 ```ts
+// Keys of a page; its other keys are omitted.
 variables: [
   { name: 'selected_tab', type: 'string', defaultValue: 'overview' },
   { name: 'date_range',   type: 'object', defaultValue: { start: null, end: null } },

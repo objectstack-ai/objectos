@@ -21,7 +21,7 @@ Agent  ──→  Skill  ──→  Tool
 |---|---|---|
 | **Tool** | One callable function (action, query, knowledge search, MCP method) | `create_ticket`, `get_order_status`, `search_kb` |
 | **Skill** | A named bundle of related tools with shared LLM instructions | `ticket_management` = create + update + close + escalate |
-| **Agent** | A persona with a role, system prompt, attached skills, and knowledge | `tier1_support` = empathetic, verifies identity, has `ticket_management` + `kb_search` |
+| **Agent** | A persona with a role, a system prompt and attached skills | `tier1_support` = empathetic, verifies identity, has `ticket_management` + `kb_search` |
 
 ## Define an Agent (one file)
 
@@ -36,17 +36,18 @@ export const tier1Support = defineAgent({
   instructions: `
     You are a friendly first-line support agent.
     Always verify the user's identity before discussing account specifics.
+    Search the FAQ and the policy articles before you answer a how-to question.
     Escalate to tier 2 if the issue involves billing or security.
   `,
   skills: ['ticket_management', 'knowledge_search'],
-  knowledge: {
-    topics:  ['faq', 'policies'],
-    indexes: ['support_docs'],
-  },
   model: { provider: 'openai', model: 'gpt-4o', temperature: 0.3 },
-  memory: { shortTerm: { maxMessages: 30 } },
+  memory: { longTerm: { enabled: true, maxEntries: 50 }, reflectionInterval: 10 },
 });
 ```
+
+An agent has no `knowledge` block. Which sources the `search_knowledge` tool
+may read is restricted per source at the knowledge service; say in
+`instructions` which sources the agent should ground its answers in.
 
 Or in the UI: **Studio → Agents → New Agent**.
 
@@ -96,9 +97,9 @@ You can also expose:
 | Tool type | Source |
 |---|---|
 | **Action** | Any `*.action.ts` in any installed package |
-| **Flow** | Any manual flow (`type: 'manual'`) |
+| **Flow** | A `type: 'flow'` action — the agent calls the action, which starts the flow |
 | **Query** | Saved ObjectQL queries (`*.query.ts`) |
-| **Knowledge search** | Any knowledge index attached to the agent |
+| **Knowledge search** | The `search_knowledge` tool, over the sources the user may read |
 | **MCP method** | Anything exposed by an attached MCP server |
 | **Built-in metadata tools** | `create_object`, `add_field`, … — but only to admin agents |
 
@@ -123,7 +124,6 @@ resolves:
 2. The **active skills** — the agent's `skills:` list loaded from the
    Skill Registry, filtered by user permission set and the current
    object/record context.
-3. The **knowledge** attached to the agent.
 
 You don't have to wire which agent is shown where. Declare an app, set
 its `defaultAgent`, and it appears.
@@ -142,15 +142,18 @@ chat history unless they have a delegated grant.
 
 ## Memory and conversation state
 
-The agent's `memory` block has two tiers:
+The agent's `memory` block configures long-term memory: distilled notes
+about each user that carry across sessions.
 
 | Field | What it does |
 |---|---|
-| `shortTerm.maxMessages` | Recent messages kept in working memory (default `50`) |
-| `shortTerm.maxTokens` | Optional token budget for the short-term context window |
-| `longTerm.enabled` | Persist memory across sessions (default `false`) |
-| `longTerm.store` | Backend for persisted memory: `vector` (default), `database`, or `redis` |
-| `reflectionInterval` | Reflect every N interactions to refine behavior |
+| `longTerm.enabled` | Keep notes across sessions (default `false`) |
+| `longTerm.maxEntries` | How many notes are kept per user; the newest are recalled first. Required when `enabled` is true |
+| `reflectionInterval` | How many interactions pass between reflections — a reflection is what writes a note. Required when `enabled` is true |
+
+There is no short-term block: the context window of one request is
+bounded by the token budget. Where the notes are stored is the platform's
+choice, not agent metadata.
 
 Pruning of the live context window is governed by the conversation's
 token-budget strategy — `sliding_window` (default), `fifo`,
