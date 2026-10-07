@@ -112,6 +112,31 @@ jobs:
       - name: Generated zh-Hant is current
         run: node apps/docs/scripts/gen-zh-hant.mjs --check
 
+      # #316: every ts/js block on an English page is parsed against the
+      # `@objectstack/spec` pinned in `.github/scripts/doc-samples/` — the
+      # defect #301, #307 and #316 each found by hand, a sample a reader
+      # copies and gets a schema error. The script header has the rules,
+      # the fragment convention and the opt-out marker.
+      #
+      # The spec is installed here, with npm, OUTSIDE the pnpm workspace on
+      # purpose: as a workspace dependency it re-resolved fumadocs-core's zod
+      # peer and put two zod copies in the docs build. `--ignore-scripts`
+      # because nothing in it needs a build step. This install also serves
+      # the gate's `--self-test`, which `pnpm turbo run test` runs below.
+      #
+      # Before `type-check`, like the step above: it needs no build, it reads
+      # sources, and a refused sample reported as a build failure would be a
+      # wrong first diagnosis. Dependabot bumps the pin (`.github/dependabot.yml`),
+      # so a spec release that newly refuses a sample turns its own pull
+      # request red here. `shell: bash` for the pipefail reason given on the
+      # `Locale surface` step below.
+      - name: Install the spec the docs samples are parsed with
+        run: npm ci --prefix .github/scripts/doc-samples --ignore-scripts --no-audit --no-fund
+
+      - name: Docs code samples parse
+        shell: bash
+        run: node .github/scripts/check-doc-samples.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       - run: pnpm turbo run type-check --continue
       - run: pnpm turbo run build
 

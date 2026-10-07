@@ -1,0 +1,10 @@
+{
+  "name": "@objectos/doc-samples-spec",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The @objectstack/spec that .github/scripts/check-doc-samples.mjs parses the docs code samples with. Installed with `npm ci --prefix .github/scripts/doc-samples`, outside the pnpm workspace on purpose: see the header of check-doc-samples.mjs.",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@objectstack/spec": "17.7.0"
+  }
+}

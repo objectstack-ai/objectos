@@ -12,6 +12,18 @@ updates:
         patterns:
           - "react"
           - "react-dom"
+  # The @objectstack/spec that check-doc-samples.mjs parses the docs samples
+  # with (#316). Its own npm project, outside the pnpm workspace, so it needs
+  # its own entry. A bump PR runs that gate, so a release that newly refuses a
+  # sample turns its own PR red.
+  - package-ecosystem: npm
+    directory: "/.github/scripts/doc-samples"
+    schedule:
+      interval: weekly
+    groups:
+      objectstack:
+        patterns:
+          - "@objectstack/*"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

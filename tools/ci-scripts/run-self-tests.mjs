@@ -97,6 +97,15 @@
  * fixtures are fake handlers. They prove that each rule (a throw, a non-200,
  * a non-array, no hits, a page its own title cannot find, a negative control
  * that matches) can still go red.
+ *
+ * `check-doc-samples.mjs` is listed for its `--self-test` only (#316). Its gate
+ * mode reads every English page under `content/docs/`, which this task's inputs
+ * do not hash, so it is a `ci.yml` step of its own, like the gates above. Its
+ * fixtures are inline pages parsed against the pinned `@objectstack/spec`, the
+ * one self-test here with a dependency: it needs
+ * `npm ci --prefix .github/scripts/doc-samples` first, and says so rather than
+ * passing when the install is missing. That package's `package-lock.json` sits
+ * under `.github/scripts/`, so a spec bump moves this task's hash.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -120,6 +129,7 @@ const SELF_TESTED = [
   'check-translation-ownership.mjs',
   'check-positioning.mjs',
   'check-search-locales.mjs',
+  'check-doc-samples.mjs',
 ];
 
 /**
