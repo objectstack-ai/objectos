@@ -42,6 +42,7 @@ cross-tenant or cross-owner reach — elevation is opt-in and auditable.
 The node declares **who approves** and how their decisions aggregate:
 
 ```ts
+// One flow node; the flow around it is omitted (see the complete flow below).
 {
   id: 'manager_approval',
   type: 'approval',
@@ -102,6 +103,7 @@ Beyond `first_response` and `unanimous`, 16.0 adds two aggregation modes.
 **Quorum** finalizes on M-of-N approvals:
 
 ```ts
+// The `config` of an `approval` node; the node around it is omitted.
 config: {
   approvers: [
     { type: 'user', value: 'director_a' },
@@ -118,6 +120,7 @@ approvers with `group`, and the node advances only once every group has
 `minApprovals` approvals (default 1 per group):
 
 ```ts
+// The `config` of an `approval` node; the node around it is omitted.
 config: {
   approvers: [
     { type: 'position', value: 'legal_counsel',   group: 'legal' },
@@ -151,17 +154,22 @@ including upstream node outputs). The result becomes the approver
 slate:
 
 ```ts
+// The `config` of an `approval` node; the node around it is omitted.
 config: {
   approvers: [
-    { type: 'expression', value: 'vars.legal_review.picked_departments' },
+    {
+      type: 'expression',
+      value: 'vars.legal_review.picked_departments',
+      resolveAs: 'department',   // each value is a department id, fanned out to its members
+    },
   ],
-  resolveAs: 'department',   // each value is a department id, fanned out to its members
 }
 ```
 
-`resolveAs` (`'user'` by default, or `'department'` / `'position'` /
-`'team'`) says what kind of id the expression returned, and expands each
-through the same graph lookups the static approver types use. Under
+`resolveAs`, a key of the `expression` approver itself (`'user'` by default,
+or `'department'` / `'position'` / `'team'`), says what kind of id the
+expression returned, and expands each through the same graph lookups the
+static approver types use. Under
 `behavior: 'per_group'`, each returned value forms its own group — one
 sign-off per returned department.
 
@@ -176,9 +184,11 @@ fill in values. Accepted outputs resume the run as
 cannot shadow an author's variable:
 
 ```ts
+// One flow node; the flow around it is omitted.
 {
   id: 'legal_review',
   type: 'approval',
+  label: 'Legal Review',
   config: {
     approvers: [{ type: 'position', value: 'legal_counsel' }],
     decisionOutputs: [
@@ -224,6 +234,7 @@ export const opportunityApproval = defineFlow({
     {
       id: 'start',
       type: 'start',
+      label: 'Proposal over 50,000',
       config: {
         triggerType: 'record-after-update',
         objectName: 'opportunity',
@@ -241,9 +252,27 @@ export const opportunityApproval = defineFlow({
         lockRecord: true,
       },
     },
-    { id: 'mark_approved', type: 'update_record', label: 'Mark Approved' },
-    { id: 'mark_rejected', type: 'update_record', label: 'Mark Rejected' },
-    { id: 'end', type: 'end' },
+    {
+      id: 'mark_approved',
+      type: 'update_record',
+      label: 'Mark Approved',
+      config: {
+        objectName: 'opportunity',
+        filter: { id: '{record.id}' },
+        fields: { stage: 'negotiation' },
+      },
+    },
+    {
+      id: 'mark_rejected',
+      type: 'update_record',
+      label: 'Mark Rejected',
+      config: {
+        objectName: 'opportunity',
+        filter: { id: '{record.id}' },
+        fields: { stage: 'closed_lost' },
+      },
+    },
+    { id: 'end', type: 'end', label: 'End' },
   ],
   edges: [
     { id: 'e1', source: 'start', target: 'manager_approval' },

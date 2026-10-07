@@ -35,8 +35,8 @@ import { ObjectSchema, Field } from '@objectstack/spec/data';
 export const Invoice = ObjectSchema.create({
   name: 'invoice',
   fields: {
-    subtotal: Field.decimal({ label: 'Subtotal' }),
-    tax_rate: Field.decimal({ label: 'Tax Rate' }),
+    subtotal: Field.currency({ label: 'Subtotal' }),
+    tax_rate: Field.number({ label: 'Tax Rate', scale: 4 }),
 
     total: Field.formula({
       label: 'Total',
@@ -168,7 +168,10 @@ po_number: Field.text({
 }),
 rating: Field.select({
   label: 'Rating',
-  options: [ /* ... */ ],
+  options: [
+    { label: 'Hot', value: 'hot' },
+    { label: 'Cold', value: 'cold' },
+  ],
   visibleWhen: P`record.status == 'qualified'`,
 }),
 notes: Field.textarea({

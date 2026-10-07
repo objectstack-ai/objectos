@@ -69,12 +69,14 @@ import { defineStack } from '@objectstack/spec';
 import * as objects from './src/objects';
 
 export default defineStack({
-  manifest: { id: 'my.app', namespace: 'myapp', version: '0.1.0', type: 'app', name: 'My App' },
+  manifest: { id: 'my.app', namespace: 'todo', version: '0.1.0', type: 'app', name: 'My App' },
   objects: Object.values(objects),
 });
 ```
 
-That's all you need. `os dev` recompiles, and `/api/v1/data/todo_task`,
+Every object name starts with the stack's `namespace` and an underscore:
+`todo_task` in the `todo` namespace. That's all you need. `os dev`
+recompiles, and `/api/v1/data/todo_task`,
 the generated Task view, and its permission row all appear.
 
 ## Field types
@@ -88,8 +90,8 @@ ObjectStack ships ~25 field types. The most-used ones:
 | `text` | Short string | `Field.text({ maxLength, required })` |
 | `textarea` | Long string | `Field.textarea(...)` |
 | `markdown` | Rich text with markdown | `Field.markdown(...)` |
-| `number` | Integer | `Field.number({ min, max })` |
-| `decimal` | Exact decimal (money, etc.) | `Field.decimal({ precision, scale })` |
+| `number` | Number; `scale` sets the decimal places | `Field.number({ min, max, scale })` |
+| `currency` | Money amount | `Field.currency(...)` |
 | `boolean` | True/false | `Field.boolean({ defaultValue })` |
 | `date` | Calendar date | `Field.date(...)` |
 | `datetime` | Timestamp | `Field.datetime(...)` |
@@ -109,8 +111,8 @@ ObjectStack ships ~25 field types. The most-used ones:
 
 | Type | Cardinality | Helper |
 |---|---|---|
-| `lookup` | One-to-many (FK) | `Field.lookup({ reference: 'sys_user' })` |
-| `masterDetail` | One-to-many with cascade delete | `Field.masterDetail({ reference: 'order' })` |
+| `lookup` | One-to-many (FK) | `Field.lookup('sys_user', { label })` |
+| `master_detail` | One-to-many with cascade delete | `Field.masterDetail('order', { label })` |
 
 ### Files & media
 
@@ -139,7 +141,7 @@ Field.text({
   required: true,
   unique: true,          // unique constraint enforced at DB level
   defaultValue: '',
-  helpText: 'Internal short code',
+  inlineHelpText: 'Internal short code',
 })
 ```
 
@@ -149,20 +151,35 @@ Inline:
 
 ```ts
 Field.number({ label: 'Quantity', min: 1, max: 9999 })
-Field.text({ label: 'SKU', pattern: '^[A-Z]{3}-[0-9]{4}$' })
+Field.text({ label: 'SKU', minLength: 8, maxLength: 8 })
 ```
 
-Object-level rules (cross-field):
+Object-level rules — a cross-field rule, and a `format` rule for a pattern.
+A rule's `condition` describes the invalid record: when it is true, the write
+is refused.
 
 ```ts
 ObjectSchema.create({
   name: 'order',
-  fields: { /* ... */ },
+  fields: {
+    sku:      Field.text({ label: 'SKU' }),
+    discount: Field.currency({ label: 'Discount' }),
+    total:    Field.currency({ label: 'Total' }),
+  },
   validations: [
     {
+      type: 'cross_field',
       name: 'discount_lt_total',
       message: 'Discount cannot exceed total',
-      condition: 'discount < total',
+      fields: ['discount', 'total'],
+      condition: 'record.discount > record.total',
+    },
+    {
+      type: 'format',
+      name: 'sku_format',
+      message: 'SKU looks like ABC-1234',
+      field: 'sku',
+      regex: '^[A-Z]{3}-[0-9]{4}$',
     },
   ],
 });
@@ -210,7 +227,8 @@ ObjectSchema.create({
 ```ts
 ObjectSchema.create({
   name: 'task',
-  ownership: 'own',          // 'own' | 'shared' | 'system'
+  fields: { subject: Field.text({ label: 'Subject' }) },
+  ownership: 'user',         // 'user' (default) | 'business_unit' | 'org' | 'none'
   sharingModel: 'private',   // OWD — custom objects default to private (v13)
   enable: {
     apiEnabled: true,         // generated REST endpoints (default true)
@@ -230,6 +248,7 @@ exist) is a parse error naming the key, not a silently dropped setting.
 The seven flags above are the whole of it, plus one more key:
 
 ```ts
+// Keys of an object; its name and fields are omitted.
 enable: {
   apiMethods: ['get', 'list', 'create', 'update'],  // no delete over the API
 }
@@ -284,10 +303,12 @@ bounds their growth (ObjectStack 14.4, ADR-0057):
 ```ts
 ObjectSchema.create({
   name: 'my_event',
+  fields: { payload: Field.json({ label: 'Payload' }) },
   lifecycle: {
-    class: 'event',            // 'record' | 'audit' | 'telemetry' | 'transient' | 'event'
-    retention: '14d',          // reaper deletes rows past the window
-    storage: { rotation: 'weekly' }, // time-sharded tables, O(1) expiry
+    class: 'event',               // 'record' | 'audit' | 'telemetry' | 'transient' | 'event'
+    retention: { maxAge: '14d' }, // reaper deletes rows past the window
+    // time-sharded table: 2 shards of 1 week
+    storage: { strategy: 'rotation', shards: 2, unit: 'week' },
   },
 });
 ```
@@ -315,7 +336,7 @@ You don't have to declare these — they're always there:
 | `sys_session`, `sys_api_key` | Auth artifacts |
 | `sys_webhook`, `sys_webhook_delivery` | Webhook subs (when enabled) |
 
-Reference them in `lookup` fields by name — e.g. `Field.lookup({ reference: 'sys_user' })`.
+Reference them in `lookup` fields by name — e.g. `Field.lookup('sys_user', { label: 'Owner' })`.
 
 ## Polymorphic platform features
 

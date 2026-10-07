@@ -11,7 +11,7 @@ description: Pick the right tool for the job — flows for steps, workflows for 
 | You need | Use | Read |
 |---|---|---|
 | "When X happens, do Y" — steps that run on a record change, a schedule, or a button click | **Flow** | [Flows](/docs/build/automation/flows) |
-| "This record may only move through these states, by these events" — a controlled lifecycle | **Workflow** (state machine) | [Workflows](/docs/build/automation/workflows) |
+| "This record may only move through these states" — a controlled lifecycle | **Workflow** (state machine) | [Workflows](/docs/build/automation/workflows) |
 | "A person must sign off before this proceeds" — routed human decisions | **Approval** | [Approvals](/docs/build/automation/approvals) |
 
 Rule of thumb: model **state** with workflows, model **steps** with flows. Approvals are not a separate engine — an approval is a flow that pauses at an approval node until a human decides.
@@ -20,7 +20,7 @@ Rule of thumb: model **state** with workflows, model **steps** with flows. Appro
 
 The three compose rather than compete:
 
-- A **workflow** constrains which lifecycle transitions are valid at all — states, transitions, and guards, nothing else.
+- A **workflow** constrains which lifecycle transitions are valid at all — states and the moves between them, nothing else.
 - A **flow** performs the side effects around those transitions: send an email, update records, call an external service, wait, branch.
 - An **approval node** inside a flow blocks execution until an approver acts, then resumes down the approve or reject branch.
 
@@ -33,6 +33,6 @@ So "a case moves new → assigned → resolved" is a workflow; "notify the manag
 | Page | Why |
 |---|---|
 | [Flows](/docs/build/automation/flows) | The full flow reference — triggers, step types, error handling, CEL |
-| [Workflows](/docs/build/automation/workflows) | States, transitions, and guards for strict lifecycles |
+| [Workflows](/docs/build/automation/workflows) | States and their allowed transitions, for strict lifecycles |
 | [Approvals](/docs/build/automation/approvals) | Approval nodes, run-as identity, and the approver experience |
-| [CEL expressions](/docs/reference/cel) | The expression language used in conditions and guards |
+| [CEL expressions](/docs/reference/cel) | The expression language used in conditions and validation rules |
