@@ -49,20 +49,26 @@ any route code:
   parse, with a warning that names its replacement.
 
 ```ts
-import { ObjectSchema } from '@objectstack/spec/data';
+import { ObjectSchema, Field } from '@objectstack/spec/data';
 
 // A read-only reference object, never writable over the API:
 ObjectSchema.create({
   name: 'exchange_rate',
   enable: { apiMethods: ['get', 'list'] },
-  // ...fields
+  fields: {
+    rate: Field.number({ label: 'Rate', scale: 6 }),
+    // ...more fields
+  },
 })
 
 // An internal object that the API never exposes:
 ObjectSchema.create({
   name: 'sync_cursor',
   enable: { apiEnabled: false },
-  // ...fields
+  fields: {
+    cursor: Field.text({ label: 'Cursor' }),
+    // ...more fields
+  },
 })
 ```
 

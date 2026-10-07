@@ -115,10 +115,18 @@ logical home. It travels with the model and seeds the *default*
 sectioning of auto-generated forms:
 
 ```ts
+// Fields of an object; the object around them is omitted.
 fields: {
   name:  Field.text({ label: 'Full name', group: 'contact' }),
   email: Field.email({ label: 'Email',    group: 'contact' }),
-  stage: Field.select({ label: 'Stage',   group: 'status', options: [/* … */] }),
+  stage: Field.select({
+    label: 'Stage',
+    group: 'status',
+    options: [
+      { label: 'Lead', value: 'lead' },
+      { label: 'Customer', value: 'customer' },
+    ],
+  }),
 }
 ```
 
@@ -128,6 +136,7 @@ collapsible. It inherits `field.group` as the default and overrides it
 per form when needed.
 
 ```ts
+// Keys of a view container; `data` and its other keys are omitted.
 form: {
   type: 'simple',
   sections: [
@@ -152,6 +161,7 @@ Add `submitBehavior` to a form view to control the post-submit
 experience:
 
 ```ts
+// Keys of a form view; its other keys are omitted.
 submitBehavior: {
   kind: 'thank-you',
   title: 'Thanks!',

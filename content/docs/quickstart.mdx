@@ -249,7 +249,7 @@ export const Task = ObjectSchema.create({
     subject:   Field.text({ label: 'Subject', required: true, maxLength: 200 }),
     done:      Field.boolean({ label: 'Done', defaultValue: false }),
     due:       Field.date({ label: 'Due' }),
-    assignee:  Field.lookup({ label: 'Assignee', reference: 'sys_user' }),
+    assignee:  Field.lookup('sys_user', { label: 'Assignee' }),
   },
 });
 ```

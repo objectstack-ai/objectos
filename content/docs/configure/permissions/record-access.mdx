@@ -32,7 +32,10 @@ open behavior:
 ObjectSchema.create({
   name: 'crm_lead',
   sharingModel: 'public_read_write',
-  // …
+  fields: {
+    company: Field.text({ label: 'Company' }),
+    // …
+  },
 });
 ```
 

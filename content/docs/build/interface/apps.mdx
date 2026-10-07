@@ -40,7 +40,6 @@ export const CrmApp = App.create({
 | `branding` | `AppBranding` | — | `primaryColor`, `logo`, `favicon` |
 | `requiredPermissions` | `string[]` | — | Who may open the app at all |
 | `homePageId` | `string` | — | Nav item `id` to use as the landing page |
-| `mobileNavigation` | `object` | — | Mobile-specific navigation |
 
 ## Navigation items
 
@@ -57,7 +56,7 @@ The navigation tree supports eight item types. The common five are
 | `group` | Collapsible section | `children`, `expanded` |
 
 Every item **must** declare a unique `id` (lowercase `snake_case`) — it's
-what `homePageId` and `mobileNavigation.bottomNavItems` reference. Shared
+what `homePageId` references. Shared
 properties: `label`, `icon`, `order`, `badge`, plus the gating trio below.
 
 ### Targeting an object entry
@@ -74,18 +73,15 @@ precedence `recordId` → `filters` → `viewName`:
   feature — row-level permissions still decide what's shown.
 
 ```ts
+// One navigation item of an app.
 { id: 'nav_my_open', type: 'object', label: 'My Open Deals', objectName: 'opportunity',
   filters: { owner_id: '{current_user_id}', status: 'open' }, icon: 'user-check' }
 ```
 
 ### Mobile navigation
 
-```ts
-mobileNavigation: {
-  mode: 'bottom_nav',                    // 'drawer' (default) | 'bottom_nav' | 'hamburger'
-  bottomNavItems: ['nav_home', 'nav_accounts', 'nav_contacts'],  // nav item ids, max 5
-}
-```
+There is no mobile-specific navigation block: `mobileNavigation` was
+removed in ObjectStack 17.0 because no renderer ever read it.
 
 ## Gating apps by audience
 
@@ -112,6 +108,7 @@ Each nav item supports three independent gates:
 | `requiresObject` / `requiresService` | `string` | The named object / kernel service is installed |
 
 ```ts
+// Keys of an app; its other keys are omitted.
 navigation: [
   { id: 'nav_contacts', type: 'object', label: 'Contacts', objectName: 'showcase_contact' },
   // Builder-only entry — consumers never render it:
